@@ -26,7 +26,11 @@ WebSocket y la página se actualiza sola cuando cambia el código o el diseño.
    El navegador pide usuario y contraseña: el usuario puede ser cualquiera; la contraseña es `VIVO_CLAVE`.
 
 Con el plan gratis el servicio se duerme a los 15 minutos sin visitas: al abrirlo tarda cerca de un
-minuto en despertar. Cada push a `main` se publica solo.
+minuto en despertar. En Render el análisis completo se recalcula cada 20 segundos (el precio llega al
+instante por WebSocket). Cada push a `main` se publica solo.
+
+La IP de salida de Render es compartida: si Binance la limita por exceso de pedidos, el análisis
+respeta la pausa y mientras tanto toma las velas de Bybit, sin cortarse.
 
 ## Archivos
 

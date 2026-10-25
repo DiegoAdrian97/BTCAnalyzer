@@ -29,7 +29,9 @@ import argparse
 import csv
 import json
 import os
+import re
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
@@ -53,20 +55,74 @@ TIMEFRAMES = {"5m": (30, (3, 12)), "15m": (90, (4, 16)), "30m": (180, (4, 16)),
 
 # ---------- datos ----------
 _EXCHANGES = {}
+_BANNED = {}        # exchange -> hasta cuando (ms) bloqueo nuestra IP por exceso de pedidos
+_CALLS = {}         # exchange -> pedidos hechos (para controlar cuanto se le pide a cada uno)
+_CACHE = {}
+
+
+def api(eid, fn, *args, **kwargs):
+    """Pedido a un exchange. Si el exchange bloqueo la IP, no se le vuelve a pedir nada hasta que venza."""
+    now = time.time() * 1000
+    if _BANNED.get(eid, 0) > now:
+        raise ccxt.DDoSProtection(f"{eid} bloqueado por exceso de pedidos por {(_BANNED[eid] - now) / 60000:.0f} min mas")
+    _CALLS[eid] = _CALLS.get(eid, 0) + 1
+    try:
+        return bg._retry(fn, *args, **kwargs)
+    except (ccxt.DDoSProtection, ccxt.RateLimitExceeded) as e:
+        until = re.search(r"banned until (\d+)", str(e))
+        _BANNED[eid] = int(until.group(1)) if until else now + 120_000      # sin fecha: dos minutos de pausa
+        print(f"({eid} limito los pedidos: pausa hasta {datetime.fromtimestamp(_BANNED[eid] / 1000, LOCAL_TZ):%H:%M})", flush=True)
+        raise
+
+
+def banned(eid):
+    return _BANNED.get(eid, 0) > time.time() * 1000
+
+
+def cached(key, ttl, fn):
+    """Lo que cambia lento (open interest, liquidaciones, libros) no se pide en cada analisis."""
+    hit = _CACHE.get(key)
+    if hit and time.time() - hit[0] < ttl:
+        return hit[1]
+    value = fn()
+    _CACHE[key] = (time.time(), value)
+    return value
 
 
 def exchange(eid):
     """Cliente de cada exchange con sus mercados ya cargados: cargarlos tarda segundos y en vivo se reusan."""
     if eid not in _EXCHANGES:
         ex = getattr(ccxt, eid)({"enableRateLimit": True, "options": {"defaultType": "swap"}})
-        bg._retry(ex.load_markets)
+        api(eid, ex.load_markets)
         _EXCHANGES[eid] = ex
     return _EXCHANGES[eid]
 
 
+def replace_file(tmp, path):
+    """Reemplaza de una vez. En Windows falla si otro proceso tiene el archivo abierto: se reintenta un
+    instante y, si sigue ocupado, se descarta este guardado (el proximo analisis lo vuelve a escribir)."""
+    for _ in range(10):
+        try:
+            os.replace(tmp, path)
+            return True
+        except PermissionError:
+            time.sleep(0.1)
+    try:
+        os.remove(tmp)
+    except OSError:
+        pass
+    return False
+
+
+def candle_source():
+    """Binance Futures; si bloqueo la IP (pasa en servidores con IP compartida), Bybit hasta que se libere."""
+    return exchange("bybit") if banned("binanceusdm") else exchange("binanceusdm")
+
+
 def update_candles(ex, tf, days):
-    """Velas cerradas de Binance Futures con cache incremental en data/."""
-    path = os.path.join(DATA_DIR, f"BTC_USDT_binance_perp_{tf}.csv")
+    """Velas cerradas con cache incremental en data/ (un archivo por exchange)."""
+    name = "binance" if ex.id == "binanceusdm" else ex.id
+    path = os.path.join(DATA_DIR, f"BTC_USDT_{name}_perp_{tf}.csv")
     tf_ms = ex.parse_timeframe(tf) * 1000
     candles = []
     if os.path.exists(path):
@@ -76,7 +132,7 @@ def update_candles(ex, tf, days):
     now = ex.milliseconds()
     since = candles[-1][0] + tf_ms if candles else now - days * 86_400_000
     while since + tf_ms <= now:
-        batch = bg._retry(ex.fetch_ohlcv, SYMBOL, tf, since=since, limit=1500)
+        batch = api(ex.id, ex.fetch_ohlcv, SYMBOL, tf, since=since, limit=1500 if ex.id == "binanceusdm" else 1000)
         batch = [c for c in batch if c[0] >= since and c[0] + tf_ms <= now]
         if not batch:
             break
@@ -86,7 +142,7 @@ def update_candles(ex, tf, days):
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(path + ".tmp", "w", newline="") as f:   # se reemplaza de una vez: un corte no deja el archivo a medias
         csv.writer(f).writerows(candles)
-    os.replace(path + ".tmp", path)
+    replace_file(path + ".tmp", path)
     return candles
 
 
@@ -260,7 +316,7 @@ def context(bnc, bgx, closes_1h):
     def add(key, title, value, signal, detail):
         rows.append({"tabla": "contexto", "clave": key, "titulo": title, "valor": value, "senal": signal, "detalle": detail})
 
-    oi = [x["openInterestValue"] for x in bg._retry(bnc.fetch_open_interest_history, SYMBOL, "1h", limit=25)]
+    oi = [x["openInterestValue"] for x in api("binanceusdm", bnc.fetch_open_interest_history, SYMBOL, "1h", limit=25)]
     for hrs in (1, 4, 24):
         d_oi, d_px = pct(oi[-1], oi[-1 - hrs]), pct(closes_1h[-1], closes_1h[-1 - hrs])
         if abs(d_oi) < 0.5:
@@ -273,7 +329,7 @@ def context(bnc, bgx, closes_1h):
                         ("Cierran o liquidan longs: baja por descarga", "neutral"))
         add(f"oi_{hrs}h", f"Open interest {hrs} h", f"{arp(d_oi)} con precio {arp(d_px)}", sig, why)
 
-    taker = bg._retry(bnc.fapiDataGetTakerlongshortRatio, {"symbol": "BTCUSDT", "period": "1h", "limit": 4})
+    taker = api("binanceusdm", bnc.fapiDataGetTakerlongshortRatio, {"symbol": "BTCUSDT", "period": "1h", "limit": 4})
     buy, sell = sum(float(x["buyVol"]) for x in taker), sum(float(x["sellVol"]) for x in taker)
     for name, r in (("1 h", float(taker[-1]["buySellRatio"])), ("4 h", buy / sell)):
         sig = "alcista" if r > 1.1 else "bajista" if r < 0.9 else "neutral"
@@ -281,9 +337,9 @@ def context(bnc, bgx, closes_1h):
             "Dominan los compradores agresivos" if sig == "alcista" else
             "Dominan los vendedores agresivos" if sig == "bajista" else "Flujo equilibrado")
 
-    ls = bg._retry(bnc.fetch_long_short_ratio_history, SYMBOL, "1h", limit=25)
+    ls = api("binanceusdm", bnc.fetch_long_short_ratio_history, SYMBOL, "1h", limit=25)
     now_ls, prev_ls = ls[-1]["longShortRatio"], ls[0]["longShortRatio"]
-    top = float(bg._retry(bnc.fapiDataGetTopLongShortPositionRatio, {"symbol": "BTCUSDT", "period": "1h", "limit": 1})[-1]["longShortRatio"])
+    top = float(api("binanceusdm", bnc.fapiDataGetTopLongShortPositionRatio, {"symbol": "BTCUSDT", "period": "1h", "limit": 1})[-1]["longShortRatio"])
     if now_ls > 2:
         crowd, sig = "Mayoría long: si cae, puede haber cascada de liquidaciones", "bajista"
     elif now_ls < 0.9:
@@ -292,7 +348,7 @@ def context(bnc, bgx, closes_1h):
         crowd, sig = "Posicionamiento parejo", "neutral"
     add("long_short", "Cuentas long / short", f"{ar(now_ls, 2)} (24 h antes {ar(prev_ls, 2)}, top traders {ar(top, 2)})", sig, crowd)
 
-    fr = bg._retry(bgx.fetch_funding_rate, SYMBOL).get("fundingRate") or 0.0
+    fr = api("bingx", bgx.fetch_funding_rate, SYMBOL).get("fundingRate") or 0.0
     sig = "bajista" if fr > 0.0003 else "alcista" if fr < 0 else "neutral"
     add("funding", "Funding BingX", arp(fr * 100, 4) + " cada 8 h", sig,
         "Longs pagando caro: euforia" if fr > 0.0003 else "Shorts pagan: miedo" if fr < 0 else "Normal")
@@ -314,7 +370,7 @@ def order_books():
         try:
             ex = exchange(eid)
             size = ex.market(SYMBOL).get("contractSize") or 1    # OKX cotiza en contratos de 0.01 BTC
-            book = bg._retry(ex.fetch_order_book, SYMBOL, limit=limit)
+            book = api(eid, ex.fetch_order_book, SYMBOL, limit=limit)
         except Exception as e:
             print(f"(libro de {eid} no disponible: {type(e).__name__})")
             continue
@@ -342,9 +398,18 @@ def current_candle(ex, tf, last_closed_t):
     """La vela que se esta formando ahora, como la muestra TradingView, o None."""
     tf_ms = ex.parse_timeframe(tf) * 1000
     now = ex.milliseconds()
-    rows = bg._retry(ex.fetch_ohlcv, SYMBOL, tf, limit=2)
+    rows = api(ex.id, ex.fetch_ohlcv, SYMBOL, tf, limit=2)
     live = [c for c in rows if c[0] > last_closed_t and c[0] + tf_ms > now]
     return live[-1] if live else None
+
+
+def forming_from_5m(closed_5m, live_5m, tf, last_closed_t):
+    """Vela en curso de cualquier temporalidad, armada con las velas de 5m desde que abrio."""
+    start = last_closed_t + ccxt.Exchange.parse_timeframe(tf) * 1000
+    parts = [c for c in closed_5m if c[0] >= start] + ([live_5m] if live_5m and live_5m[0] >= start else [])
+    if not parts:
+        return None
+    return [start, parts[0][1], max(c[2] for c in parts), min(c[3] for c in parts), parts[-1][4], sum(c[5] for c in parts)]
 
 
 # ---------- registro de pronosticos ----------
@@ -353,9 +418,9 @@ def current_candle(ex, tf, last_closed_t):
 def liquidation_map(bnc, h1, hours=168):
     """Liquidaciones pendientes estimadas con open interest nuevo y ratio long/short de la ultima semana."""
     oi = [(int(x["timestamp"]), x["openInterestValue"])
-          for x in bg._retry(bnc.fetch_open_interest_history, SYMBOL, "1h", limit=hours)]
+          for x in api("binanceusdm", bnc.fetch_open_interest_history, SYMBOL, "1h", limit=hours)]
     ls = {int(x["timestamp"]): x["longShortRatio"]
-          for x in bg._retry(bnc.fetch_long_short_ratio_history, SYMBOL, "1h", limit=hours)}
+          for x in api("binanceusdm", bnc.fetch_long_short_ratio_history, SYMBOL, "1h", limit=hours)}
     bars = h1[-(hours + 2):]
     price_by_hour = {b[0] + bg.HOUR_MS: b[4] for b in bars}   # precio al cierre de cada hora
     suffix_lo, suffix_hi, lo, hi = {}, {}, float("inf"), 0.0
@@ -543,25 +608,30 @@ def log_and_score(entries, closes_by_tf):
 
 # ---------- analisis completo ----------
 def analyze():
-    bnc, bgx = exchange("binanceusdm"), exchange("bingx")
+    try:
+        bnc = exchange("binanceusdm")
+    except (ccxt.DDoSProtection, ccxt.RateLimitExceeded):
+        bnc = None          # Binance bloqueo la IP: velas de Bybit y, por ahora, sin los datos que solo da Binance
+    bgx, src = exchange("bingx"), candle_source()
     # los pedidos de red van en paralelo: velas de todas las temporalidades a la vez, y los libros de ordenes
-    # se bajan mientras se calcula lo demas
+    # (que se piden como mucho cada 20 s) se bajan mientras se calcula lo demas
     pool = ThreadPoolExecutor(max_workers=8)
-    books_job = pool.submit(order_books)
-    jobs = {tf: pool.submit(update_candles, bnc, tf, days) for tf, (days, _) in TIMEFRAMES.items()}
+    books_job = pool.submit(cached, "libros", 20, order_books)
+    jobs = {tf: pool.submit(update_candles, src, tf, days) for tf, (days, _) in TIMEFRAMES.items()}
     candles = {tf: job.result() for tf, job in jobs.items()}
     # el analisis incluye la vela en curso de cada temporalidad (como TradingView): los indicadores, patrones y
-    # escenarios se mueven con el precio. El cache y el registro de aciertos siguen usando solo velas cerradas.
-    forming = {tf: pool.submit(current_candle, bnc, tf, candles[tf][-1][0]) for tf in TIMEFRAMES}
+    # escenarios se mueven con el precio. Todas salen de la vela de 5m en curso: un solo pedido.
+    # El cache y el registro de aciertos siguen usando solo velas cerradas.
+    try:
+        live_5m = current_candle(src, "5m", candles["5m"][-1][0])
+    except Exception:       # sin la vela en curso, el analisis igual sirve con las cerradas
+        live_5m = None
     full = {}
-    for tf, job in forming.items():
-        try:
-            bar = job.result()
-        except Exception:   # sin la vela en curso, el analisis igual sirve con las cerradas
-            bar = None
+    for tf in TIMEFRAMES:
+        bar = live_5m if tf == "5m" else forming_from_5m(candles["5m"], live_5m, tf, candles[tf][-1][0])
         full[tf] = candles[tf] + [bar] if bar else candles[tf]
-    price = float(bg._retry(bgx.fetch_ticker, SYMBOL)["last"])
-    now_ms = bnc.milliseconds()
+    price = float(api("bingx", bgx.fetch_ticker, SYMBOL)["last"])
+    now_ms = int(time.time() * 1000)
     rows, entries, by_tf, series = [], [], {}, {}
 
     for tf, (days, horizons) in TIMEFRAMES.items():
@@ -643,7 +713,9 @@ def analyze():
                      "tipo": "resistencia" if v > price else "soporte", "distancia": round(pct(v, price), 2)})
 
     try:
-        ctx, funding = context(bnc, bgx, [b[4] for b in h1])
+        if bnc is None:
+            raise ccxt.DDoSProtection("Binance bloqueado")
+        ctx, funding = cached("contexto", 60, lambda: context(bnc, bgx, [b[4] for b in h1]))
         rows += ctx
     except Exception as e:  # el contexto es complementario: si una fuente falla, el resto sirve
         funding = None
@@ -667,7 +739,9 @@ def analyze():
                 rows.append({"tabla": "nivel", "nombre": f"Muro de {side} ({ar(q)} BTC en libros)", "precio": p,
                              "tipo": kind, "distancia": round(pct(p, price), 2)})
     try:
-        heat = liquidation_map(bnc, h1)
+        if bnc is None:
+            raise ccxt.DDoSProtection("Binance bloqueado")
+        heat = cached("liquidaciones", 300, lambda: liquidation_map(bnc, h1))
         rows += [{"tabla": "liquidacion", **x} for x in heat]
         for side, kind in (("longs", "soporte"), ("shorts", "resistencia")):
             near = [x for x in heat if (x["precio"] < price) == (side == "longs") and x[side] > 0]
@@ -797,7 +871,7 @@ def save_json(path, data):
     """Se escribe aparte y se reemplaza de una vez: quien lo lee nunca ve un archivo a medias."""
     with open(path + ".tmp", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
-    os.replace(path + ".tmp", path)
+    replace_file(path + ".tmp", path)
 
 
 def write_waiting_page(path, message, error=""):
@@ -818,7 +892,7 @@ p {{ margin: 0; color: #949bab; line-height: 1.5; }} .err {{ white-space: pre-wr
 <p>Esta página se actualiza sola.</p></main></body></html>"""
     with open(path + ".tmp", "w", encoding="utf-8") as f:
         f.write(page)
-    os.replace(path + ".tmp", path)
+    replace_file(path + ".tmp", path)
 
 
 def page_version():
@@ -835,7 +909,7 @@ def write_local_html(data, path=LOCAL_HTML, live=False):
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         f.write(html)
-    os.replace(tmp, path)
+    replace_file(tmp, path)
 
 
 # el modo en vivo publica SOLO esta carpeta, y solo en esta PC: nunca el proyecto entero (ahi esta el .env)
@@ -949,8 +1023,12 @@ def run_live(every, public=False):
                 print(f"(no se pudo actualizar: {type(e).__name__}: {e})", flush=True)
                 traceback.print_exc()
                 if page_stamp is None:            # todavia no hay dashboard: el error se ve en la pantalla de espera
-                    write_waiting_page(index, "El análisis falló y se vuelve a intentar solo.",
-                                       f"{time.strftime('%H:%M:%S')}  {type(e).__name__}: {e}")
+                    if isinstance(e, (ccxt.DDoSProtection, ccxt.RateLimitExceeded)):
+                        write_waiting_page(index, "Un exchange limitó los pedidos desde este servidor. "
+                                                  "En el próximo intento se usan otras fuentes; no hace falta hacer nada.")
+                    else:
+                        write_waiting_page(index, "El análisis falló y se vuelve a intentar solo.",
+                                           f"{time.strftime('%H:%M:%S')}  {type(e).__name__}: {e}")
             time.sleep(max(1, every - (time.time() - started)))
     except KeyboardInterrupt:
         print("Modo en vivo detenido.")

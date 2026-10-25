@@ -7,7 +7,7 @@ services:
     plan: free
     region: frankfurt            # desde EE.UU. Binance bloquea los pedidos
     buildCommand: pip install -r requirements.txt
-    startCommand: python analisis_btc.py --vivo --servidor
+    startCommand: python analisis_btc.py --vivo 20 --servidor   # un analisis cada 20 s
     healthCheckPath: /salud
     autoDeploy: true             # cada push a main se publica solo
     envVars:
