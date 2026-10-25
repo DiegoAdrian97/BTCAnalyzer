@@ -29,6 +29,47 @@
   .ab-live i { width: 8px; height: 8px; border-radius: 50%; background: var(--up); box-shadow: 0 0 0 0 color-mix(in srgb, var(--up) 60%, transparent); }
   .ab-takeaway { margin: 0; max-width: 70ch; font-size: var(--cds-font-size-body); line-height: 1.55; color: var(--ink); }
 
+  /* cabecera con precio */
+  .ab-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: var(--cds-gap-md); }
+  .ab-top-l { display: grid; gap: var(--cds-gap-xs); min-width: 0; }
+  .ab-top-r { display: grid; gap: 8px; justify-items: end; }
+  .ab-top-price { display: flex; align-items: center; gap: var(--cds-gap-md); }
+  .ab-top .ab-spark { width: 140px; height: 40px; }
+  @media (max-width: 700px) { .ab-top-r { justify-items: start; } }
+
+  .ab-live-state { color: var(--up); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ab-live-state:empty { display: none; }
+
+  /* tarjeta protagonista */
+  .ab-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 290px); gap: var(--cds-gap-xl); }
+  .ab-hero-main, .ab-hero-side { display: grid; gap: var(--cds-gap-md); align-content: start; min-width: 0; }
+  .ab-hero-side { border-left: 1px solid var(--line); padding-left: var(--cds-gap-xl); }
+  @media (max-width: 860px) { .ab-hero { grid-template-columns: 1fr; }
+    .ab-hero-side { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: var(--cds-gap-md); } }
+  .ab-verdict-big { margin: 0; font-family: var(--serif); font-weight: 400; font-size: clamp(2rem, 4.6vw, 3.1rem); line-height: 1.05; letter-spacing: -.01em; }
+  .ab-verdict-big.ab-alcista { color: var(--up); } .ab-verdict-big.ab-bajista { color: var(--down); }
+  .ab-hero-sub { margin: 0; font-size: var(--cds-font-size-body); line-height: 1.5; max-width: 64ch; }
+  .ab-tug-wrap { display: grid; gap: 6px; }
+  .ab-tug-legend { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; font-size: var(--cds-font-size-caption); color: var(--mute); }
+  .ab-tug { position: relative; display: flex; height: 56px; border-radius: 14px; overflow: hidden; background: var(--paper); }
+  .ab-tug > div { display: flex; align-items: center; gap: 10px; padding-inline: 14px; min-width: 0; overflow: hidden; white-space: nowrap;
+    color: var(--paper); transition: flex-basis 1.1s var(--cds-ease-out); }
+  .ab-tug-d { background: var(--down); } .ab-tug-u { background: var(--up); justify-content: flex-end; }
+  .ab-tug b { font-family: var(--serif); font-weight: 400; font-size: 1.55rem; font-variant-numeric: tabular-nums; }
+  .ab-tug span { font-size: var(--cds-font-size-caption); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ab-tug-mid { position: absolute; left: calc(50% - 1px); top: 0; bottom: 0; width: 2px; background: var(--paper); opacity: .8; }
+
+  /* secciones plegables */
+  .ab-more-list { display: grid; gap: var(--cds-gap-sm); }
+  .ab-more { background: var(--panel); border: 1px solid var(--line); border-radius: calc(var(--cds-radius) * 1.5); }
+  .ab-more summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    padding: var(--cds-pad-md) var(--cds-pad-lg); font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); }
+  .ab-more summary::-webkit-details-marker { display: none; }
+  .ab-more summary > span:first-child::before { content: "▸"; display: inline-block; margin-right: 10px; color: var(--mute); transition: transform .2s; }
+  .ab-more[open] summary > span:first-child::before { transform: rotate(90deg); }
+  .ab-more summary:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; border-radius: calc(var(--cds-radius) * 1.5); }
+  .ab-more-body { padding: 0 var(--cds-pad-lg) var(--cds-pad-lg); display: grid; gap: var(--cds-gap-md); min-width: 0; }
+
   /* selector de plazo */
   .ab-plazos { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--cds-gap-sm); }
   @media (max-width: 760px) { .ab-plazos { grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); } }
@@ -139,8 +180,11 @@
   .ab-chipbtn[aria-pressed="true"] i { opacity: 1; }
   .ab-iconbtn { font: inherit; font-size: var(--cds-font-size-caption); padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line);
     background: var(--paper); color: var(--ink); cursor: pointer; }
-  .ab-chart { position: relative; min-height: 440px; }
-  .ab-chart svg { display: block; overflow: visible; touch-action: pan-y; }
+  .ab-chart { position: relative; height: 460px; min-height: 280px; resize: vertical; overflow: hidden; }
+  @media (max-width: 600px) { .ab-chart { height: 360px; } }
+  .ab-card:not(#grafico), .ab-more { resize: both; overflow: auto; max-width: 100%; }
+  .ab-card, .ab-more { min-width: 0; }
+  .ab-chart svg { display: block; overflow: hidden; touch-action: pan-y; }
   .ab-ax text { fill: var(--mute); font-size: 11px; font-variant-numeric: tabular-nums; }
   .ab-gl { stroke: var(--cds-chart-grid); stroke-width: 1; }
   .ab-c-up line, .ab-c-up rect { stroke: var(--up); fill: var(--up); }
@@ -260,71 +304,51 @@
 </style>
 
 <div class="ab ab-first" id="analista" data-source="analisis">
-  <header class="ab-head" id="resumen">
-    <div class="ab-head-l">
-      <span class="ab-live"><i></i><span>BTC/USDT perpetuo · actualizado <span data-source="analisis" data-field="hora_local" data-where="tabla=resumen">—</span> · <span id="next-run">—</span></span></span>
+  <header class="ab-top" id="resumen">
+    <div class="ab-top-l">
+      <span class="ab-live"><i></i><span>BTC/USDT perpetuo · actualizado <span data-source="analisis" data-field="hora_local" data-where="tabla=resumen">—</span> · <span id="next-run">—</span></span><span class="ab-live-state" id="live-state"></span></span>
       <h1 class="ab-title">Analista BTC</h1>
     </div>
-  </header>
-
-  <nav class="ab-plazos" id="plazos" aria-label="Plazo del análisis" data-source="analisis"></nav>
-
-  <section class="ab-card ab-story" id="que-espero" aria-labelledby="story-t" data-source="analisis">
-    <div class="ab-card-head"><span class="ab-kicker" id="story-t">Qué creo que va a pasar</span><span class="ab-kicker" id="story-chip"></span></div>
-    <p class="ab-story-head dash-skeleton" id="titular" data-source="analisis">—</p>
-    <p class="ab-note" id="porque"></p>
-    <div class="ab-story-grid">
-      <div class="ab-story-col"><h3 id="favor-t">A favor</h3><ul class="ab-sig-list" id="favor"></ul></div>
-      <div class="ab-story-col"><h3 id="contra-t">En contra</h3><ul class="ab-sig-list" id="contra"></ul></div>
-      <div class="ab-story-col"><h3>Niveles</h3><ul class="ab-sig-list" id="vigilar"></ul><p class="ab-inval" id="inval"></p></div>
-    </div>
-  </section>
-
-  <div class="ab-row">
-    <section class="ab-card ab-s4" id="precio" aria-labelledby="precio-t">
-      <div class="ab-card-head"><span class="ab-kicker" id="precio-t">Precio en BingX</span><span class="ab-kicker">Últimas 48 h</span></div>
-      <div class="ab-price ab-num" data-source="analisis" data-field="precio" data-where="tabla=resumen">—</div>
-      <svg class="ab-spark" id="spark" data-source="analisis" preserveAspectRatio="none"></svg>
+    <div class="ab-top-r" id="precio">
+      <div class="ab-top-price">
+        <div class="ab-price ab-num" data-source="analisis" data-field="precio" data-where="tabla=resumen">—</div>
+        <svg class="ab-spark" id="spark" data-source="analisis" preserveAspectRatio="none"></svg>
+      </div>
       <div class="ab-pills">
         <span class="ab-pill">24 h <b id="c24" data-source="analisis" data-field="cambio_24h" data-where="tabla=resumen">—</b></span>
         <span class="ab-pill">7 días <b id="c7" data-source="analisis" data-field="cambio_7d" data-where="tabla=resumen">—</b></span>
         <span class="ab-pill">vs media 200 d <b id="c200" data-source="analisis" data-field="sma200d_dist" data-where="tabla=resumen">—</b></span>
         <span class="ab-pill">Funding <b id="fund" data-source="analisis" data-field="funding" data-where="tabla=resumen">—</b></span>
       </div>
-    </section>
+    </div>
+  </header>
 
-    <section class="ab-card ab-pred ab-s5" id="prediccion" aria-labelledby="pred-when" data-source="analisis">
+  <nav class="ab-plazos" id="plazos" aria-label="Plazo del análisis" data-source="analisis"></nav>
+
+  <section class="ab-card ab-hero" id="prediccion" aria-labelledby="verdict-big" data-source="analisis">
+    <div class="ab-hero-main">
       <div class="ab-card-head"><span class="ab-kicker" id="pred-k">Predicción</span><span class="ab-kicker" id="pred-n"></span></div>
-      <p class="ab-pred-when" id="pred-when">—</p>
-      <div class="ab-rings">
-        <div class="ab-ring"><svg viewBox="0 0 84 84" aria-hidden="true"><circle class="ab-ring-track" cx="42" cy="42" r="34"></circle>
-          <circle class="ab-ring-val" id="ring-up" cx="42" cy="42" r="34" style="stroke: var(--color-ok)"></circle><text x="42" y="43" id="ring-up-t">—</text></svg>
-          <div class="ab-ring-label">de que llegue a<b id="ring-up-p">—</b><span id="ring-up-d"></span></div></div>
-        <div class="ab-ring"><svg viewBox="0 0 84 84" aria-hidden="true"><circle class="ab-ring-track" cx="42" cy="42" r="34"></circle>
-          <circle class="ab-ring-val" id="ring-dn" cx="42" cy="42" r="34" style="stroke: var(--color-bad)"></circle><text x="42" y="43" id="ring-dn-t">—</text></svg>
-          <div class="ab-ring-label">de que llegue a<b id="ring-dn-p">—</b><span id="ring-dn-d"></span></div></div>
-      </div>
-      <div class="ab-likely">
-        <div class="ab-likely-top"><span>¿Cuál toca primero?</span><span id="first-mg"></span></div>
-        <div class="ab-split" id="first-split"></div>
+      <p class="ab-verdict-big" id="verdict-big">—</p>
+      <p class="ab-hero-sub dash-skeleton" id="titular" data-source="analisis">—</p>
+      <div class="ab-tug-wrap">
+        <div class="ab-tug-legend"><span>¿Qué toca primero?</span><span id="first-mg"></span></div>
+        <div class="ab-tug" id="first-split"></div>
       </div>
       <div class="ab-likely">
         <div class="ab-likely-top"><span>Precio más probable a esa hora</span><b id="likely">—</b></div>
         <div class="ab-range"><div class="ab-range-iqr" id="iqr"></div><div class="ab-range-now" id="rnow"></div><div class="ab-range-mark" id="rmed"></div></div>
-        <div class="ab-range-ends"><span id="r-lo">—</span><span>la franja oscura es la mitad central de los casos · ▼ precio actual</span><span id="r-hi">—</span></div>
+        <div class="ab-range-ends"><span id="r-lo">—</span><span>franja oscura: la mitad de los casos · ▼ precio actual</span><span id="r-hi">—</span></div>
       </div>
-    </section>
-
-    <section class="ab-card ab-s3" id="sesgo" aria-labelledby="sesgo-t" data-source="analisis">
-      <div class="ab-card-head"><h2 id="sesgo-t">Sesgo técnico</h2><span class="ab-kicker" id="sesgo-tf">1 hora</span></div>
-      <svg class="ab-gauge" id="gauge" viewBox="0 0 220 128" role="img" aria-label="Calificación técnica"></svg>
+    </div>
+    <div class="ab-hero-side" id="sesgo">
+      <div class="ab-card-head"><span class="ab-kicker">Sesgo técnico</span><span class="ab-kicker" id="sesgo-tf">—</span></div>
+      <svg class="ab-gauge" id="gauge" viewBox="0 0 220 128" role="img" aria-label="Sesgo técnico"></svg>
       <div class="ab-gauge-txt"><b id="gauge-txt" data-source="analisis" data-field="rating_txt">—</b><span class="ab-note" id="gauge-votes"></span></div>
       <div class="ab-strip" id="strip"></div>
-    </section>
-  </div>
+    </div>
+  </section>
 
-  <div class="ab-row">
-    <section class="ab-card ab-s8" id="grafico" aria-labelledby="graf-t">
+  <section class="ab-card" id="grafico" aria-labelledby="graf-t">
       <div class="ab-card-head"><h2 id="graf-t">Dónde está BTC y hacia dónde suele ir desde acá</h2></div>
       <div class="ab-tools">
         <nav class="ab-seg ab-small" id="tfs" aria-label="Velas del gráfico">
@@ -367,64 +391,77 @@
       <p class="ab-note" id="scen-note"></p>
     </section>
 
-    <section class="ab-card ab-s4" id="probabilidades" aria-labelledby="prob-t" data-source="analisis">
-      <div class="ab-card-head"><h2 id="prob-t">Probabilidades</h2><span class="ab-kicker" id="prob-tf">1 hora</span></div>
-      <p class="ab-pred-when" id="prob-when" style="font-size: var(--cds-font-size-title)">—</p>
-      <div class="ab-split" id="split"></div>
-      <div class="ab-bar-row"><span class="ab-verdict" id="verdict">—</span><span class="ab-note" id="prob-base"></span></div>
-      <div class="ab-ladder" id="ladder"></div>
-      <p class="ab-note" id="prob-foot"></p>
-    </section>
-  </div>
-
-  <div class="ab-row">
-    <section class="ab-card ab-s5" id="senales" aria-labelledby="sen-t" data-source="analisis">
-      <div class="ab-card-head"><h2 id="sen-t">Qué está pasando ahora</h2><span class="ab-kicker">Flujo y posicionamiento</span></div>
-      <div class="ab-tiles" id="tiles"></div>
-      <div class="ab-card-head"><span class="ab-kicker">Libros de órdenes ±0,1%</span><span class="ab-kicker">← ventas · compras →</span></div>
-      <div class="ab-books" id="books"></div>
-      <p class="ab-note">Son órdenes esperando, no posiciones: pueden retirarse. BingX no entra en el total porque publica mucho más volumen que el resto.</p>
-    </section>
-
-    <section class="ab-card ab-s4" id="niveles" aria-labelledby="niv-t" data-source="analisis">
-      <div class="ab-card-head"><h2 id="niv-t">Niveles clave</h2><span class="ab-kicker">a escala</span></div>
-      <div class="ab-levels" id="levels"></div>
-      <p class="ab-note">Arriba, resistencias; abajo, soportes. Pivotes del día, Fibonacci del mes, medias de 200 días, muros en los libros y zonas de liquidación estimadas.</p>
-    </section>
-
-    <section class="ab-card ab-s3" id="ondas" aria-labelledby="ond-t" data-source="analisis">
-      <div class="ab-card-head"><h2 id="ond-t">Patrones, ondas y FVG</h2><span class="ab-kicker" id="ond-tf">1 hora</span></div>
-      <div class="ab-pats" id="pats" data-source="analisis"></div>
-      <span class="ab-kicker">Ondas de Elliott</span>
-      <p class="ab-wave-big" id="wave" data-source="analisis" data-field="elliott">—</p>
-      <span class="ab-target" id="wave-target"></span>
-      <span class="ab-kicker">Zonas FVG sin llenar</span>
-      <div class="ab-fvgs" id="fvgs"></div>
-      <p class="ab-note">Las figuras y el conteo de Elliott se detectan solos sobre los giros del precio: son lecturas posibles, no las únicas. Un FVG es un hueco que el precio dejó sin operar y al que suele volver.</p>
-    </section>
-  </div>
-
-  <section class="ab-card" id="indicadores" aria-labelledby="ind-t" data-source="analisis">
-    <div class="ab-card-head"><h2 id="ind-t">Todos los indicadores</h2><span class="ab-kicker" id="ind-tf">1 hora</span></div>
-    <p class="ab-note">Cada indicador dice hacia dónde apunta según su propia regla: <b>alcista</b> si favorece una suba, <b>bajista</b> si favorece una baja. No son órdenes de comprar o vender; son votos que se suman en el sesgo técnico.</p>
-    <div class="ab-votes" id="votes"></div>
-    <div class="ab-tbl-box">
-      <table class="ab-tbl" id="ind-table" data-source="analisis" data-row-key="tf,indicador">
-        <thead><tr><th data-field="indicador">Indicador</th><th data-field="valor" class="r">Valor</th><th data-field="senal">Señal</th><th data-field="detalle">Detalle</th></tr></thead>
-        <tbody></tbody>
-      </table>
+  <section class="ab-card ab-story" id="que-espero" aria-labelledby="story-t" data-source="analisis">
+    <div class="ab-card-head"><h2 id="story-t">Por qué</h2><span class="ab-kicker" id="story-chip"></span></div>
+    <p class="ab-note" id="porque"></p>
+    <div class="ab-story-grid">
+      <div class="ab-story-col"><h3 id="favor-t">A favor</h3><ul class="ab-sig-list" id="favor"></ul></div>
+      <div class="ab-story-col"><h3 id="contra-t">En contra</h3><ul class="ab-sig-list" id="contra"></ul></div>
+      <div class="ab-story-col"><h3>Niveles</h3><ul class="ab-sig-list" id="vigilar"></ul><p class="ab-inval" id="inval"></p></div>
     </div>
   </section>
 
-  <div class="ab-row">
-    <section class="ab-card ab-s8" id="noticias" aria-labelledby="not-t">
-      <div class="ab-card-head"><h2 id="not-t">Noticias y lectura de Claude</h2><span class="ab-kicker">criterio, no cálculo</span></div>
-      <p class="ab-claude" id="nota" data-source="analisis" data-field="nota_claude" data-where="tabla=resumen">—</p>
-    </section>
-    <section class="ab-card ab-s4" id="aciertos" aria-labelledby="ac-t" data-source="analisis">
-      <div class="ab-card-head"><h2 id="ac-t">¿Viene acertando?</h2></div>
-      <div id="hits"></div>
-    </section>
+  <div class="ab-more-list">
+    <span class="ab-kicker">Más detalle</span>
+    <details class="ab-more" id="probabilidades" data-source="analisis">
+      <summary><span>Probabilidad de tocar cada precio</span><span class="ab-kicker" id="prob-tf"></span></summary>
+      <div class="ab-more-body">
+        <p class="ab-pred-when" id="prob-when">—</p>
+        <div class="ab-split" id="split"></div>
+        <div class="ab-bar-row"><span class="ab-verdict" id="verdict">—</span><span class="ab-note" id="prob-base"></span></div>
+        <div class="ab-ladder" id="ladder"></div>
+        <p class="ab-note" id="prob-foot"></p>
+      </div>
+    </details>
+    <details class="ab-more" id="senales" data-source="analisis">
+      <summary><span>Qué está pasando ahora: flujo, posicionamiento y libros de órdenes</span></summary>
+      <div class="ab-more-body">
+        <div class="ab-tiles" id="tiles"></div>
+        <div class="ab-card-head"><span class="ab-kicker">Libros de órdenes ±0,1%</span><span class="ab-kicker">← ventas · compras →</span></div>
+        <div class="ab-books" id="books"></div>
+        <p class="ab-note">Son órdenes esperando, no posiciones: pueden retirarse. BingX no entra en el total porque publica mucho más volumen que el resto.</p>
+      </div>
+    </details>
+    <details class="ab-more" id="niveles" data-source="analisis">
+      <summary><span>Niveles clave a escala</span></summary>
+      <div class="ab-more-body">
+        <div class="ab-levels" id="levels"></div>
+        <p class="ab-note">Arriba, resistencias; abajo, soportes. Pivotes del día, Fibonacci del mes, medias de 200 días, muros en los libros y zonas de liquidación estimadas.</p>
+      </div>
+    </details>
+    <details class="ab-more" id="ondas" data-source="analisis">
+      <summary><span>Patrones, ondas de Elliott y FVG</span><span class="ab-kicker" id="ond-tf"></span></summary>
+      <div class="ab-more-body">
+        <div class="ab-pats" id="pats" data-source="analisis"></div>
+        <span class="ab-kicker">Ondas de Elliott</span>
+        <p class="ab-wave-big" id="wave" data-source="analisis" data-field="elliott">—</p>
+        <span class="ab-target" id="wave-target"></span>
+        <span class="ab-kicker">Zonas FVG sin llenar</span>
+        <div class="ab-fvgs" id="fvgs"></div>
+        <p class="ab-note">Las figuras y el conteo de Elliott se detectan solos sobre los giros del precio: son lecturas posibles, no las únicas. Un FVG es un hueco que el precio dejó sin operar y al que suele volver.</p>
+      </div>
+    </details>
+    <details class="ab-more" id="indicadores" data-source="analisis">
+      <summary><span>Todos los indicadores</span><span class="ab-kicker" id="ind-tf"></span></summary>
+      <div class="ab-more-body">
+        <p class="ab-note">Cada indicador dice hacia dónde apunta según su propia regla: <b>alcista</b> si favorece una suba, <b>bajista</b> si favorece una baja. No son órdenes de comprar o vender; son votos que se suman en el sesgo técnico.</p>
+        <div class="ab-votes" id="votes"></div>
+        <div class="ab-tbl-box">
+          <table class="ab-tbl" id="ind-table" data-source="analisis" data-row-key="tf,indicador">
+            <thead><tr><th data-field="indicador">Indicador</th><th data-field="valor" class="r">Valor</th><th data-field="senal">Señal</th><th data-field="detalle">Detalle</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </details>
+    <details class="ab-more" id="noticias">
+      <summary><span>Noticias y lectura de Claude</span></summary>
+      <div class="ab-more-body"><p class="ab-claude" id="nota" data-source="analisis" data-field="nota_claude" data-where="tabla=resumen">—</p></div>
+    </details>
+    <details class="ab-more" id="aciertos" data-source="analisis">
+      <summary><span>¿Viene acertando?</span></summary>
+      <div class="ab-more-body"><div id="hits"></div></div>
+    </details>
   </div>
 
   <p class="ab-foot">Datos públicos de Binance Futures, Bybit, OKX, Bitget y BingX. Las probabilidades y los escenarios cuentan lo que pasó en situaciones parecidas del pasado reciente; el mercado puede hacer otra cosa. No es una recomendación de inversión.</p>
@@ -447,13 +484,14 @@
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
   const later = (fn) => (reduce ? fn() : requestAnimationFrame(() => requestAnimationFrame(fn)));
   // cada plazo se mira con las velas que mejor lo muestran
-  const PLAZO_VIEW = { '5 min': '5m', '15 min': '5m', '1 hora': '15m', '4 horas': '1h', '1 día': '4h' };
-  const S = { plazo: '1 hora', tf: '15m', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, geom: null, rows: null, sum: null,
+  const PLAZO_VIEW = { '5 min': '5m', '15 min': '15m', '1 hora': '1h', '4 horas': '4h', '1 día': '1d' };
+  const S = { plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, geom: null, rows: null, sum: null,
     layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, liq: true } };
   const TF_MIN = { '5m': 5, '15m': 15, '30m': 30, '1h': 60, '4h': 240, '1d': 1440 };
   const dur = (min) => (min < 60 ? `${min} min` : min < 1440 ? `${Math.round(min / 60)} h` : `${Math.round(min / 1440)} d`);
   const M = (v) => `${f1(v)} M USD`;
-  let ghostTimer = null, first = true;
+  let ghostTimer = null, first = true, ghostK = 0;
+  let liveBar = null, ws = null, wsTf = null, ticks = 0;
 
   // ---------- controles ----------
   function seg(nav, attr, onPick) {
@@ -476,7 +514,7 @@
     const b = e.target.closest('[data-layer]'); if (!b) return;
     const k = b.dataset.layer; S.layers[k] = !S.layers[k]; b.setAttribute('aria-pressed', String(S.layers[k])); draw();
   });
-  document.getElementById('replay').addEventListener('click', () => draw());
+  document.getElementById('replay').addEventListener('click', () => { ghostK = 0; draw(); });
   function setPlazo(name) { S.plazo = name; S.offset = 0; setTf(PLAZO_VIEW[name]); }
   function setTf(tf) {
     S.tf = tf; S.hz = null;
@@ -502,6 +540,8 @@
       else S.nbars = clampN(S.nbars * (e.deltaY > 0 ? 1.15 : 1 / 1.15));
       redrawChart();
     }, { passive: false });
+    box.addEventListener('pointerenter', () => { S.hover = true; });
+    box.addEventListener('pointerleave', () => { S.hover = false; });
     box.addEventListener('pointerdown', (e) => {
       if (!S.geom || e.button !== 0) return;
       drag = { mode: onAxis(e.clientX) ? 'y' : 'x', x: e.clientX, y: e.clientY, off: S.offset, yz: S.yzoom };
@@ -524,6 +564,44 @@
       S.nbars = clampN(S.nbars * (b.dataset.zoom === 'out' ? 1.4 : 1 / 1.4)); redrawChart(); }));
     document.querySelectorAll('[data-yzoom]').forEach((b) => b.addEventListener('click', () => {
       S.yzoom = clampY(S.yzoom * (b.dataset.yzoom === 'out' ? 1.5 : 1 / 1.5)); redrawChart(); }));
+  })();
+
+  document.querySelectorAll('.ab-more').forEach((d) => d.addEventListener('toggle', () => { if (d.open && S.rows) draw(); }));
+
+  // ---------- en vivo (solo en la version local con --vivo: en claude.ai la pagina no puede conectarse a Binance) ----------
+  function connectLive() {
+    if (!window.abLive || wsTf === S.tf) return;
+    if (ws) ws.close();
+    wsTf = S.tf; liveBar = null;
+    const sock = new WebSocket(`wss://fstream.binance.com/market/ws/btcusdt@kline_${S.tf}`);
+    ws = sock;
+    sock.onmessage = (ev) => {
+      const k = JSON.parse(ev.data).k; if (!k) return;
+      liveBar = { tf: wsTf, t: k.t, o: +k.o, h: +k.h, l: +k.l, c: +k.c, v: +k.v };
+      ticks++;
+      const pe = root.querySelector('.ab-price'); if (pe && pe.firstChild) pe.firstChild.textContent = f0(liveBar.c);
+      document.getElementById('live-state').textContent = ` · ● en vivo · análisis #${f0(window.abAnalyses || 1)} · ${f0(ticks)} ticks`;
+      if (ticks % 10 === 0 && S.rows && !S.hover) drawChart(S.rows, S.sum);
+    };
+    sock.onclose = () => { if (ws === sock) { wsTf = null; setTimeout(connectLive, 3000); } };
+  }
+
+  // al agrandar o achicar un modulo se redibuja a su tamano nuevo (solo cuando cambia el tamano, no el contenido)
+  (function watchSizes() {
+    if (!window.ResizeObserver) return;
+    const seen = new WeakMap();
+    let t = null;
+    const ro = new ResizeObserver((entries) => {
+      let changed = false;
+      entries.forEach((e) => {
+        const w = Math.round(e.contentRect.width), h = Math.round(e.contentRect.height), prev = seen.get(e.target);
+        const isChart = e.target.id === 'chart';
+        if (prev && (Math.abs(prev.w - w) > 2 || (isChart && Math.abs(prev.h - h) > 2))) changed = true;
+        seen.set(e.target, { w, h });
+      });
+      if (changed) { clearTimeout(t); t = setTimeout(() => { if (S.rows) draw(); }, 120); }
+    });
+    document.querySelectorAll('#analista .ab-card, #analista .ab-more, #chart').forEach((n) => ro.observe(n));
   })();
 
   dash.onData(draw);
@@ -557,6 +635,7 @@
     drawNote(sum);
     drawHits(rows);
     placeTf(); placeSc();
+    connectLive();
     if (first) { first = false; setTimeout(() => root.classList.remove('ab-first'), 1800); }
   }
 
@@ -639,27 +718,24 @@
   function drawPrediction(rows, s) {
     const p = pick(rows, 'plazo').find((r) => r.plazo === S.plazo);
     if (!p) return;
-    const price = num(s.precio), dist = num(p.distancia);
-    document.getElementById('pred-k').textContent = `Predicción a ${S.plazo}`;
-    document.getElementById('pred-when').textContent = `Hasta las ${p.hora.slice(-5)} h del ${p.hora.slice(0, 5)}`;
+    const head = pick(rows, 'explicacion').find((e) => e.plazo === S.plazo && e.tipo === 'titular');
+    const bias = head ? head.sesgo : 'neutral';
+    const price = num(s.precio), pu = num(p.primero_arriba);
+    document.getElementById('pred-k').textContent = `Predicción a ${S.plazo} · hasta las ${p.hora.slice(-5)} h del ${p.hora.slice(0, 5)}`;
     document.getElementById('pred-n').textContent = `${f0(num(p.n))} casos parecidos`;
-    const ring = (id, level, prob, dir) => {
-      const c = document.getElementById(id), C = 2 * Math.PI * 34;
-      c.style.strokeDasharray = C; c.style.strokeDashoffset = C;
-      document.getElementById(id + '-t').textContent = prob === null ? '—' : `${f0(prob)}%`;
-      document.getElementById(id + '-p').textContent = level === null ? '—' : f0(level);
-      document.getElementById(id + '-d').textContent = dist ? `${dir} ${f0(dist)} USD` : '';
-      if (prob !== null) later(() => { c.style.strokeDashoffset = C * (1 - prob / 100); });
-    };
-    ring('ring-up', num(p.obj_arriba), num(p.toca_arriba), 'sube');
-    ring('ring-dn', num(p.obj_abajo), num(p.toca_abajo), 'baja');
-    // los dos niveles estan a la misma distancia: esta barra es la prediccion principal
-    const pu = num(p.primero_arriba), split = document.getElementById('first-split'); split.replaceChildren();
+    const vb = document.getElementById('verdict-big');
+    vb.className = 'ab-verdict-big ab-' + bias;
+    vb.textContent = bias === 'alcista' ? '▲ Más probable que suba' : bias === 'bajista' ? '▼ Más probable que baje' : '◆ Lateral';
+    // baja a la izquierda, sube a la derecha: el lado mas ancho es el que se toco primero mas veces
+    const tug = document.getElementById('first-split'); tug.replaceChildren();
     if (pu !== null) {
-      const u = el('div', 'ab-sp-u', `▲ ${f0(num(p.obj_arriba))} · ${f0(pu)}%`), d = el('div', 'ab-sp-d', `${f0(100 - pu)}% · ${f0(num(p.obj_abajo))} ▼`), mid = el('div', 'ab-sp-base');
-      u.style.flexBasis = '50%'; d.style.flexBasis = '50%'; mid.style.left = 'calc(50% - 1px)'; split.append(u, d, mid);
-      later(() => { u.style.flexBasis = pu + '%'; d.style.flexBasis = (100 - pu) + '%'; });
-      document.getElementById('first-mg').textContent = `margen ±${f0(num(p.margen_primero))} pts`;
+      const d = el('div', 'ab-tug-d'), u = el('div', 'ab-tug-u');
+      d.append(el('b', '', `${f0(100 - pu)}%`), el('span', '', `▼ baja a ${f0(num(p.obj_abajo))}`));
+      u.append(el('span', '', `sube a ${f0(num(p.obj_arriba))} ▲`), el('b', '', `${f0(pu)}%`));
+      d.style.flexBasis = '50%'; u.style.flexBasis = '50%';
+      tug.append(d, u, el('i', 'ab-tug-mid'));
+      later(() => { d.style.flexBasis = (100 - pu) + '%'; u.style.flexBasis = pu + '%'; });
+      document.getElementById('first-mg').textContent = `${f0(num(p.distancia))} USD para cada lado · margen ±${f0(num(p.margen_primero))} pts`;
     }
     const lo = num(p.min), hi = num(p.max), span = hi - lo || 1;
     const at = (v) => Math.max(0, Math.min(100, (v - lo) / span * 100));
@@ -710,10 +786,15 @@
   function drawChart(rows, sum) {
     if (ghostTimer) { clearInterval(ghostTimer); ghostTimer = null; }
     const box = document.getElementById('chart'); box.replaceChildren();
-    const tf = S.tf, price = num(sum.precio), L = S.layers;
+    const tf = S.tf, price = liveBar && liveBar.tf === tf ? liveBar.c : num(sum.precio), L = S.layers;
     const all = pick(rows, 'vela', tf).map((r) => ({ t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), v: num(r.v),
       e20: num(r.ema20), e50: num(r.ema50), bu: num(r.bb_up), bl: num(r.bb_lo) })).sort((a, b) => a.t - b.t);
     if (!all.length) return;
+    if (liveBar && liveBar.tf === tf) {
+      const last = all[all.length - 1];
+      if (liveBar.t === last.t) all[all.length - 1] = { ...last, h: liveBar.h, l: liveBar.l, c: liveBar.c, v: liveBar.v };
+      else if (liveBar.t > last.t) all.push({ ...liveBar, e20: null, e50: null, bu: null, bl: null });
+    }
     const nb = Math.max(20, Math.min(all.length, Math.round(S.nbars)));
     S.offset = Math.max(0, Math.min(all.length - nb, S.offset));
     const end = all.length - Math.round(S.offset), bars = all.slice(end - nb, end);
@@ -726,7 +807,7 @@
     const giros = pick(rows, 'giro', tf).map((r) => ({ t: num(r.t), p: num(r.precio), w: r.onda, alto: r.tipo === 'alto' }));
     const liq = pick(rows, 'liquidacion').map((r) => ({ p: num(r.precio), l: num(r.longs), s: num(r.shorts) }));
 
-    const W = Math.max(320, box.clientWidth), H = W < 600 ? 360 : 440;
+    const W = Math.max(320, box.clientWidth), H = Math.max(280, (box.clientHeight || 440) - 4);
     const steps = Math.max(ghosts.length, cone.length), n = bars.length + steps;
     const heatW = L.liq ? Math.min(78, W * .11) : 0, axW = 66;
     const m = { t: 24, b: 24, l: 2 };
@@ -763,7 +844,7 @@
     svg.append('g').selectAll('line').data(ticks).join('line').attr('class', 'ab-gl').attr('x1', m.l).attr('x2', plotR + heatW).attr('y1', y).attr('y2', y);
     svg.append('g').attr('class', 'ab-ax').selectAll('text').data(ticks).join('text').attr('x', W - 4).attr('y', y).attr('dy', '.32em').attr('text-anchor', 'end').text(f0);
     const ti = [0, Math.floor(bars.length / 3), Math.floor(2 * bars.length / 3), bars.length - 1];
-    svg.append('g').attr('class', 'ab-ax').selectAll('text').data(ti).join('text').attr('x', cxi).attr('y', H - 6)
+    svg.append('g').attr('class', 'ab-ax').selectAll('text').data(ti).join('text').attr('x', cxi).attr('y', H - 8)
       .attr('text-anchor', (d, k) => (k === 0 ? 'start' : 'middle')).text((i) => fmtT(bars[i].t, tf));
 
     // futuro
@@ -782,22 +863,31 @@
       }
     }
 
+    defs.append('clipPath').attr('id', 'ab-pane').append('rect').attr('x', m.l).attr('y', m.t - 16).attr('width', plotR - m.l).attr('height', priceB - m.t + 16);
+    const pane = svg.append('g').attr('clip-path', 'url(#ab-pane)');
     if (L.bb) {
       const bb = bars.map((b, i) => ({ i, u: b.bu, l: b.bl })).filter((b) => b.u !== null);
-      svg.append('path').attr('d', d3.area().x((d) => cxi(d.i)).y0((d) => y(d.l)).y1((d) => y(d.u))(bb)).style('fill', 'var(--color-fg)').style('fill-opacity', .04);
-      ['u', 'l'].forEach((k) => svg.append('path').attr('class', 'ab-bb').style('fill', 'none').attr('d', d3.line().x((d) => cxi(d.i)).y((d) => y(d[k]))(bb)));
+      pane.append('path').attr('d', d3.area().x((d) => cxi(d.i)).y0((d) => y(d.l)).y1((d) => y(d.u))(bb)).style('fill', 'var(--color-fg)').style('fill-opacity', .04);
+      ['u', 'l'].forEach((k) => pane.append('path').attr('class', 'ab-bb').style('fill', 'none').attr('d', d3.line().x((d) => cxi(d.i)).y((d) => y(d[k]))(bb)));
     }
     if (L.fvg) fvgs.forEach((z) => {
       const i0 = bars.findIndex((b) => b.t >= z.t); if (i0 < 0) return;
       const yt = y(Math.min(z.hi, hi)), yb = y(Math.max(z.lo, lo)); if (yb <= m.t || yt >= priceB) return;
-      svg.append('rect').attr('class', z.up ? 'ab-fvg-u' : 'ab-fvg-d').attr('x', x(i0)).attr('y', yt).attr('width', plotR - x(i0)).attr('height', Math.max(2, yb - yt));
-      svg.append('line').attr('class', z.up ? 'ab-fvg-edge-u' : 'ab-fvg-edge-d').attr('x1', x(i0)).attr('x2', x(i0)).attr('y1', yt).attr('y2', Math.max(yt + 2, yb));
+      pane.append('rect').attr('class', z.up ? 'ab-fvg-u' : 'ab-fvg-d').attr('x', x(i0)).attr('y', yt).attr('width', plotR - x(i0)).attr('height', Math.max(2, yb - yt));
+      pane.append('line').attr('class', z.up ? 'ab-fvg-edge-u' : 'ab-fvg-edge-d').attr('x1', x(i0)).attr('x2', x(i0)).attr('y1', yt).attr('y2', Math.max(yt + 2, yb));
+    });
+    pick(rows, 'explicacion').filter((e) => e.plazo === S.plazo && e.tipo === 'vigilar' && e.precio !== null && e.precio !== undefined).forEach((e) => {
+      const v = num(e.precio); if (!(v > lo && v < hi)) return;
+      const col = e.sesgo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)';
+      pane.append('line').attr('x1', m.l).attr('x2', plotR).attr('y1', y(v)).attr('y2', y(v)).style('stroke', col).style('stroke-width', 1.3)
+        .style('stroke-dasharray', '10 5').style('stroke-opacity', .85);
+      pane.append('text').attr('class', 'ab-pat-lbl').style('fill', col).attr('x', m.l + 6).attr('y', y(v) + (e.sesgo === 'alcista' ? -5 : 13)).text(e.texto);
     });
     if (cone.length) {
       const li = bars.length - 1, c0 = bars[li].c;
       const pts = [{ i: li, lo: c0, hi: c0, mid: c0 }].concat(cone.map((c) => ({ i: li + c.k, ...c })));
-      svg.append('path').attr('d', d3.area().curve(d3.curveMonotoneX).x((d) => cxi(d.i)).y0((d) => y(d.lo)).y1((d) => y(d.hi))(pts)).style('fill', 'url(#ab-cone-g)');
-      svg.append('path').attr('class', 'ab-median').attr('d', d3.line().curve(d3.curveMonotoneX).x((d) => cxi(d.i)).y((d) => y(d.mid))(pts));
+      pane.append('path').attr('d', d3.area().curve(d3.curveMonotoneX).x((d) => cxi(d.i)).y0((d) => y(d.lo)).y1((d) => y(d.hi))(pts)).style('fill', 'url(#ab-cone-g)');
+      pane.append('path').attr('class', 'ab-median').attr('d', d3.line().curve(d3.curveMonotoneX).x((d) => cxi(d.i)).y((d) => y(d.mid))(pts));
     }
     // figuras del grafico y patrones de velas
     if (L.patrones) {
@@ -839,9 +929,9 @@
       .attr('x', (b, i) => x(i)).attr('width', bw).attr('y', (b) => yv(b.v)).attr('height', (b) => H - m.b - yv(b.v)).attr('rx', Math.min(1.5, bw / 4));
     svg.append('text').attr('class', 'ab-future-lbl').attr('x', m.l + 2).attr('y', H - m.b - volH - 2).text('Volumen');
     if (L.ema) [['e20', dash.colors[0]], ['e50', dash.colors[1]]].forEach(([k, c]) =>
-      svg.append('path').attr('class', 'ab-ema').style('stroke', c).attr('d', d3.line().defined((b) => b[k] !== null).x((b, i) => cxi(i)).y((b) => y(b[k]))(bars)));
+      pane.append('path').attr('class', 'ab-ema').style('stroke', c).attr('d', d3.line().defined((b) => b[k] !== null).x((b, i) => cxi(i)).y((b) => y(b[k]))(bars)));
     // velas
-    const cs = svg.append('g').selectAll('g').data(bars).join('g').attr('class', (b) => 'ab-candle ' + (b.c >= b.o ? 'ab-c-up' : 'ab-c-dn'))
+    const cs = pane.append('g').selectAll('g').data(bars).join('g').attr('class', (b) => 'ab-candle ' + (b.c >= b.o ? 'ab-c-up' : 'ab-c-dn'))
       .style('animation-delay', (b, i) => `${i * 10}ms`);
     cs.append('line').attr('x1', (b, i) => cxi(i)).attr('x2', (b, i) => cxi(i)).attr('y1', (b) => y(b.h)).attr('y2', (b) => y(b.l)).style('stroke-width', 1);
     cs.append('rect').attr('x', (b, i) => x(i)).attr('width', bw).attr('rx', Math.min(1.5, bw / 4))
@@ -849,17 +939,17 @@
     // ondas
     if (L.ondas) {
       const gp = giros.map((g) => ({ ...g, i: bars.findIndex((b) => b.t === g.t) })).filter((g) => g.i >= 0);
-      if (gp.length > 1) svg.append('path').attr('class', 'ab-zig').attr('d', d3.line().x((g) => cxi(g.i)).y((g) => y(g.p))(gp));
-      const wv = svg.append('g').selectAll('g').data(gp.filter((g) => g.w)).join('g').attr('class', 'ab-wave')
+      if (gp.length > 1) pane.append('path').attr('class', 'ab-zig').attr('d', d3.line().x((g) => cxi(g.i)).y((g) => y(g.p))(gp));
+      const wv = pane.append('g').selectAll('g').data(gp.filter((g) => g.w)).join('g').attr('class', 'ab-wave')
         .attr('transform', (g) => `translate(${cxi(g.i)},${Math.max(m.t, Math.min(priceB, y(g.p) + (g.alto ? -13 : 13)))})`);
       wv.append('circle').attr('r', 8.5); wv.append('text').text((g) => g.w);
     }
     // escenario
     const gx = (g) => x(bars.length - 1 + g.k);
-    const gg = svg.append('g').selectAll('g').data(ghosts).join('g').attr('class', (g) => 'ab-ghost ' + (g.c >= g.o ? 'ab-c-up' : 'ab-c-dn'));
+    const gg = pane.append('g').selectAll('g').data(ghosts).join('g').attr('class', (g) => 'ab-ghost ' + (g.c >= g.o ? 'ab-c-up' : 'ab-c-dn'));
     gg.append('line').attr('x1', (g) => gx(g) + bw / 2).attr('x2', (g) => gx(g) + bw / 2).attr('y1', (g) => y(g.h)).attr('y2', (g) => y(g.l)).style('stroke-width', 1.2);
     gg.append('rect').attr('x', gx).attr('width', bw).attr('rx', Math.min(1.5, bw / 4)).attr('y', (g) => y(Math.max(g.o, g.c))).attr('height', (g) => Math.max(1, Math.abs(y(g.o) - y(g.c))));
-    const scan = svg.append('line').attr('class', 'ab-scan').attr('x1', 0).attr('x2', 0).attr('y1', m.t - 12).attr('y2', priceB).style('opacity', ghosts.length && !reduce ? 1 : 0);
+    const scan = pane.append('line').attr('class', 'ab-scan').attr('x1', 0).attr('x2', 0).attr('y1', m.t - 12).attr('y2', priceB).style('opacity', ghosts.length && !reduce ? 1 : 0);
     // liquidaciones
     if (L.liq && liq.length) {
       const inR = liq.filter((r) => r.p > lo && r.p < hi);
@@ -940,15 +1030,13 @@
     S.geom = { W, plotR, heatW, step: x.step() };
     if (!ghosts.length) return;
     if (reduce) { gg.classed('on', true); return; }
-    let k = 0;
-    const tick = () => {
-      k = k > ghosts.length + 6 ? 0 : k + 1;
-      gg.classed('on', (g) => g.k <= k);
-      const last = Math.min(k, ghosts.length);
-      scan.style('transform', `translateX(${last ? gx(ghosts[last - 1]) + bw + 3 : fx}px)`).style('opacity', k > ghosts.length ? 0 : 1);
+    const paint = () => {
+      gg.classed('on', (g) => g.k <= ghostK);
+      const last = Math.min(ghostK, ghosts.length);
+      scan.style('transform', `translateX(${last ? gx(ghosts[last - 1]) + bw + 3 : fx}px)`).style('opacity', ghostK > ghosts.length ? 0 : 1);
     };
-    scan.style('transform', `translateX(${fx}px)`);
-    tick(); ghostTimer = setInterval(tick, 380);
+    const tick = () => { ghostK = ghostK > ghosts.length + 6 ? 0 : ghostK + 1; paint(); };
+    paint(); ghostTimer = setInterval(tick, 380);
   }
 
   // ---------- probabilidades ----------
