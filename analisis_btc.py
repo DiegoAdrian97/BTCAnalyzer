@@ -800,6 +800,27 @@ def save_json(path, data):
     os.replace(path + ".tmp", path)
 
 
+def write_waiting_page(path, message, error=""):
+    """Pantalla mientras no hay analisis: se recarga sola y pasa al dashboard cuando esta listo."""
+    import html
+    extra = f'<pre class="err">{html.escape(error)}</pre><p>Si se repite, pasale este error a Claude.</p>' if error else ""
+    page = f"""<!doctype html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="refresh" content="5">
+<title>Analista BTC</title><style>
+body {{ margin: 0; min-height: 100vh; display: grid; place-items: center; background: #121418; color: #e8eaee;
+  font: 16px system-ui, sans-serif; padding: 24px; box-sizing: border-box; }}
+main {{ max-width: 34rem; display: grid; gap: 12px; }} h1 {{ font: 400 2rem Georgia, serif; margin: 0; }}
+p {{ margin: 0; color: #949bab; line-height: 1.5; }} .err {{ white-space: pre-wrap; background: #2a1517; color: #f0645a;
+  padding: 12px; border-radius: 8px; font: 13px monospace; margin: 0; }}
+.dot {{ width: 10px; height: 10px; border-radius: 50%; background: #3cc58a; animation: p 1.2s infinite alternate; }}
+@keyframes p {{ to {{ opacity: .2; }} }}
+</style></head><body><main><div class="dot"></div><h1>Analista BTC</h1><p>{html.escape(message)}</p>{extra}
+<p>Esta página se actualiza sola.</p></main></body></html>"""
+    with open(path + ".tmp", "w", encoding="utf-8") as f:
+        f.write(page)
+    os.replace(path + ".tmp", path)
+
+
 def page_version():
     return round(os.path.getmtime(PAGE_FILE), 3)
 
@@ -870,6 +891,10 @@ def run_live(every, public=False):
                 return
             super().do_HEAD()
 
+        def list_directory(self, path):
+            self.send_error(404)                 # nunca se muestra el contenido de la carpeta
+            return None
+
         def authorized(self):
             """Usuario cualquiera; vale la contrasena. Se compara en tiempo constante."""
             import base64
@@ -883,9 +908,12 @@ def run_live(every, public=False):
                 return False
             return hmac.compare_digest(given.encode(), password.encode())
 
-    os.makedirs(LIVE_DIR, exist_ok=True)
     host, port = ("0.0.0.0", int(os.environ.get("PORT", LIVE_PORT))) if public else ("127.0.0.1", LIVE_PORT)
     os.makedirs(LIVE_DIR, exist_ok=True)
+    index = os.path.join(LIVE_DIR, "index.html")
+    if public or not os.path.exists(index):     # hasta que termine el primer analisis
+        write_waiting_page(index, "Preparando el primer análisis: baja el historial de velas y calcula todo. "
+                                  "Puede tardar uno o dos minutos.")
     server = http.server.ThreadingHTTPServer((host, port), functools.partial(Quiet, directory=LIVE_DIR))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     url = f"http://127.0.0.1:{port}/"
@@ -917,7 +945,12 @@ def run_live(every, public=False):
                 print(f"{time.strftime('%H:%M:%S')}  BTC {ar(head['precio'], 1)}  ({time.time() - started:.1f} s)  {head['lectura']}",
                       flush=True)
             except Exception as e:  # un corte de red no tiene que frenar el modo en vivo
-                print(f"(no se pudo actualizar: {type(e).__name__}: {e})")
+                import traceback
+                print(f"(no se pudo actualizar: {type(e).__name__}: {e})", flush=True)
+                traceback.print_exc()
+                if page_stamp is None:            # todavia no hay dashboard: el error se ve en la pantalla de espera
+                    write_waiting_page(index, "El análisis falló y se vuelve a intentar solo.",
+                                       f"{time.strftime('%H:%M:%S')}  {type(e).__name__}: {e}")
             time.sleep(max(1, every - (time.time() - started)))
     except KeyboardInterrupt:
         print("Modo en vivo detenido.")
