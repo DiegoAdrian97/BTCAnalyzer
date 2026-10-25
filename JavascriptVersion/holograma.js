@@ -456,21 +456,35 @@ const crossLbl = textPlane(CW, 0.6, (ctx, w, h, parts) => {
 });
 const crossTag = textPlane(2.5, 0.62, (ctx, w, h, txt) => {
   ctx.fillStyle = '#e8fbff'; ctx.beginPath(); ctx.roundRect(4, 6, w - 8, h - 12, h * 0.22); ctx.fill();
-  ctx.globalCompositeOperation = 'destination-out';
-  ctx.font = `800 ${h * 0.56}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, w / 2, h / 2 + 1);
-  ctx.globalCompositeOperation = 'source-over';
+  // texto oscuro (no calado) para que tape la etiqueta del eje que quede detras
+  ctx.fillStyle = '#04141c'; ctx.font = `800 ${h * 0.56}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, w / 2, h / 2 + 1);
 });
 chart.add(crossLbl, crossTag);
 [crossV, crossH, crossLbl, crossTag].forEach((o) => { o.visible = false; });
 const futLbl = textPlane(5, 0.5, (ctx, w, h, txt) => glowText(ctx, txt, w - 6, h / 2, h * 0.5, '#ffffff', 700, 'right', 0.25));
 chart.add(priceTag, futLbl);
 
+/** Varios textos seguidos (con su color) alineados a la derecha. */
+function rightParts(ctx, parts, xr, y, size) {
+  const gap = size * 0.4, ws = parts.map(([t, , b]) => { ctx.font = `${b ? 800 : 600} ${size}px system-ui, -apple-system, "Segoe UI", sans-serif`; return ctx.measureText(t).width; });
+  let x = xr - ws.reduce((a, b) => a + b, 0) - gap * (parts.length - 1);
+  parts.forEach(([t, col, b], k) => { glowText(ctx, t, x, y, size, col, b ? 800 : 600, 'left', 0); x += ws[k] + gap; });
+}
 // cabecera: par, precio grande y cambio
 const header = textPlane(CW + 0.6, 2.3, (ctx, w, h) => {
   const t = D.tick[CFG.asset] || {}, last = D.bars.length ? D.bars[D.bars.length - 1][4] : t.last;
   const pct = t.pct ?? null, col = pct === null ? T().acc : pct >= 0 ? T().up : T().dn;
   glowText(ctx, `${nameOf(CFG.asset)}/USDT`, 10, h * 0.2, h * 0.2, T().acc, 800);
   glowText(ctx, `${TF_LBL[CFG.tf]} · ${D.src || '…'}`, w - 10, h * 0.2, h * 0.17, '#9fe9ff', 600, 'right', 0.05);
+  // la vela bajo el dedo o la cruz (la ultima si no hay ninguna): apertura, maximo, minimo, cierre y cambio
+  const hb = HOVER ? HOVER.b : D.bars[D.bars.length - 1];
+  if (hb) {
+    const d = dec(hb[4]), cc = hb[4] >= hb[1] ? T().up : T().dn, fs = h * 0.135;
+    const when = new Date(hb[0]).toLocaleString('es-AR', CFG.tf === '1d' ? { weekday: 'short', day: '2-digit', month: '2-digit' } : { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+    rightParts(ctx, [['A', '#7fd8f5'], [fmt(hb[1], d), cc, 1], ['Máx', '#7fd8f5'], [fmt(hb[2], d), cc, 1]], w - 10, h * 0.43, fs);
+    rightParts(ctx, [['Mín', '#7fd8f5'], [fmt(hb[3], d), cc, 1], ['C', '#7fd8f5'], [fmt(hb[4], d), cc, 1]], w - 10, h * 0.61, fs);
+    rightParts(ctx, [[HOVER && HOVER.g ? 'Futuro posible' : HOVER ? when : `Última · ${when}`, '#9fe9ff'], [fpct((hb[4] / hb[1] - 1) * 100), cc, 1]], w - 10, h * 0.79, fs);
+  }
   const x = 10 + glowText(ctx, fmt(last, dec(last || 1)), 10, h * 0.64, h * 0.5, '#d8f7ff', 800, 'left', 0.05) + h * 0.2;
   if (pct !== null) glowText(ctx, `${fpct(pct)} en 24 h`, x, h * 0.68, h * 0.22, col, 800, 'left', 0.08);
 });
@@ -552,8 +566,10 @@ function act(a, remote = false) {
   else if (a.t === 'yzoom') V.yZoom = clamp(V.yZoom * a.f, 0.3, 4);
   else if (a.t === 'asset') stepAsset(a.dir);
   else if (a.t === 'tf') stepTf(a.dir);
-  else if (a.t === 'reset') { Object.assign(V, VDEF); V.manual = null; flash('Vista inicial'); }
+  else if (a.t === 'reset') { Object.assign(V, VDEF); V.manual = null; PIN = null; flash('Vista inicial'); }
   else if (a.t === 'point') { POINT = a.x === null ? null : { x: a.x, y: a.y }; return; }
+  else if (a.t === 'pin') { PIN = a.pin || null; return; }
+  else if (a.t === 'click') { clickAt(a.x, a.y, !remote && a.hand !== false); return; }
   else if (a.t === 'sync') { if ((a.asset && a.asset !== CFG.asset) || (a.tf && a.tf !== CFG.tf)) load(a.asset || CFG.asset, a.tf || CFG.tf, true, a.asset !== CFG.asset ? assetTurn(a.asset) : tfTurn(a.tf)); }
   dirty = true;
   if (!remote) link.send(a);
@@ -617,9 +633,10 @@ function grab(a) {
   if (!GRAB) return;
   GRAB.moved = Math.max(GRAB.moved, Math.hypot(a.x - GRAB.x, a.y - GRAB.y));
   if (a.phase === 'end') {
-    // pellizco corto y sin moverse sobre una cripto: es un clic
-    if (GRAB.tile && GRAB.moved < 0.03 && Date.now() - GRAB.t < 600 && GRAB.tile !== CFG.asset) setAsset(GRAB.tile);
-    GRAB = null; return;
+    // pellizco o toque corto y sin moverse: es un clic
+    const g = GRAB; GRAB = null;
+    if (g.moved < 0.02 && Date.now() - g.t < 450) clickAt(g.x, g.y, false);
+    return;
   }
   if (GRAB.slot === undefined || !LAY) return;
   const p = chartAt(a.x, a.y); if (!p) return;
@@ -631,32 +648,58 @@ function grab(a) {
   V.manual = { lo: m.lo + sh, hi: m.hi + sh };
   dirty = true;
 }
-/** La mira: la vela que esta debajo del dedo (o del mouse), con su precio y su fecha. */
-function updateCross() {
-  const show = (v) => [crossV, crossH, crossLbl, crossTag].forEach((o) => { o.visible = v; });
-  if (!POINT || !LAY) { show(false); return; }
-  ndc.set(POINT.x * 2 - 1, -(POINT.y * 2 - 1));
-  ray.setFromCamera(ndc, camera);
-  const hit = ray.intersectObject(glass)[0];
-  if (!hit) { show(false); return; }
-  const p = chart.worldToLocal(hit.point.clone());
+/** La vela y el precio en un punto de la pantalla (null si cae fuera del grafico). */
+function slotAt(x, y) {
+  if (!LAY) return null;
+  const p = chartAt(x, y); if (!p) return null;
   const i = Math.round((p.x - LAY.x0) / LAY.step);
-  if (i < 0 || i >= LAY.nr + LAY.ghosts.length || p.y < -CH / 2 || p.y > CH / 2) { show(false); return; }
+  if (i < 0 || i >= LAY.nr + LAY.ghosts.length || p.y < -CH / 2 || p.y > CH / 2 || Math.abs(p.x) > CW / 2 + 0.2) return null;
   const g = i >= LAY.nr ? LAY.ghosts[i - LAY.nr] : null;
-  const b = g ? [g.t, g.o, g.h, g.l, g.c, 0] : LAY.vis[i], x = LAY.x0 + i * LAY.step, yy = clamp(p.y, LAY.yb, LAY.yt);
-  const price = LAY.lo + (yy - LAY.yb) / (LAY.yt - LAY.yb) * (LAY.hi - LAY.lo), d = dec(b[4]);
-  crossV.userData.set([x, -CH / 2, 0.7, x, CH / 2, 0.7]); crossH.userData.set([-CW / 2, yy, 0.7, CW / 2, yy, 0.7]);
-  crossTag.position.set(CW / 2 + LQW + 1.55, yy, 0.8); crossLbl.position.set(0, CH / 2 - 0.45, 0.8);
-  const key = `${b[0]}|${b[4]}|${fmt(price, d)}`;
-  if (crossLbl.userData.k !== key) {
-    crossLbl.userData.k = key;
-    const col = b[4] >= b[1] ? T().up : T().dn;
-    const when = new Date(b[0]).toLocaleString('es-AR', CFG.tf === '1d' ? { weekday: 'short', day: '2-digit', month: '2-digit' } : { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-    crossLbl.userData.draw([[g ? `Futuro posible · ${when}` : when, '#e8fbff', true], ['A', '#7fd8f5'], [fmt(b[1], d), col, true], ['Máx', '#7fd8f5'], [fmt(b[2], d), col, true],
-      ['Mín', '#7fd8f5'], [fmt(b[3], d), col, true], ['C', '#7fd8f5'], [fmt(b[4], d), col, true], [fpct((b[4] / b[1] - 1) * 100), col, true]]);
-    crossTag.userData.draw(fmt(price, d));
+  const b = g ? [g.t, g.o, g.h, g.l, g.c, 0] : LAY.vis[i];
+  const yy = clamp(p.y, LAY.yb, LAY.yt);
+  return { i, b, g: !!g, price: LAY.lo + (yy - LAY.yb) / (LAY.yt - LAY.yb) * (LAY.hi - LAY.lo) };
+}
+/** La cruz fija del clic, ubicada en la vista de ahora (la vela por su hora, aunque el grafico se haya movido). */
+function pinSlot() {
+  if (!PIN || !LAY) return null;
+  let i = LAY.vis.findIndex((b) => b[0] === PIN.t), g = null;
+  if (i < 0) { const k = LAY.ghosts.findIndex((q) => q.t === PIN.t); if (k >= 0) { i = LAY.nr + k; g = LAY.ghosts[k]; } }
+  if (i < 0) return null;
+  return { i, b: g ? [g.t, g.o, g.h, g.l, g.c, 0] : LAY.vis[i], g: !!g, price: PIN.price };
+}
+let HOVER = null, headDirty = false;   // la vela que se muestra en la cabecera (como el hover de TradingView)
+/**
+ * Un clic (pulgar + medio, o un toque corto): en un boton lo aprieta; en una cripto la elige; en el grafico deja la
+ * cruz fija en ese punto (fecha, hora y precio) con los datos de la vela arriba; fuera del grafico la saca.
+ */
+function clickAt(x, y, dom) {
+  if (dom && CFG.modo === 'ventana') {
+    const r = stage.getBoundingClientRect(), el = document.elementFromPoint(r.left + x * r.width, r.top + y * r.height);
+    const b = el && el.closest('button, select, input, label, a');
+    if (b && !stage.contains(b)) { b.click(); if (b.matches('select, input')) b.focus(); return; }
   }
-  show(true);
+  const sym = tileAt(x, y);
+  if (sym) { if (sym !== CFG.asset) { setAsset(sym, true, assetTurn(sym)); link.send({ t: 'sync', asset: sym, tf: CFG.tf }); } return; }
+  const hit = slotAt(x, y);
+  PIN = hit ? { t: hit.b[0], price: hit.price } : null;
+  link.send({ t: 'pin', pin: PIN });
+}
+/** La mira: la vela que esta debajo del dedo (o del mouse) o la que fijo el clic, con su precio y su fecha. */
+function updateCross() {
+  const show = (v) => [crossV, crossH, crossTag].forEach((o) => { o.visible = v; });
+  crossLbl.visible = false;            // los datos de la vela van en la cabecera, arriba a la derecha
+  const hit = (POINT && slotAt(POINT.x, POINT.y)) || pinSlot();
+  const hk = hit ? `${hit.b[0]}|${hit.b[1]}|${hit.b[2]}|${hit.b[3]}|${hit.b[4]}|${hit.g}` : '';
+  if (hk !== (HOVER ? HOVER.k : '')) { HOVER = hit ? { ...hit, k: hk } : null; headDirty = true; }
+  if (!hit) { show(false); return; }
+  const x = LAY.x0 + hit.i * LAY.step, yy = LAY.yb + (hit.price - LAY.lo) / (LAY.hi - LAY.lo) * (LAY.yt - LAY.yb);
+  const inY = yy >= LAY.yb - 0.01 && yy <= LAY.yt + 0.01;
+  crossV.userData.set([x, -CH / 2, 0.7, x, CH / 2, 0.7]);
+  crossH.userData.set([-CW / 2, yy, 0.7, CW / 2, yy, 0.7]);
+  crossTag.position.set(CW / 2 + LQW + 1.55, yy, 0.8);
+  const tk = fmt(hit.price, dec(hit.b[4]));
+  if (crossTag.userData.k !== tk) { crossTag.userData.k = tk; crossTag.userData.draw(tk); }
+  crossV.visible = true; crossH.visible = crossTag.visible = inY;
 }
 
 function rebuild(dt) {
@@ -877,7 +920,7 @@ function resize() {
 window.addEventListener('resize', resize);
 
 // ---------- cuadro por cuadro ----------
-let lastT = performance.now(), panelT = 0;
+let lastT = performance.now(), panelT = 0, headT = 0;
 function frameLoop(now) {
   requestAnimationFrame(frameLoop);
   if (document.hidden) return;
@@ -888,7 +931,7 @@ function frameLoop(now) {
   if (Math.abs(dOff) > 1e-3) { VS.offset += dOff * (1 - Math.pow(1e-4, dt)); dirty = true; } else VS.offset = V.offset;
   if (dirty || rangeMoving()) { dirty = false; rebuild(dt); }
   if ((panelsDirty || priceDirty) && now - panelT > 250) {
-    panelT = now; header.userData.draw();
+    panelT = now; header.userData.draw(); headDirty = false;
     if (panelsDirty) { tiles.forEach((m) => m.userData.draw()); stats.userData.draw(); backA.userData.draw(); backB.userData.draw(); chartGlass.userData.draw(); }
     else tiles.forEach((m) => { if (m.userData.sym === CFG.asset) m.userData.draw(); });   // el precio de la cripto elegida, al tick
     panelsDirty = priceDirty = false;
@@ -909,6 +952,7 @@ function frameLoop(now) {
   holoPass.uniforms.time.value = t;
   applyEye(dt);
   updateCross();
+  if (headDirty && now - headT > 60) { headT = now; headDirty = false; header.userData.draw(); }
   render(dt);
   drawHud(now);
 }
@@ -939,8 +983,8 @@ function drawHud() {
     ctx.shadowColor = acc; ctx.shadowBlur = 20;
     ctx.strokeStyle = c.state === 'pinch' ? '#ffffff' : acc; ctx.lineWidth = Math.max(3, w / 400);
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
-    if (c.state === 'pinch' || c.state === 'fist' || c.state === 'point') { ctx.fillStyle = c.state === 'pinch' ? acc : c.state === 'fist' ? T().e50 : '#ffffff'; ctx.beginPath(); ctx.arc(x, y, r * 0.45, 0, Math.PI * 2); ctx.fill(); }
-    const NAME = { pinch: list.filter((q) => q.state === 'pinch').length === 2 ? 'Zoom / girar' : 'Arrastrar', fist: 'Girar', point: 'Apuntar', open: holdP > 0 ? 'Quieta: reiniciar' : 'Deslizá: cripto o tiempo' };
+    if (c.state === 'pinch' || c.state === 'fist' || c.state === 'point' || c.state === 'tap') { ctx.fillStyle = c.state === 'pinch' ? acc : c.state === 'fist' ? T().e50 : '#ffffff'; ctx.beginPath(); ctx.arc(x, y, r * 0.45, 0, Math.PI * 2); ctx.fill(); }
+    const NAME = { pinch: list.filter((q) => q.state === 'pinch').length === 2 ? 'Zoom / girar' : 'Arrastrar', fist: 'Girar', point: 'Apuntar', tap: 'Clic: fijar la cruz', open: holdP > 0 ? 'Quieta: reiniciar' : 'Deslizá: cripto o tiempo' };
     if (NAME[c.state]) {
       const fs = Math.max(13, w / 95);
       ctx.font = `700 ${fs}px system-ui, sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
