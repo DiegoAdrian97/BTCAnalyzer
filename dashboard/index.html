@@ -948,7 +948,7 @@
       const lastT = bars[bars.length - 1].t, endT = lastT + steps * tfMs;
       pick(rows, 'patron', tf).forEach((p) => {
         const exKey = `pat-${p.clase}-${p.nombre}`;
-        const g0 = g0.append('g').attr('data-ex', exKey), tg = svg.append('g').attr('data-ex', exKey);
+        const g0 = pg.append('g').attr('data-ex', exKey), tg = svg.append('g').attr('data-ex', exKey);
         const col = p.sesgo === 'alcista' ? 'var(--color-ok)' : p.sesgo === 'bajista' ? 'var(--color-bad)' : 'var(--color-warn)';
         if (p.clase === 'grafico') {
           const conf = p.estado === 'confirmado';
@@ -1005,7 +1005,7 @@
         (groups[k] = groups[k] || { ...d, names: [] }).names.push(d.indicador);
       });
       Object.values(groups).forEach((d) => {
-        const g0 = g0.append('g').attr('data-ex', `div-${d.t1}-${d.t2}-${d.tipo}`);
+        const g0 = pd.append('g').attr('data-ex', `div-${d.t1}-${d.t2}-${d.tipo}`);
         const i1 = bars.findIndex((b) => b.t === num(d.t1)), i2 = bars.findIndex((b) => b.t === num(d.t2));
         if (i1 < 0 || i2 < 0) return;
         const col = d.tipo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)', off = d.tipo === 'bajista' ? -9 : 9;
