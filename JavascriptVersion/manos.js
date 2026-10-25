@@ -6,7 +6,9 @@
  *   e indice a menos de ~3,5 cm, y un dedo esta estirado o doblado segun el angulo de sus articulaciones. Asi no
  *   depende de lo lejos que estes de la camara ni de como gires la mano.
  * - Cada punto pasa por un filtro "One Euro": quieto no tiembla y rapido no se atrasa.
+ * - Zona muerta: los movimientos de unos pocos pixeles se ignoran (sin escalones: al pasarla, sigue suave).
  * - Un gesto tiene que sostenerse 3 cuadros para contar (no parpadea), y las manos se siguen por su posicion.
+ * - Si la camara pierde la mano unos cuadros (un error de deteccion), el gesto sigue: no se suelta el grafico.
  *
  * Gestos (la imagen se mira como un espejo: derecha es tu derecha):
  * - pellizco: agarra el grafico justo donde pellizcas (la vela y el precio quedan bajo tus dedos mientras moves la
@@ -27,6 +29,8 @@ const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 // la mano no llega a los bordes de lo que ve la camara: el centro de la imagen se estira a toda la pantalla
 const REACH = 1.45;
+const DEAD = 0.004;          // zona muerta (fraccion de la pantalla, ~5 px en la MacBook)
+const GRACE = 6;             // cuadros que se espera a una mano que la camara perdio antes de soltar el gesto
 const toScreen = (p) => ({ x: clamp(0.5 + (p.x - 0.5) * REACH, 0, 1), y: clamp(0.5 + (p.y - 0.5) * REACH, 0, 1) });
 
 /** Filtro One Euro: suaviza mucho cuando el valor esta quieto y poco cuando se mueve rapido. */
@@ -177,8 +181,19 @@ export class Manos {
       // Si cambia de gesto, el filtro arranca de cero (son puntos distintos: mezclarlos haria saltar el grafico)
       if (t.state !== prevState) { t.fx = new OneEuro(); t.fy = new OneEuro(); }
       const raw = toScreen(h.spots[t.state === 'pinch' ? 'pinch' : t.state === 'point' ? 'point' : 'other']);
-      const at = { x: t.fx.filter(raw.x, now), y: t.fy.filter(raw.y, now) };
-      return Object.assign(t, { wrist: s.wrist, P: h.P.map(toScreen), prevAt: t.at && prevState === t.state ? t.at : null, at, size: h.size });
+      const f = { x: t.fx.filter(raw.x, now), y: t.fy.filter(raw.y, now) };
+      // zona muerta: el punto solo se mueve si el dedo se alejo mas que DEAD; y entonces sigue sin saltar
+      let at = f;
+      if (t.at && prevState === t.state) {
+        const dx = f.x - t.at.x, dy = f.y - t.at.y, d = Math.hypot(dx, dy);
+        at = d > DEAD ? { x: t.at.x + dx * (d - DEAD) / d, y: t.at.y + dy * (d - DEAD) / d } : t.at;
+      }
+      return Object.assign(t, { wrist: s.wrist, P: h.P.map(toScreen), prevAt: t.at && prevState === t.state ? t.at : null, at, size: h.size, lost: 0 });
+    });
+    // una mano que la camara dejo de ver un instante se mantiene unos cuadros con su ultimo gesto (quieta)
+    this.tracks.forEach((t) => {
+      if (used.has(t.id) || (t.lost || 0) >= GRACE) return;
+      tracks.push(Object.assign(t, { lost: (t.lost || 0) + 1, prevAt: t.at }));
     });
     this.tracks = tracks;
 
@@ -214,7 +229,7 @@ export class Manos {
     else if (this.pointing) { this.pointing = false; this.onAction({ t: 'point', x: null, y: null }); }
 
     // palma abierta: deslizar rapido o quedarse quieta
-    const open = tracks.length === 1 && tracks[0].state === 'open' && now - tracks[0].born > 250 ? tracks[0] : null;
+    const open = tracks.length === 1 && tracks[0].state === 'open' && !tracks[0].lost && now - tracks[0].born > 250 ? tracks[0] : null;
     if (open) {
       this.hist.push({ t: now, x: open.at.x, y: open.at.y });
       this.hist = this.hist.filter((q) => now - q.t < 1700);
@@ -235,6 +250,6 @@ export class Manos {
       if (p >= 1 && now > this.cool) { this.onAction({ t: 'reset' }); this.cool = now + 2500; this.holdStart = now; this.hist = []; }
     } else { this.hist = []; this.holdStart = now; this.onHold(0); }
 
-    this.onCursor(tracks.map((t) => ({ x: t.at.x, y: t.at.y, state: t.state, pts: t.P })));
+    this.onCursor(tracks.map((t) => ({ x: t.at.x, y: t.at.y, state: t.state, pts: t.lost ? null : t.P })));
   }
 }
