@@ -182,10 +182,17 @@
   .ab-iconbtn { font: inherit; font-size: var(--cds-font-size-caption); padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line);
     background: var(--paper); color: var(--ink); cursor: pointer; }
   .ab-chart { position: relative; height: 460px; min-height: 280px; resize: vertical; overflow: hidden; }
-  @media (max-width: 600px) { .ab-chart { height: 360px; } }
+  .ab-chart.ab-with-osc { height: 640px; }
+  @media (max-width: 600px) { .ab-chart { height: 380px; } .ab-chart.ab-with-osc { height: 560px; } }
+  .ab-osc-bg { fill: var(--color-fg); fill-opacity: .035; }
+  .ab-osc-ref { stroke: var(--mute); stroke-opacity: .55; stroke-dasharray: 3 3; }
+  .ab-osc-line { fill: none; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+  .ab-osc-lbl, .ab-ax-t { fill: var(--mute); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+  .ab-osc-lbl { font-weight: 600; }
   .ab-card:not(#grafico), .ab-more { resize: both; overflow: auto; max-width: 100%; }
   .ab-card, .ab-more { min-width: 0; }
-  .ab-chart svg { display: block; overflow: hidden; touch-action: pan-y; }
+  .ab-chart, .ab-chart svg { touch-action: none; }
+  .ab-chart svg { display: block; overflow: hidden; }
   .ab-ax text { fill: var(--mute); font-size: 11px; font-variant-numeric: tabular-nums; }
   .ab-gl { stroke: var(--cds-chart-grid); stroke-width: 1; }
   .ab-c-up line, .ab-c-up rect { stroke: var(--up); fill: var(--up); }
@@ -310,6 +317,33 @@
   @media (prefers-reduced-motion: no-preference) {
     .ab-fresh .ab-card, .ab-fresh .ab-plazo, .ab-fresh .ab-more[open] { animation: ab-fresh 1.1s ease-out; }
   }
+  /* telefono (iPhone y similares): todo en una columna, sin nada encimado */
+  @media (max-width: 600px) {
+    .ab { gap: var(--cds-gap-md); }
+    .ab-card { padding: var(--cds-pad-md); }
+    .ab-more summary { padding: var(--cds-pad-md); }
+    .ab-more-body { padding: 0 var(--cds-pad-md) var(--cds-pad-md); }
+    .ab-plazos { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding-bottom: 2px; }
+    .ab-plazos::-webkit-scrollbar { display: none; }
+    .ab-plazo { flex: 0 0 8.6rem; scroll-snap-align: start; }
+    .ab-plazo:hover { transform: none; }
+    .ab-tug { height: 62px; }
+    .ab-tug > div { flex-direction: column; justify-content: center; align-items: flex-start; gap: 0; padding-inline: 10px; }
+    .ab-tug-u { align-items: flex-end; }
+    .ab-tug-u span { order: 2; }
+    .ab-tug b { font-size: 1.3rem; line-height: 1.15; }
+    .ab-range-ends { flex-wrap: wrap; row-gap: 2px; }
+    .ab-range-ends span:nth-child(2) { order: 3; width: 100%; text-align: center; }
+    .ab-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ab-tile { padding: var(--cds-pad-sm); }
+    .ab-zoom .ab-note { flex-basis: 100%; }
+  }
+  .ab-only-touch { display: none; }
+  @media (hover: none) {
+    .ab-card:not(#grafico), .ab-more, .ab-chart { resize: none; }
+    .ab-only-touch { display: inline; } .ab-only-mouse { display: none; }
+  }
+  .ab-sigchip { white-space: nowrap; }
   @keyframes ab-fresh { 0% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-ok) 70%, transparent); } 100% { box-shadow: 0 0 0 1px transparent; } }
   @keyframes ab-in { from { opacity: .001; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   @keyframes ab-rise { from { opacity: .001; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -388,6 +422,7 @@
           <button type="button" class="ab-chipbtn" data-layer="patrones" aria-pressed="true"><i style="background: var(--color-warn)"></i>Patrones y divergencias</button>
           <button type="button" class="ab-chipbtn" data-layer="ondas" aria-pressed="true"><i style="background: var(--color-fg)"></i>Ondas</button>
           <button type="button" class="ab-chipbtn" data-layer="liq" aria-pressed="true"><i style="background: var(--color-bad)"></i>Liquidaciones</button>
+          <button type="button" class="ab-chipbtn" data-layer="osc" aria-pressed="true"><i style="background: var(--ab-c2)"></i>RSI y MACD</button>
           <button type="button" class="ab-iconbtn" id="replay">↻ Repetir</button>
         </div>
       </div>
@@ -399,7 +434,7 @@
           <button type="button" class="ab-iconbtn" data-yzoom="out" aria-label="Comprimir el eje de precios">↕ más</button>
           <button type="button" class="ab-iconbtn" data-yzoom="in" aria-label="Estirar el eje de precios">↕ menos</button></span>
         <button type="button" class="ab-iconbtn" id="fit">Ajustar</button>
-        <span class="ab-note">Rueda: zoom · arrastrá el gráfico para ir atrás · arrastrá el eje de precios para comprimirlo · doble clic: ajustar</span>
+        <span class="ab-note"><span class="ab-only-mouse">Arrastrá el gráfico para moverte · rueda: zoom · arrastrá el eje de precios o el de horas para estirarlos · arrastrá las líneas entre paneles para cambiar su alto · doble clic: ajustar</span><span class="ab-only-touch">Arrastrá con un dedo para moverte · pellizcá para zoom (de costado: velas; vertical: precios) · arrastrá los ejes o las líneas entre paneles para ajustarlos · tocá una vela para ver sus datos</span></span>
       </div>
       <div class="ab-chart dash-skeleton" id="chart" data-source="analisis"></div>
       <span class="ab-kicker">Qué estás viendo</span>
@@ -495,14 +530,17 @@
   const SCEN_TXT = { tipico: 'típico', alcista: 'alcista', bajista: 'bajista' };
   const tz = { timeZone: 'America/Argentina/Buenos_Aires' };
   const fmtT = (t, tf) => new Date(Number(t)).toLocaleString('es-AR', tf === '1d' ? { ...tz, day: '2-digit', month: '2-digit' }
-    : { ...tz, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    : { ...tz, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
   const pick = (rows, t, tf) => rows.filter((r) => r.tabla === t && (tf === undefined || r.tf === tf));
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
   const later = (fn) => (reduce ? fn() : requestAnimationFrame(() => requestAnimationFrame(fn)));
   // cada plazo se mira con las velas que mejor lo muestran
   const PLAZO_VIEW = { '5 min': '5m', '15 min': '15m', '1 hora': '1h', '4 horas': '4h', '1 día': '1d' };
-  const S = { plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, geom: null, rows: null, sum: null,
-    layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, liq: true } };
+  const S = { plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
+    pane: { vol: null, rsi: .14, macd: .14 }, oscZ: { rsi: 1, macd: 1 },
+    layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, liq: true, osc: true } };
+  const defBars = () => (window.innerWidth < 600 ? 50 : 90);   // en el telefono, menos velas para que se lean
+  S.nbars = defBars();
   const TF_MIN = { '5m': 5, '15m': 15, '30m': 30, '1h': 60, '4h': 240, '1d': 1440 };
   const dur = (min) => (min < 60 ? `${min} min` : min < 1440 ? `${Math.round(min / 60)} h` : `${Math.round(min / 1440)} d`);
   const M = (v) => `${f1(v)} M USD`;
@@ -552,8 +590,11 @@
   }
 
   (function chartInteractions() {
+    // como en TradingView: arrastrar mueve el grafico en cualquier direccion; arrastrar el eje de precios lo comprime o estira;
+    // arrastrar el eje de horas (abajo) cambia cuantas velas entran; arrastrar las lineas entre paneles cambia sus alturas
     const box = document.getElementById('chart');
-    const clampY = (v) => Math.min(10, Math.max(0.3, v)), clampN = (v) => Math.min(300, Math.max(20, v));
+    const clampY = (v) => Math.min(10, Math.max(0.15, v)), clampN = (v) => Math.min(300, Math.max(12, v));
+    const clampZ = (v) => Math.min(8, Math.max(0.5, v)), clampP = (v) => Math.min(.4, Math.max(.05, v));
     let drag = null, pending = false;
     const redrawChart = () => {
       if (pending) return;
@@ -561,32 +602,82 @@
       requestAnimationFrame(() => { pending = false; if (S.rows) drawChart(S.rows, S.sum); });
     };
     const scale = () => (S.geom ? S.geom.W / box.getBoundingClientRect().width : 1);
-    const onAxis = (clientX) => (clientX - box.getBoundingClientRect().left) * scale() > S.geom.plotR + S.geom.heatW;
+    const at = (e) => { const r = box.getBoundingClientRect(), k = scale(); return { x: (e.clientX - r.left) * k, y: (e.clientY - r.top) * k }; };
+    // que hay debajo del puntero
+    function zone(e) {
+      const g = S.geom, p = at(e);
+      const dv = g.divs.find((d) => Math.abs(p.y - d.y) <= 7);
+      if (dv) return { mode: 'div', pane: dv.k };
+      if (p.y >= g.timeT) return { mode: 't' };
+      const osc = g.panes.find((q) => p.y >= q.t - 4 && p.y <= q.b + 4);
+      const axis = p.x > g.plotR + g.heatW;
+      if (osc) return { mode: axis ? 'oz' : 'x', pane: osc.k };
+      if (axis) return p.y <= g.priceB ? { mode: 'y' } : { mode: 'x' };
+      return { mode: p.y <= g.priceB ? 'xy' : 'x' };
+    }
+    const CURSOR = { div: 'row-resize', t: 'ew-resize', y: 'ns-resize', oz: 'ns-resize', x: 'grab', xy: 'grab' };
+    const paneNow = (k) => (k === 'vol' ? (S.pane.vol !== null ? S.pane.vol : S.layers.osc ? .09 : .14) : S.pane[k]);
     box.addEventListener('wheel', (e) => {
       if (!S.geom) return;
       e.preventDefault();
-      if (onAxis(e.clientX)) S.yzoom = clampY(S.yzoom * (e.deltaY > 0 ? 1.12 : 1 / 1.12));
+      const z = zone(e), f = e.deltaY > 0 ? 1.12 : 1 / 1.12;
+      if (z.mode === 'y') S.yzoom = clampY(S.yzoom * f);
+      else if (z.mode === 'oz') S.oscZ[z.pane] = clampZ(S.oscZ[z.pane] / f);
       else S.nbars = clampN(S.nbars * (e.deltaY > 0 ? 1.15 : 1 / 1.15));
       redrawChart();
     }, { passive: false });
     box.addEventListener('pointerenter', () => { S.hover = true; });
-    box.addEventListener('pointerleave', () => { S.hover = false; });
+    box.addEventListener('pointerleave', (e) => {
+      S.hover = false;
+      if (!drag) box.style.cursor = '';
+      // en el telefono el detalle queda a la vista despues de tocar; con el mouse se va al salir
+      if (e.pointerType === 'mouse' && !drag) { S.lastPt = null; if (S.pointAt) S.pointAt(null); }
+    });
+    const touches = new Map();
+    let pinch = null;
+    const spreads = () => { const [a, b] = [...touches.values()]; return { x: Math.abs(a.x - b.x), y: Math.abs(a.y - b.y) }; };
     box.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'touch') {
+        touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (touches.size === 2) { drag = null; pinch = { d: spreads(), n: S.nbars, yz: S.yzoom }; return; }
+      }
       if (!S.geom || e.button !== 0) return;
-      drag = { mode: onAxis(e.clientX) ? 'y' : 'x', x: e.clientX, y: e.clientY, off: S.offset, yz: S.yzoom };
+      S.lastPt = at(e); if (S.pointAt) S.pointAt(S.lastPt);   // tocar o hacer clic muestra el detalle de esa vela
+      const z = zone(e);
+      drag = { ...z, x: e.clientX, y: e.clientY, off: S.offset, yz: S.yzoom, yp: S.ypan, n: S.nbars,
+        pv: z.mode === 'oz' ? S.oscZ[z.pane] : z.mode === 'div' ? paneNow(z.pane) : null };
       box.setPointerCapture(e.pointerId);
-      box.classList.add(drag.mode === 'x' ? 'is-panning' : 'is-scaling');
+      box.classList.add('is-panning');
+      box.style.cursor = drag.mode === 'x' || drag.mode === 'xy' ? 'grabbing' : CURSOR[drag.mode];
     });
     box.addEventListener('pointermove', (e) => {
-      if (!drag) return;
-      if (drag.mode === 'x') S.offset = drag.off + (e.clientX - drag.x) * scale() / S.geom.step;
-      else S.yzoom = clampY(drag.yz * Math.exp((e.clientY - drag.y) * 0.006));
+      if (touches.has(e.pointerId)) touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinch && touches.size === 2) {
+        // pellizcar de costado cambia las velas que entran; de arriba a abajo, el rango de precios
+        const d = spreads();
+        if (pinch.d.x > 30) S.nbars = clampN(pinch.n * pinch.d.x / Math.max(10, d.x));
+        if (pinch.d.y > 30) S.yzoom = clampY(pinch.yz * pinch.d.y / Math.max(10, d.y));
+        redrawChart(); return;
+      }
+      if (!S.geom) return;
+      S.lastPt = at(e);
+      if (!drag) { if (e.pointerType === 'mouse') box.style.cursor = CURSOR[zone(e).mode]; if (S.pointAt) S.pointAt(S.lastPt); return; }
+      const k = scale(), dx = (e.clientX - drag.x) * k, dy = (e.clientY - drag.y) * k, g = S.geom;
+      if (drag.mode === 'x' || drag.mode === 'xy') S.offset = drag.off + dx / g.step;
+      if (drag.mode === 'xy') S.ypan = drag.yp + dy / Math.max(40, g.priceB - g.priceT) * S.yzoom;
+      if (drag.mode === 'y') S.yzoom = clampY(drag.yz * Math.exp(dy * 0.006));
+      if (drag.mode === 't') S.nbars = clampN(drag.n * Math.exp(-dx * 0.006));
+      if (drag.mode === 'oz') S.oscZ[drag.pane] = clampZ(drag.pv * Math.exp(-dy * 0.01));
+      if (drag.mode === 'div') S.pane[drag.pane] = clampP(drag.pv - dy / g.H);
       redrawChart();
     });
-    const stop = () => { drag = null; box.classList.remove('is-panning', 'is-scaling'); };
+    const stop = (e) => {
+      touches.delete(e.pointerId); if (touches.size < 2) pinch = null;
+      drag = null; box.classList.remove('is-panning', 'is-scaling'); box.style.cursor = '';
+    };
     box.addEventListener('pointerup', stop);
     box.addEventListener('pointercancel', stop);
-    const fit = () => { S.nbars = 90; S.offset = 0; S.yzoom = 1; redrawChart(); };
+    const fit = () => { S.nbars = defBars(); S.offset = 0; S.yzoom = 1; S.ypan = 0; S.oscZ = { rsi: 1, macd: 1 }; redrawChart(); };
     box.addEventListener('dblclick', fit);
     document.getElementById('fit').addEventListener('click', fit);
     document.querySelectorAll('[data-zoom]').forEach((b) => b.addEventListener('click', () => {
@@ -652,7 +743,7 @@
     if (S.lastA && nA !== S.lastA) { root.classList.remove('ab-fresh'); void root.offsetWidth; root.classList.add('ab-fresh'); }
     S.lastA = nA;
     document.querySelectorAll('#tfs button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.tf === S.tf)));
-    root.style.setProperty('--ab-c0', dash.colors[0]);
+    root.style.setProperty('--ab-c0', dash.colors[0]); root.style.setProperty('--ab-c2', dash.colors[2]);
     drawHeader(rows, sum);
     drawPlazos(rows);
     drawStory(rows);
@@ -676,7 +767,8 @@
     root.querySelector('[data-field="hora_local"]').textContent = s.hora_local + ' h';
     const hour = Number(String(s.hora_local).slice(-5, -3));
     const next = [0, 8, 12, 16, 20].find((h) => h > hour);
-    document.getElementById('next-run').textContent = `próximo análisis ${String(next === undefined ? 0 : next).padStart(2, '0')}:00 h`;
+    document.getElementById('next-run').textContent = window.abLive ? 'se reanaliza solo'
+      : `próximo análisis ${String(next === undefined ? 0 : next).padStart(2, '0')}:00 h`;
     root.querySelector('.ab-price').replaceChildren(f0(num(s.precio)), el('small', '', 'USDT'));
     const put = (id, v, d) => { const e = document.getElementById(id); e.textContent = v === null ? '—' : sg(v, d);
       e.classList.toggle('ab-up-t', v > 0); e.classList.toggle('ab-down-t', v < 0); };
@@ -712,7 +804,7 @@
 
   // ---------- plazos ----------
   function drawPlazos(rows) {
-    const nav = document.getElementById('plazos'); nav.replaceChildren();
+    const nav = document.getElementById('plazos'), keep = nav.scrollLeft; nav.replaceChildren();
     pick(rows, 'plazo').forEach((p) => {
       const head = pick(rows, 'explicacion').find((e) => e.plazo === p.plazo && e.tipo === 'titular');
       const bias = head ? head.sesgo : 'neutral', pu = num(p.primero_arriba);
@@ -723,6 +815,11 @@
       b.addEventListener('click', () => setPlazo(p.plazo));
       nav.append(b);
     });
+    // en el telefono la tira se desliza: se respeta donde la dejo el usuario y solo se mueve si cambia el plazo
+    nav.scrollLeft = keep;
+    const on = nav.querySelector('[aria-pressed="true"]');
+    if (on && S.plazoShown !== S.plazo && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = on.offsetLeft - nav.offsetLeft - 8;
+    S.plazoShown = S.plazo;
   }
 
   // ---------- que creo que va a pasar ----------
@@ -827,14 +924,16 @@
   function drawChart(rows, sum) {
     if (ghostTimer) { clearInterval(ghostTimer); ghostTimer = null; }
     const box = document.getElementById('chart'); box.replaceChildren();
+    box.classList.toggle('ab-with-osc', !!S.layers.osc);   // con RSI y MACD el grafico crece para que el precio no quede chico
     const tf = S.tf, price = liveBar && liveBar.tf === tf ? liveBar.c : num(sum.precio), L = S.layers;
     const all = pick(rows, 'vela', tf).map((r) => ({ t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), v: num(r.v), en: !!r.en_curso,
-      e20: num(r.ema20), e50: num(r.ema50), bu: num(r.bb_up), bl: num(r.bb_lo) })).sort((a, b) => a.t - b.t);
+      e20: num(r.ema20), e50: num(r.ema50), bu: num(r.bb_up), bl: num(r.bb_lo),
+      rsi: num(r.rsi), macd: num(r.macd), sig: num(r.macd_senal), hist: num(r.macd_hist) })).sort((a, b) => a.t - b.t);
     if (!all.length) return;
     if (liveBar && liveBar.tf === tf) {
       const last = all[all.length - 1];
       if (liveBar.t === last.t) all[all.length - 1] = { ...last, h: liveBar.h, l: liveBar.l, c: liveBar.c, v: liveBar.v };
-      else if (liveBar.t > last.t) all.push({ ...liveBar, e20: null, e50: null, bu: null, bl: null });
+      else if (liveBar.t > last.t) all.push({ ...liveBar, e20: null, e50: null, bu: null, bl: null, rsi: null, macd: null, sig: null, hist: null });
     }
     const nb = Math.max(20, Math.min(all.length, Math.round(S.nbars)));
     S.offset = Math.max(0, Math.min(all.length - nb, S.offset));
@@ -848,12 +947,19 @@
     const giros = pick(rows, 'giro', tf).map((r) => ({ t: num(r.t), p: num(r.precio), w: r.onda, alto: r.tipo === 'alto' }));
     const liq = pick(rows, 'liquidacion').map((r) => ({ p: num(r.precio), l: num(r.longs), s: num(r.shorts) }));
 
-    const W = Math.max(320, box.clientWidth), H = Math.max(280, (box.clientHeight || 440) - 4);
+    const W = Math.max(300, box.clientWidth), H = Math.max(280, (box.clientHeight || 440) - 4);
     const steps = Math.max(ghosts.length, cone.length), n = bars.length + steps;
-    const heatW = L.liq ? Math.min(78, W * .11) : 0, axW = 66;
+    const narrow = W < 520;
+    const heatW = L.liq ? Math.min(narrow ? 44 : 78, W * .11) : 0, axW = narrow ? 54 : 66;
     const m = { t: 24, b: 24, l: 2 };
     const plotR = W - axW - heatW;
-    const volH = Math.round(H * .14), priceB = H - m.b - volH - 8;
+    // de arriba a abajo: precio, volumen y, si estan prendidos, los paneles de RSI y MACD
+    // las alturas de volumen, RSI y MACD se cambian arrastrando la linea que los separa
+    const gapP = 16, PP = S.pane;
+    const rsiH = L.osc ? Math.round(H * PP.rsi) : 0, macdH = L.osc ? Math.round(H * PP.macd) : 0;
+    const macdB = H - m.b, macdT = macdB - macdH, rsiB = macdT - gapP, rsiT = rsiB - rsiH;
+    const volB = L.osc ? rsiT - gapP : H - m.b;
+    const volH = Math.round(H * (PP.vol !== null ? PP.vol : L.osc ? .09 : .14)), priceB = volB - volH - 8;
     const x = d3.scaleBand(d3.range(n), [m.l, plotR]).paddingInner(.3);
     const bw = x.bandwidth(), cxi = (i) => x(i) + bw / 2;
     const vals = live ? [price] : [];
@@ -861,8 +967,9 @@
     ghosts.forEach((g) => vals.push(g.h, g.l)); cone.forEach((c) => vals.push(c.lo, c.hi));
     let [lo, hi] = d3.extent(vals); const pad = (hi - lo) * .06; lo -= pad; hi += pad;
     { const mid = (lo + hi) / 2, half = (hi - lo) / 2 * S.yzoom; lo = mid - half; hi = mid + half; }   // eje comprimido o estirado
+    { const sh = (hi - lo) * S.ypan; lo += sh; hi += sh; }                                              // arrastrado hacia arriba o abajo
     const y = d3.scaleLinear([lo, hi], [priceB, m.t]);
-    const yv = d3.scaleLinear([0, d3.max(bars, (b) => b.v) || 1], [H - m.b, H - m.b - volH]);
+    const yv = d3.scaleLinear([0, d3.max(bars, (b) => b.v) || 1], [volB, volB - volH]);
 
     const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
       .attr('aria-label', `Velas de ${TF_TXT[tf]} con escenario ${SCEN_TXT[S.scen]}`);
@@ -896,9 +1003,34 @@
     const ticks = y.ticks(6);
     svg.append('g').selectAll('line').data(ticks).join('line').attr('class', 'ab-gl').attr('x1', m.l).attr('x2', plotR + heatW).attr('y1', y).attr('y2', y);
     svg.append('g').attr('class', 'ab-ax').selectAll('text').data(ticks).join('text').attr('x', W - 4).attr('y', y).attr('dy', '.32em').attr('text-anchor', 'end').text(f0);
-    const ti = [0, Math.floor(bars.length / 3), Math.floor(2 * bars.length / 3), bars.length - 1];
-    svg.append('g').attr('class', 'ab-ax').selectAll('text').data(ti).join('text').attr('x', cxi).attr('y', H - 8)
-      .attr('text-anchor', (d, k) => (k === 0 ? 'start' : 'middle')).text((i) => fmtT(bars[i].t, tf));
+    // una marca cada ~80 px, en horas redondas; cuando cambia el dia se escribe el dia en negrita
+    const axT = bars.map((b) => b.t).concat(ghosts.map((g) => g.t));
+    const parts = (t) => {
+      const o = {}; new Intl.DateTimeFormat('es-AR', { ...tz, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+        .formatToParts(new Date(Number(t))).forEach((q) => { o[q.type] = q.value; }); return o;
+    };
+    const every = Math.max(1, Math.ceil(80 / x.step()));
+    const NICE = { '5m': [12, 6, 3, 1], '15m': [16, 8, 4, 1], '30m': [16, 8, 4, 2], '1h': [24, 12, 6, 3], '4h': [6, 3, 1], '1d': [30, 14, 7, 1] }[tf] || [1];
+    const stride = NICE.slice().reverse().find((k) => k >= every) || every;
+    const marks = [];
+    let prevDay = null;
+    axT.forEach((t, i) => {
+      const q = parts(t), day = `${q.day}/${q.month}`;
+      const slot = Math.round(t / tfMs);
+      if (slot % stride !== 0 && !(tf !== '1d' && day !== prevDay && i > 0)) return;
+      const newDay = day !== prevDay;
+      prevDay = day;
+      const mk = { x: cxi(i), txt: tf === '1d' || newDay && i > 0 ? day : `${q.hour}:${q.minute}`, bold: newDay && i > 0 && tf !== '1d' };
+      if (mk.x < 22 || mk.x > plotR - 10) return;
+      // si dos marcas quedan pegadas, gana la del cambio de dia
+      const last = marks[marks.length - 1];
+      if (last && mk.x - last.x < 46) { if (mk.bold && !last.bold) marks[marks.length - 1] = mk; return; }
+      marks.push(mk);
+    });
+    const axg = svg.append('g').attr('class', 'ab-ax');
+    axg.selectAll('line').data(marks).join('line').attr('class', 'ab-gl').attr('x1', (d) => d.x).attr('x2', (d) => d.x).attr('y1', m.t).attr('y2', H - m.b).style('stroke-opacity', .5);
+    axg.selectAll('text').data(marks).join('text').attr('x', (d) => d.x).attr('y', H - 8).attr('text-anchor', 'middle')
+      .style('font-weight', (d) => (d.bold ? 700 : null)).text((d) => d.txt);
 
     // futuro
     const fx = live ? x(bars.length) - x.step() * .15 : plotR;
@@ -1018,8 +1150,58 @@
     }
     // volumen
     svg.append('g').selectAll('rect').data(bars).join('rect').attr('class', (b) => (b.c >= b.o ? 'ab-vol-up' : 'ab-vol-dn'))
-      .attr('x', (b, i) => x(i)).attr('width', bw).attr('y', (b) => yv(b.v)).attr('height', (b) => H - m.b - yv(b.v)).attr('rx', Math.min(1.5, bw / 4));
-    svg.append('text').attr('class', 'ab-future-lbl').attr('x', m.l + 2).attr('y', H - m.b - volH - 2).text('Volumen');
+      .attr('x', (b, i) => x(i)).attr('width', bw).attr('y', (b) => yv(b.v)).attr('height', (b) => volB - yv(b.v)).attr('rx', Math.min(1.5, bw / 4));
+    svg.append('text').attr('class', 'ab-future-lbl').attr('x', m.l + 2).attr('y', volB - volH - 2).text('Volumen');
+    // RSI y MACD, con sus divergencias marcadas tambien en cada panel
+    const divGroups = {};
+    pick(rows, 'divergencia', tf).forEach((d) => { (divGroups[`${d.t1}-${d.t2}-${d.tipo}`] = divGroups[`${d.t1}-${d.t2}-${d.tipo}`] || []).push(d); });
+    const oscDivs = (name, yo, g) => Object.entries(divGroups).forEach(([k, ds]) => {
+      const d = ds.find((z) => z.indicador === name); if (!d || !L.patrones) return;
+      const i1 = bars.findIndex((b) => b.t === num(d.t1)), i2 = bars.findIndex((b) => b.t === num(d.t2)); if (i1 < 0 || i2 < 0) return;
+      const col = d.tipo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)', dg = g.append('g').attr('data-ex', `div-${k}`);
+      dg.append('line').attr('x1', cxi(i1)).attr('y1', yo(num(d.v1))).attr('x2', cxi(i2)).attr('y2', yo(num(d.v2)))
+        .style('stroke', col).style('stroke-width', 2.2).style('stroke-linecap', 'round');
+      [[i1, d.v1], [i2, d.v2]].forEach(([i, v]) => dg.append('circle').attr('cx', cxi(i)).attr('cy', yo(num(v))).attr('r', 3).style('fill', col));
+    });
+    const oscLbl = (g, yy, parts) => {
+      const t = g.append('text').attr('class', 'ab-osc-lbl').attr('x', m.l + 2).attr('y', yy);
+      parts.forEach(([txt, col]) => t.append('tspan').style('fill', col || null).text(txt));
+    };
+    let lastOsc = null;
+    const oscY = {};
+    if (L.osc) {
+      lastOsc = [...bars].reverse().find((b) => b.rsi !== null && b.macd !== null) || null;
+      const og = svg.append('g').attr('data-ex', 'osc');
+      const clip = (id, t, b) => { defs.append('clipPath').attr('id', id).append('rect').attr('x', m.l).attr('y', t).attr('width', plotR - m.l).attr('height', Math.max(1, b - t)); return `url(#${id})`; };
+      const zr = S.oscZ.rsi, yr = d3.scaleLinear([50 - 50 / zr, 50 + 50 / zr], [rsiB, rsiT]);
+      oscY.rsi = yr;
+      const rg = og.append('g').attr('clip-path', clip('ab-clip-rsi', rsiT, rsiB));
+      rg.append('rect').attr('class', 'ab-osc-bg').attr('x', m.l).attr('width', plotR - m.l).attr('y', yr(70)).attr('height', yr(30) - yr(70));
+      [70, 50, 30].forEach((v) => rg.append('line').attr('class', v === 50 ? 'ab-gl' : 'ab-osc-ref').attr('x1', m.l).attr('x2', plotR).attr('y1', yr(v)).attr('y2', yr(v)));
+      [70, 30].filter((v) => yr(v) >= rsiT && yr(v) <= rsiB).forEach((v) => og.append('text').attr('class', 'ab-ax-t').attr('x', W - 4).attr('y', yr(v)).attr('dy', '.32em').attr('text-anchor', 'end').text(v));
+      rg.append('path').attr('class', 'ab-osc-line').style('stroke', dash.colors[2])
+        .attr('d', d3.line().defined((b) => b.rsi !== null).x((b, i) => cxi(i)).y((b) => yr(b.rsi))(bars));
+      oscDivs('RSI', yr, svg.append('g').attr('clip-path', clip('ab-clip-rsi2', rsiT - 4, rsiB + 4)));
+      const rv = lastOsc ? lastOsc.rsi : null;
+      oscLbl(og, rsiT - 4, [['RSI 14 '], [rv === null ? '—' : f1(rv), dash.colors[2]],
+        [rv === null ? '' : rv >= 70 ? ' · sobrecompra' : rv <= 30 ? ' · sobreventa' : '']]);
+
+      const mv = bars.flatMap((b) => [b.macd, b.sig, b.hist]).filter((v) => v !== null);
+      const ma = d3.max(mv, Math.abs) || 1;
+      const ym = d3.scaleLinear([-ma * 1.1 / S.oscZ.macd, ma * 1.1 / S.oscZ.macd], [macdB, macdT]);
+      oscY.macd = ym;
+      const mg = og.append('g').attr('clip-path', clip('ab-clip-macd', macdT, macdB));
+      mg.append('line').attr('class', 'ab-gl').attr('x1', m.l).attr('x2', plotR).attr('y1', ym(0)).attr('y2', ym(0));
+      mg.append('g').selectAll('rect').data(bars.map((b, i) => ({ i, h: b.hist })).filter((d) => d.h !== null)).join('rect')
+        .attr('class', (d) => (d.h >= 0 ? 'ab-vol-up' : 'ab-vol-dn')).attr('x', (d) => x(d.i)).attr('width', bw)
+        .attr('y', (d) => Math.min(ym(0), ym(d.h))).attr('height', (d) => Math.max(1, Math.abs(ym(d.h) - ym(0))));
+      [['macd', dash.colors[0]], ['sig', dash.colors[1]]].forEach(([k, c]) => mg.append('path').attr('class', 'ab-osc-line').style('stroke', c)
+        .attr('d', d3.line().defined((b) => b[k] !== null).x((b, i) => cxi(i)).y((b) => ym(b[k]))(bars)));
+      oscDivs('MACD', ym, svg.append('g').attr('clip-path', clip('ab-clip-macd2', macdT - 4, macdB + 4)));
+      const mk = pick(rows, 'marco', tf)[0];
+      const cruce = mk && mk.macd_cruce ? ` · cruzó ${mk.macd_cruce === 'alcista' ? 'al alza' : 'a la baja'}` : '';
+      oscLbl(og, macdT - 4, [['MACD '], [lastOsc ? f1(lastOsc.macd) : '—', dash.colors[0]], [' señal '], [lastOsc ? f1(lastOsc.sig) : '—', dash.colors[1]], [cruce]]);
+    }
     if (L.ema) [['e20', dash.colors[0]], ['e50', dash.colors[1]]].forEach(([k, c]) =>
       pane.append('path').attr('class', 'ab-ema').style('stroke', c).attr('d', d3.line().defined((b) => b[k] !== null).x((b, i) => cxi(i)).y((b) => y(b[k]))(bars)));
     // velas
@@ -1049,7 +1231,8 @@
       const hx = d3.scaleSqrt([0, mx], [0, heatW - 8]);
       const bh = Math.max(2, Math.abs(y(price) - y(price * 1.0025)) - 1);
       const op = d3.scaleLinear([0, mx], [.18, .8]);
-      svg.append('g').selectAll('rect').data(inR.flatMap((r) => [r.l > 0 ? { p: r.p, v: r.l, side: 'l' } : null, r.s > 0 ? { p: r.p, v: r.s, side: 's' } : null]).filter(Boolean))
+      defs.append('clipPath').attr('id', 'ab-clip-liq').append('rect').attr('x', plotR).attr('y', m.t).attr('width', heatW).attr('height', priceB - m.t);
+      svg.append('g').attr('clip-path', 'url(#ab-clip-liq)').selectAll('rect').data(inR.flatMap((r) => [r.l > 0 ? { p: r.p, v: r.l, side: 'l' } : null, r.s > 0 ? { p: r.p, v: r.s, side: 's' } : null]).filter(Boolean))
         .join('rect').attr('class', (d) => (d.side === 'l' ? 'ab-liq-l' : 'ab-liq-s')).attr('x', plotR + 4).attr('y', (d) => y(d.p) - bh / 2)
         .attr('height', bh).attr('width', (d) => Math.max(3, hx(d.v))).attr('rx', 1).style('fill-opacity', (d) => op(d.v)).style('cursor', 'help')
         .on('pointermove', (ev, d) => {
@@ -1073,30 +1256,56 @@
     svg.append('circle').attr('class', 'ab-dot').attr('cx', hx0).attr('cy', py).attr('r', 4);
     }
 
-    // mira y tooltip
+    // mira: sigue al puntero en todos los paneles (tambien mientras se arrastra), con el valor en el eje
+    // derecho y la fecha y hora en el eje de abajo
     const cross = svg.append('g').attr('class', 'ab-cross').style('display', 'none');
     const vx = cross.append('line').attr('y1', m.t).attr('y2', H - m.b);
     const hy = cross.append('line').attr('x1', m.l).attr('x2', plotR + heatW);
     const crect = cross.append('rect').attr('x', W - axW + 2).attr('width', axW - 2).attr('height', 18).attr('rx', 4);
     const ctext = cross.append('text').attr('x', W - 4).attr('text-anchor', 'end');
-    svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', plotR - m.l).attr('height', H - m.t - m.b).attr('fill', 'transparent')
-      .on('pointermove', (ev) => {
-        const [mx2, my] = d3.pointer(ev);
-        const i = Math.max(0, Math.min(n - 1, Math.floor((mx2 - m.l) / x.step())));
-        const fut = i >= bars.length, b = fut ? ghosts[i - bars.length] : bars[i];
-        if (!b) { tip.hidden = true; cross.style('display', 'none'); return; }
-        cross.style('display', null); vx.attr('x1', cxi(i)).attr('x2', cxi(i));
-        const yy = Math.min(my, priceB); hy.attr('y1', yy).attr('y2', yy);
-        crect.attr('y', yy - 9); ctext.attr('y', yy).attr('dy', '.34em').text(f0(y.invert(yy)));
-        const g = el('div', 'ab-tip-g');
-        [['Apertura', b.o], ['Máximo', b.h], ['Mínimo', b.l], ['Cierre', b.c]].forEach(([k, v]) => g.append(el('span', 'ab-tip-d', k), el('span', '', f0(v))));
-        if (!fut) g.append(el('span', 'ab-tip-d', 'Volumen'), el('span', '', `${f1(b.v)} BTC`));
-        const head = fut
-          ? [el('div', '', `${fmtT(b.t, tf)} h · dentro de ${dur(b.k * TF_MIN[tf])}`), el('div', 'ab-tip-d', `Vela futura ${b.k} del escenario ${SCEN_TXT[S.scen]}`)]
-          : [el('div', 'ab-tip-d', `${fmtT(b.t, tf)} h${b.en || (liveBar && liveBar.t === b.t) ? ' · vela en curso' : ''}`)];
-        showTip([...head, g], cxi(i));
-      })
-      .on('pointerleave', () => { tip.hidden = true; cross.style('display', 'none'); });
+    const trect = cross.append('rect').attr('y', H - m.b + 3).attr('height', 18).attr('rx', 4);
+    const ttext = cross.append('text').attr('y', H - m.b + 12).attr('dy', '.34em').attr('text-anchor', 'middle');
+    const longT = (t) => {
+      const o = {}; new Intl.DateTimeFormat('es-AR', { ...tz, weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+        .formatToParts(new Date(Number(t))).forEach((q) => { o[q.type] = q.value; });
+      const wd = o.weekday.replace('.', '');
+      return tf === '1d' ? `${wd} ${o.day}/${o.month}/${o.year}` : `${wd} ${o.day}/${o.month} ${o.hour}:${o.minute} h`;
+    };
+    const hideCross = () => { tip.hidden = true; cross.style('display', 'none'); };
+    S.pointAt = (pt) => {
+      if (!pt) { hideCross(); return; }
+      const mx2 = pt.x, my = pt.y;
+      if (my < m.t - 16 || my > H) { hideCross(); return; }
+      if (mx2 > plotR) { cross.style('display', 'none'); return; }   // sobre las liquidaciones manda su propio detalle
+      const i = Math.max(0, Math.min(n - 1, Math.floor((mx2 - m.l) / x.step())));
+      const fut = i >= bars.length, b = fut ? ghosts[i - bars.length] : bars[i];
+      if (!b) { hideCross(); return; }
+      cross.style('display', null); vx.attr('x1', cxi(i)).attr('x2', cxi(i));
+      // el valor del eje depende del panel donde esta el puntero
+      const yy = Math.max(m.t, Math.min(my, H - m.b));
+      let val = null;
+      if (yy <= priceB) val = f0(y.invert(yy));
+      else if (yy <= volB && yy >= volB - volH) val = `${f1(yv.invert(yy))} BTC`;
+      else if (oscY.rsi && yy >= rsiT && yy <= rsiB) val = f1(oscY.rsi.invert(yy));
+      else if (oscY.macd && yy >= macdT && yy <= macdB) val = f1(oscY.macd.invert(yy));
+      hy.attr('y1', yy).attr('y2', yy).style('display', val === null ? 'none' : null);
+      crect.style('display', val === null ? 'none' : null).attr('y', yy - 9);
+      ctext.style('display', val === null ? 'none' : null).attr('y', yy).attr('dy', '.34em').text(val || '');
+      const tt = longT(b.t);
+      ttext.text(tt);
+      const tw = ttext.node().getComputedTextLength() + 12, tx = Math.max(m.l + tw / 2, Math.min(cxi(i), plotR + heatW - tw / 2));
+      ttext.attr('x', tx); trect.attr('x', tx - tw / 2).attr('width', tw);
+      const g = el('div', 'ab-tip-g');
+      [['Apertura', b.o], ['Máximo', b.h], ['Mínimo', b.l], ['Cierre', b.c]].forEach(([k, v]) => g.append(el('span', 'ab-tip-d', k), el('span', '', f0(v))));
+      if (!fut) g.append(el('span', 'ab-tip-d', 'Volumen'), el('span', '', `${f1(b.v)} BTC`));
+      if (!fut && L.osc && b.rsi !== null && b.rsi !== undefined) g.append(el('span', 'ab-tip-d', 'RSI'), el('span', '', f1(b.rsi)));
+      if (!fut && L.osc && b.macd !== null && b.macd !== undefined) g.append(el('span', 'ab-tip-d', 'MACD / señal'), el('span', '', `${f1(b.macd)} / ${f1(b.sig)}`));
+      const head = fut
+        ? [el('div', '', `${fmtT(b.t, tf)} h · dentro de ${dur(b.k * TF_MIN[tf])}`), el('div', 'ab-tip-d', `Vela futura ${b.k} del escenario ${SCEN_TXT[S.scen]}`)]
+        : [el('div', 'ab-tip-d', `${fmtT(b.t, tf)} h${b.en || (liveBar && liveBar.t === b.t) ? ' · vela en curso' : ''}`)];
+      showTip([...head, g], cxi(i));
+    };
+    if (S.lastPt) S.pointAt(S.lastPt);   // al redibujar (en vivo o arrastrando) la mira queda donde estaba
 
     const tagEx = (sel, key) => svg.selectAll(sel).attr('data-ex', key);
     tagEx('.ab-ema', 'ema'); tagEx('.ab-bb, .ab-bb-area', 'bb'); tagEx('.ab-fvg-u, .ab-fvg-d, .ab-fvg-edge-u, .ab-fvg-edge-d', 'fvg');
@@ -1138,10 +1347,22 @@
     if (L.bb) item('bb', C('color-mix(in srgb, var(--color-fg) 12%, transparent)'), 'Banda gris:', 'Bollinger, el rango normal del precio en las últimas 20 velas.');
     if (L.liq) item('liq', { background: 'linear-gradient(90deg, var(--color-bad), var(--color-ok))' }, 'Barras de la derecha:',
       'liquidaciones estimadas. Rojas: longs que se liquidan si baja; verdes: shorts si sube. Pasá el mouse para ver los USD.');
+    if (L.osc && lastOsc) {
+      const rv = lastOsc.rsi, mk = pick(rows, 'marco', tf)[0];
+      const rTxt = rv >= 70 ? 'en sobrecompra (arriba de 70): la suba está estirada y suele frenar' : rv <= 30 ? 'en sobreventa (debajo de 30): la baja está estirada y suele rebotar'
+        : `en ${f0(rv)}, zona neutral (entre 30 y 70)`;
+      const mTxt = mk && mk.macd_cruce ? `el MACD acaba de cruzar ${mk.macd_cruce === 'alcista' ? 'por encima de su señal: impulso a favor de la suba' : 'por debajo de su señal: impulso a favor de la baja'}`
+        : lastOsc.macd >= lastOsc.sig ? 'el MACD está por encima de su señal (impulso alcista)' : 'el MACD está por debajo de su señal (impulso bajista)';
+      item('osc', { background: `linear-gradient(90deg, ${dash.colors[2]} 50%, ${dash.colors[0]} 50%)` }, 'Paneles de abajo:',
+        `RSI ${rTxt}; ${mTxt}. Las barras son la diferencia entre las dos líneas. Si hay divergencias, se marcan con la misma línea en el precio y en el indicador.`);
+    }
     document.getElementById('scen-note').textContent = ghosts.length || !live ? '' : 'No hay suficientes situaciones parecidas para armar escenarios en esta temporalidad.';
 
     focusEx(S.focus);
-    S.geom = { W, plotR, heatW, step: x.step() };
+    // zonas para arrastrar: separadores de paneles, eje de tiempo y cada panel
+    S.geom = { W, H, plotR, heatW, step: x.step(), priceT: m.t, priceB, timeT: H - m.b,
+      divs: [{ k: 'vol', y: priceB + 4 }].concat(L.osc ? [{ k: 'rsi', y: rsiT - gapP / 2 }, { k: 'macd', y: macdT - gapP / 2 }] : []),
+      panes: L.osc ? [{ k: 'rsi', t: rsiT, b: rsiB }, { k: 'macd', t: macdT, b: macdB }] : [] };
     if (!ghosts.length) return;
     if (reduce) { gg.classed('on', true); return; }
     const paint = () => {

@@ -505,6 +505,15 @@ def explain(rows, price, spec):
         m = get("marco", tf=tf)[0]
         if abs(m["rating"]) > 0.1:
             signals.append((pr, "alcista" if m["rating"] > 0 else "bajista", f"Indicadores de {TF_TXT[tf]}: {m['rating_txt'].lower()}"))
+    # RSI y MACD de cada temporalidad, como los mira un trader
+    for tf in sig_tfs:
+        m = get("marco", tf=tf)[0]
+        if m["rsi"] >= 70:
+            signals.append((4, "bajista", f"RSI de {TF_TXT[tf]} en sobrecompra ({ar(m['rsi'])})"))
+        elif m["rsi"] <= 30:
+            signals.append((4, "alcista", f"RSI de {TF_TXT[tf]} en sobreventa ({ar(m['rsi'])})"))
+        if m["macd_cruce"]:
+            signals.append((4, m["macd_cruce"], f"MACD de {TF_TXT[tf]} cruzó {'al alza' if m['macd_cruce'] == 'alcista' else 'a la baja'}"))
     for p in get("patron"):
         if p["tf"] not in sig_tfs or p["sesgo"] == "neutral":
             continue
@@ -643,6 +652,7 @@ def analyze():
         ind_rows, summary, overlays = ind.calificar(bars)
         e20, e50, e200 = ind.ema(closes, 20), ind.ema(closes, 50), ind.ema(closes, 200)
         rsi = ind.rsi(closes)
+        ml, ms, mh = ind.macd(closes)
         warmup = min(200, len(bars) // 3)
         st = states(closes, rsi, e50, e200, max(1, 1440 // tf_min))
         idxs, keep = similar(st, len(bars) - 1 - max(horizons + (SCENARIO_STEPS,)), warmup)
@@ -652,7 +662,11 @@ def analyze():
         by_tf[tf] = {"summary": summary, "trend": trend}
         pivots = ind.zigzag(bars)
         wave_labels, wave_desc, wave_target = ind.elliott(pivots)
-        rows.append({"tabla": "marco", "tf": tf, "tendencia": trend, **summary,
+        # cruce del MACD con su senal en la ultima o la anteultima vela
+        crosses = ("alcista" if mh[k] > 0 and mh[k - 1] <= 0 else "bajista" if mh[k] < 0 and mh[k - 1] >= 0 else None
+                   for k in (i, i - 1))
+        cross = next((x for x in crosses if x), None)
+        rows.append({"tabla": "marco", "tf": tf, "tendencia": trend, **summary, "macd_cruce": cross,
                      "ema50": round(e50[i], 1), "ema200": round(e200[i], 1), "similares": len(idxs),
                      "criterio": ["", "precio vs EMA50", "precio vs EMA50 y EMA200", "medias y RSI",
                                   "medias, RSI y movimiento del ultimo dia"][keep],
@@ -687,7 +701,9 @@ def analyze():
                          "en_curso": partial and k == i,
                          "ema20": round(overlays["ema20"][k], 1), "ema50": round(overlays["ema50"][k], 1),
                          "bb_up": None if overlays["bb_up"][k] is None else round(overlays["bb_up"][k], 1),
-                         "bb_lo": None if overlays["bb_lo"][k] is None else round(overlays["bb_lo"][k], 1)})
+                         "bb_lo": None if overlays["bb_lo"][k] is None else round(overlays["bb_lo"][k], 1),
+                         "rsi": None if rsi[k] is None else round(rsi[k], 1), "macd": round(ml[k], 2),
+                         "macd_senal": round(ms[k], 2), "macd_hist": round(mh[k], 2)})
 
     # una prediccion por plazo, cada una con la temporalidad que mas casos tiene para ese plazo
     for name, tf, h, *_ in PLAZOS:
