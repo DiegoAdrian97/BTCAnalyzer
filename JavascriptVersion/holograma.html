@@ -40,8 +40,10 @@
   #status:empty { display: none; }
   #status i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; background: var(--up); box-shadow: 0 0 8px var(--up); vertical-align: 1px; }
   #status.err i { background: var(--dn); box-shadow: 0 0 8px var(--dn); }
-  #flash { position: fixed; z-index: 8; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(.9); font: 800 clamp(28px, 7vw, 72px)/1 system-ui, sans-serif;
-    letter-spacing: .06em; color: var(--acc); text-shadow: 0 0 24px var(--acc); opacity: 0; pointer-events: none; transition: opacity .25s, transform .4s; }
+  #flash { position: fixed; z-index: 8; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(.9); font: 800 clamp(20px, 4.6vw, 44px)/1 system-ui, sans-serif;
+    letter-spacing: .04em; color: #e8fbff; padding: .45em .9em; border-radius: .7em; white-space: nowrap; max-width: calc(100vw - 32px); box-sizing: border-box;
+    background: rgba(14, 30, 44, .55); border: 1px solid rgba(150, 205, 255, .35); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+    opacity: 0; pointer-events: none; transition: opacity .25s, transform .4s; }
   #flash.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 
   /* paneles (ajustes, gestos, enlazar el iPhone) */
