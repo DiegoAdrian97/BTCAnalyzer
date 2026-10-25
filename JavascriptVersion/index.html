@@ -580,15 +580,15 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   <section class="ab-card" id="aprendizaje" aria-labelledby="apr-t" data-source="analisis">
     <div class="ab-card-head"><h2 id="apr-t">Cómo viene aprendiendo</h2><span class="ab-kicker" id="apr-k"></span></div>
     <div class="ab-apr-top">
-      <div class="ab-apr-stat"><small>Acierta con lo aprendido</small><b id="apr-ap">—</b><span id="apr-ap-n"></span></div>
-      <div class="ab-apr-stat"><small>Con el método original</small><b id="apr-og">—</b><span id="apr-og-n"></span></div>
-      <div class="ab-apr-stat"><small>Error de sus probabilidades</small><b id="apr-br">—</b><span id="apr-br-n"></span></div>
+      <div class="ab-apr-stat"><small>Ventaja sobre la tasa base</small><b id="apr-ap">—</b><span id="apr-ap-n"></span></div>
+      <div class="ab-apr-stat"><small>Acierta qué toca primero</small><b id="apr-og">—</b><span id="apr-og-n"></span></div>
+      <div class="ab-apr-stat"><small>Cuando se anima</small><b id="apr-br">—</b><span id="apr-br-n"></span></div>
     </div>
     <p class="ab-note" id="apr-txt"></p>
     <div class="ab-apr-chart" id="apr-chart"></div>
     <div class="ab-legend" id="apr-legend"></div>
-    <div class="ab-tbl-box"><table class="ab-tbl" id="apr-tbl"><thead><tr><th>Plazo</th><th class="r">Aprendido</th><th class="r">Original</th><th class="r">Confianza</th></tr></thead><tbody></tbody></table></div>
-    <p class="ab-note">Cada vez que cierra una vela, el analista repasa sus últimas 600 predicciones de cada plazo (cada una hecha solo con lo que se sabía en ese momento) y las compara con lo que pasó. Prueba 8 formas de buscar situaciones parecidas y elige la que viene acertando más; si sus probabilidades venían exageradas, las modera, y si venían tímidas, las refuerza. Cada predicción se juzga con lo que había elegido antes de conocer el resultado, así la comparación con el método original es honesta. Los aciertos son sobre "qué toca primero"; el error mide qué tan bien calibradas están las probabilidades (0,250 es tirar una moneda; menos es mejor).</p>
+    <div class="ab-tbl-box"><table class="ab-tbl" id="apr-tbl"><thead><tr><th>Plazo</th><th class="r">Ventaja</th><th class="r">Original</th><th class="r">Confianza</th></tr></thead><tbody></tbody></table></div>
+    <p class="ab-note">Cada vez que cierra una vela, el analista repasa sus últimas 1.000 predicciones de cada plazo (cada una hecha solo con lo que se sabía en ese momento) y las compara con lo que pasó. Trabaja con un equipo: 8 formas de buscar situaciones parecidas, un modelo que aprende solo con cada vela (movimientos, medias, RSI, MACD, Bollinger, volatilidad, volumen y hora del día) y la tasa base, que es decir siempre "lo normal". Con cada resultado baja el peso de los que se equivocaron y sube el de los que acertaron; si las probabilidades del equipo venían exageradas, las modera. Un resultado se usa para aprender recién cuando se conoce, y cada predicción se juzga con lo que había antes, así la medición es honesta. La <b>ventaja</b> es cuánto menos se equivoca que la tasa base (0% = no sabe más que lo normal). El margen de error de los aciertos cuenta que las predicciones que se pisan comparten resultado: a 1 hora, 1.000 predicciones valen como 80 independientes. En BTC, a estos plazos, una ventaja de 1% sostenida ya es mucha.</p>
   </section>
 
   <div class="ab-more-list">
@@ -1109,7 +1109,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       d.style.flexBasis = '50%'; u.style.flexBasis = '50%';
       tug.append(d, u, el('i', 'ab-tug-mid'));
       later(() => { d.style.flexBasis = (100 - pu) + '%'; u.style.flexBasis = pu + '%'; });
-      document.getElementById('first-mg').textContent = `${f0(num(p.distancia))} USD para cada lado · margen ±${f0(num(p.margen_primero))} pts`;
+      document.getElementById('first-mg').textContent = `${f0(num(p.distancia))} USD para cada lado` + (num(p.factor) === 0 ? ' · sin ventaja aprendida: lo trata como moneda' : ` · margen ±${f0(num(p.margen_primero))} pts`);
     }
     const lo = num(p.min), hi = num(p.max), span = hi - lo || 1;
     const at = (v) => Math.max(0, Math.min(100, (v - lo) / span * 100));
@@ -1128,9 +1128,9 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   function pctTxt(v) { return v === null || v === undefined ? '—' : `${f1(num(v))}%`; }
   function learnLine(a) {
     if (!a || !num(a.repasadas)) return 'Todavía junta experiencia para este plazo.';
-    const ap = num(a.aciertos_aprendido), og = num(a.aciertos_original), f = num(a.factor);
-    const conf = f === 1 ? 'probabilidades tal cual' : f === 0 ? 'sin ventaja: trata el plazo como moneda' : f < 1 ? `probabilidades moderadas al ${f0(f * 100)}%` : `probabilidades reforzadas al ${f0(f * 100)}%`;
-    return ap === null || og === null ? `Aprendiendo · ${conf}` : `Acierta ${f1(ap)}% (método original ${f1(og)}%) · ${conf}`;
+    const hab = num(a.habilidad), ap = num(a.aciertos_aprendido), lo = num(a.ic_bajo), hi = num(a.ic_alto);
+    const v = hab === null ? 'midiendo' : hab >= 0.5 ? `le gana a la tasa base por ${f1(hab)}%` : hab > -0.5 ? 'sin ventaja clara sobre la tasa base' : `peor que la tasa base (${f1(hab)}%)`;
+    return ap === null || lo === null ? `Aprendiendo · ${v}` : `Acierta ${f1(ap)}% (entre ${f0(lo)} y ${f0(hi)}%) · ${v}`;
   }
   function drawLearning(rows) {
     const all = pick(rows, 'aprendizaje'), a = all.find((r) => r.plazo === S.plazo);
@@ -1142,33 +1142,34 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       put('apr-ap', '—', ''); put('apr-og', '—', ''); put('apr-br', '—', '');
       document.getElementById('apr-txt').textContent = 'Todavía no hay historia suficiente para repasar predicciones en este plazo: usa el método original.';
     } else {
-      const ap = num(a.aciertos_aprendido), og = num(a.aciertos_original), ba = num(a.brier_aprendido), bo = num(a.brier_original);
-      put('apr-ap', pctTxt(ap), `${f0(num(a.decisivas_aprendido))} predicciones`);
-      put('apr-og', pctTxt(og), `${f0(num(a.decisivas_original))} predicciones`);
-      put('apr-br', ba === null ? '—' : ar.format(',.3f')(ba), bo === null ? '' : `original ${ar.format(',.3f')(bo)}`);
+      const hab = num(a.habilidad), hog = num(a.habilidad_original), ap = num(a.aciertos_aprendido), lo = num(a.ic_bajo), hi = num(a.ic_alto);
+      const sg = num(a.aciertos_seguro), ns = num(a.decisivas_seguro);
+      const sgn = (x) => (x === null ? '—' : `${x > 0 ? '+' : ''}${f1(x)}%`);
+      put('apr-ap', sgn(hab), hog === null ? '' : `método original ${sgn(hog)}`);
+      put('apr-og', pctTxt(ap), lo !== null ? `entre ${f0(lo)} y ${f0(hi)}% · ${f0(num(a.independientes))} independientes` : num(a.factor) === 0 ? 'no apuesta: lo trata como moneda' : '');
+      put('apr-br', pctTxt(sg), ns ? `${f0(ns)} veces que dio 58% o más` : 'casi nunca se anima');
       const b = document.getElementById('apr-ap');
-      if (ap !== null && og !== null && Math.abs(ap - og) >= 0.05) {
-        const d = el('span', 'ab-delta ' + (ap > og ? 'ab-pos' : 'ab-neg'), `${ap > og ? '+' : ''}${f1(ap - og)}`);
-        b.append(' ', d);
-      }
+      if (hab !== null) b.style.color = hab >= 0.5 ? 'var(--color-ok)' : hab <= -0.5 ? 'var(--color-bad)' : null;
       const desde = new Date(num(a.desde)).toLocaleDateString('es-AR', { ...tz, day: '2-digit', month: '2-digit' });
-      document.getElementById('apr-txt').textContent = `Repasó ${f0(num(a.repasadas))} predicciones desde el ${desde}. Para buscar casos parecidos usa ${a.receta_txt}. ${a.confianza}. Cambió de idea ${f0(num(a.cambios))} ${num(a.cambios) === 1 ? 'vez' : 'veces'} mientras aprendía.`;
+      const su = num(a.sep_arriba), sd = num(a.sep_abajo), ms = num(a.margen_sep);
+      const sepTxt = su === null || sd === null ? '' : ` Cuando le daba más chances arriba que lo normal, tocó arriba primero ${f0(su)}% de las veces; cuando le daba menos, ${f0(sd)}%${ms === null ? '' : ` (diferencia ${f0(su - sd)} puntos, ±${f0(ms)} de margen)`}.`;
+      document.getElementById('apr-txt').textContent = `Repasó ${f0(num(a.repasadas))} predicciones desde el ${desde}. Hoy pesa más ${a.lider} (peso del modelo que aprende solo: ${f0(num(a.peso_modelo))}%; de la tasa base: ${f0(num(a.peso_base))}%). ${a.confianza}.${sepTxt}`;
     }
-    // curva: aciertos en ventanas de 120 predicciones, a medida que repasaba
+    // curva: ventaja sobre la tasa base en ventanas de 150 predicciones, a medida que repasaba
     const box = document.getElementById('apr-chart'); box.replaceChildren();
     const lg = document.getElementById('apr-legend'); lg.replaceChildren();
     const pts = pick(rows, 'aprendizaje_curva').filter((r) => r.plazo === S.plazo)
       .map((r) => ({ k: num(r.paso), a: num(r.aprendido), o: num(r.original) })).sort((p, q) => p.k - q.k);
     if (pts.length > 1) {
       const W = Math.max(260, box.clientWidth), H = 150, ml = 30, mr = 8, mt = 8, mb = 20;
-      const vals = pts.flatMap((p) => [p.a, p.o]).filter((v) => v !== null).concat([50]);
+      const vals = pts.flatMap((p) => [p.a, p.o]).filter((v) => v !== null).concat([0]);
       const [lo, hi] = d3.extent(vals);
       const x = d3.scaleLinear(d3.extent(pts, (p) => p.k), [ml, W - mr]);
-      const yy = d3.scaleLinear([Math.floor((lo - 3) / 5) * 5, Math.ceil((hi + 3) / 5) * 5], [H - mb, mt]);
-      const svg = d3.select(box).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Aciertos a medida que aprende');
+      const yy = d3.scaleLinear([Math.min(-1, Math.floor(lo - 0.5)), Math.max(1, Math.ceil(hi + 0.5))], [H - mb, mt]).nice();
+      const svg = d3.select(box).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Ventaja sobre la tasa base a medida que aprende');
       yy.ticks(4).forEach((v) => {
-        svg.append('line').attr('class', 'ab-gl').attr('x1', ml).attr('x2', W - mr).attr('y1', yy(v)).attr('y2', yy(v)).style('stroke-dasharray', v === 50 ? '3 3' : null);
-        svg.append('text').attr('x', ml - 4).attr('y', yy(v)).attr('dy', '.32em').attr('text-anchor', 'end').text(`${v}%`);
+        svg.append('line').attr('class', 'ab-gl').attr('x1', ml).attr('x2', W - mr).attr('y1', yy(v)).attr('y2', yy(v)).style('stroke-dasharray', v === 0 ? '3 3' : null);
+        svg.append('text').attr('x', ml - 4).attr('y', yy(v)).attr('dy', '.32em').attr('text-anchor', 'end').text(`${v > 0 ? '+' : ''}${v}%`);
       });
       svg.append('text').attr('x', ml).attr('y', H - 4).text('predicciones repasadas →');
       svg.append('text').attr('x', W - mr).attr('y', H - 4).attr('text-anchor', 'end').text(f0(pts[pts.length - 1].k));
@@ -1178,7 +1179,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       });
       const last = pts[pts.length - 1];
       if (last.a !== null) svg.append('circle').attr('cx', x(last.k)).attr('cy', yy(last.a)).attr('r', 3.5).style('fill', dash.colors[0]);
-      [[dash.colors[0], 'Con lo aprendido'], ['var(--color-fg-muted)', 'Método original'], ['transparent', 'Línea punteada: 50%, tirar una moneda']].forEach(([c, t]) => {
+      [[dash.colors[0], 'Equipo que aprende'], ['var(--color-fg-muted)', 'Método original'], ['transparent', 'Línea punteada: 0%, igual que la tasa base']].forEach(([c, t]) => {
         const sp = el('span'); const i = el('i'); i.style.background = c; if (c === 'transparent') i.style.borderTop = '1.5px dashed var(--color-fg-muted)';
         sp.append(i, t); lg.append(sp);
       });
@@ -1186,13 +1187,16 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     const tb = document.querySelector('#apr-tbl tbody'); tb.replaceChildren();
     all.forEach((r) => {
       const tr = el('tr'); if (r.plazo === S.plazo) tr.className = 'ab-sel';
-      const short = String(r.receta_txt).replace(/precio vs /g, '').replace('movimiento del último día', 'mov. 24 h').replace(/ y /, ', ');
+      // quien pesa mas en el equipo, en corto
+      const short = String(r.lider || '').replace('el modelo que aprende solo', 'pesa más: el modelo').replace('la tasa base', 'pesa más: la tasa base')
+        .replace('casos parecidos por ', 'pesa más: ').replace(/precio vs /g, '').replace('movimiento del último día', 'mov. 24 h').replace(/ y /, ', ');
       const c0 = el('td'); c0.append(el('span', '', r.plazo), el('small', '', num(r.repasadas) ? short : 'junta experiencia'));
-      const ap = num(r.aciertos_aprendido), og = num(r.aciertos_original);
-      const c1 = el('td', 'r', pctTxt(ap));
-      if (ap !== null && og !== null) { c1.style.color = ap > og ? 'var(--color-ok)' : ap < og ? 'var(--color-bad)' : null; c1.style.fontWeight = '600'; }
+      const hb = num(r.habilidad), ho = num(r.habilidad_original);
+      const sg = (x) => (x === null ? '—' : `${x > 0 ? '+' : ''}${f1(x)}%`);
+      const c1 = el('td', 'r', sg(hb));
+      if (hb !== null) { c1.style.color = hb >= 0.5 ? 'var(--color-ok)' : hb <= -0.5 ? 'var(--color-bad)' : null; c1.style.fontWeight = '600'; }
       const f = num(r.factor);
-      tr.append(c0, c1, el('td', 'r', pctTxt(og)), el('td', 'r', f === 0 ? 'moneda' : `${f0(f * 100)}%`));
+      tr.append(c0, c1, el('td', 'r', sg(ho)), el('td', 'r', f === 0 ? 'moneda' : `${f0(f * 100)}%`));
       tr.addEventListener('click', () => setPlazo(r.plazo));
       tb.append(tr);
     });

@@ -230,7 +230,7 @@ def scenarios(bars, idxs, price, tf_ms):
 NICE_STEPS = (25, 50, 100, 250, 500, 1000, 2500, 5000, 10000)
 
 
-def targets(bars, idxs, price, h, when, f=1.0):
+def targets(bars, idxs, price, h, when, f=1.0, unit=None, pf_ap=None):
     """Probabilidad de TOCAR precios redondos antes de 'when', y precio mas probable a esa hora.
 
     Para cada situacion parecida se mira el maximo y el minimo que alcanzo el precio en las h velas
@@ -245,7 +245,8 @@ def targets(bars, idxs, price, h, when, f=1.0):
     ends = sorted(c[j + h] / c[j] - 1 for j in usable)
     q = lambda p: ends[min(int(p * len(ends)), len(ends) - 1)]
     spread = (q(0.9) - q(0.1)) * price
-    unit = min(NICE_STEPS, key=lambda s: abs(s - spread / 4))
+    # la distancia la fija el aprendizaje (es la que viene midiendo); si no hay, la de los casos parecidos
+    unit = unit or min(NICE_STEPS, key=lambda s: abs(s - spread / 4))
     rows = []
     # el primer nivel de cada lado queda al menos a medio escalon: uno pegado al precio se toca siempre
     first_up = (int((price + unit / 2) // unit) + 1) * unit
@@ -272,8 +273,9 @@ def targets(bars, idxs, price, h, when, f=1.0):
              "obj_arriba": up_lvl, "obj_abajo": dn_lvl, "distancia": unit,
              "toca_arriba": round(sum(x >= rel for x in highs) / len(usable) * 100, 1),
              "toca_abajo": round(sum(x <= -rel for x in lows) / len(usable) * 100, 1),
-             # con la confianza aprendida (la cruda queda aparte)
-             "primero_arriba": None if pf is None else round(apr.ajustar(pf, f) * 100, 1),
+             # lo que dice el equipo que aprende (o la cruda con la confianza aprendida); la cruda queda aparte
+             "primero_arriba": (round(pf_ap * 100, 1) if pf_ap is not None else
+                                None if pf is None else round(apr.ajustar(pf, f) * 100, 1)),
              "primero_crudo": None if pf is None else round(pf * 100, 1),
              "margen_primero": None if pf is None else round(196 * (pf * (1 - pf) / len(first)) ** 0.5 * f, 1),
              "ninguno": round((1 - len(first) / len(usable)) * 100, 1)}
@@ -284,13 +286,14 @@ def tune(tf, s, h):
     """Lo aprendido para predecir h velas de esta temporalidad, y los casos parecidos segun la receta aprendida."""
     if h in s["fit"]:
         return s["fit"][h]
-    learn = apr.aprendido((tf, h), s["closed"], s["combo"], h, s["warmup"])
+    learn = apr.aprendido((tf, h), s["closed"], s["combo"], h, s["warmup"], s["X"])
+    p_sube, p_prim = apr.prediccion(learn, s["combo"][-1], s["X"][-1])
     r = learn["receta"] if learn else 0
     if r not in s["similar"]:
         s["similar"][r] = similar(apr.estados(s["feats"], r), s["last"], s["warmup"])
     idxs, keep = s["similar"][r]
     s["fit"][h] = {"learn": learn, "receta": r, "factor": learn["factor"] if learn else 1.0, "idxs": idxs,
-                   "keep": keep, "sample": idxs or s["base"]}
+                   "keep": keep, "sample": idxs or s["base"], "p_sube": p_sube, "p_primero": p_prim}
     return s["fit"][h]
 
 
@@ -306,9 +309,16 @@ def learning_rows(name, tf, h, fit):
              "brier_aprendido": r2("brier_aprendido", 4), "brier_original": r2("brier_original", 4),
              "aciertos_aprendido": r2("aciertos_aprendido", 1), "aciertos_original": r2("aciertos_original", 1),
              "decisivas_aprendido": L.get("decisivas_aprendido", 0), "decisivas_original": L.get("decisivas_original", 0),
+             "habilidad": r2("habilidad", 2), "habilidad_original": r2("habilidad_original", 2),
+             "ic_bajo": r2("ic_bajo", 1), "ic_alto": r2("ic_alto", 1), "independientes": L.get("independientes", 0),
+             "aciertos_seguro": r2("aciertos_seguro", 1), "decisivas_seguro": L.get("decisivas_seguro", 0),
+             "sep_arriba": r2("sep_arriba", 1), "sep_abajo": r2("sep_abajo", 1), "margen_sep": r2("margen_sep", 1),
+             "peso_modelo": None if not L.get("pesos") else round(L["pesos"][apr.MODELO] * 100, 1),
+             "peso_base": None if not L.get("pesos") else round(L["pesos"][apr.BASE] * 100, 1),
+             "lider": apr.experto_txt(L["ranking"][0]) if L.get("ranking") else "",
              "ranking": ",".join(str(r) for r in L.get("ranking", []))}]
-    rows += [{"tabla": "aprendizaje_curva", "plazo": name, "paso": k, "aprendido": None if a is None else round(a, 1),
-              "original": None if o is None else round(o, 1)} for k, a, o in L.get("curva", [])]
+    rows += [{"tabla": "aprendizaje_curva", "plazo": name, "paso": k, "aprendido": None if a is None else round(a, 2),
+              "original": None if o is None else round(o, 2)} for k, a, o in L.get("curva", [])]
     return rows
 
 
@@ -333,14 +343,18 @@ def horizon_stats(tf, s, h, price, fit):
     """
     bars, closes, sample, f = s["bars"], s["closes"], fit["sample"], fit["factor"]
     o, b = outcomes(closes, sample, h), outcomes(closes, s["base"], h)
-    up = o["up"] if f == 1.0 else apr.ajustar(o["up"] / 100, f) * 100
-    edge = up - b["up"]
+    # la probabilidad de subir la da el equipo que aprende; sin historia suficiente, los casos parecidos
+    up = (fit["p_sube"] * 100 if fit.get("p_sube") is not None else
+          o["up"] if f == 1.0 else apr.ajustar(o["up"] / 100, f) * 100)
+    # contra la tasa normal moderada igual que la prediccion: si aprendio que no hay ventaja (confianza 0), es moneda
+    edge = up - (apr.ajustar(b["up"] / 100, f) * 100 if fit.get("p_sube") is not None else b["up"])
     # margen de error del 95%: con pocos casos, una diferencia chica contra la tasa normal es ruido
     margin = 196 * ((o["up"] / 100) * (1 - o["up"] / 100) / o["n"]) ** 0.5 * f
     verdict = "Casi moneda" if abs(edge) < max(3, margin) else ("Sesgo alcista" if edge > 0 else "Sesgo bajista")
     when_ms = bars[-1][0] + (h + 1) * s["tf_ms"]
     when = datetime.fromtimestamp(when_ms / 1000, LOCAL_TZ).strftime("%d/%m %H:%M")
-    tg, close = targets(bars, sample, price, h, when, f)
+    L = fit.get("learn") or {}
+    tg, close = targets(bars, sample, price, h, when, f, L.get("distancia"), fit.get("p_primero"))
     return ({"tf": tf, "horizonte": label(h * s["tf_min"]), "velas": h,
              "sube": round(up, 1), "baja": round(100 - up, 1), "base": round(b["up"], 1),
              "sube_crudo": round(o["up"], 1), "receta": fit["receta"], "factor": f,
@@ -639,15 +653,22 @@ def explain(rows, price, spec):
 
 
 def learning_text(a):
-    """En una o dos frases: que aprendio para este plazo y si le esta sirviendo."""
+    """En una o dos frases: que aprendio para este plazo y si le esta sirviendo (contra la tasa base)."""
     if not a["repasadas"]:
         return "Todavía junta experiencia para este plazo: por ahora usa el método original."
-    txt = (f"Repasó sus últimas {ar(a['repasadas'])} predicciones: ahora busca casos parecidos por "
-           f"{a['receta_txt']}. {a['confianza']}.")
-    ap, og = a["aciertos_aprendido"], a["aciertos_original"]
-    if ap is not None and og is not None:
-        txt += (f" Con lo aprendido acertó {ar(ap)}% de las veces qué tocaba primero; el método original, "
-                f"{ar(og)}%.")
+    txt = (f"Repasó sus últimas {ar(a['repasadas'])} predicciones con un equipo de expertos; hoy pesa más "
+           f"{a['lider']}. {a['confianza']}.")
+    hab = a["habilidad"]
+    if hab is not None:
+        if hab >= 0.5:
+            txt += f" Le gana a la tasa base: {ar(hab, 1)}% menos error que decir siempre lo normal."
+        elif hab > -0.5:
+            txt += f" Todavía no le gana a la tasa base en forma clara ({ar(hab, 1)}%): sus probabilidades quedan cerca de lo normal."
+        else:
+            txt += f" Viene peor que la tasa base ({ar(hab, 1)}%): por eso modera sus probabilidades."
+    ap, lo, hi = a["aciertos_aprendido"], a["ic_bajo"], a["ic_alto"]
+    if ap is not None and lo is not None:
+        txt += f" Acertó {ar(ap)}% qué tocaba primero (con el margen de error, entre {ar(lo)}% y {ar(hi)}%)."
     return txt
 
 
@@ -714,9 +735,10 @@ def analyze():
         ml, ms, mh = ind.macd(closes)
         warmup = min(200, len(bars) // 3)
         feats = apr.rasgos(bars, tf_min, e50, e200, rsi, mh)
+        X = apr.continuos(bars, tf_min, e50, e200, rsi, mh, partial)
         base = range(warmup, len(bars) - 1 - max(horizons))
         series[tf] = {"bars": bars, "closes": closes, "base": list(base), "tf_ms": tf_ms, "tf_min": tf_min, "days": days,
-                      "closed": candles[tf], "feats": feats, "combo": apr.combos(feats), "warmup": warmup,
+                      "closed": candles[tf], "feats": feats, "combo": apr.combos(feats), "X": X, "warmup": warmup,
                       "last": len(bars) - 1 - max(horizons + (SCENARIO_STEPS,)), "similar": {}, "fit": {}}
         main_fit = tune(tf, series[tf], horizons[0])
         idxs, keep = main_fit["idxs"], main_fit["keep"]

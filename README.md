@@ -9,17 +9,24 @@ No es una recomendación de inversión.
 ## Aprendizaje automático
 
 El analista aprende solo de sus predicciones acertadas y erradas (`aprendizaje.py` y su traducción
-`JavascriptVersion/aprendizaje.js`). Cada vez que cierra una vela, para cada plazo:
+`JavascriptVersion/aprendizaje.js`, mismos números). Cada vez que cierra una vela, para cada plazo:
 
-1. Repasa sus últimas 600 predicciones, cada una calculada solo con lo que se sabía en ese momento, y las
+1. Repasa sus últimas 1.000 predicciones, cada una calculada solo con lo que se sabía en ese momento, y las
    compara con lo que pasó (qué tocó primero y si cerró arriba).
-2. Prueba 8 recetas para buscar "situaciones parecidas" (medias, RSI, MACD, volatilidad, Bollinger, movimiento
-   del día) y se queda con la que viene acertando más.
-3. Calibra su confianza: si sus probabilidades venían exageradas las modera; si venían tímidas, las refuerza.
+2. Trabaja con un equipo de expertos: 8 recetas de "situaciones parecidas" (medias, RSI, MACD, volatilidad,
+   Bollinger, movimiento del día), un modelo que aprende solo con cada vela (regresión logística en línea sobre
+   20 números: movimientos medidos en ATR, distancia a las medias, RSI, MACD, Bollinger, volatilidad, volumen,
+   hora del día y fin de semana) y la tasa base ("lo normal", sin mirar nada).
+3. Con cada resultado ajusta cuánto le cree a cada uno (pesos exponenciales con reparto fijo, para adaptarse
+   cuando el mercado cambia) y calibra la confianza del equipo: si venía exagerado lo modera.
 
-Aprende en línea: cada predicción se juzga con lo que había elegido antes de conocer el resultado, así la
-comparación con el método original es honesta. Todo sale de las velas, así que no se pierde cuando Render
-borra el disco. En el dashboard: sección "Cómo viene aprendiendo".
+Medición honesta: un resultado se usa para aprender recién cuando se conoce (h velas después) y cada predicción
+se juzga con lo que había antes. La "ventaja" es cuánto menos error tiene que la tasa base; el margen de error
+de los aciertos cuenta que las predicciones que se pisan comparten resultado (a 1 hora, 1.000 predicciones
+valen como ~80 independientes). Probado con velas reales de BTC: los parámetros se ajustaron con 2023–2024 y se
+verificaron con 2025–2026; el modelo le gana a la tasa base en los 5 plazos, por poco (0,1–0,4% menos error),
+y las recetas solas casi nunca. Todo sale de las velas, así que no se pierde cuando Render borra el disco.
+En el dashboard: sección "Cómo viene aprendiendo".
 
 ## En tu PC
 
@@ -90,7 +97,7 @@ python JavascriptVersion/generar_pagina.py
 |---|---|
 | `analisis_btc.py` | Baja los datos, calcula todo y sirve el dashboard (`--vivo`, `--vivo --servidor`) |
 | `indicadores.py` | Indicadores, patrones de velas, figuras (triángulos, cuñas, canales, rangos, dobles, HCH), Wyckoff, divergencias, ondas de Elliott, FVG y liquidaciones |
-| `aprendizaje.py` | Aprendizaje automático: repasa sus predicciones, elige la receta y calibra la confianza |
+| `aprendizaje.py` | Aprendizaje automático: equipo de expertos (recetas, modelo en línea, tasa base), pesos y confianza aprendidos, medición contra la tasa base |
 | `dashboard/index.html` | La página del dashboard |
 | `render.yaml` | Configuración para Render |
 | `JavascriptVersion/` | La versión que corre entera en el teléfono (Vercel): `analisis.js`, `indicadores.js`, `aprendizaje.js`, `datos.js`, `worker.js`; holograma: `holograma.html`, `holograma.js`, `manos.js` |
