@@ -564,9 +564,18 @@ function act(a, remote = false) {
   }
   else if (a.t === 'rot') { V.rotY = clamp(V.rotY + a.dx * 2.6, -1.1, 1.1); V.rotX = clamp(V.rotX + a.dy * 2.0, -0.8, 0.8); }
   else if (a.t === 'yzoom') V.yZoom = clamp(V.yZoom * a.f, 0.3, 4);
-  else if (a.t === 'asset') stepAsset(a.dir);
-  else if (a.t === 'tf') stepTf(a.dir);
-  else if (a.t === 'reset') { Object.assign(V, VDEF); V.manual = null; PIN = null; flash('Vista inicial'); }
+  else if (a.t === 'asset' || a.t === 'tf') {
+    // con la mano abierta tambien cambia, pero solo si el gesto empieza fuera del grafico
+    if (a.x !== undefined && ['grafico', 'precios', 'fechas'].includes(region(a.x, a.y))) return;
+    if (a.t === 'asset') stepAsset(a.dir); else stepTf(a.dir);
+  }
+  else if (a.t === 'reset') {
+    // doble toque: sobre un eje lo deja como estaba; en el resto, la vista inicial
+    const reg = a.x !== undefined ? region(a.x, a.y) : 'grafico';
+    if (reg === 'precios') { V.manual = null; V.yZoom = 1; flash('Precios automáticos'); }
+    else if (reg === 'fechas') { V.n = VDEF.n; flash('Ancho de velas inicial'); }
+    else { Object.assign(V, VDEF); V.manual = null; PIN = null; flash('Vista inicial'); }
+  }
   else if (a.t === 'point') { POINT = a.x === null ? null : { x: a.x, y: a.y }; return; }
   else if (a.t === 'pin') { PIN = a.pin || null; return; }
   else if (a.t === 'click') { clickAt(a.x, a.y, !remote && a.hand !== false); return; }
@@ -618,11 +627,26 @@ function tileAt(x, y) {
   const hit = ray.intersectObjects(tiles.filter((m) => m.visible))[0];
   return hit ? hit.object.userData.sym : null;
 }
+/**
+ * Que hay en un punto de la pantalla: el grafico, el eje de precios (con las liquidaciones), el de fechas,
+ * una cripto de la izquierda o nada (fuera del grafico).
+ */
+function region(x, y) {
+  if (tileAt(x, y)) return 'cripto';
+  const p = chartAt(x, y);
+  if (!p) return 'fuera';
+  const inX = Math.abs(p.x) <= CW / 2 + 0.3, inY = Math.abs(p.y) <= CH / 2 + 0.3;
+  if (inX && inY) return 'grafico';
+  if (inY && p.x > CW / 2 && p.x < CW / 2 + LQW + 3.0) return 'precios';
+  if (inX && p.y < -CH / 2 && p.y > -CH / 2 - 1.1) return 'fechas';
+  return 'fuera';
+}
 function grab(a) {
   if (a.phase === 'start') {
-    const p = chartAt(a.x, a.y);
-    GRAB = { x: a.x, y: a.y, t: Date.now(), tile: tileAt(a.x, a.y), moved: 0, p };
-    if (p && LAY && Math.abs(p.x) <= CW / 2 + 0.5 && Math.abs(p.y) <= CH / 2 + 0.5) {
+    const p = chartAt(a.x, a.y), reg = region(a.x, a.y);
+    GRAB = { x: a.x, y: a.y, t: Date.now(), moved: 0, p, reg, n: V.n, done: false };
+    if (reg === 'precios' && LAY) GRAB.range = { ...(V.manual || { lo: LAY.lo, hi: LAY.hi }) };
+    if (reg === 'grafico' && LAY) {
       // la vela y el precio que quedaron bajo los dedos
       GRAB.slot = LAY.start + (p.x - LAY.x0) / LAY.step;
       GRAB.price = LAY.lo + (p.y - LAY.yb) / (LAY.yt - LAY.yb) * (LAY.hi - LAY.lo);
@@ -632,6 +656,25 @@ function grab(a) {
   }
   if (!GRAB) return;
   GRAB.moved = Math.max(GRAB.moved, Math.hypot(a.x - GRAB.x, a.y - GRAB.y));
+  const dx = a.x - GRAB.x, dy = a.y - GRAB.y;
+  if (a.phase === 'move' && GRAB.reg === 'precios' && GRAB.range) {
+    // arrastrar sobre los precios estira o achica el grafico en vertical (abajo: entra mas rango; arriba: zoom)
+    const r = GRAB.range, c = (r.lo + r.hi) / 2, half = (r.hi - r.lo) / 2 * Math.exp(dy * 3.2);
+    V.manual = { lo: c - half, hi: c + half }; dirty = true; return;
+  }
+  if (a.phase === 'move' && GRAB.reg === 'fechas') {
+    // arrastrar sobre las fechas estira o achica en horizontal (derecha: velas mas anchas; izquierda: mas velas)
+    V.n = clamp(GRAB.n * Math.exp(-dx * 3.2), 20, 300); dirty = true; return;
+  }
+  if (a.phase === 'move' && (GRAB.reg === 'fuera' || GRAB.reg === 'cripto') && !GRAB.done && Math.hypot(dx, dy) > 0.12) {
+    // arrastrar fuera del grafico: de costado cambia la cripto, hacia arriba o abajo la temporalidad (una vez por arrastre)
+    GRAB.done = true;
+    // (directo, sin act: el otro equipo enlazado ya recibe el arrastre y hace lo mismo)
+    if (Math.abs(dx) > Math.abs(dy) * 1.3) stepAsset(dx > 0 ? 1 : -1);
+    else if (Math.abs(dy) > Math.abs(dx) * 1.3) stepTf(dy < 0 ? 1 : -1);
+    else GRAB.done = false;
+    return;
+  }
   if (a.phase === 'end') {
     // pellizco o toque corto y sin moverse: es un clic
     const g = GRAB; GRAB = null;
@@ -1048,13 +1091,16 @@ async function toggleManos(on) {
       return;
     }
     const now = Date.now();
-    if (now - lastTap < 300) { act({ t: 'reset' }); lastTap = 0; mode = null; return; }
+    if (now - lastTap < 300) { act({ t: 'reset', ...toStage(e) }); lastTap = 0; mode = null; return; }
     lastTap = now;
     mode = e.button === 2 || e.shiftKey ? 'rot' : 'grab';
     if (mode === 'grab') act({ t: 'grab', phase: 'start', ...toStage(e) });
   });
   stage.addEventListener('pointermove', (e) => {
-    if (e.pointerType === 'mouse' && CFG.modo === 'ventana') POINT = toStage(e);
+    if (e.pointerType === 'mouse' && CFG.modo === 'ventana') {
+      POINT = toStage(e);
+      if (!mode) { const reg = region(POINT.x, POINT.y); stage.style.cursor = reg === 'precios' ? 'ns-resize' : reg === 'fechas' ? 'ew-resize' : reg === 'cripto' ? 'pointer' : ''; }
+    }
     const p = pts.get(e.pointerId); if (!p) return;
     const dx = (e.clientX - p.x) / innerWidth, dy = (e.clientY - p.y) / innerHeight;
     p.x = e.clientX; p.y = e.clientY;
@@ -1220,4 +1266,4 @@ refreshTickers();
 load(CFG.asset, CFG.tf, false);
 if (Q.get('par')) joinLink(Q.get('par').toUpperCase());
 if (EMBED && window.parent !== window) window.parent.postMessage({ tipo: 'holo-listo' }, location.origin);
-window.__holo = { act, D, V, CFG, onFace, tiles, chart, header, stats, setCursors: (l) => { cursors = l; }, turn: () => TURN };   // para probar
+window.__holo = { act, D, V, CFG, onFace, tiles, chart, header, stats, setCursors: (l) => { cursors = l; }, turn: () => TURN, region: (x, y) => region(x, y) };   // para probar
