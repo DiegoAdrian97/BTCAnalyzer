@@ -44,6 +44,7 @@ const TEMAS = {
   holo: { up: '#19ffd1', dn: '#ff2e88', acc: '#2ad8ff', e20: '#ffe14d', e50: '#b06cff' },
   clasico: { up: '#2bff6a', dn: '#ff3b3b', acc: '#4db8ff', e20: '#ffd23f', e50: '#c77dff' },
   fuego: { up: '#ffd23f', dn: '#ff3d2e', acc: '#ff9a1f', e20: '#fff3b0', e50: '#ff6b9a' },
+  naranja: { up: '#4fd8ff', dn: '#ff9f43', acc: '#3aa8ff', e20: '#ffb15c', e50: '#7fe3ff' },
 };
 const T = () => TEMAS[CFG.tema] || TEMAS.holo;
 const dec = (p) => (p >= 1000 ? 1 : p >= 10 ? 2 : 4);
@@ -89,7 +90,7 @@ async function setAsset(sym, announce = true) {
   try {
     const { src, bars } = await loadBars(sym, CFG.tf);
     if (id !== D.loadId) return;
-    D.bars = bars; D.src = src; D.anim = 0; V.offset = 0; V.manual = null; R.lo = R.hi = null; dirty = true; panelsDirty = true;
+    D.bars = bars; D.src = src; D.anim = 0; V.offset = 0; VS.offset = 0; V.manual = null; R.lo = R.hi = null; dirty = true; panelsDirty = true;
     status('');
     if (announce) flash(`${nameOf(sym)}/USDT · ${TF_LBL[CFG.tf]}`);
   } catch (e) {
@@ -432,12 +433,13 @@ function retheme() {
 // ---------- vista e interaccion ----------
 const VDEF = { offset: 0, n: 92, yPan: 0, yZoom: 1, rotX: -0.08, rotY: 0, scale: 1, manual: null };
 const V = { ...VDEF };
+const VS = { offset: 0 };                // lo que se muestra: sigue a V.offset con un suavizado corto
 let dirty = true, panelsDirty = true, priceDirty = false;
 const R = { lo: null, hi: null };
 function act(a, remote = false) {
   if (!D.bars.length && !['asset', 'tf', 'sync'].includes(a.t)) return;
   if (a.t === 'pan') {
-    V.offset = clamp(V.offset + a.dx * V.n, 0, LAY ? LAY.total - LAY.n : 0);
+    V.offset = clamp(V.offset + a.dx * V.n, 0, LAY ? LAY.total - LAY.nv : 0);
     if (a.dy) { const m = V.manual || { lo: R.lo, hi: R.hi }, sh = a.dy * (m.hi - m.lo); V.manual = { lo: m.lo + sh, hi: m.hi + sh }; }
   } else if (a.t === 'grab') grab(a);
   else if (a.t === 'zoom') {
@@ -520,8 +522,8 @@ function grab(a) {
   if (GRAB.slot === undefined || !LAY) return;
   const p = chartAt(a.x, a.y); if (!p) return;
   // se corre la vista para que la misma vela quede bajo los dedos...
-  const s = (p.x - LAY.x0) / LAY.step;
-  V.offset = clamp(LAY.total - LAY.n - (GRAB.slot - s), 0, LAY.total - LAY.n);
+  // con el desplazamiento O, en la posicion x del grafico queda la vela total - n - O + (x - x0u) / paso
+  V.offset = clamp(LAY.total - LAY.nv - GRAB.slot + (p.x - LAY.x0u) / LAY.step, 0, LAY.total - LAY.nv);
   // ...y el rango de precios para que el mismo precio tambien quede ahi
   const m = V.manual, f = (p.y - LAY.yb) / (LAY.yt - LAY.yb), under = m.lo + f * (m.hi - m.lo), sh = GRAB.price - under;
   V.manual = { lo: m.lo + sh, hi: m.hi + sh };
@@ -563,11 +565,13 @@ function rebuild(dt) {
   const total = bars.length + fut.g.length;
   const n = Math.round(clamp(V.n, 20, Math.min(300, total)));
   V.offset = clamp(V.offset, 0, total - n);
-  const end = total - Math.round(V.offset), start = end - n;
+  // se dibuja con el desplazamiento suavizado y con fraccion de vela: el grafico se desliza, no salta de vela en vela
+  const off = clamp(VS.offset, 0, total - n), fl = Math.floor(off), frac = off - fl, ext = frac > 1e-3 ? 1 : 0;
+  const end = total - fl, start = end - n - ext;
   const vis = bars.slice(start, Math.min(end, bars.length));
   const shown = Math.max(0, end - bars.length), ghosts = fut.g.slice(0, shown), cn = fut.c.slice(0, shown);
   const live = end >= bars.length;                 // la ultima vela real esta a la vista
-  const nr = vis.length, step = CW / n, x0 = -CW / 2 + step / 2;
+  const nr = vis.length, step = CW / n, x0u = -CW / 2 + step / 2, x0 = x0u + (frac - ext) * step;
   const X = (i) => x0 + i * step;
   let lo = Infinity, hi = -Infinity;
   vis.forEach((b) => { lo = Math.min(lo, b[3]); hi = Math.max(hi, b[2]); });
@@ -579,18 +583,19 @@ function rebuild(dt) {
   // no se corre. Si no, se acomoda solo y suave, sin saltar con cada tick
   const tLo = V.manual ? V.manual.lo : mid - half + sh, tHi = V.manual ? V.manual.hi : mid + half + sh;
   R.tLo = tLo; R.tHi = tHi;
-  const k = R.lo === null || V.manual ? 1 : 1 - Math.pow(0.0015, dt);
+  const k = R.lo === null ? 1 : 1 - Math.pow(V.manual ? 1e-4 : 0.0015, dt);
   R.lo = R.lo === null ? tLo : R.lo + (tLo - R.lo) * k; R.hi = R.hi === null ? tHi : R.hi + (tHi - R.hi) * k;
   const yb = -CH / 2 + VOLH + 0.3, yt = CH / 2 - 0.15;
   const Y = (p) => yb + (p - R.lo) / (R.hi - R.lo || 1) * (yt - yb);
-  LAY = { x0, step, vis, ghosts, n, nr, start, total, yb, yt, lo: R.lo, hi: R.hi };
+  LAY = { x0, x0u, step, vis, ghosts, n: n + ext, nv: n, nr, start, total, yb, yt, lo: R.lo, hi: R.hi };
   const inY = (y) => clamp(y, yb - 0.05, yt + 0.05);
   const up = new THREE.Color(T().up), dn = new THREE.Color(T().dn), acc = new THREE.Color(T().acc);
   const bw = Math.max(0.03, step * 0.62), bd = Math.min(0.9, bw * 0.9), ww = Math.max(0.025, bw * 0.16);
   const vmax = Math.max(...vis.map((b) => b[5])) || 1;
   const grow = (i) => clamp((D.anim * 1.35 - i / n) * 5, 0, 1);       // las velas aparecen de izquierda a derecha
+  const outside = (x) => x < -CW / 2 + bw * 0.5 || x > CW / 2 - bw * 0.5;
   vis.forEach((b, i) => {
-    const [, o, h, l, c, v] = b, g = grow(i), x = X(i), isLast = live && i === nr - 1;
+    const [, o, h, l, c, v] = b, x = X(i), g = outside(x) ? 0 : grow(i), isLast = live && i === nr - 1;
     const col = tmpC.copy(c >= o ? up : dn).multiplyScalar(isLast ? 1.6 : 1.05);
     const y1 = inY(Y(Math.max(o, c))), y0 = inY(Y(Math.min(o, c)));
     tmpP.set(x, (y0 + y1) / 2, 0); tmpS.set(bw, Math.max(0.035, (y1 - y0)) * g + 0.0001, bd);
@@ -606,12 +611,12 @@ function rebuild(dt) {
   [bodies, wicks, vols].forEach((m) => { m.instanceMatrix.needsUpdate = true; m.instanceColor.needsUpdate = true; });
   // futuro: velas fantasma del escenario tipico y la zona donde termino el 80% de los casos parecidos
   ghosts.forEach((b, j) => {
-    const x = X(nr + j);
+    const x = X(nr + j), gg = outside(x) ? 0.0001 : 1;
     const col = tmpC.copy(b.c >= b.o ? up : dn);
     const y1 = inY(Y(Math.max(b.o, b.c))), y0 = inY(Y(Math.min(b.o, b.c)));
-    tmpP.set(x, (y0 + y1) / 2, 0); tmpS.set(bw, Math.max(0.035, y1 - y0), bd);
+    tmpP.set(x, (y0 + y1) / 2, 0); tmpS.set(bw, Math.max(0.035, y1 - y0) * gg, bd);
     gBodies.setMatrixAt(j, tmpM.compose(tmpP, Q0, tmpS)); gBodies.setColorAt(j, col);
-    tmpP.set(x, (inY(Y(b.l)) + inY(Y(b.h))) / 2, 0); tmpS.set(ww, Math.max(0.02, inY(Y(b.h)) - inY(Y(b.l))), ww);
+    tmpP.set(x, (inY(Y(b.l)) + inY(Y(b.h))) / 2, 0); tmpS.set(ww, Math.max(0.02, inY(Y(b.h)) - inY(Y(b.l))) * gg, ww);
     gWicks.setMatrixAt(j, tmpM.compose(tmpP, Q0, tmpS)); gWicks.setColorAt(j, col);
   });
   gBodies.count = gWicks.count = ghosts.length;
@@ -626,12 +631,13 @@ function rebuild(dt) {
     cone.geometry.dispose(); cone.geometry = new THREE.BufferGeometry(); cone.geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     cone.visible = true;
     coneMid.userData.set(pts.flatMap((p) => [p[0], p[3], 0.1]));
-    futLbl.visible = true; futLbl.position.set(Math.max(X(nr) + 2.3, -CW / 2 + 2.6), CH / 2 - 0.4, 0.2);
+    // el cartel va sobre el futuro, a la derecha y siempre adentro del marco; si se ve muy poco futuro, no va
+    futLbl.visible = X(nr) < CW / 2 - 4.6; futLbl.position.set(CW / 2 - 2.6, CH / 2 - 0.4, 0.2);
     futLbl.userData.draw('FUTURO POSIBLE · ANALISTA');
   } else { cone.visible = false; coneMid.visible = false; futLbl.visible = false; }
   // medias, precio actual y grilla
   const closes = bars.map((b) => b[4]);
-  const lineOf = (arr) => { const pts = []; for (let i = 0; i < nr; i++) { const v = arr[start + i]; if (v !== null && v !== undefined) pts.push(X(i), clamp(Y(v), yb, yt), 0.15); } return pts; };
+  const lineOf = (arr) => { const pts = []; for (let i = 0; i < nr; i++) { const v = arr[start + i]; if (v !== null && v !== undefined && !outside(X(i))) pts.push(X(i), clamp(Y(v), yb, yt), 0.15); } return pts; };
   if (window.Ind) { ema20.userData.set(lineOf(window.Ind.ema(closes, 20))); ema50.userData.set(lineOf(window.Ind.ema(closes, 50))); }
   const last = bars[bars.length - 1], py = clamp(Y(last[4]), yb, yt);
   priceLine.userData.set([-CW / 2, py, 0.05, CW / 2 + 0.3, py, 0.05]);
@@ -755,6 +761,8 @@ function frameLoop(now) {
   const real = (now - lastT) / 1000, dt = Math.min(0.1, real); lastT = now;
   const t = now / 1000;
   if (D.anim < 1) { D.anim = Math.min(1, D.anim + real * 0.9); dirty = true; }
+  const dOff = V.offset - VS.offset;
+  if (Math.abs(dOff) > 1e-3) { VS.offset += dOff * (1 - Math.pow(1e-4, dt)); dirty = true; } else VS.offset = V.offset;
   if (dirty || rangeMoving()) { dirty = false; rebuild(dt); }
   if ((panelsDirty || priceDirty) && now - panelT > 250) {
     panelT = now; header.userData.draw();
