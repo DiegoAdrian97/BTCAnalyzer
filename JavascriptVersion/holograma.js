@@ -27,14 +27,14 @@ const EMBED = Q.has('embed');
 
 // ---------- ajustes (quedan guardados en este navegador) ----------
 const DEF = { modo: 'ventana', diag: 15.3, cabeza: false, cam: 'arriba', espejoH: true, espejoV: false, rot: 0, tema: 'holo',
-  lados: true, pred: true, fx: true, asset: 'BTCUSDT', tf: '15m', brillo: 0, barrido: false, v: 2 };
+  lados: true, pred: true, fx: true, asset: 'BTCUSDT', tf: '15m', brillo: 0, barrido: false, vista: 'frente', v: 2 };
 const CFG = { ...DEF };
 try { Object.assign(CFG, JSON.parse(localStorage.getItem('holo-ajustes') || '{}')); } catch (e) { /* sin almacenamiento */ }
 if (CFG.v !== 2) Object.assign(CFG, { brillo: 0, barrido: false, v: 2 });   // los ajustes viejos tenian brillo: ahora arranca nitido
 if (Q.get('modo') === 'reflejo') { CFG.modo = 'reflejo'; CFG.diag = 6.1; }
 const save = () => { try { localStorage.setItem('holo-ajustes', JSON.stringify(CFG)); } catch (e) { /* idem */ } };
 
-const ASSETS = [{ sym: 'BTCUSDT', name: 'BTC' }, { sym: 'SOLUSDT', name: 'SOL' }, { sym: 'XRPUSDT', name: 'XRP' }];
+const ASSETS = [{ sym: 'BTCUSDT', name: 'BTC' }, { sym: 'SOLUSDT', name: 'SOL' }, { sym: 'XRPUSDT', name: 'XRP' }, { sym: 'ZECUSDT', name: 'ZEC' }];
 const TFS = ['1m', '5m', '15m', '1h', '4h', '1d'];
 const TF_MS = { '1m': 6e4, '5m': 3e5, '15m': 9e5, '1h': 36e5, '4h': 144e5, '1d': 864e5 };
 const TF_LBL = { '1m': '1m', '5m': '5m', '15m': '15m', '1h': '1h', '4h': '4h', '1d': '1D' };
@@ -83,26 +83,41 @@ async function refreshTickers() {
   panelsDirty = true;
 }
 
-async function setAsset(sym, announce = true) {
-  CFG.asset = sym; save(); syncButtons();
+/**
+ * Cambia de cripto o de temporalidad. Con `turn` ({ axis: 'y' | 'x', dir }) el grafico gira como un cubo de vidrio:
+ * de costado para la cripto, hacia arriba o abajo para la temporalidad. Los datos nuevos se bajan antes de girar y
+ * se ponen en la cara que entra, a mitad de giro.
+ */
+async function load(sym, tf, announce = true, turn = null) {
   const id = ++D.loadId;
-  status('Cargando ' + nameOf(sym) + '/USDT…');
-  try {
-    const { src, bars } = await loadBars(sym, CFG.tf);
-    if (id !== D.loadId) return;
-    D.bars = bars; D.src = src; D.anim = 0; V.offset = 0; VS.offset = 0; V.manual = null; R.lo = R.hi = null; dirty = true; panelsDirty = true;
-    status('');
-    if (announce) flash(`${nameOf(sym)}/USDT · ${TF_LBL[CFG.tf]}`);
-  } catch (e) {
+  status(`Cargando ${nameOf(sym)}/USDT · ${TF_LBL[tf]}…`);
+  let got;
+  try { got = await loadBars(sym, tf); } catch (e) {
     if (id === D.loadId) status('No se pudieron bajar las velas: ' + e.message + '. Se reintenta solo.', true);
-    setTimeout(() => { if (id === D.loadId) setAsset(sym, false); }, 5000);
+    setTimeout(() => { if (id === D.loadId) load(sym, tf, false); }, 5000);
     return;
   }
-  connectLive(); predWorker();
+  if (id !== D.loadId) return;
+  status('');
+  const apply = () => {
+    CFG.asset = sym; CFG.tf = tf; save(); syncButtons();
+    D.bars = got.bars; D.src = got.src; D.anim = 0; V.offset = 0; VS.offset = 0; V.manual = null; R.lo = R.hi = null; PIN = null;
+    dirty = true; panelsDirty = true;
+    if (announce) flash(`${nameOf(sym)}/USDT · ${TF_LBL[tf]}`);
+    connectLive(); predWorker();
+  };
+  if (turn && D.bars.length && !document.hidden) startTurn(turn, apply); else apply();
 }
-function setTf(tf) { CFG.tf = tf; save(); setAsset(CFG.asset); }
-function stepAsset(dir) { const i = ASSETS.findIndex((a) => a.sym === CFG.asset); setAsset(ASSETS[(i + dir + ASSETS.length) % ASSETS.length].sym); }
-function stepTf(dir) { const i = TFS.indexOf(CFG.tf); setTf(TFS[clamp(i + dir, 0, TFS.length - 1)]); }
+function setAsset(sym, announce = true, turn = null) { return load(sym, CFG.tf, announce, turn); }
+function setTf(tf, turn = null) { return load(CFG.asset, tf, true, turn); }
+function stepAsset(dir) {
+  const i = ASSETS.findIndex((a) => a.sym === CFG.asset);
+  setAsset(ASSETS[(i + dir + ASSETS.length) % ASSETS.length].sym, true, { axis: 'y', dir });
+}
+function stepTf(dir) {
+  const i = TFS.indexOf(CFG.tf), j = clamp(i + dir, 0, TFS.length - 1);
+  if (j !== i) setTf(TFS[j], { axis: 'x', dir });
+}
 
 // precio en vivo por WebSocket (la ruta /market/ws/ es la que manda datos); si se corta, se pide cada pocos segundos
 let ws = null, wsKey = '', lastMsg = 0;
@@ -238,7 +253,7 @@ function textPlane(w, h, draw) {
   const c = document.createElement('canvas');
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
   tex.generateMipmaps = false; tex.minFilter = THREE.LinearFilter; tex.magFilter = THREE.LinearFilter;
-  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false });
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
   let args = null, ppu = 0;
   const size = () => {
@@ -256,6 +271,16 @@ function textPlane(w, h, draw) {
   planes.push(m);
   return m;
 }
+/** Un panel de vidrio: oscuro y semitransparente, con un reflejo suave arriba y un borde fino. */
+function glassRect(ctx, x, y, w, h, r, edge = 'rgba(150, 205, 255, .42)', alpha = 0.62) {
+  const g = ctx.createLinearGradient(0, y, 0, y + h);
+  g.addColorStop(0, `rgba(30, 52, 78, ${alpha})`); g.addColorStop(0.5, `rgba(14, 28, 46, ${alpha})`); g.addColorStop(1, `rgba(8, 16, 28, ${alpha})`);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill();
+  const shine = ctx.createLinearGradient(x, y, x + w * 0.6, y + h * 0.6);
+  shine.addColorStop(0, 'rgba(255, 255, 255, .07)'); shine.addColorStop(0.35, 'rgba(255, 255, 255, 0)');
+  ctx.fillStyle = shine; ctx.fill();
+  ctx.strokeStyle = edge; ctx.lineWidth = Math.max(1.5, h / 260); ctx.stroke();
+}
 /** Texto nitido con un halo muy suave alrededor (el halo va aparte y tenue para no desenfocar las letras). */
 const glowText = (ctx, txt, x, y, size, color, weight = 700, align = 'left', blur = 0.12) => {
   ctx.font = `${weight} ${size}px system-ui, -apple-system, "Segoe UI", sans-serif`;
@@ -271,7 +296,8 @@ const glowText = (ctx, txt, x, y, size, color, weight = 700, align = 'left', blu
 // medidas del grafico (en unidades de la escena; despues se escala a la pantalla)
 const CW = 16, CH = 9, VOLH = 1.5;
 const root = new THREE.Group(); scene.add(root);
-const chart = new THREE.Group(); root.add(chart);
+const spin = new THREE.Group(); root.add(spin);            // el cubo de vidrio: gira para cambiar de cripto o temporalidad
+const chart = new THREE.Group(); spin.add(chart);
 
 // panel de vidrio, marco y esquinas
 const glass = new THREE.Mesh(new THREE.PlaneGeometry(CW + 0.6, CH + 0.6), new THREE.ShaderMaterial({
@@ -283,8 +309,37 @@ const glass = new THREE.Mesh(new THREE.PlaneGeometry(CW + 0.6, CH + 0.6), new TH
       float a = 0.012 + 0.07 * smoothstep(0.05, 0.0, e) + 0.01 * (1.0 - vUv.y);
       gl_FragColor = vec4(color * a, a); }`,
 }));
-glass.position.z = -0.4; chart.add(glass); glass.visible = false;   // fondo negro puro: no se ve, solo sirve para ubicar la mira
-const frame = line(T().acc, 2, { opacity: 0.9 }); chart.add(frame);
+glass.position.z = -0.4; chart.add(glass); glass.visible = false;   // no se ve: solo sirve para ubicar la mira
+// el panel de vidrio donde esta dibujado el grafico
+const chartGlass = textPlane(CW + 1.0, CH + 1.0, (ctx, w, h) => glassRect(ctx, 3, 3, w - 6, h - 6, h * 0.03, 'rgba(150, 205, 255, .5)', 0.55));
+chartGlass.position.z = -0.6; chartGlass.renderOrder = -10; chart.add(chartGlass);
+// capas de vidrio mas atras, con el panorama largo y el volumen: dan profundidad cuando el grafico gira
+const backA = textPlane(CW * 0.78, CH * 0.62, (ctx, w, h) => {
+  glassRect(ctx, 3, 3, w - 6, h - 6, h * 0.05, 'rgba(150, 205, 255, .3)', 0.42);
+  const cl = D.bars.map((b) => b[4]); if (cl.length < 2) return;
+  const lo = Math.min(...cl), hi = Math.max(...cl), px = (i) => w * 0.06 + (i / (cl.length - 1)) * w * 0.88, py = (v) => h * 0.85 - ((v - lo) / (hi - lo || 1)) * h * 0.62;
+  ctx.strokeStyle = 'rgba(150, 205, 255, .12)'; ctx.lineWidth = 1;
+  for (let k = 1; k < 5; k++) { ctx.beginPath(); ctx.moveTo(w * 0.06, h * 0.18 + k * h * 0.14); ctx.lineTo(w * 0.94, h * 0.18 + k * h * 0.14); ctx.stroke(); }
+  ctx.strokeStyle = T().acc; ctx.globalAlpha = 0.7; ctx.lineWidth = Math.max(2, h / 140); ctx.beginPath();
+  cl.forEach((v, i) => (i ? ctx.lineTo(px(i), py(v)) : ctx.moveTo(px(i), py(v)))); ctx.stroke(); ctx.globalAlpha = 1;
+  glowText(ctx, `${nameOf(CFG.asset)}/USDT · últimas ${cl.length} velas de ${TF_LBL[CFG.tf]}`, w * 0.06, h * 0.11, h * 0.06, 'rgba(190, 225, 255, .75)', 600, 'left', 0);
+});
+backA.position.set(-CW * 0.2, CH * 0.36, -3.2); root.add(backA);
+const backB = textPlane(6.2, 3.2, (ctx, w, h) => {
+  glassRect(ctx, 3, 3, w - 6, h - 6, h * 0.08, 'rgba(150, 205, 255, .3)', 0.45);
+  const bs = D.bars.slice(-48); if (!bs.length) return;
+  const vm = Math.max(...bs.map((b) => b[5])) || 1, bw = (w * 0.86) / bs.length;
+  bs.forEach((b, i) => {
+    const bh = (b[5] / vm) * h * 0.55;
+    ctx.fillStyle = b[4] >= b[1] ? T().up : T().dn; ctx.globalAlpha = 0.55;
+    ctx.fillRect(w * 0.07 + i * bw, h * 0.88 - bh, bw * 0.7, bh);
+  });
+  ctx.globalAlpha = 1;
+  glowText(ctx, 'Volumen', w * 0.07, h * 0.16, h * 0.11, 'rgba(190, 225, 255, .75)', 600, 'left', 0);
+});
+backB.position.set(CW * 0.36, -CH * 0.22, -2.2); root.add(backB);
+[backA, backB].forEach((m) => { m.renderOrder = -20; });
+const frame = line(T().acc, 1.2, { opacity: 0.55 }); chart.add(frame);
 function frameShape() {
   // marco redondeado alrededor del grafico
   const w = CW / 2 + 0.3, h = CH / 2 + 0.3, r = 0.45, pts = [];
@@ -296,11 +351,55 @@ function frameShape() {
 }
 frameShape();
 // esquinas mas gruesas, cada una con su propia linea
-const cornerLines = [0, 1, 2, 3].map(() => { const l = line(T().acc, 4.5); chart.add(l); return l; });
+const cornerLines = [0, 1, 2, 3].map(() => { const l = line(T().acc, 4.5); l.visible = false; return l; });   // estetica de vidrio: sin esquinas
 (function placeCorners() {
   const w = CW / 2 + 0.3, h = CH / 2 + 0.3, L = 1.4;
-  [[-1, 1], [1, 1], [1, -1], [-1, -1]].forEach(([sx, sy], k) => cornerLines[k].userData.set([sx * w, sy * (h - L), -0.2, sx * w, sy * h, -0.2, sx * (w - L), sy * h, -0.2]));
+  [[-1, 1], [1, 1], [1, -1], [-1, -1]].forEach(([sx, sy], k) => { cornerLines[k].userData.set([sx * w, sy * (h - L), -0.2, sx * w, sy * h, -0.2, sx * (w - L), sy * h, -0.2]); cornerLines[k].visible = false; });
 })();
+
+// el cubo de vidrio que se ve mientras gira: aristas finas y caras apenas visibles
+function glassBox(w, h, d) {
+  const g = new THREE.Group();
+  const geo = new THREE.BoxGeometry(w, h, d);
+  g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: '#7fbfff', transparent: true, opacity: 0.05, side: THREE.DoubleSide, depthWrite: false })));
+  g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: '#a8d8ff', transparent: true, opacity: 0.5, depthWrite: false })));
+  g.visible = false;
+  return g;
+}
+const DEPTH = { y: CW + 1, x: CH + 1 };                     // profundidad del cubo segun el eje en que gira
+const boxes = { y: glassBox(CW + 1, CH + 1, DEPTH.y), x: glassBox(CW + 1, CH + 1, DEPTH.x) };
+spin.add(boxes.y, boxes.x);
+let TURN = null;
+let PIN = null;                                            // la cruz fija que deja el clic: { t, price }
+function startTurn(turn, apply) {
+  if (TURN) { TURN.apply(); finishTurn(); }
+  const d = DEPTH[turn.axis];
+  spin.position.z = -d / 2; chart.position.z = d / 2;      // el centro de giro queda en el medio del cubo
+  boxes[turn.axis].visible = true;
+  TURN = { axis: turn.axis, sgn: (turn.axis === 'y' ? 1 : -1) * Math.sign(turn.dir || 1), start: performance.now(), apply, swapped: false, d };
+}
+function finishTurn() {
+  if (!TURN) return;
+  spin.rotation.set(0, 0, 0); spin.position.z = 0; chart.position.set(0, 0, 0); chart.rotation.set(0, 0, 0);
+  boxes.x.visible = boxes.y.visible = false;
+  TURN = null; dirty = true;
+}
+function animTurn(now) {
+  if (!TURN) return;
+  if (TURN.hold != null) TURN.start = now - TURN.hold * 800;     // para las pruebas: congelar el giro
+  const k = clamp((now - TURN.start) / 800, 0, 1), e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
+  const ang = e * (Math.PI / 2) * TURN.sgn, half = TURN.d / 2;
+  if (TURN.axis === 'y') spin.rotation.set(0, ang, 0); else spin.rotation.set(ang, 0, 0);
+  if (!TURN.swapped && e >= 0.5) {
+    // a mitad de giro: los datos nuevos, en la cara que entra
+    TURN.swapped = true; TURN.apply();
+    if (TURN.axis === 'y') { chart.position.set(-TURN.sgn * half, chart.position.y, 0); chart.rotation.set(0, -TURN.sgn * Math.PI / 2, 0); }
+    else { chart.position.set(0, TURN.sgn * half, 0); chart.rotation.set(-TURN.sgn * Math.PI / 2, 0, 0); }
+  }
+  const m = boxes[TURN.axis].children;
+  m[1].material.opacity = 0.55 * Math.sin(k * Math.PI); m[0].material.opacity = 0.06 * Math.sin(k * Math.PI);
+  if (k >= 1) finishTurn();
+}
 
 // grilla de precios
 const grid = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: T().acc, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -319,6 +418,12 @@ const bodies = inst(0.95), wicks = inst(0.95), vols = inst(0.32), gBodies = inst
 vols.material.blending = gBodies.material.blending = gWicks.material.blending = THREE.AdditiveBlending;
 chart.add(vols, wicks, bodies, gWicks, gBodies);
 glowOn(bodies, wicks, gBodies, gWicks);
+// columna de liquidaciones estimadas (BTC): rojas = longs que se liquidan si baja, verdes = shorts si sube
+let LQW = 0, LIQ = [];
+const liqMesh = new THREE.InstancedMesh(box, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.8, toneMapped: false, depthWrite: false }), 240);
+liqMesh.count = 0; liqMesh.frustumCulled = false; liqMesh.setColorAt(0, new THREE.Color()); chart.add(liqMesh);
+const liqLbl = textPlane(1.6, 0.42, (ctx, w, h) => glowText(ctx, 'Liquidac.', w / 2, h / 2, h * 0.55, '#9fd8f0', 600, 'center', 0));
+chart.add(liqLbl); liqLbl.visible = false;
 const ema20 = line(T().e20, 2.2, { opacity: 0.95 }), ema50 = line(T().e50, 2.2, { opacity: 0.95 });
 const priceLine = line(T().acc, 1.6, { dash: 0.35, gap: 0.25, opacity: 0.9, noGlow: true });
 const coneMid = line('#ffffff', 1.8, { dash: 0.3, gap: 0.25, opacity: 0.7 });
@@ -377,9 +482,7 @@ const tiles = ASSETS.map((a) => {
     const k = W / 460, w = 460, h = H / k;
     ctx.setTransform(k, 0, 0, k, 0, 0);
     const t = D.tick[a.sym] || {}, on = a.sym === CFG.asset, col = (t.pct ?? 0) >= 0 ? T().up : T().dn;
-    ctx.strokeStyle = on ? T().acc : 'rgba(42,216,255,.4)'; ctx.lineWidth = on ? 5 : 3; ctx.shadowColor = T().acc; ctx.shadowBlur = on && CFG.brillo > 0 ? 12 : 0;
-    ctx.fillStyle = on ? 'rgba(42,216,255,.07)' : 'rgba(42,216,255,.025)';
-    ctx.beginPath(); ctx.roundRect(6, 6, w - 12, h - 12, 26); ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0;
+    glassRect(ctx, 6, 6, w - 12, h - 12, 26, on ? T().acc : 'rgba(150, 205, 255, .35)', on ? 0.75 : 0.55);
     glowText(ctx, `${a.name}/USDT`, 30, h * 0.27, h * 0.2, on ? T().acc : '#9fe9ff', 800, 'left', 0.05);
     glowText(ctx, fmt(t.last, dec(t.last || 1)), 30, h * 0.55, h * 0.26, '#f2fdff', 800, 'left', 0.08);
     if (t.pct !== undefined) glowText(ctx, fpct(t.pct), 30, h * 0.79, h * 0.18, col, 800);
@@ -393,8 +496,7 @@ const stats = textPlane(4.0, 9.4, (ctx, W, H) => {
   // se dibuja en una grilla de 512 px de ancho y se escala a la resolucion real de la textura
   const k = W / 512, w = 512, h = H / k;
   ctx.setTransform(k, 0, 0, k, 0, 0);
-  ctx.strokeStyle = 'rgba(42,216,255,.5)'; ctx.lineWidth = 3; ctx.fillStyle = 'rgba(42,216,255,.05)';
-  ctx.beginPath(); ctx.roundRect(6, 6, w - 12, h - 12, 26); ctx.fill(); ctx.stroke();
+  glassRect(ctx, 6, 6, w - 12, h - 12, 26, 'rgba(150, 205, 255, .4)', 0.6);
   const t = D.tick[CFG.asset] || {}, closes = D.bars.map((b) => b[4]), last = closes[closes.length - 1];
   const rsi = window.Ind && closes.length > 20 ? window.Ind.rsi(closes) : [];
   const e50 = window.Ind && closes.length > 50 ? window.Ind.ema(closes, 50) : [];
@@ -452,7 +554,7 @@ function act(a, remote = false) {
   else if (a.t === 'tf') stepTf(a.dir);
   else if (a.t === 'reset') { Object.assign(V, VDEF); V.manual = null; flash('Vista inicial'); }
   else if (a.t === 'point') { POINT = a.x === null ? null : { x: a.x, y: a.y }; return; }
-  else if (a.t === 'sync') { if (a.tf && a.tf !== CFG.tf) CFG.tf = a.tf; if (a.asset) setAsset(a.asset); }
+  else if (a.t === 'sync') { if ((a.asset && a.asset !== CFG.asset) || (a.tf && a.tf !== CFG.tf)) load(a.asset || CFG.asset, a.tf || CFG.tf, true, a.asset !== CFG.asset ? assetTurn(a.asset) : tfTurn(a.tf)); }
   dirty = true;
   if (!remote) link.send(a);
 }
@@ -544,7 +646,7 @@ function updateCross() {
   const b = g ? [g.t, g.o, g.h, g.l, g.c, 0] : LAY.vis[i], x = LAY.x0 + i * LAY.step, yy = clamp(p.y, LAY.yb, LAY.yt);
   const price = LAY.lo + (yy - LAY.yb) / (LAY.yt - LAY.yb) * (LAY.hi - LAY.lo), d = dec(b[4]);
   crossV.userData.set([x, -CH / 2, 0.7, x, CH / 2, 0.7]); crossH.userData.set([-CW / 2, yy, 0.7, CW / 2, yy, 0.7]);
-  crossTag.position.set(CW / 2 + 1.55, yy, 0.8); crossLbl.position.set(0, CH / 2 - 0.45, 0.8);
+  crossTag.position.set(CW / 2 + LQW + 1.55, yy, 0.8); crossLbl.position.set(0, CH / 2 - 0.45, 0.8);
   const key = `${b[0]}|${b[4]}|${fmt(price, d)}`;
   if (crossLbl.userData.k !== key) {
     crossLbl.userData.k = key;
@@ -639,9 +741,30 @@ function rebuild(dt) {
   const closes = bars.map((b) => b[4]);
   const lineOf = (arr) => { const pts = []; for (let i = 0; i < nr; i++) { const v = arr[start + i]; if (v !== null && v !== undefined && !outside(X(i))) pts.push(X(i), clamp(Y(v), yb, yt), 0.15); } return pts; };
   if (window.Ind) { ema20.userData.set(lineOf(window.Ind.ema(closes, 20))); ema50.userData.set(lineOf(window.Ind.ema(closes, 50))); }
+  // liquidaciones: barras horizontales al costado, en el rango de precios visible
+  LIQ = CFG.asset === 'BTCUSDT' && CFG.pred && D.rows ? D.rows.filter((r) => r.tabla === 'liquidacion') : [];
+  const lqw = LIQ.length ? 1.7 : 0;
+  if (lqw !== LQW) { LQW = lqw; layout(); }
+  let li = 0;
+  if (LQW) {
+    const inR = LIQ.filter((r) => r.precio > R.lo && r.precio < R.hi), vmaxL = Math.max(1e-9, ...inR.map((r) => Math.max(r.longs, r.shorts)));
+    inR.forEach((r) => {
+      const hh = Math.max(0.03, Math.abs(Y(r.precio * 1.00125) - Y(r.precio * 0.99875)) * 0.8), yy = Y(r.precio);
+      let x = CW / 2 + 0.4;
+      [[r.longs, dn], [r.shorts, up]].forEach(([v, col]) => {
+        if (!(v > 0) || li >= 240) return;
+        const ww = Math.max(0.05, Math.sqrt(v / vmaxL) * (LQW - 0.6));
+        tmpP.set(x + ww / 2, yy, 0); tmpS.set(ww, hh, 0.05);
+        liqMesh.setMatrixAt(li, tmpM.compose(tmpP, Q0, tmpS)); liqMesh.setColorAt(li, tmpC.copy(col).multiplyScalar(0.35 + 0.65 * Math.sqrt(v / vmaxL)));
+        x += ww; li += 1;
+      });
+    });
+    liqLbl.visible = true; liqLbl.position.set(CW / 2 + LQW / 2 + 0.1, -CH / 2 - 0.55, 0.1);
+  } else liqLbl.visible = false;
+  liqMesh.count = li; liqMesh.instanceMatrix.needsUpdate = true; if (liqMesh.instanceColor) liqMesh.instanceColor.needsUpdate = true;
   const last = bars[bars.length - 1], py = clamp(Y(last[4]), yb, yt);
-  priceLine.userData.set([-CW / 2, py, 0.05, CW / 2 + 0.3, py, 0.05]);
-  priceTag.position.set(CW / 2 + 1.55, py, 0.2);
+  priceLine.userData.set([-CW / 2, py, 0.05, CW / 2 + LQW + 0.3, py, 0.05]);
+  priceTag.position.set(CW / 2 + LQW + 1.55, py, 0.2);
   const tagTxt = fmt(last[4], dec(last[4]));
   if (priceTag.userData.txt !== tagTxt + T().acc) { priceTag.userData.txt = tagTxt + T().acc; priceTag.userData.draw(tagTxt, T().acc); }
   dot.position.set(X(nr - 1), Y(last[4]), 0.5); halo.position.copy(dot.position); dot.visible = halo.visible = live && nr > 0;
@@ -656,7 +779,7 @@ function rebuild(dt) {
   axisLbls.forEach((m, j) => {
     const v = ticks[j];
     if (v === undefined || Y(v) < yb || Y(v) > yt || Math.abs(Y(v) - py) < 0.42) { m.visible = false; return; }
-    m.visible = true; m.position.set(CW / 2 + 1.5, Y(v), 0.1);
+    m.visible = true; m.position.set(CW / 2 + LQW + 1.5, Y(v), 0.1);
     const txt = fmt(v, unit < 1 ? 4 : unit < 10 ? 2 : 0);
     if (m.userData.txt !== txt) { m.userData.txt = txt; m.userData.draw(txt); }
   });
@@ -721,11 +844,11 @@ function applyEye(dt) {
 function layout() {
   const zDef = physical();
   const wide = SW / SH > 1.25, sides = CFG.lados && wide;
-  tiles.forEach((m, i) => { m.visible = sides; m.position.set(-CW / 2 - 2.6, CH / 2 - 1.1 - i * 2.2, 0.6); m.rotation.y = 0.38; });
-  stats.visible = sides; stats.position.set(CW / 2 + 5.0, 0, 0.6); stats.rotation.y = -0.38;
+  tiles.forEach((m, i) => { m.visible = sides; m.position.set(-CW / 2 - 2.6, CH / 2 - 1.0 - i * 2.15, 0.6); m.rotation.y = 0.38; });
+  stats.visible = sides; stats.position.set(CW / 2 + LQW + 5.0, 0, 0.6); stats.rotation.y = -0.38;
   header.position.set(0, CH / 2 + 1.6, 0.2);
   // tamano del contenido y escala para que entre en la pantalla (lo que esta adelante de la pantalla se ve mas grande)
-  const totalW = CW + 3.2 + (sides ? 2 * 4.4 + 1.2 : 0), top = CH / 2 + 2.8, bottom = CH / 2 + 1.0;
+  const totalW = CW + 3.2 + LQW + (sides ? 2 * 4.4 + 1.2 : 0), top = CH / 2 + 2.8, bottom = CH / 2 + 1.0;
   const persp = (zDef - popZ) / zDef;
   const s = Math.min(0.9 * SW * persp / totalW, 0.88 * SH * persp / (top + bottom));
   root.userData.base = s;
@@ -733,7 +856,7 @@ function layout() {
   const dpr = renderer.getPixelRatio(), pxPerCm = stageDims().w / SW;
   const ppu = Math.round(Math.min(360, Math.max(48, s * pxPerCm * dpr * (zDef / Math.max(1, zDef - popZ)) * 1.1)));
   if (Math.abs(ppu - PPU) / PPU > 0.08) { PPU = ppu; planes.forEach((m) => m.userData.redraw()); panelsDirty = true; }
-  root.position.set(-1.3 * s, (bottom - top) / 2 * s, popZ);   // el eje de precios de la derecha corre el centro
+  root.position.set(-(1.3 + LQW / 2) * s, (bottom - top) / 2 * s, popZ);   // el eje de precios (y las liquidaciones) corren el centro
   root.scale.setScalar(s * V.scale);
 }
 function resize() {
@@ -766,7 +889,7 @@ function frameLoop(now) {
   if (dirty || rangeMoving()) { dirty = false; rebuild(dt); }
   if ((panelsDirty || priceDirty) && now - panelT > 250) {
     panelT = now; header.userData.draw();
-    if (panelsDirty) { tiles.forEach((m) => m.userData.draw()); stats.userData.draw(); }
+    if (panelsDirty) { tiles.forEach((m) => m.userData.draw()); stats.userData.draw(); backA.userData.draw(); backB.userData.draw(); chartGlass.userData.draw(); }
     else tiles.forEach((m) => { if (m.userData.sym === CFG.asset) m.userData.draw(); });   // el precio de la cripto elegida, al tick
     panelsDirty = priceDirty = false;
   }
@@ -776,7 +899,8 @@ function frameLoop(now) {
   root.rotation.y += (V.rotY + idle - root.rotation.y) * Math.min(1, dt * 6);
   const base = root.userData.base || 1;
   root.scale.setScalar(base * V.scale);
-  chart.position.y = Math.sin(t * 0.8) * 0.06;
+  if (!TURN || TURN.axis === 'y') chart.position.y = TURN && TURN.swapped ? chart.position.y : Math.sin(t * 0.8) * 0.06;
+  animTurn(now);
   scanBar.visible = CFG.brillo > 0; halo.visible = halo.visible && CFG.brillo > 0;
   scanBar.position.y = -CH / 2 + ((t * 0.25) % 1) * CH;
   scanBar.material.opacity = 0.35 + 0.25 * Math.sin(t * 3);
@@ -981,8 +1105,10 @@ function flash(txt) { const f = $('#flash'); f.textContent = txt; f.classList.ad
 function seg(el, items, key, onPick) {
   el.replaceChildren(...items.map(([v, t]) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.v = v; b.textContent = t; b.addEventListener('click', () => onPick(v)); return b; }));
 }
-seg($('#assets'), ASSETS.map((a) => [a.sym, a.name]), 'asset', (v) => { setAsset(v); link.send({ t: 'sync', asset: v, tf: CFG.tf }); });
-seg($('#tfs'), TFS.map((t) => [t, TF_LBL[t]]), 'tf', (v) => { setTf(v); link.send({ t: 'sync', asset: CFG.asset, tf: v }); });
+const assetTurn = (v) => { const d = ASSETS.findIndex((a) => a.sym === v) - ASSETS.findIndex((a) => a.sym === CFG.asset); return d ? { axis: 'y', dir: Math.sign(d) } : null; };
+const tfTurn = (v) => { const d = TFS.indexOf(v) - TFS.indexOf(CFG.tf); return d ? { axis: 'x', dir: Math.sign(d) } : null; };
+seg($('#assets'), ASSETS.map((a) => [a.sym, a.name]), 'asset', (v) => { if (v !== CFG.asset) setAsset(v, true, assetTurn(v)); link.send({ t: 'sync', asset: v, tf: CFG.tf }); });
+seg($('#tfs'), TFS.map((t) => [t, TF_LBL[t]]), 'tf', (v) => { if (v !== CFG.tf) setTf(v, tfTurn(v)); link.send({ t: 'sync', asset: CFG.asset, tf: v }); });
 function syncButtons() {
   document.querySelectorAll('#assets button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === CFG.asset)));
   document.querySelectorAll('#tfs button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === CFG.tf)));
@@ -1047,7 +1173,7 @@ document.addEventListener('visibilitychange', () => { predWorker(); if (!documen
 retheme(); syncButtons(); resize(); wake();
 requestAnimationFrame(frameLoop);
 refreshTickers();
-setAsset(CFG.asset, false);
+load(CFG.asset, CFG.tf, false);
 if (Q.get('par')) joinLink(Q.get('par').toUpperCase());
 if (EMBED && window.parent !== window) window.parent.postMessage({ tipo: 'holo-listo' }, location.origin);
-window.__holo = { act, D, V, CFG, onFace, tiles, chart, header, stats, setCursors: (l) => { cursors = l; } };   // para probar
+window.__holo = { act, D, V, CFG, onFace, tiles, chart, header, stats, setCursors: (l) => { cursors = l; }, turn: () => TURN };   // para probar
