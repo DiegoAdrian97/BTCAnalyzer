@@ -216,7 +216,13 @@
     box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; z-index: 3; display: grid; gap: 2px; }
   .ab-tip-d { color: var(--cds-text-secondary); }
   .ab-tip-g { display: grid; grid-template-columns: auto auto; gap: 0 10px; }
-  .ab-explain { display: grid; gap: 6px; }
+  .ab-explain { display: grid; gap: 4px; }
+  .ab-ex-link { border-radius: 6px; padding: 3px 6px; margin-inline: -6px; transition: background .15s; }
+  .ab-ex-link:hover, .ab-ex-link.is-on { background: color-mix(in srgb, var(--color-fg) 9%, transparent); }
+  .ab-chart svg [data-ex], .ab-chart svg .ab-candle, .ab-chart svg .ab-vol-up, .ab-chart svg .ab-vol-dn { transition: opacity .2s ease; }
+  .ab-chart svg.is-focus [data-ex]:not(.ex-on), .ab-chart svg.is-focus .ab-candle,
+  .ab-chart svg.is-focus .ab-vol-up, .ab-chart svg.is-focus .ab-vol-dn { opacity: .12; }
+  .ab-chart svg.is-focus .ex-on { filter: drop-shadow(0 0 5px color-mix(in srgb, var(--color-fg) 45%, transparent)); }
   .ab-ex-item { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 8px; font-size: var(--cds-font-size-caption); color: var(--mute); line-height: 1.45; }
   .ab-ex-item i { display: block; width: 14px; height: 8px; border-radius: 2px; margin-top: .45em; box-sizing: border-box; }
   .ab-ex-item b { color: var(--ink); font-weight: 600; }
@@ -518,6 +524,19 @@
     });
     return place;
   }
+  // al recargarse (el modo en vivo la recarga cuando cambia el diseno) vuelve a la misma vista
+  try {
+    const saved = JSON.parse(sessionStorage.getItem('ab-vista') || 'null');
+    if (saved) {
+      Object.assign(S, { plazo: saved.plazo, tf: saved.tf, scen: saved.scen, nbars: saved.nbars, yzoom: saved.yzoom });
+      Object.assign(S.layers, saved.layers || {});
+      document.querySelectorAll('#scens button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.scen === S.scen)));
+      document.querySelectorAll('#layers [data-layer]').forEach((x) => x.setAttribute('aria-pressed', String(!!S.layers[x.dataset.layer])));
+    }
+  } catch (e) { /* sin almacenamiento: arranca con la vista por defecto */ }
+  window.addEventListener('pagehide', () => {
+    try { sessionStorage.setItem('ab-vista', JSON.stringify({ plazo: S.plazo, tf: S.tf, scen: S.scen, nbars: S.nbars, yzoom: S.yzoom, layers: S.layers })); } catch (e) { /* idem */ }
+  });
   const placeTf = seg(document.getElementById('tfs'), 'data-tf', (v) => { S.tf = v; S.hz = null; S.offset = 0; draw(); });
   const placeSc = seg(document.getElementById('scens'), 'data-scen', (v) => { S.scen = v; draw(); });
   document.getElementById('layers').addEventListener('click', (e) => {
@@ -680,6 +699,15 @@
     svg.append('path').attr('class', 'ab-spark-line').attr('pathLength', 1).style('stroke-dasharray', 1)
       .attr('d', d3.line().x((b, i) => x(i)).y((b) => y(b.c))(bars)).style('fill', 'none').style('stroke', col).style('stroke-width', 2).style('stroke-linecap', 'round');
     svg.append('circle').attr('cx', x(bars.length - 1)).attr('cy', y(bars[bars.length - 1].c)).attr('r', 3.5).style('fill', col);
+  }
+
+  // ---------- resaltar en el grafico lo que se senala en "que estas viendo" ----------
+  function focusEx(key) {
+    S.focus = key;
+    const svg = document.querySelector('#chart svg'); if (!svg) return;
+    svg.classList.toggle('is-focus', !!key);
+    svg.querySelectorAll('[data-ex]').forEach((n) => n.classList.toggle('ex-on', n.getAttribute('data-ex') === key));
+    document.querySelectorAll('#legend [data-ex]').forEach((n) => n.classList.toggle('is-on', n.dataset.ex === key));
   }
 
   // ---------- plazos ----------
@@ -882,8 +910,8 @@
       if (pz) {
         const xx = xt(num(pz.t_hasta)) - x.step() / 2;
         if (xx > fx && xx <= plotR) {
-          svg.append('line').attr('x1', xx).attr('x2', xx).attr('y1', m.t + 6).attr('y2', priceB).style('stroke', 'var(--color-fg)').style('stroke-opacity', .6).style('stroke-dasharray', '3 3');
-          svg.append('text').attr('class', 'ab-future-lbl').attr('x', xx).attr('y', priceB + 12).attr('text-anchor', 'middle').text(`${S.plazo} · ${pz.hora.slice(-5)} h`);
+          svg.append('line').attr('class', 'ab-plazo-mark').attr('x1', xx).attr('x2', xx).attr('y1', m.t + 6).attr('y2', priceB).style('stroke', 'var(--color-fg)').style('stroke-opacity', .6).style('stroke-dasharray', '3 3');
+          svg.append('text').attr('class', 'ab-future-lbl ab-plazo-mark').attr('x', xx).attr('y', priceB + 12).attr('text-anchor', 'middle').text(`${S.plazo} · ${pz.hora.slice(-5)} h`);
         }
       }
     }
@@ -892,7 +920,7 @@
     const pane = svg.append('g').attr('clip-path', 'url(#ab-pane)');
     if (L.bb) {
       const bb = bars.map((b, i) => ({ i, u: b.bu, l: b.bl })).filter((b) => b.u !== null);
-      pane.append('path').attr('d', d3.area().x((d) => cxi(d.i)).y0((d) => y(d.l)).y1((d) => y(d.u))(bb)).style('fill', 'var(--color-fg)').style('fill-opacity', .04);
+      pane.append('path').attr('class', 'ab-bb-area').attr('d', d3.area().x((d) => cxi(d.i)).y0((d) => y(d.l)).y1((d) => y(d.u))(bb)).style('fill', 'var(--color-fg)').style('fill-opacity', .04);
       ['u', 'l'].forEach((k) => pane.append('path').attr('class', 'ab-bb').style('fill', 'none').attr('d', d3.line().x((d) => cxi(d.i)).y((d) => y(d[k]))(bb)));
     }
     if (L.fvg) fvgs.forEach((z) => {
@@ -904,14 +932,14 @@
     pick(rows, 'explicacion').filter((e) => e.plazo === S.plazo && e.tipo === 'vigilar' && e.precio !== null && e.precio !== undefined).forEach((e) => {
       const v = num(e.precio); if (!(v > lo && v < hi)) return;
       const col = e.sesgo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)';
-      pane.append('line').attr('x1', m.l).attr('x2', plotR).attr('y1', y(v)).attr('y2', y(v)).style('stroke', col).style('stroke-width', 1.3)
+      pane.append('line').attr('class', 'ab-sr').attr('x1', m.l).attr('x2', plotR).attr('y1', y(v)).attr('y2', y(v)).style('stroke', col).style('stroke-width', 1.3)
         .style('stroke-dasharray', '10 5').style('stroke-opacity', .85);
-      pane.append('text').attr('class', 'ab-pat-lbl').style('fill', col).attr('x', m.l + 6).attr('y', y(v) + (e.sesgo === 'alcista' ? -5 : 13)).text(e.texto);
+      pane.append('text').attr('class', 'ab-pat-lbl ab-sr').style('fill', col).attr('x', m.l + 6).attr('y', y(v) + (e.sesgo === 'alcista' ? -5 : 13)).text(e.texto);
     });
     if (cone.length) {
       const li = bars.length - 1, c0 = bars[li].c;
       const pts = [{ i: li, lo: c0, hi: c0, mid: c0 }].concat(cone.map((c) => ({ i: li + c.k, ...c })));
-      pane.append('path').attr('d', d3.area().curve(d3.curveMonotoneX).x((d) => cxi(d.i)).y0((d) => y(d.lo)).y1((d) => y(d.hi))(pts)).style('fill', 'url(#ab-cone-g)');
+      pane.append('path').attr('class', 'ab-cone-area').attr('d', d3.area().curve(d3.curveMonotoneX).x((d) => cxi(d.i)).y0((d) => y(d.lo)).y1((d) => y(d.hi))(pts)).style('fill', 'url(#ab-cone-g)');
       pane.append('path').attr('class', 'ab-median').attr('d', d3.line().curve(d3.curveMonotoneX).x((d) => cxi(d.i)).y((d) => y(d.mid))(pts));
     }
     // figuras del grafico y patrones de velas
@@ -919,6 +947,8 @@
       const pg = svg.append('g').attr('clip-path', 'url(#ab-clip)');
       const lastT = bars[bars.length - 1].t, endT = lastT + steps * tfMs;
       pick(rows, 'patron', tf).forEach((p) => {
+        const exKey = `pat-${p.clase}-${p.nombre}`;
+        const g0 = g0.append('g').attr('data-ex', exKey), tg = svg.append('g').attr('data-ex', exKey);
         const col = p.sesgo === 'alcista' ? 'var(--color-ok)' : p.sesgo === 'bajista' ? 'var(--color-bad)' : 'var(--color-warn)';
         if (p.clase === 'grafico') {
           const conf = p.estado === 'confirmado';
@@ -926,12 +956,12 @@
           [1, 2].forEach((k) => {
             const t0 = num(p[`l${k}_t`]); if (t0 === null) return;
             const p0 = num(p[`l${k}_p`]), mm = num(p[`l${k}_m`]), val = (t) => p0 + mm * (t - t0), ta = Math.max(t0, bars[0].t);
-            pg.append('line').attr('class', 'ab-pat-line').style('stroke', col).style('stroke-dasharray', conf ? null : '6 4')
+            g0.append('line').attr('class', 'ab-pat-line').style('stroke', col).style('stroke-dasharray', conf ? null : '6 4')
               .style('stroke-width', conf ? 2 : 1.4).attr('x1', xt(ta)).attr('y1', y(val(ta))).attr('x2', xt(endT)).attr('y2', y(val(endT)));
             // el nombre de la linea y su precio de hoy, junto a la ultima vela
             const name = p[`l${k}_nombre`] || '', now = val(lastT);
             const when = name === 'Cuello' && !conf ? (p.sesgo === 'alcista' ? ' · se confirma si lo supera' : ' · se confirma si lo pierde') : '';
-            if (now > lo && now < hi) pill(pg, xt(lastT) - 10, y(now) + (name === 'Piso' ? 14 : -14), `${name} ${f0(now)}${when}`, col, false, 'end');
+            if (now > lo && now < hi) pill(g0, xt(lastT) - 10, y(now) + (name === 'Piso' ? 14 : -14), `${name} ${f0(now)}${when}`, col, false, 'end');
             if (!label) label = { x: xt(ta) + 4, y: y(val(ta)) + (name === 'Piso' ? 16 : -16) };
           });
           // los puntos que forman la figura: pisos, techos, hombros y cabeza
@@ -940,21 +970,21 @@
             const t0 = num(p[`pt${k}_t`]); if (t0 === null) return;
             const i = bars.findIndex((b) => b.t === t0); if (i < 0) return;
             const below = p.sesgo === 'alcista', py0 = y(num(p[`pt${k}_p`]));
-            pg.append('circle').attr('cx', cxi(i)).attr('cy', py0).attr('r', 4.5).style('fill', 'var(--color-panel)').style('stroke', col).style('stroke-width', 2);
-            pg.append('text').attr('class', 'ab-pat-lbl').style('fill', col).attr('x', cxi(i)).attr('y', py0 + (below ? 17 : -10))
+            g0.append('circle').attr('cx', cxi(i)).attr('cy', py0).attr('r', 4.5).style('fill', 'var(--color-panel)').style('stroke', col).style('stroke-width', 2);
+            g0.append('text').attr('class', 'ab-pat-lbl').style('fill', col).attr('x', cxi(i)).attr('y', py0 + (below ? 17 : -10))
               .attr('text-anchor', 'middle').text(p[`pt${k}_nombre`]);
             if (!first) first = { x: cxi(i), y: py0 + (below ? 34 : -28) };
           });
           const head = first || label;
-          if (head) pill(pg, head.x, head.y, conf ? `✓ ${p.nombre}` : `Posible ${p.nombre.toLowerCase()}`, col, conf, first ? 'middle' : 'start');
+          if (head) pill(g0, head.x, head.y, conf ? `✓ ${p.nombre}` : `Posible ${p.nombre.toLowerCase()}`, col, conf, first ? 'middle' : 'start');
           const obj = num(p.objetivo);
           if (obj !== null && live) {
             const txt = `${conf ? 'Objetivo' : 'Objetivo si se confirma'}: ${f0(obj)}`;
             if (obj > lo && obj < hi) {
-              svg.append('line').attr('class', 'ab-pat-line').style('stroke', col).attr('x1', fx).attr('x2', plotR).attr('y1', y(obj)).attr('y2', y(obj));
-              svg.append('text').attr('class', 'ab-pat-lbl').style('fill', col).attr('x', plotR - 4).attr('y', y(obj) - 5).attr('text-anchor', 'end').text(txt);
+              tg.append('line').attr('class', 'ab-pat-line').style('stroke', col).attr('x1', fx).attr('x2', plotR).attr('y1', y(obj)).attr('y2', y(obj));
+              tg.append('text').attr('class', 'ab-pat-lbl').style('fill', col).attr('x', plotR - 4).attr('y', y(obj) - 5).attr('text-anchor', 'end').text(txt);
             } else {
-              svg.append('text').attr('class', 'ab-pat-lbl').style('fill', col).attr('x', plotR - 4).attr('y', obj > hi ? m.t + 10 : priceB - 6)
+              tg.append('text').attr('class', 'ab-pat-lbl').style('fill', col).attr('x', plotR - 4).attr('y', obj > hi ? m.t + 10 : priceB - 6)
                 .attr('text-anchor', 'end').text(`${obj > hi ? '▲' : '▼'} ${txt}`);
             }
           }
@@ -962,8 +992,8 @@
           const i = bars.findIndex((b) => b.t === num(p.t)); if (i < 0) return;
           const below = p.sesgo === 'alcista';
           const yy = below ? y(bars[i].l) + 12 : y(bars[i].h) - 12;
-          pg.append('text').attr('class', 'ab-pat-mark').style('fill', col).attr('x', cxi(i)).attr('y', yy).text(p.sesgo === 'alcista' ? '▲' : p.sesgo === 'bajista' ? '▼' : '◆');
-          pill(pg, cxi(i) - 8, below ? yy + 16 : yy - 16, p.exito !== null ? `${p.nombre} · funcionó ${f0(num(p.exito))}%` : p.nombre, col, false, 'end');
+          g0.append('text').attr('class', 'ab-pat-mark').style('fill', col).attr('x', cxi(i)).attr('y', yy).text(p.sesgo === 'alcista' ? '▲' : p.sesgo === 'bajista' ? '▼' : '◆');
+          pill(g0, cxi(i) - 8, below ? yy + 16 : yy - 16, p.exito !== null ? `${p.nombre} · funcionó ${f0(num(p.exito))}%` : p.nombre, col, false, 'end');
         }
       });
     }
@@ -975,14 +1005,15 @@
         (groups[k] = groups[k] || { ...d, names: [] }).names.push(d.indicador);
       });
       Object.values(groups).forEach((d) => {
+        const g0 = g0.append('g').attr('data-ex', `div-${d.t1}-${d.t2}-${d.tipo}`);
         const i1 = bars.findIndex((b) => b.t === num(d.t1)), i2 = bars.findIndex((b) => b.t === num(d.t2));
         if (i1 < 0 || i2 < 0) return;
         const col = d.tipo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)', off = d.tipo === 'bajista' ? -9 : 9;
         const x1 = cxi(i1), y1 = y(num(d.p1)) + off, x2 = cxi(i2), y2 = y(num(d.p2)) + off;
-        pd.append('line').attr('x1', x1).attr('y1', y1).attr('x2', x2).attr('y2', y2).style('stroke', col).style('stroke-width', 2.2).style('stroke-linecap', 'round');
-        [[x1, y1], [x2, y2]].forEach(([cx, cy]) => pd.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 3.5).style('fill', col));
+        g0.append('line').attr('x1', x1).attr('y1', y1).attr('x2', x2).attr('y2', y2).style('stroke', col).style('stroke-width', 2.2).style('stroke-linecap', 'round');
+        [[x1, y1], [x2, y2]].forEach(([cx, cy]) => g0.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 3.5).style('fill', col));
         // la etiqueta va en el medio de la linea: en las puntas estan las marcas de las ondas
-        pill(pd, (x1 + x2) / 2, (y1 + y2) / 2 + (d.tipo === 'bajista' ? -14 : 14), `Div. ${d.tipo} · ${d.names.join(' + ')}`, col, true, 'middle');
+        pill(g0, (x1 + x2) / 2, (y1 + y2) / 2 + (d.tipo === 'bajista' ? -14 : 14), `Div. ${d.tipo} · ${d.names.join(' + ')}`, col, true, 'middle');
       });
     }
     // volumen
@@ -1067,40 +1098,49 @@
       })
       .on('pointerleave', () => { tip.hidden = true; cross.style('display', 'none'); });
 
+    const tagEx = (sel, key) => svg.selectAll(sel).attr('data-ex', key);
+    tagEx('.ab-ema', 'ema'); tagEx('.ab-bb, .ab-bb-area', 'bb'); tagEx('.ab-fvg-u, .ab-fvg-d, .ab-fvg-edge-u, .ab-fvg-edge-d', 'fvg');
+    tagEx('.ab-zig, .ab-wave', 'ondas'); tagEx('.ab-liq-l, .ab-liq-s', 'liq'); tagEx('.ab-sr', 'sr');
+    tagEx('.ab-ghost, .ab-median, .ab-cone-area, .ab-scan, .ab-plazo-mark', 'futuro');
+
     // que estas viendo: una linea por cada cosa dibujada, solo de las capas activas
     const leg = document.getElementById('legend'); leg.replaceChildren();
-    const item = (sw, title, text) => {
-      const r = el('div', 'ab-ex-item'), i = el('i'); Object.assign(i.style, sw);
+    const item = (key, sw, title, text) => {
+      const r = el('div', 'ab-ex-item ab-ex-link'), i = el('i'); Object.assign(i.style, sw);
       const t = el('span'); t.append(el('b', '', title), ' ', text); r.append(i, t); leg.append(r);
+      r.dataset.ex = key;
+      r.addEventListener('pointerenter', () => focusEx(key));
+      r.addEventListener('pointerleave', () => focusEx(null));
     };
     const C = (c) => ({ background: c }), D = (c) => ({ background: 'transparent', border: `1.5px dashed ${c}` });
     pick(rows, 'patron', tf).filter((p) => L.patrones && p.clase === 'grafico').forEach((p) => {
       const col = p.sesgo === 'alcista' ? 'var(--color-ok)' : p.sesgo === 'bajista' ? 'var(--color-bad)' : 'var(--color-warn)';
-      item(p.estado === 'confirmado' ? C(col) : D(col), `${p.estado === 'confirmado' ? '✓' : 'Posible'} ${p.nombre.toLowerCase()}:`, p.descripcion);
+      item(`pat-grafico-${p.nombre}`, p.estado === 'confirmado' ? C(col) : D(col), `${p.estado === 'confirmado' ? '✓' : 'Posible'} ${p.nombre.toLowerCase()}:`, p.descripcion);
     });
     const dvs = {};
     if (L.patrones) pick(rows, 'divergencia', tf).forEach((d) => { const k = `${d.t1}-${d.t2}-${d.tipo}`; (dvs[k] = dvs[k] || { ...d, names: [] }).names.push(d.indicador); });
-    Object.values(dvs).forEach((d) => item(C(d.tipo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)'), `Divergencia ${d.tipo} (${d.names.join(' + ')}):`,
+    Object.values(dvs).forEach((d) => item(`div-${d.t1}-${d.t2}-${d.tipo}`, C(d.tipo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)'), `Divergencia ${d.tipo} (${d.names.join(' + ')}):`,
       d.tipo === 'bajista' ? `el precio hizo un máximo más alto (${f0(num(d.p1))} → ${f0(num(d.p2))}) pero ${d.names.join(' y ')} no acompañó: la suba pierde fuerza.`
         : `el precio hizo un mínimo más bajo (${f0(num(d.p1))} → ${f0(num(d.p2))}) pero ${d.names.join(' y ')} no acompañó: la baja pierde fuerza.`));
     pick(rows, 'patron', tf).filter((p) => L.patrones && p.clase === 'vela' && bars.some((b) => b.t === num(p.t))).forEach((p) =>
-      item(C(p.sesgo === 'alcista' ? 'var(--color-ok)' : p.sesgo === 'bajista' ? 'var(--color-bad)' : 'var(--color-warn)'), `Flechita · ${p.nombre}:`, p.descripcion));
+      item(`pat-vela-${p.nombre}`, C(p.sesgo === 'alcista' ? 'var(--color-ok)' : p.sesgo === 'bajista' ? 'var(--color-bad)' : 'var(--color-warn)'), `Flechita · ${p.nombre}:`, p.descripcion));
     if (pick(rows, 'explicacion').some((e) => e.plazo === S.plazo && e.tipo === 'vigilar'))
-      item(D('var(--color-fg-muted)'), 'Líneas largas verde y roja:', `resistencia y soporte más cercanos para el plazo de ${S.plazo}.`);
-    if (ghosts.length) item(D('var(--color-fg-muted)'), 'Velas punteadas a la derecha:',
+      item('sr', D('var(--color-fg-muted)'), 'Líneas largas verde y roja:', `resistencia y soporte más cercanos para el plazo de ${S.plazo}.`);
+    if (ghosts.length) item('futuro', D('var(--color-fg-muted)'), 'Velas punteadas a la derecha:',
       `un camino real del ${ghosts[0].desde.split('-').reverse().join('/')}, cuando BTC estaba en una situación parecida, llevado al precio de hoy. La zona gris es donde terminó el 80% de esos casos y la línea vertical, la hora del plazo elegido.`);
     if (L.ondas && giros.some((g) => g.w)) {
       const mk = pick(rows, 'marco', tf)[0];
-      item({ background: 'transparent', border: '1.5px solid var(--color-fg)', borderRadius: '50%', width: '10px', height: '10px' }, 'Círculos con letras o números:',
+      item('ondas', { background: 'transparent', border: '1.5px solid var(--color-fg)', borderRadius: '50%', width: '10px', height: '10px' }, 'Círculos con letras o números:',
         `conteo de Elliott. ${mk ? mk.elliott : ''}.`);
     }
-    if (L.fvg && fvgs.length) item(C('color-mix(in srgb, var(--color-ok) 35%, transparent)'), 'Franjas verdes o rojas:', 'huecos (FVG) que el precio dejó sin operar; suele volver a llenarlos.');
-    if (L.ema) item({ background: `linear-gradient(90deg, ${dash.colors[0]} 50%, ${dash.colors[1]} 50%)` }, 'Líneas azul y naranja:', 'medias móviles EMA 20 y EMA 50.');
-    if (L.bb) item(C('color-mix(in srgb, var(--color-fg) 12%, transparent)'), 'Banda gris:', 'Bollinger, el rango normal del precio en las últimas 20 velas.');
-    if (L.liq) item({ background: 'linear-gradient(90deg, var(--color-bad), var(--color-ok))' }, 'Barras de la derecha:',
+    if (L.fvg && fvgs.length) item('fvg', C('color-mix(in srgb, var(--color-ok) 35%, transparent)'), 'Franjas verdes o rojas:', 'huecos (FVG) que el precio dejó sin operar; suele volver a llenarlos.');
+    if (L.ema) item('ema', { background: `linear-gradient(90deg, ${dash.colors[0]} 50%, ${dash.colors[1]} 50%)` }, 'Líneas azul y naranja:', 'medias móviles EMA 20 y EMA 50.');
+    if (L.bb) item('bb', C('color-mix(in srgb, var(--color-fg) 12%, transparent)'), 'Banda gris:', 'Bollinger, el rango normal del precio en las últimas 20 velas.');
+    if (L.liq) item('liq', { background: 'linear-gradient(90deg, var(--color-bad), var(--color-ok))' }, 'Barras de la derecha:',
       'liquidaciones estimadas. Rojas: longs que se liquidan si baja; verdes: shorts si sube. Pasá el mouse para ver los USD.');
     document.getElementById('scen-note').textContent = ghosts.length || !live ? '' : 'No hay suficientes situaciones parecidas para armar escenarios en esta temporalidad.';
 
+    focusEx(S.focus);
     S.geom = { W, plotR, heatW, step: x.step() };
     if (!ghosts.length) return;
     if (reduce) { gg.classed('on', true); return; }
