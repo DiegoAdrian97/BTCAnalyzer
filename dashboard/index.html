@@ -979,15 +979,6 @@
     if (live) {
     svg.append('circle').attr('class', 'ab-pulse').attr('cx', hx0).attr('cy', py).attr('r', 5);
     svg.append('circle').attr('class', 'ab-dot').attr('cx', hx0).attr('cy', py).attr('r', 4);
-    const here = svg.append('g').attr('class', 'ab-here');
-    const ht = here.append('text').text('BTC está aquí');
-    const hw = ht.node().getComputedTextLength() + 16;
-    const above = py - m.t > 40;
-    let hlx = Math.max(m.l, Math.min(hx0 - hw / 2, plotR - hw)), hly = above ? py - 34 : py + 14;
-    here.insert('rect', 'text').attr('x', hlx).attr('y', hly).attr('width', hw).attr('height', 20).attr('rx', 10);
-    ht.attr('x', hlx + 8).attr('y', hly + 14);
-    here.append('line').attr('x1', hx0).attr('x2', hx0).attr('y1', above ? hly + 20 : hly).attr('y2', above ? py - 6 : py + 6).style('stroke', 'var(--color-fg)');
-
     }
 
     // mira y tooltip
