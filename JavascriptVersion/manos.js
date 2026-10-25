@@ -16,6 +16,7 @@
  * - pellizco con las dos manos: separar o juntar es zoom; girarlas como un volante gira el holograma
  * - puno cerrado y mover: girar el holograma
  * - indice estirado (apuntar): mira sobre la vela que senalas, con su precio
+ * - pulgar con el dedo MEDIO (el indice sigue apuntando): clic donde apunta el indice (botones, criptos, ejes...)
  * - palma abierta y deslizar rapido de costado: cambiar de cripto; arriba o abajo: cambiar de temporalidad
  * - palma abierta quieta 1,5 s: volver a la vista inicial
  */
@@ -69,12 +70,14 @@ export function leerMano(lm, w, prev = 'none') {
   const fing = [[5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16], [17, 18, 19, 20]].map(([m, p, d, t]) => straight(m, p, d, t));
   const ext = fing.map((a) => a > 320), curled = fing.map((a) => a < 250);
   const pinchD = d3(W[4], W[8]) / palm;            // ~0,3 tocandose; ~1 o mas separados
+  const midD = d3(W[4], W[12]) / palm;               // pulgar con el dedo medio: el clic
   const wasPinch = prev === 'pinch';
   const pinch = pinchD < (wasPinch ? 0.55 : 0.38) && !curled[0];
-  const fist = !pinch && curled.every(Boolean);
-  const point = !pinch && ext[0] && curled[1] && curled[2] && curled[3];
-  const open = !pinch && ext.every(Boolean) && pinchD > 0.6;
-  const state = pinch ? 'pinch' : fist ? 'fist' : point ? 'point' : open ? 'open' : 'none';
+  const tap = !pinch && midD < (prev === 'tap' ? 0.55 : 0.38) && pinchD > 0.6;
+  const fist = !pinch && !tap && curled.every(Boolean);
+  const point = !pinch && !tap && ext[0] && curled[1] && curled[2] && curled[3];
+  const open = !pinch && !tap && ext.every(Boolean) && pinchD > 0.6;
+  const state = pinch ? 'pinch' : tap ? 'tap' : fist ? 'fist' : point ? 'point' : open ? 'open' : 'none';
   const spots = { pinch: mid(P[4], P[8]), point: { x: P[8].x, y: P[8].y }, other: { x: (P[0].x + P[9].x) / 2, y: (P[0].y + P[9].y) / 2 } };
   return { P, state, spots, pinchD, size: d2(P[0], P[9]) };
 }
@@ -176,15 +179,18 @@ export class Manos {
       // el gesto cambia solo si se sostiene 3 cuadros seguidos
       if (h.state === t.cand) t.candN += 1; else { t.cand = h.state; t.candN = 1; }
       const prevState = t.state;
-      if (t.candN >= 3 || (h.state === 'pinch' && t.candN >= 2)) t.state = h.state;
+      if (t.candN >= 3 || ((h.state === 'pinch' || h.state === 'tap') && t.candN >= 2)) t.state = h.state;
+      t.clicked = t.state === 'tap' && prevState !== 'tap';
       // el punto que sigue: entre los dedos si pellizca, la punta del indice si apunta, si no el centro de la mano.
       // Si cambia de gesto, el filtro arranca de cero (son puntos distintos: mezclarlos haria saltar el grafico)
-      if (t.state !== prevState) { t.fx = new OneEuro(); t.fy = new OneEuro(); }
-      const raw = toScreen(h.spots[t.state === 'pinch' ? 'pinch' : t.state === 'point' ? 'point' : 'other']);
+      // apuntar y hacer clic usan el mismo punto (la punta del indice): el filtro sigue sin cortarse entre los dos
+      const spot = (st) => (st === 'pinch' ? 'pinch' : st === 'point' || st === 'tap' ? 'point' : 'other');
+      if (spot(t.state) !== spot(prevState)) { t.fx = new OneEuro(); t.fy = new OneEuro(); }
+      const raw = toScreen(h.spots[spot(t.state)]);
       const f = { x: t.fx.filter(raw.x, now), y: t.fy.filter(raw.y, now) };
       // zona muerta: el punto solo se mueve si el dedo se alejo mas que DEAD; y entonces sigue sin saltar
       let at = f;
-      if (t.at && prevState === t.state) {
+      if (t.at && spot(prevState) === spot(t.state)) {
         const dx = f.x - t.at.x, dy = f.y - t.at.y, d = Math.hypot(dx, dy);
         at = d > DEAD ? { x: t.at.x + dx * (d - DEAD) / d, y: t.at.y + dy * (d - DEAD) / d } : t.at;
       }
@@ -223,8 +229,10 @@ export class Manos {
       const dx = t.at.x - t.prevAt.x, dy = t.at.y - t.prevAt.y;
       if (Math.hypot(dx, dy) < 0.15) this.onAction({ t: 'rot', dx: dx * 1.2, dy: dy * 1.2 });
     });
+    // clic: pulgar con el dedo medio, donde apunta el indice (una vez por gesto)
+    tracks.forEach((t) => { if (t.clicked && !t.lost) this.onAction({ t: 'click', x: t.at.x, y: t.at.y }); });
     // apuntar con el indice: mira sobre la vela
-    const pointer = tracks.find((t) => t.state === 'point');
+    const pointer = tracks.find((t) => t.state === 'point' || t.state === 'tap');
     if (pointer) { this.pointing = true; this.onAction({ t: 'point', x: pointer.at.x, y: pointer.at.y }); }
     else if (this.pointing) { this.pointing = false; this.onAction({ t: 'point', x: null, y: null }); }
 
