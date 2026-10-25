@@ -246,9 +246,9 @@ export class Manos {
         const a = recent[0], b = recent[recent.length - 1], dt = Math.max(0.05, (b.t - a.t) / 1000);
         const vx = (b.x - a.x) / dt, vy = (b.y - a.y) / dt;
         if (Math.abs(vx) > 1.1 && Math.abs(b.x - a.x) > 0.14 && Math.abs(vx) > Math.abs(vy) * 1.6) {
-          this.onAction({ t: 'asset', dir: vx > 0 ? 1 : -1 }); this.cool = now + 1000; this.hist = [];
+          this.onAction({ t: 'asset', dir: vx > 0 ? 1 : -1, x: a.x, y: a.y }); this.cool = now + 1000; this.hist = [];
         } else if (Math.abs(vy) > 1.1 && Math.abs(b.y - a.y) > 0.14 && Math.abs(vy) > Math.abs(vx) * 1.6) {
-          this.onAction({ t: 'tf', dir: vy < 0 ? 1 : -1 }); this.cool = now + 1000; this.hist = [];
+          this.onAction({ t: 'tf', dir: vy < 0 ? 1 : -1, x: a.x, y: a.y }); this.cool = now + 1000; this.hist = [];
         }
       }
       const still = this.hist.length > 6 && this.hist.every((q) => Math.hypot(q.x - open.at.x, q.y - open.at.y) < 0.03);
