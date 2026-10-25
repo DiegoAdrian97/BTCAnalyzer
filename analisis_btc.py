@@ -28,6 +28,7 @@ import argparse
 import csv
 import json
 import os
+import sys
 from datetime import datetime, timedelta, timezone
 
 import ccxt
@@ -192,19 +193,25 @@ def targets(bars, idxs, price, h, when):
             rel = level / price - 1
             hits = sum(x >= rel for x in highs) if side == "arriba" else sum(x <= rel for x in lows)
             rows.append({"precio": level, "lado": side, "prob": round(hits / len(usable) * 100, 1)})
-    # cual de los dos niveles mas cercanos se toco PRIMERO (si en la misma vela se tocaron ambos, cuenta medio)
-    up_rel, dn_rel = first_up / price - 1, first_dn / price - 1
+    # cual se toco PRIMERO entre dos niveles A LA MISMA DISTANCIA del precio (precio +/- un escalon).
+    # Con niveles redondos asimetricos ganaria siempre el que queda mas cerca, no el que tiene mas chances.
+    up_lvl, dn_lvl = round(price + unit, -1), round(price - unit, -1)
+    rel = unit / price
     first = []
     for j in usable:
         for k in range(1, h + 1):
-            a, b = bars[j + k][2] / c[j] - 1 >= up_rel, bars[j + k][3] / c[j] - 1 <= dn_rel
+            a, b = bars[j + k][2] / c[j] - 1 >= rel, bars[j + k][3] / c[j] - 1 <= -rel
             if a or b:
                 first.append(0.5 if a and b else 1.0 if a else 0.0)
                 break
+    pf = sum(first) / len(first) if first else None
     close = {"mediana": round(price * (1 + q(0.5)), 1), "p25": round(price * (1 + q(0.25)), 1),
              "p75": round(price * (1 + q(0.75)), 1), "hora": when,
-             "obj_arriba": first_up, "obj_abajo": first_dn,
-             "primero_arriba": round(sum(first) / len(first) * 100, 1) if first else None,
+             "obj_arriba": up_lvl, "obj_abajo": dn_lvl, "distancia": unit,
+             "toca_arriba": round(sum(x >= rel for x in highs) / len(usable) * 100, 1),
+             "toca_abajo": round(sum(x <= -rel for x in lows) / len(usable) * 100, 1),
+             "primero_arriba": None if pf is None else round(pf * 100, 1),
+             "margen_primero": None if pf is None else round(196 * (pf * (1 - pf) / len(first)) ** 0.5, 1),
              "ninguno": round((1 - len(first) / len(usable)) * 100, 1)}
     return rows, close
 
@@ -361,91 +368,83 @@ def lc1(s):
 
 
 def explain(rows, price):
-    """La conclusion en palabras: escenario principal, senales a favor y en contra, niveles e invalidacion."""
+    """La conclusion en pocas palabras: una prediccion, hasta 4 razones de cada lado, niveles e invalidacion."""
     get = lambda t, **kw: [r for r in rows if r["tabla"] == t and all(r.get(k) == v for k, v in kw.items())]
-    probs = sorted(get("probabilidad", tf="1h"), key=lambda r: r["velas"])
-    main, after = probs[0], probs[-1]
+    main = sorted(get("probabilidad", tf="1h"), key=lambda r: r["velas"])[0]
     hh = main["hora"][-5:]
-    signals = []      # (sesgo, texto)
-    for tf in ("15m", "1h", "4h", "1d"):
+    signals = []      # (prioridad, sesgo, texto corto)
+    for pr, tf in ((2, "1h"), (3, "4h"), (6, "15m"), (8, "1d")):
         m = get("marco", tf=tf)[0]
         if abs(m["rating"]) > 0.1:
-            signals.append(("alcista" if m["rating"] > 0 else "bajista",
-                            f"Calificación técnica de {TF_TXT[tf]}: {m['rating_txt'].lower()} ({m['tendencia'].lower()})"))
-    sma = next((n for n in get("nivel") if n["nombre"] == "Media 200 días"), None)
-    if sma:
-        signals.append(("alcista", "Precio arriba de la media de 200 días: la tendencia de fondo es alcista") if price > sma["precio"]
-                       else ("bajista", "Precio debajo de la media de 200 días: la tendencia de fondo es bajista"))
-    for c in get("contexto"):
-        if c["senal"] in ("alcista", "bajista") and c["clave"] != "error":
-            signals.append((c["senal"], f"{c['titulo']}: {c['valor']}. {c['detalle']}"))
-    if main["veredicto"] != "Casi moneda":
-        signals.append(("alcista" if main["veredicto"] == "Sesgo alcista" else "bajista",
-                        f"En situaciones parecidas, subió {ar(main['sube'])}% de las veces contra {ar(main['base'])}% normal"))
+            signals.append((pr, "alcista" if m["rating"] > 0 else "bajista", f"Indicadores de {TF_TXT[tf]}: {m['rating_txt'].lower()}"))
     for p in get("patron"):
         if p["tf"] not in ("15m", "1h", "4h") or p["sesgo"] == "neutral":
             continue
-        if p["clase"] == "vela" and p["exito"] is not None and p["exito"] >= 52 and p["casos"] >= 20:
-            signals.append((p["sesgo"], f"{p['nombre']} en velas de {TF_TXT[p['tf']]}: funcionó {ar(p['exito'])}% de {p['casos']} veces"))
-        elif p["clase"] == "grafico":
-            target = f", objetivo {ar(p['objetivo'])}" if p["objetivo"] else ""
-            signals.append((p["sesgo"], f"{p['nombre']} en {TF_TXT[p['tf']]} ({p['estado']}{target})"))
+        target = f" → {ar(p['objetivo'])}" if p["objetivo"] else ""
+        if p["clase"] == "grafico":
+            signals.append((1 if p["estado"] == "confirmado" else 4, p["sesgo"], f"{p['nombre']} en {TF_TXT[p['tf']]}{target}"))
+        elif p["exito"] is not None and p["exito"] >= 55 and p["casos"] >= 20:
+            signals.append((5, p["sesgo"], f"{p['nombre']} en {TF_TXT[p['tf']]} (funcionó {ar(p['exito'])}%)"))
+    short_ctx = {"flujo_1 h": "Compras a mercado 1 h", "flujo_4 h": "Compras a mercado 4 h", "oi_24h": "Open interest 24 h",
+                 "long_short": "Long/short", "libros": "Libros de órdenes", "funding": "Funding"}
+    for c in get("contexto"):
+        if c["senal"] in ("alcista", "bajista") and c["clave"] in short_ctx:
+            signals.append((3, c["senal"], f"{short_ctx[c['clave']]}: {lc1(c['detalle'].split('.')[0].split(':')[0])}"))
+    if main["veredicto"] != "Casi moneda":
+        signals.append((2, "alcista" if main["veredicto"] == "Sesgo alcista" else "bajista",
+                        f"Casos parecidos: cerró arriba {ar(main['sube'])}% (normal {ar(main['base'])}%)"))
     m1 = get("marco", tf="1h")[0]
     if m1["elliott_objetivo"]:
-        signals.append(("alcista" if m1["elliott_objetivo"] > price else "bajista",
-                        f"Elliott en 1 hora: {lc1(m1['elliott'])}, objetivo {ar(m1['elliott_objetivo'])}"))
+        signals.append((7, "alcista" if m1["elliott_objetivo"] > price else "bajista",
+                        f"Elliott 1 h: {lc1(m1['elliott']).replace(' en curso', '')} → {ar(m1['elliott_objetivo'])}"))
+    sma = next((n for n in get("nivel") if n["nombre"] == "Media 200 días"), None)
+    if sma:
+        signals.append((9, "alcista" if price > sma["precio"] else "bajista",
+                        "Arriba de la media de 200 días" if price > sma["precio"] else "Debajo de la media de 200 días"))
+    signals.sort(key=lambda s: s[0])
 
-    up, dn, pu = main["obj_arriba"], main["obj_abajo"], main["primero_arriba"]
-    n_up = sum(s == "alcista" for s, _ in signals)
+    up, dn, pu, mg = main["obj_arriba"], main["obj_abajo"], main["primero_arriba"], main["margen_primero"] or 0
+    n_up = sum(s == "alcista" for _, s, _ in signals)
     n_dn = len(signals) - n_up
-    if pu is not None and pu >= 55:
+    if pu is not None and pu - 50 > max(5, mg):
         bias = "alcista"
-        head = (f"Lo más probable hasta las {hh} h es que BTC suba a tocar {ar(up)} antes que bajar a {ar(dn)}: "
-                f"pasó primero en {ar(pu)}% de los casos parecidos.")
-    elif pu is not None and pu <= 45:
+        head = f"Hasta las {hh} h, es más probable que BTC suba a {ar(up)} ({ar(pu)}%) antes que baje a {ar(dn)}."
+    elif pu is not None and 50 - pu > max(5, mg):
         bias = "bajista"
-        head = (f"Lo más probable hasta las {hh} h es que BTC baje a tocar {ar(dn)} antes que subir a {ar(up)}: "
-                f"pasó primero en {ar(100 - pu)}% de los casos parecidos.")
+        head = f"Hasta las {hh} h, es más probable que BTC baje a {ar(dn)} ({ar(100 - pu)}%) antes que suba a {ar(up)}."
     else:
         bias = "neutral"
-        head = (f"Sin dirección clara hasta las {hh} h: en los casos parecidos tocó primero {ar(up)} o {ar(dn)} casi por igual"
-                + (f" ({ar(pu)}% contra {ar(100 - pu)}%)" if pu is not None else "") + f". Lo esperable es que se mueva entre {ar(dn)} y {ar(up)}.")
-    if bias != "neutral" and n_up == n_dn:
-        head += f" Las señales del momento están divididas ({n_up} alcistas y {n_dn} bajistas): convicción moderada."
-    elif bias != "neutral" and (n_up > n_dn) != (bias == "alcista"):
-        head += (f" Ojo: la mayoría de las señales del momento empujan para el otro lado ({n_up} alcistas contra {n_dn} bajistas),"
-                 " así que la convicción es baja.")
-    elif bias != "neutral":
-        head += f" Las señales del momento acompañan ({n_up} alcistas contra {n_dn} bajistas)."
+        head = f"Hasta las {hh} h, sin dirección clara: lo esperable es que BTC se mueva entre {ar(dn)} y {ar(up)}."
+    agree = n_up if bias == "alcista" else n_dn
+    if bias == "neutral":
+        why = f"Las señales están repartidas: {n_up} alcistas y {n_dn} bajistas."
+    elif agree * 2 > len(signals):
+        why = f"Lo acompañan {agree} de {len(signals)} señales."
+    else:
+        why = f"Ojo: solo {agree} de {len(signals)} señales acompañan. Convicción baja."
 
-    out = [{"tabla": "explicacion", "orden": 0, "tipo": "titular", "sesgo": bias, "texto": head}]
-    for k, (s, txt) in enumerate(signals, start=1):
+    out = [{"tabla": "explicacion", "orden": 0, "tipo": "titular", "sesgo": bias, "texto": head},
+           {"tabla": "explicacion", "orden": 1, "tipo": "porque", "sesgo": bias, "texto": why}]
+    for k, (_, s, txt) in enumerate(signals, start=2):
         out.append({"tabla": "explicacion", "orden": k, "tipo": "senal", "sesgo": s, "texto": txt})
     levels = sorted(get("nivel"), key=lambda n: n["precio"])
-    res = [n for n in levels if n["precio"] > price * 1.0015]
-    sup = [n for n in reversed(levels) if n["precio"] < price * 0.9985]
+    res = next((n for n in levels if n["precio"] > price * 1.0015), None)
+    sup = next((n for n in reversed(levels) if n["precio"] < price * 0.9985), None)
     k = len(out)
     if res:
-        nxt = f" Si lo supera, el siguiente es {lc1(res[1]['nombre'])} en {ar(res[1]['precio'])}." if len(res) > 1 else ""
         out.append({"tabla": "explicacion", "orden": k, "tipo": "vigilar", "sesgo": "alcista",
-                    "texto": f"Arriba: {lc1(res[0]['nombre'])} en {ar(res[0]['precio'])} ({arp(res[0]['distancia'])}).{nxt}"})
+                    "texto": f"Resistencia {ar(res['precio'])} ({lc1(res['nombre'])})"})
     if sup:
-        nxt = f" Si lo pierde, el siguiente es {lc1(sup[1]['nombre'])} en {ar(sup[1]['precio'])}." if len(sup) > 1 else ""
         out.append({"tabla": "explicacion", "orden": k + 1, "tipo": "vigilar", "sesgo": "bajista",
-                    "texto": f"Abajo: {lc1(sup[0]['nombre'])} en {ar(sup[0]['precio'])} ({arp(sup[0]['distancia'])}).{nxt}"})
+                    "texto": f"Soporte {ar(sup['precio'])} ({lc1(sup['nombre'])})"})
     if bias == "alcista" and sup:
-        inval = f"La idea pierde validez si una vela de 1 hora cierra debajo de {ar(sup[0]['precio'])}."
+        inval = f"Si una vela de 1 h cierra debajo de {ar(sup['precio'])}, la idea deja de valer."
     elif bias == "bajista" and res:
-        inval = f"La idea pierde validez si una vela de 1 hora cierra arriba de {ar(res[0]['precio'])}."
+        inval = f"Si una vela de 1 h cierra arriba de {ar(res['precio'])}, la idea deja de valer."
     else:
-        inval = f"La dirección la va a marcar la primera vela de 1 hora que cierre fuera del rango {ar(dn)} a {ar(up)}."
+        inval = f"La dirección la marca la primera vela de 1 h que cierre fuera de {ar(dn)} a {ar(up)}."
     out.append({"tabla": "explicacion", "orden": k + 2, "tipo": "invalida", "sesgo": bias, "texto": inval})
-    if after["mediana"]:
-        out.append({"tabla": "explicacion", "orden": k + 3, "tipo": "despues", "sesgo": "neutral",
-                    "texto": f"Para el {after['hora'][:5]} a las {after['hora'][-5:]} h: precio más probable {ar(after['mediana'])}. "
-                             f"Terminó más arriba en {ar(after['sube'])}% de los casos y el 80% quedó entre "
-                             f"{ar(after['min'])} y {ar(after['max'])}."})
-    return head, out
+    return f"{head} {why}", out
 
 
 def log_and_score(entries, closes_by_tf):
@@ -515,16 +514,20 @@ def analyze():
         for h in horizons:
             o, b = outcomes(closes, idxs or list(base), h), outcomes(closes, base, h)
             edge = o["up"] - b["up"]
-            verdict = "Casi moneda" if abs(edge) < 3 else ("Sesgo alcista" if edge > 0 else "Sesgo bajista")
+            # margen de error del 95%: con pocos casos, una diferencia chica contra la tasa normal es ruido
+            margin = 196 * ((o["up"] / 100) * (1 - o["up"] / 100) / o["n"]) ** 0.5
+            verdict = "Casi moneda" if abs(edge) < max(3, margin) else ("Sesgo alcista" if edge > 0 else "Sesgo bajista")
             when_ms = bars[-1][0] + (h + 1) * tf_ms
             when = datetime.fromtimestamp(when_ms / 1000, LOCAL_TZ).strftime("%d/%m %H:%M")
             tg, close = targets(bars, idxs or list(base), price, h, when)
             rows.append({"tabla": "probabilidad", "tf": tf, "horizonte": label(h * tf_min), "velas": h,
                          "sube": round(o["up"], 1), "baja": round(100 - o["up"], 1), "base": round(b["up"], 1),
                          "veredicto": verdict, "n": o["n"], "dias": days, "hora": when, "t_hasta": when_ms,
+                         "margen": round(margin, 1), "pocos_casos": o["n"] < 100,
                          "min": round(price * (1 + o["p10"] / 100), 1), "max": round(price * (1 + o["p90"] / 100), 1),
                          **(close or {"mediana": None, "p25": None, "p75": None, "obj_arriba": None, "obj_abajo": None,
-                                      "primero_arriba": None, "ninguno": None})})
+                                      "distancia": None, "toca_arriba": None, "toca_abajo": None,
+                                      "primero_arriba": None, "margen_primero": None, "ninguno": None})})
             rows += [{"tabla": "objetivo", "tf": tf, "horizonte": label(h * tf_min), "hora": when, **t} for t in tg]
             entries.append((bars[-1][0] + tf_ms, tf, h, closes[-1], o["up"]))
 
@@ -615,8 +618,9 @@ def print_console(rows):
           f" | media 200d {s['sma200d']:,.0f} ({s['sma200d_dist']:+.1f}%) ===")
     print(s["lectura"])
     for e in get("explicacion"):
-        if e["tipo"] in ("vigilar", "invalida", "despues"):
-            print(f"  - {e['texto']}")
+        if e["tipo"] in ("senal", "vigilar", "invalida"):
+            mark = {"alcista": "+", "bajista": "-"}.get(e["sesgo"], "!") if e["tipo"] == "senal" else ">"
+            print(f"  {mark} {e['texto']}")
     for p in get("patron"):
         if p["tf"] in ("15m", "1h", "4h"):
             extra = f", objetivo {ar(p['objetivo'])}" if p["objetivo"] else f", funcionó {ar(p['exito'])}% de {p['casos']}" if p["exito"] else ""
@@ -705,6 +709,7 @@ def main():
     ap.add_argument("--nota", help="archivo de texto con la lectura de noticias para agregar al ultimo analisis")
     ap.add_argument("--abrir", action="store_true", help="abrir el dashboard local en el navegador al terminar")
     args = ap.parse_args()
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")   # la consola de Windows no siempre es UTF-8
     if args.nota:
         with open(OUT_FILE, encoding="utf-8") as f:
             data = json.load(f)
