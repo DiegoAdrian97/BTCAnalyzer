@@ -793,6 +793,13 @@ __PAGE__
 """
 
 
+def save_json(path, data):
+    """Se escribe aparte y se reemplaza de una vez: quien lo lee nunca ve un archivo a medias."""
+    with open(path + ".tmp", "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+    os.replace(path + ".tmp", path)
+
+
 def page_version():
     return round(os.path.getmtime(PAGE_FILE), 3)
 
@@ -896,12 +903,8 @@ def run_live(every, public=False):
                     code_stamp = stamp
                     print("Código del análisis actualizado: se usa la versión nueva desde este análisis.")
                 data = {"rows": live_mod.analyze(), "pagina": page_version()}
-                with open(OUT_FILE, "w", encoding="utf-8") as f:
-                    json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
-                live_json = os.path.join(LIVE_DIR, "analisis_btc.json")
-                with open(live_json + ".tmp", "w", encoding="utf-8") as f:
-                    json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
-                os.replace(live_json + ".tmp", live_json)
+                save_json(OUT_FILE, data)
+                save_json(os.path.join(LIVE_DIR, "analisis_btc.json"), data)
                 if data["pagina"] != page_stamp:   # al arrancar, o si cambio el diseno: la pagina se recarga sola
                     write_local_html(data, os.path.join(LIVE_DIR, "index.html"), live=True)
                     if page_stamp is not None:
@@ -944,8 +947,7 @@ def main():
         rows = analyze()
         print_console(rows)
         data = {"rows": rows}
-    with open(OUT_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+    save_json(OUT_FILE, data)
     print(f"\nGuardado {OUT_FILE} ({os.path.getsize(OUT_FILE) / 1024:.0f} KB)")
     if os.path.exists(PAGE_FILE):
         write_local_html(data)
