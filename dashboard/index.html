@@ -1,0 +1,746 @@
+<style>
+  /* Layout: cabecera con lectura y precio, selector de temporalidad, grafico protagonista con el futuro animado,
+     y debajo tarjetas en grilla (probabilidades, calificacion, ondas, contexto, niveles, indicadores). */
+  .ab-page { --ab-up: var(--color-ok); --ab-down: var(--color-bad); --ab-warn: var(--color-warn);
+    font-family: var(--font-anthropic-sans); color: var(--color-fg); display: grid; gap: var(--cds-gap-lg);
+    max-width: 78rem; margin-inline: auto; }
+  .ab-head { display: grid; gap: var(--cds-gap-xs); }
+  .ab-eyebrow { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); letter-spacing: .04em; text-transform: uppercase; }
+  .ab-title { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; text-wrap: balance; }
+  .ab-takeaway { margin: 0; max-width: 68ch; font-size: var(--cds-font-size-body); line-height: 1.5; }
+  .ab-hero { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--cds-gap-lg) var(--cds-gap-xl); }
+  .ab-price { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: clamp(2.4rem, 6vw, 3.6rem); line-height: 1; font-variant-numeric: tabular-nums; }
+  .ab-stat { display: grid; gap: 2px; }
+  .ab-stat-label { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .ab-stat-value { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); font-variant-numeric: tabular-nums; }
+  .ab-pos { color: var(--ab-up); } .ab-neg { color: var(--ab-down); }
+  .ab-tabs { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs); }
+  .ab-tab { font: inherit; font-size: var(--cds-font-size-body); padding: var(--cds-pad-xs) var(--cds-pad-md); border-radius: 999px;
+    border: 1px solid var(--color-border-line); background: var(--color-panel); color: var(--color-fg); cursor: pointer; }
+  .ab-tab[aria-pressed="true"] { background: var(--color-fg); color: var(--color-bg); border-color: var(--color-fg); }
+  .ab-tab:focus-visible, .ab-chip-btn:focus-visible, .ab-toggle input:focus-visible + span { outline: 2px solid var(--color-fg); outline-offset: 2px; }
+  .ab-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius);
+    padding: var(--cds-pad-lg); display: grid; gap: var(--cds-gap-md); min-width: 0; align-content: start; }
+  .ab-card h2 { margin: 0; font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); }
+  .ab-note { margin: 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.45; }
+  .ab-grid { display: grid; gap: var(--cds-gap-md); grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); }
+  .ab-chart-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--cds-gap-sm); align-items: center; }
+  .ab-controls { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs); align-items: center; }
+  .ab-chip-btn { font: inherit; font-size: var(--cds-font-size-caption); padding: 4px 10px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--color-border-line); background: transparent; color: var(--color-fg); }
+  .ab-chip-btn[aria-pressed="true"] { border-color: var(--color-fg); background: var(--color-bg); font-weight: var(--cds-font-weight-medium); }
+  .ab-toggle { display: inline-flex; align-items: center; gap: 4px; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); cursor: pointer; }
+  .ab-chart-box { position: relative; min-height: 380px; }
+  .ab-chart-box svg { display: block; overflow: visible; }
+  .ab-axis text { fill: var(--color-fg-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .ab-grid-line { stroke: var(--cds-chart-grid); stroke-width: 1; }
+  .ab-wick { stroke-width: 1; }
+  .ab-up .ab-body, .ab-up .ab-wick { fill: var(--ab-up); stroke: var(--ab-up); }
+  .ab-down .ab-body, .ab-down .ab-wick { fill: var(--ab-down); stroke: var(--ab-down); }
+  .ab-ghost .ab-body { fill-opacity: .18; stroke-dasharray: 3 2; stroke-width: 1.2; }
+  .ab-ghost { opacity: 0; transform: translateY(8px); transform-box: fill-box; transition: opacity .35s var(--cds-ease-out), transform .35s var(--cds-ease-out); }
+  .ab-ghost.is-on { opacity: .95; transform: none; }
+  .ab-future-bg { fill: var(--color-fg); fill-opacity: .035; }
+  .ab-future-label { fill: var(--color-fg-muted); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+  .ab-cone { fill: var(--color-fg); fill-opacity: .08; }
+  .ab-median { fill: none; stroke: var(--color-fg-muted); stroke-dasharray: 4 3; stroke-width: 1.2; }
+  .ab-ema20 { fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .ab-ema50 { fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .ab-bb { fill: var(--color-fg); fill-opacity: .045; stroke: var(--color-fg-muted); stroke-opacity: .35; stroke-width: 1; }
+  .ab-fvg-up { fill: var(--ab-up); fill-opacity: .13; }
+  .ab-fvg-down { fill: var(--ab-down); fill-opacity: .13; }
+  .ab-zig { fill: none; stroke: var(--color-fg); stroke-opacity: .55; stroke-width: 1.2; stroke-dasharray: 2 3; }
+  .ab-wave circle { fill: var(--color-bg); stroke: var(--color-fg); stroke-width: 1; }
+  .ab-wave text { fill: var(--color-fg); font-size: 10px; font-weight: 600; text-anchor: middle; dominant-baseline: central; }
+  .ab-liq-long { fill: var(--ab-down); fill-opacity: .5; }
+  .ab-liq-short { fill: var(--ab-up); fill-opacity: .5; }
+  .ab-price-line { stroke: var(--color-fg); stroke-width: 1; stroke-dasharray: 5 4; }
+  .ab-here rect { fill: var(--color-fg); }
+  .ab-here text { fill: var(--color-bg); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ab-dot { fill: var(--color-fg); }
+  .ab-pulse { fill: var(--color-fg); fill-opacity: .25; transform-box: fill-box; transform-origin: center; }
+  .ab-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border);
+    border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm);
+    font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; white-space: nowrap; z-index: 2; }
+  .ab-tip-date { color: var(--cds-text-secondary); }
+  .ab-legend { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs) var(--cds-gap-md); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .ab-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .ab-prob { display: grid; gap: var(--cds-gap-xs); }
+  .ab-prob-head { display: flex; justify-content: space-between; gap: var(--cds-gap-sm); font-size: var(--cds-font-size-body); }
+  .ab-prob-head b { font-weight: var(--cds-font-weight-medium); }
+  .ab-bar { position: relative; display: flex; height: 26px; border-radius: 6px; overflow: hidden; background: var(--color-bg); }
+  .ab-bar-up { background: var(--ab-up); transition: flex-basis .9s var(--cds-ease-out); }
+  .ab-bar-down { background: var(--ab-down); transition: flex-basis .9s var(--cds-ease-out); }
+  .ab-bar span { position: absolute; top: 50%; transform: translateY(-50%); font-size: var(--cds-font-size-caption); font-weight: 600; color: var(--color-bg); font-variant-numeric: tabular-nums; }
+  .ab-bar .ab-l { left: 8px; } .ab-bar .ab-r { right: 8px; }
+  .ab-base { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--color-fg); transition: left .9s var(--cds-ease-out); }
+  .ab-goal { margin: 0; font-size: var(--cds-font-size-body); line-height: 1.45; }
+  .ab-goal b { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-heading); font-variant-numeric: tabular-nums; }
+  .ab-targets { display: grid; gap: 4px; }
+  .ab-target { display: grid; grid-template-columns: 5.6rem minmax(0, 1fr) 2.6rem; gap: var(--cds-gap-sm); align-items: center;
+    font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+  .ab-target-track { height: 8px; border-radius: 4px; background: var(--color-bg); overflow: hidden; }
+  .ab-target-track i { display: block; height: 100%; border-radius: 4px; transition: width .9s var(--cds-ease-out); }
+  .ab-t-up .ab-target-track i { background: var(--color-ok); } .ab-t-dn .ab-target-track i { background: var(--color-bad); }
+  .ab-t-up span:first-child { color: var(--color-ok); } .ab-t-dn span:first-child { color: var(--color-bad); }
+  .ab-target-val { text-align: right; font-weight: 600; }
+  .ab-books { display: grid; gap: 4px; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+  .ab-book { display: grid; grid-template-columns: 4.2rem minmax(0, 1fr) 3rem; gap: var(--cds-gap-sm); align-items: center; }
+  .ab-book-track { position: relative; height: 8px; border-radius: 4px; background: var(--color-bg); overflow: hidden; }
+  .ab-book-track i { position: absolute; top: 0; bottom: 0; transition: left .8s var(--cds-ease-out), width .8s var(--cds-ease-out); }
+  .ab-book-track::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--color-fg-muted); }
+  .ab-chip { display: inline-block; font-size: var(--cds-font-size-caption); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--color-border-line); white-space: nowrap; }
+  .ab-chip.ab-compra, .ab-chip.ab-alcista { color: var(--ab-up); border-color: currentColor; }
+  .ab-chip.ab-venta, .ab-chip.ab-bajista { color: var(--ab-down); border-color: currentColor; }
+  .ab-chip.ab-neutral { color: var(--color-fg-muted); }
+  .ab-gauge-wrap { display: grid; justify-items: center; gap: var(--cds-gap-xs); }
+  .ab-needle { transition: transform 1.1s var(--cds-ease-out); transform-origin: 100px 100px; }
+  .ab-gauge-txt { font-family: var(--font-anthropic-serif); font-size: var(--cds-font-size-title); }
+  .ab-mini { display: grid; grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr)); gap: var(--cds-gap-xs); }
+  .ab-mini button { font: inherit; text-align: left; display: grid; gap: 4px; padding: var(--cds-pad-xs) var(--cds-pad-sm);
+    border-radius: var(--cds-radius); border: 1px solid var(--color-border-line); background: var(--color-bg); color: var(--color-fg); cursor: pointer; }
+  .ab-mini button[aria-pressed="true"] { border-color: var(--color-fg); }
+  .ab-mini small { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .ab-mini-bar { height: 4px; border-radius: 2px; background: var(--color-border-line); position: relative; overflow: hidden; }
+  .ab-mini-bar i { position: absolute; top: 0; bottom: 0; transition: left .8s var(--cds-ease-out), width .8s var(--cds-ease-out); }
+  .ab-list { display: grid; gap: var(--cds-gap-sm); margin: 0; padding: 0; list-style: none; }
+  .ab-list li { display: grid; grid-template-columns: 10px 1fr; gap: 2px var(--cds-gap-sm); align-items: baseline; }
+  .ab-list .ab-dotc { width: 8px; height: 8px; border-radius: 50%; align-self: center; background: var(--color-fg-muted); }
+  .ab-list .ab-dotc.ab-alcista { background: var(--ab-up); } .ab-list .ab-dotc.ab-bajista { background: var(--ab-down); }
+  .ab-list .ab-t { font-size: var(--cds-font-size-body); }
+  .ab-list .ab-t b { font-weight: var(--cds-font-weight-medium); font-variant-numeric: tabular-nums; }
+  .ab-list .ab-d { grid-column: 2; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .ab-ladder { display: grid; gap: 2px; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+  .ab-rung { display: grid; grid-template-columns: minmax(0, 1fr) auto 4.2rem; gap: var(--cds-gap-sm); align-items: center; padding: 3px 6px; border-radius: 4px; }
+  .ab-rung.ab-res { color: var(--ab-up); } .ab-rung.ab-sup { color: var(--ab-down); }
+  .ab-rung span:first-child { color: var(--color-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ab-rung.ab-now { background: var(--color-fg); color: var(--color-bg); font-weight: 600; }
+  .ab-rung.ab-now span:first-child { color: var(--color-bg); }
+  .ab-table-box { overflow: auto; max-height: 34rem; }
+  .ab-table { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+  .ab-table th { position: sticky; top: 0; background: var(--color-panel); text-align: left; color: var(--color-fg-muted); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--color-border-line); }
+  .ab-table td { padding: 6px 8px; border-bottom: 1px solid var(--color-border-line); vertical-align: top; }
+  .ab-table td.ab-num { text-align: right; }
+  .ab-table tr.ab-group td { font-weight: var(--cds-font-weight-medium); color: var(--color-fg); background: var(--color-bg); }
+  .ab-wave-desc { font-size: var(--cds-font-size-body); line-height: 1.5; margin: 0; }
+  .ab-claude { white-space: pre-line; font-size: var(--cds-font-size-body); line-height: 1.55; margin: 0; max-width: 72ch; }
+  .ab-disclaimer { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: 0; max-width: 80ch; }
+  .ab-state { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 380px; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+  .ab-state i { width: .375rem; height: .375rem; border-radius: 50%; background: var(--color-bad); }
+  [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+  [data-dash-source-state=empty] { color: transparent; }
+  @media (prefers-reduced-motion: no-preference) {
+    .ab-pulse { animation: ab-pulse 1.8s var(--cds-ease-out) infinite; }
+    .ab-page.is-first .ab-candle { animation: ab-rise .5s var(--cds-ease-out) both; }
+  }
+  @keyframes ab-pulse { from { transform: scale(.6); fill-opacity: .45; } to { transform: scale(2.6); fill-opacity: 0; } }
+  @keyframes ab-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .ab-ghost, .ab-bar-up, .ab-bar-down, .ab-base, .ab-needle { transition: none; } }
+</style>
+
+<div class="ab-page is-first" id="analista" data-source="analisis">
+  <header class="ab-head" id="resumen">
+    <div class="ab-eyebrow">BTC/USDT perpetuo · actualizado <span data-source="analisis" data-field="hora_local" data-where="tabla=resumen">—</span> (hora Argentina)</div>
+    <h1 class="ab-title">Analista BTC</h1>
+    <p class="ab-takeaway dash-skeleton" id="lectura" data-source="analisis" data-field="lectura" data-where="tabla=resumen">—</p>
+  </header>
+
+  <section class="ab-hero" id="precio" aria-label="Precio">
+    <div class="ab-stat"><span class="ab-stat-label">Precio en BingX</span>
+      <span class="ab-price" data-source="analisis" data-field="precio" data-where="tabla=resumen">—</span></div>
+    <div class="ab-stat"><span class="ab-stat-label">24 horas</span>
+      <span class="ab-stat-value" id="c24" data-source="analisis" data-field="cambio_24h" data-where="tabla=resumen">—</span></div>
+    <div class="ab-stat"><span class="ab-stat-label">7 días</span>
+      <span class="ab-stat-value" id="c7" data-source="analisis" data-field="cambio_7d" data-where="tabla=resumen">—</span></div>
+    <div class="ab-stat"><span class="ab-stat-label">Contra la media de 200 días</span>
+      <span class="ab-stat-value" id="c200" data-source="analisis" data-field="sma200d_dist" data-where="tabla=resumen">—</span></div>
+    <div class="ab-stat"><span class="ab-stat-label">Funding cada 8 h</span>
+      <span class="ab-stat-value" id="fund" data-source="analisis" data-field="funding" data-where="tabla=resumen">—</span></div>
+  </section>
+
+  <nav class="ab-tabs" id="temporalidades" aria-label="Temporalidad">
+    <button class="ab-tab" type="button" data-tf="5m" aria-pressed="false">5 min</button>
+    <button class="ab-tab" type="button" data-tf="15m" aria-pressed="false">15 min</button>
+    <button class="ab-tab" type="button" data-tf="30m" aria-pressed="false">30 min</button>
+    <button class="ab-tab" type="button" data-tf="1h" aria-pressed="true">1 hora</button>
+    <button class="ab-tab" type="button" data-tf="4h" aria-pressed="false">4 horas</button>
+    <button class="ab-tab" type="button" data-tf="1d" aria-pressed="false">Diario</button>
+  </nav>
+
+  <section class="ab-card" id="grafico" aria-labelledby="grafico-t">
+    <div class="ab-chart-top">
+      <h2 id="grafico-t">Dónde está BTC y hacia dónde suele ir desde acá</h2>
+      <div class="ab-controls" role="group" aria-label="Escenario">
+        <button class="ab-chip-btn" type="button" data-scen="tipico" aria-pressed="true">Típico</button>
+        <button class="ab-chip-btn" type="button" data-scen="alcista" aria-pressed="false">Alcista</button>
+        <button class="ab-chip-btn" type="button" data-scen="bajista" aria-pressed="false">Bajista</button>
+        <button class="ab-chip-btn" type="button" id="replay">Repetir animación</button>
+      </div>
+    </div>
+    <div class="ab-controls" role="group" aria-label="Capas del gráfico">
+      <label class="ab-toggle"><input type="checkbox" id="lay-ema" checked><span>EMA 20 / 50</span></label>
+      <label class="ab-toggle"><input type="checkbox" id="lay-bb" checked><span>Bollinger</span></label>
+      <label class="ab-toggle"><input type="checkbox" id="lay-fvg" checked><span>Zonas FVG</span></label>
+      <label class="ab-toggle"><input type="checkbox" id="lay-ondas" checked><span>Giros y ondas</span></label>
+      <label class="ab-toggle"><input type="checkbox" id="lay-liq" checked><span>Liquidaciones</span></label>
+    </div>
+    <div class="ab-chart-box dash-skeleton" id="chart" data-source="analisis"></div>
+    <div class="ab-legend" id="legend"></div>
+    <p class="ab-note" id="scen-note"></p>
+  </section>
+
+  <div class="ab-grid">
+    <section class="ab-card" id="probabilidades" aria-labelledby="prob-t">
+      <h2 id="prob-t">Probabilidades</h2>
+      <p class="ab-note">De las velas recientes en una situación técnica parecida a la de ahora, cuántas terminaron más arriba. La línea vertical es la tasa normal del período: si la barra queda cerca, la situación actual casi no aporta.</p>
+      <div id="prob-list" class="ab-prob-list" data-source="analisis" style="display:grid;gap:var(--cds-gap-md)"></div>
+    </section>
+
+    <section class="ab-card" id="calificacion" aria-labelledby="cal-t">
+      <h2 id="cal-t">Calificación técnica</h2>
+      <div class="ab-gauge-wrap" data-source="analisis">
+        <svg id="gauge" viewBox="0 0 200 118" width="100%" style="max-width:320px" role="img" aria-label="Calificación"></svg>
+        <div class="ab-gauge-txt" id="gauge-txt" data-source="analisis" data-field="rating_txt">—</div>
+        <div class="ab-note" id="gauge-votes"></div>
+      </div>
+      <div class="ab-mini" id="mini" data-source="analisis"></div>
+      <p class="ab-note">Votan 17 medias móviles y 11 osciladores con las reglas de TradingView. Tocá una temporalidad para verla en el gráfico.</p>
+    </section>
+  </div>
+
+  <div class="ab-grid">
+    <section class="ab-card" id="ondas" aria-labelledby="ondas-t">
+      <h2 id="ondas-t">Ondas de Elliott y zonas FVG</h2>
+      <p class="ab-wave-desc" id="wave-desc" data-source="analisis" data-field="elliott">—</p>
+      <ul class="ab-list" id="fvg-list" data-source="analisis"></ul>
+      <p class="ab-note">El conteo se hace solo sobre los giros del precio y verifica las tres reglas de Elliott; es un posible conteo, no el único. Una zona FVG es un hueco que el precio dejó sin operar y al que suele volver.</p>
+    </section>
+
+    <section class="ab-card" id="contexto" aria-labelledby="ctx-t">
+      <h2 id="ctx-t">Qué está pasando ahora</h2>
+      <ul class="ab-list" id="ctx-list" data-source="analisis"></ul>
+      <div class="ab-books" id="books" data-source="analisis"></div>
+      <p class="ab-note">Libros de órdenes a ±0.1% del precio: hacia la derecha, más compras esperando. BingX no entra en el total porque publica mucho más volumen que el resto.</p>
+    </section>
+  </div>
+
+  <div class="ab-grid">
+    <section class="ab-card" id="niveles" aria-labelledby="niv-t">
+      <h2 id="niv-t">Niveles clave</h2>
+      <div class="ab-ladder" id="ladder" data-source="analisis"></div>
+      <p class="ab-note">Mínimos y máximos, pivotes del día, Fibonacci del último mes, medias de 200 días y las mayores zonas de liquidación estimadas.</p>
+    </section>
+
+    <section class="ab-card" id="lectura-claude" aria-labelledby="cl-t">
+      <h2 id="cl-t">Noticias y lectura de Claude</h2>
+      <p class="ab-claude" id="nota" data-source="analisis" data-field="nota_claude" data-where="tabla=resumen">—</p>
+      <p class="ab-note">Se escribe en cada análisis programado a partir de las noticias del día. Es criterio, no un cálculo: su acierto se mide aparte.</p>
+    </section>
+  </div>
+
+  <section class="ab-card" id="indicadores" aria-labelledby="ind-t">
+    <h2 id="ind-t">Todos los indicadores</h2>
+    <div class="ab-table-box">
+      <table class="ab-table" id="ind-table" data-source="analisis" data-row-key="tf,indicador">
+        <thead><tr><th data-field="indicador">Indicador</th><th data-field="valor" style="text-align:right">Valor</th><th data-field="senal">Señal</th><th data-field="detalle">Detalle</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="ab-card" id="aciertos" aria-labelledby="ac-t">
+    <h2 id="ac-t">¿Vienen acertando los pronósticos?</h2>
+    <div id="hits" data-source="analisis"></div>
+  </section>
+
+  <p class="ab-disclaimer">Datos de Binance Futures y BingX. Las probabilidades y escenarios describen lo que pasó en situaciones parecidas del pasado reciente; el mercado puede hacer otra cosa. No es una recomendación de inversión.</p>
+</div>
+
+<script>
+(function () {
+  const root = document.getElementById('analista');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const TF_TXT = { '5m': '5 min', '15m': '15 min', '30m': '30 min', '1h': '1 hora', '4h': '4 horas', '1d': 'Diario' };
+  const state = { tf: '1h', scen: 'tipico', layers: { ema: true, bb: true, fvg: true, ondas: true, liq: true } };
+  const f0 = d3.format(',.0f'), f1 = d3.format(',.1f'), f2 = d3.format('.2f');
+  const signed = (v, d = 2) => (v > 0 ? '+' : '') + d3.format(`.${d}f`)(v) + '%';
+  const tz = { timeZone: 'America/Argentina/Buenos_Aires' };
+  const fmtDate = (t, tf) => new Date(Number(t)).toLocaleString('es-AR', tf === '1d'
+    ? { ...tz, day: '2-digit', month: '2-digit', year: '2-digit' }
+    : { ...tz, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
+  const pick = (rows, t, tf) => rows.filter((r) => r.tabla === t && (tf === undefined || r.tf === tf));
+  const signClass = (s) => (s === 'compra' || s === 'alcista' ? 'ab-alcista' : s === 'venta' || s === 'bajista' ? 'ab-bajista' : 'ab-neutral');
+  const where = (el, w) => { el.setAttribute('data-where', w); };
+  let ghostTimer = null, firstDraw = true, lastRows = null;
+
+  // ---------- controles ----------
+  document.querySelectorAll('.ab-tab').forEach((b) => b.addEventListener('click', () => setTf(b.dataset.tf)));
+  document.querySelectorAll('[data-scen]').forEach((b) => b.addEventListener('click', () => {
+    state.scen = b.dataset.scen;
+    document.querySelectorAll('[data-scen]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    redraw();
+  }));
+  document.getElementById('replay').addEventListener('click', () => redraw());
+  ['ema', 'bb', 'fvg', 'ondas', 'liq'].forEach((k) => document.getElementById('lay-' + k).addEventListener('change', (e) => {
+    state.layers[k] = e.target.checked; redraw();
+  }));
+  function setTf(tf) {
+    state.tf = tf;
+    document.querySelectorAll('.ab-tab').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.tf === tf)));
+    redraw();
+  }
+  const redraw = () => draw();
+
+  dash.onData(draw);
+
+  function draw() {
+    const res = dash.data('analisis');
+    const chart = document.getElementById('chart');
+    if (ghostTimer) { clearInterval(ghostTimer); ghostTimer = null; }
+    if (res.status !== 'ok') {
+      chart.replaceChildren();
+      if (res.status === 'error') {
+        chart.classList.remove('dash-skeleton');
+        const s = document.createElement('div'); s.className = 'ab-state';
+        s.append(document.createElement('i'), 'Failed to load'); chart.append(s);
+      }
+      return;
+    }
+    document.querySelectorAll('.dash-skeleton').forEach((e) => e.classList.remove('dash-skeleton'));
+    const rows = res.data;
+    lastRows = rows;
+    const sum = pick(rows, 'resumen')[0];
+    drawHeader(sum);
+    drawChart(rows, sum);
+    drawProbs(rows);
+    drawRating(rows);
+    drawWaves(rows);
+    drawContext(rows);
+    drawLadder(rows, sum);
+    drawNote(sum);
+    drawIndicators(rows);
+    drawHits(rows);
+    if (firstDraw) { firstDraw = false; setTimeout(() => root.classList.remove('is-first'), 1600); }
+  }
+
+  // ---------- cabecera ----------
+  function drawHeader(s) {
+    document.querySelector('[data-field="hora_local"]').textContent = s.hora_local;
+    document.getElementById('lectura').textContent = s.lectura;
+    document.querySelector('.ab-price').textContent = f1(num(s.precio));
+    const put = (id, v, digits) => {
+      const el = document.getElementById(id);
+      if (v === null) { el.textContent = '—'; return; }
+      el.textContent = signed(v, digits);
+      el.classList.toggle('ab-pos', v > 0); el.classList.toggle('ab-neg', v < 0);
+    };
+    put('c24', num(s.cambio_24h), 2); put('c7', num(s.cambio_7d), 2); put('c200', num(s.sma200d_dist), 1);
+    const fu = num(s.funding);
+    document.getElementById('fund').textContent = fu === null ? '—' : (fu > 0 ? '+' : '') + d3.format('.4f')(fu) + '%';
+  }
+
+  // ---------- grafico principal ----------
+  function drawChart(rows, sum) {
+    const box = document.getElementById('chart');
+    box.replaceChildren();
+    const tf = state.tf, price = num(sum.precio);
+    const bars = pick(rows, 'vela', tf).map((r) => ({ t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c),
+      ema20: num(r.ema20), ema50: num(r.ema50), up: num(r.bb_up), lo: num(r.bb_lo) })).sort((a, b) => a.t - b.t);
+    const ghosts = pick(rows, 'escenario', tf).filter((r) => r.escenario === state.scen)
+      .map((r) => ({ paso: num(r.paso), t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), desde: r.desde }))
+      .sort((a, b) => a.paso - b.paso);
+    const cone = pick(rows, 'cono', tf).map((r) => ({ paso: num(r.paso), lo: num(r.p10), mid: num(r.p50), hi: num(r.p90) }))
+      .sort((a, b) => a.paso - b.paso);
+    const fvgs = pick(rows, 'fvg', tf).map((r) => ({ tipo: r.tipo, t: num(r.t), lo: num(r.bajo), hi: num(r.alto) }));
+    const giros = pick(rows, 'giro', tf).map((r) => ({ t: num(r.t), p: num(r.precio), onda: r.onda, alto: r.tipo === 'alto' }));
+    const liq = pick(rows, 'liquidacion').map((r) => ({ p: num(r.precio), longs: num(r.longs), shorts: num(r.shorts) }));
+    if (!bars.length) return;
+
+    const W = Math.max(320, box.clientWidth), H = W < 560 ? 320 : 400;
+    const steps = Math.max(ghosts.length, cone.length);
+    const n = bars.length + steps;
+    const heatW = state.layers.liq ? Math.min(70, W * 0.1) : 0;
+    const axisW = 62, m = { top: 22, bottom: 26, left: 4 };
+    const plotR = W - axisW - heatW;
+    const x = d3.scaleBand().domain(d3.range(n)).range([m.left, plotR]).paddingInner(0.28);
+    const vals = [price];
+    bars.forEach((b) => { vals.push(b.h, b.l); if (state.layers.bb && b.up) vals.push(b.up, b.lo); });
+    ghosts.forEach((g) => vals.push(g.h, g.l));
+    cone.forEach((c) => vals.push(c.lo, c.hi));
+    let [lo, hi] = d3.extent(vals);
+    const pad = (hi - lo) * 0.06; lo -= pad; hi += pad;
+    const y = d3.scaleLinear().domain([lo, hi]).range([H - m.bottom, m.top]);
+
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
+      .attr('aria-label', `Velas de ${TF_TXT[tf]} con el escenario ${state.scen}`);
+    const ticks = y.ticks(6);
+    svg.append('g').selectAll('line').data(ticks).join('line').attr('class', 'ab-grid-line')
+      .attr('x1', m.left).attr('x2', plotR + heatW).attr('y1', y).attr('y2', y);
+    svg.append('g').attr('class', 'ab-axis').selectAll('text').data(ticks).join('text')
+      .attr('x', W - 2).attr('y', y).attr('dy', '0.32em').attr('text-anchor', 'end').text((d) => f0(d));
+
+    // zona futura
+    const fx0 = x(bars.length) - x.step() * x.paddingInner() / 2;
+    svg.append('rect').attr('class', 'ab-future-bg').attr('x', fx0).attr('y', m.top - 14).attr('width', plotR - fx0).attr('height', H - m.bottom - m.top + 14);
+    svg.append('text').attr('class', 'ab-future-label').attr('x', fx0 + 6).attr('y', m.top - 4).text('Futuro posible');
+
+    // tiempo: tres marcas
+    const tIdx = [0, Math.floor(bars.length / 2), bars.length - 1];
+    svg.append('g').attr('class', 'ab-axis').selectAll('text').data(tIdx).join('text')
+      .attr('x', (i) => x(i) + x.bandwidth() / 2).attr('y', H - 8).attr('text-anchor', (d, k) => (k === 0 ? 'start' : 'middle'))
+      .text((i) => fmtDate(bars[i].t, tf));
+
+    // Bollinger
+    if (state.layers.bb) {
+      const bb = bars.map((b, i) => ({ i, up: b.up, lo: b.lo })).filter((b) => b.up !== null);
+      svg.append('path').attr('class', 'ab-bb').attr('d', d3.area().x((d) => x(d.i) + x.bandwidth() / 2).y0((d) => y(d.lo)).y1((d) => y(d.up))(bb));
+    }
+    // FVG
+    if (state.layers.fvg) {
+      fvgs.forEach((z) => {
+        let i0 = bars.findIndex((b) => b.t >= z.t); if (i0 < 0) return;
+        const yt = y(Math.min(z.hi, hi)), yb = y(Math.max(z.lo, lo));
+        if (yb <= m.top || yt >= H - m.bottom) return;
+        svg.append('rect').attr('class', z.tipo === 'alcista' ? 'ab-fvg-up' : 'ab-fvg-down').attr('x', x(i0)).attr('y', yt)
+          .attr('width', plotR - x(i0)).attr('height', Math.max(2, yb - yt));
+      });
+    }
+    // cono de escenarios (80% de los casos)
+    if (cone.length) {
+      const lastI = bars.length - 1;
+      const pts = [{ i: lastI, lo: bars[lastI].c, hi: bars[lastI].c, mid: bars[lastI].c }].concat(cone.map((c) => ({ i: lastI + c.paso, ...c })));
+      const cx = (d) => x(d.i) + x.bandwidth() / 2;
+      svg.append('path').attr('class', 'ab-cone').attr('d', d3.area().x(cx).y0((d) => y(d.lo)).y1((d) => y(d.hi))(pts));
+      svg.append('path').attr('class', 'ab-median').attr('d', d3.line().x(cx).y((d) => y(d.mid))(pts));
+    }
+    // EMAs
+    const colors = dash.colors;
+    if (state.layers.ema) {
+      [['ema20', colors[0]], ['ema50', colors[1]]].forEach(([k, col]) => {
+        svg.append('path').attr('class', 'ab-' + k).style('stroke', col)
+          .attr('d', d3.line().defined((b) => b[k] !== null).x((b, i) => x(i) + x.bandwidth() / 2).y((b) => y(b[k]))(bars));
+      });
+    }
+    // velas reales
+    const bw = x.bandwidth();
+    const cg = svg.append('g').selectAll('g').data(bars).join('g')
+      .attr('class', (b) => 'ab-candle ' + (b.c >= b.o ? 'ab-up' : 'ab-down'))
+      .style('animation-delay', (b, i) => `${i * 12}ms`);
+    cg.append('line').attr('class', 'ab-wick').attr('x1', (b, i) => x(i) + bw / 2).attr('x2', (b, i) => x(i) + bw / 2).attr('y1', (b) => y(b.h)).attr('y2', (b) => y(b.l));
+    cg.append('rect').attr('class', 'ab-body').attr('rx', Math.min(2, bw / 4)).attr('x', (b, i) => x(i)).attr('width', bw)
+      .attr('y', (b) => y(Math.max(b.o, b.c))).attr('height', (b) => Math.max(1, Math.abs(y(b.o) - y(b.c))));
+
+    // giros y ondas de Elliott
+    if (state.layers.ondas) {
+      const gp = giros.map((g) => ({ ...g, i: bars.findIndex((b) => b.t === g.t) })).filter((g) => g.i >= 0);
+      if (gp.length > 1) svg.append('path').attr('class', 'ab-zig').attr('d', d3.line().x((g) => x(g.i) + bw / 2).y((g) => y(g.p))(gp));
+      const wv = svg.append('g').selectAll('g').data(gp.filter((g) => g.onda)).join('g').attr('class', 'ab-wave')
+        .attr('transform', (g) => `translate(${x(g.i) + bw / 2},${y(g.p) + (g.alto ? -12 : 12)})`);
+      wv.append('circle').attr('r', 8);
+      wv.append('text').text((g) => g.onda);
+    }
+
+    // velas fantasma del escenario
+    const gg = svg.append('g').selectAll('g').data(ghosts).join('g')
+      .attr('class', (g) => 'ab-ghost ' + (g.c >= g.o ? 'ab-up' : 'ab-down'));
+    const gx = (g) => x(bars.length - 1 + g.paso);
+    gg.append('line').attr('class', 'ab-wick').attr('x1', (g) => gx(g) + bw / 2).attr('x2', (g) => gx(g) + bw / 2).attr('y1', (g) => y(g.h)).attr('y2', (g) => y(g.l));
+    gg.append('rect').attr('class', 'ab-body').attr('rx', Math.min(2, bw / 4)).attr('x', gx).attr('width', bw)
+      .attr('y', (g) => y(Math.max(g.o, g.c))).attr('height', (g) => Math.max(1, Math.abs(y(g.o) - y(g.c))));
+
+    // mapa de liquidaciones, a la derecha
+    if (state.layers.liq && liq.length) {
+      const inRange = liq.filter((r) => r.p > lo && r.p < hi);
+      const maxv = d3.max(inRange, (r) => Math.max(r.longs, r.shorts)) || 1;
+      const hx = d3.scaleLinear().domain([0, maxv]).range([0, heatW - 6]);
+      const bh = Math.max(2, Math.abs(y(inRange[0] ? inRange[0].p : lo) - y((inRange[0] ? inRange[0].p : lo) * 1.0025)) - 1);
+      const hg = svg.append('g');
+      hg.selectAll('rect.l').data(inRange.filter((r) => r.longs > 0)).join('rect').attr('class', 'ab-liq-long')
+        .attr('x', plotR + 3).attr('y', (r) => y(r.p) - bh / 2).attr('height', bh).attr('width', (r) => hx(r.longs)).attr('rx', 1);
+      hg.selectAll('rect.s').data(inRange.filter((r) => r.shorts > 0)).join('rect').attr('class', 'ab-liq-short')
+        .attr('x', plotR + 3).attr('y', (r) => y(r.p) - bh / 2).attr('height', bh).attr('width', (r) => hx(r.shorts)).attr('rx', 1);
+      svg.append('text').attr('class', 'ab-future-label').attr('x', plotR + 3).attr('y', m.top - 4).text('Liq.');
+    }
+
+    // BTC esta aqui
+    const py = y(price);
+    svg.append('line').attr('class', 'ab-price-line').attr('x1', m.left).attr('x2', plotR).attr('y1', py).attr('y2', py);
+    const hx0 = x(bars.length - 1) + bw / 2;
+    svg.append('circle').attr('class', 'ab-pulse').attr('cx', hx0).attr('cy', py).attr('r', 6);
+    svg.append('circle').attr('class', 'ab-dot').attr('cx', hx0).attr('cy', py).attr('r', 4);
+    const here = svg.append('g').attr('class', 'ab-here');
+    const label = here.append('text').text(`BTC está aquí · ${f0(price)}`);
+    const lw = label.node().getComputedTextLength() + 14;
+    let lx = hx0 - lw - 10; if (lx < m.left) lx = hx0 + 10;
+    const ly = Math.min(Math.max(py - 26, m.top), H - m.bottom - 20);
+    here.insert('rect', 'text').attr('x', lx).attr('y', ly).attr('width', lw).attr('height', 18).attr('rx', 9);
+    label.attr('x', lx + 7).attr('y', ly + 13);
+
+    // tooltip
+    const tip = document.createElement('div'); tip.className = 'ab-tip'; tip.hidden = true; box.append(tip);
+    svg.append('rect').attr('x', m.left).attr('y', m.top).attr('width', plotR - m.left).attr('height', H - m.top - m.bottom)
+      .attr('fill', 'transparent')
+      .on('mousemove', (ev) => {
+        const [mx] = d3.pointer(ev);
+        const i = Math.max(0, Math.min(n - 1, Math.floor((mx - m.left) / x.step())));
+        const b = i < bars.length ? bars[i] : ghosts[i - bars.length];
+        if (!b) { tip.hidden = true; return; }
+        const future = i >= bars.length;
+        tip.replaceChildren();
+        const d = document.createElement('div'); d.className = 'ab-tip-date';
+        d.textContent = future ? `Escenario ${state.scen}, vela ${b.paso}` : fmtDate(b.t, tf);
+        const v = document.createElement('div');
+        v.textContent = `A ${f0(b.o)}  M ${f0(b.h)}  m ${f0(b.l)}  C ${f0(b.c)}`;
+        tip.append(d, v);
+        tip.hidden = false;
+        const px = (x(i) / W) * box.clientWidth;
+        tip.style.left = Math.min(box.clientWidth - tip.offsetWidth - 4, Math.max(4, px + 12)) + 'px';
+        tip.style.top = '8px';
+      })
+      .on('mouseleave', () => { tip.hidden = true; });
+
+    // leyenda y nota
+    const leg = document.getElementById('legend'); leg.replaceChildren();
+    const item = (color, txt, dashed) => { const s = document.createElement('span'); const i = document.createElement('i');
+      i.style.background = color; if (dashed) { i.style.background = 'transparent'; i.style.border = `1px dashed ${color}`; }
+      s.append(i, txt); leg.append(s); };
+    if (state.layers.ema) { item(colors[0], 'EMA 20'); item(colors[1], 'EMA 50'); }
+    item('var(--color-fg-muted)', 'Velas del escenario', true);
+    item('color-mix(in srgb, var(--color-fg) 18%, transparent)', 'Rango del 80% de los casos');
+    if (state.layers.fvg) { item('color-mix(in srgb, var(--color-ok) 35%, transparent)', 'FVG alcista'); item('color-mix(in srgb, var(--color-bad) 35%, transparent)', 'FVG bajista'); }
+    if (state.layers.liq) { item('color-mix(in srgb, var(--color-bad) 60%, transparent)', 'Liquidaciones de longs'); item('color-mix(in srgb, var(--color-ok) 60%, transparent)', 'Liquidaciones de shorts'); }
+    const note = document.getElementById('scen-note');
+    note.textContent = ghosts.length
+      ? `Las velas punteadas son un camino real del ${ghosts[0].desde.split('-').reverse().join('/')}, cuando BTC estaba en una situación parecida, llevado al precio de hoy (escenario ${state.scen}). La zona sombreada es donde terminó el 80% de esos casos. El mapa de liquidaciones es una estimación con open interest y ratio long/short.`
+      : 'No hay suficientes situaciones parecidas para armar escenarios en esta temporalidad.';
+
+    animateGhosts(gg, ghosts.length);
+  }
+
+  function animateGhosts(sel, count) {
+    if (!count) return;
+    if (reduce) { sel.classed('is-on', true); return; }
+    let k = 0;
+    const tick = () => {
+      k = k > count + 7 ? 0 : k + 1;
+      sel.classed('is-on', (g) => g.paso <= k);
+    };
+    tick();
+    ghostTimer = setInterval(tick, 380);
+  }
+
+  // ---------- probabilidades ----------
+  function drawProbs(rows) {
+    const list = document.getElementById('prob-list'); list.replaceChildren();
+    pick(rows, 'probabilidad', state.tf).forEach((p) => {
+      const up = num(p.sube), base = num(p.base);
+      const wrap = document.createElement('div'); wrap.className = 'ab-prob';
+      const head = document.createElement('div'); head.className = 'ab-prob-head';
+      const left = document.createElement('span'); const b = document.createElement('b'); b.textContent = `Hasta las ${p.hora.slice(-5)} · ${p.horizonte}`;
+      left.append(b);
+      const chip = document.createElement('span'); chip.className = 'ab-chip ' + (p.veredicto === 'Sesgo alcista' ? 'ab-alcista' : p.veredicto === 'Sesgo bajista' ? 'ab-bajista' : 'ab-neutral');
+      chip.textContent = p.veredicto;
+      head.append(left, chip);
+      const bar = document.createElement('div'); bar.className = 'ab-bar';
+      const bu = document.createElement('div'); bu.className = 'ab-bar-up'; bu.style.flexBasis = '50%';
+      const bd = document.createElement('div'); bd.className = 'ab-bar-down'; bd.style.flexBasis = '50%';
+      const l = document.createElement('span'); l.className = 'ab-l'; l.textContent = `Sube ${f1(up)}%`;
+      const r = document.createElement('span'); r.className = 'ab-r'; r.textContent = `Baja ${f1(100 - up)}%`;
+      const bt = document.createElement('div'); bt.className = 'ab-base'; bt.style.left = '50%'; bt.title = `Tasa normal ${f1(base)}%`;
+      bar.append(bu, bd, l, r, bt);
+      const goal = document.createElement('p'); goal.className = 'ab-goal';
+      if (p.mediana !== null) {
+        const big = document.createElement('b'); big.textContent = f0(num(p.mediana));
+        goal.append(`Precio más probable a las ${p.hora.slice(-5)} (${p.hora.slice(0, 5)}): `, big,
+          ` · la mitad de los casos terminó entre ${f0(num(p.p25))} y ${f0(num(p.p75))}`);
+      }
+      const ladder = document.createElement('div'); ladder.className = 'ab-targets';
+      pick(rows, 'objetivo', state.tf).filter((t) => t.horizonte === p.horizonte)
+        .sort((a, b) => num(b.precio) - num(a.precio)).forEach((t) => {
+          const row = document.createElement('div'); row.className = 'ab-target ' + (t.lado === 'arriba' ? 'ab-t-up' : 'ab-t-dn');
+          const lab = document.createElement('span'); lab.textContent = `${t.lado === 'arriba' ? '▲' : '▼'} ${f0(num(t.precio))}`;
+          const track = document.createElement('span'); track.className = 'ab-target-track';
+          const fill = document.createElement('i'); fill.style.width = '0'; track.append(fill);
+          const val = document.createElement('span'); val.className = 'ab-target-val'; val.textContent = `${f0(num(t.prob))}%`;
+          row.append(lab, track, val); ladder.append(row);
+          requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = num(t.prob) + '%'; }));
+        });
+      const cap = document.createElement('div'); cap.className = 'ab-note';
+      cap.textContent = `Probabilidad de que BTC toque cada precio antes de las ${p.hora.slice(-5)} del ${p.hora.slice(0, 5)}.`;
+      const note = document.createElement('div'); note.className = 'ab-note';
+      note.textContent = `Tasa normal ${f1(base)}% · ${f0(num(p.n))} casos de los últimos ${num(p.dias)} días · el 80% terminó entre ${f0(num(p.min))} y ${f0(num(p.max))}`;
+      wrap.append(head, bar, goal, cap, ladder, note);
+      list.append(wrap);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        bu.style.flexBasis = up + '%'; bd.style.flexBasis = (100 - up) + '%'; bt.style.left = `calc(${base}% - 1px)`;
+      }));
+    });
+  }
+
+  // ---------- calificacion ----------
+  function drawRating(rows) {
+    const marcos = pick(rows, 'marco');
+    const cur = marcos.find((m) => m.tf === state.tf);
+    const svg = d3.select('#gauge'); svg.selectAll('*').remove();
+    const segs = [['Venta fuerte', 'var(--color-bad)', .9], ['Venta', 'var(--color-bad)', .45], ['Neutral', 'var(--color-fg-muted)', .35],
+      ['Compra', 'var(--color-ok)', .45], ['Compra fuerte', 'var(--color-ok)', .9]];
+    const arc = d3.arc().innerRadius(70).outerRadius(86);
+    const a0 = -Math.PI / 2, step = Math.PI / 5;
+    segs.forEach(([, col, op], k) => svg.append('path').attr('transform', 'translate(100,100)')
+      .attr('d', arc({ startAngle: a0 + k * step + 0.02, endAngle: a0 + (k + 1) * step - 0.02 })).style('fill', col).style('fill-opacity', op));
+    svg.append('text').attr('x', 8).attr('y', 114).style('fill', 'var(--color-fg-muted)').style('font-size', '10px').text('Venta');
+    svg.append('text').attr('x', 192).attr('y', 114).attr('text-anchor', 'end').style('fill', 'var(--color-fg-muted)').style('font-size', '10px').text('Compra');
+    const needle = svg.append('g').attr('class', 'ab-needle').style('transform', 'rotate(-90deg)');
+    needle.append('line').attr('x1', 100).attr('y1', 100).attr('x2', 100).attr('y2', 34).style('stroke', 'var(--color-fg)').style('stroke-width', 2.5).style('stroke-linecap', 'round');
+    svg.append('circle').attr('cx', 100).attr('cy', 100).attr('r', 6).style('fill', 'var(--color-fg)');
+    if (cur) {
+      const r = num(cur.rating);
+      requestAnimationFrame(() => requestAnimationFrame(() => needle.style('transform', `rotate(${r * 90}deg)`)));
+      const txt = document.getElementById('gauge-txt'); txt.textContent = cur.rating_txt; where(txt, `tabla=marco&tf=${state.tf}`);
+      document.getElementById('gauge-votes').textContent =
+        `${TF_TXT[state.tf]} · medias ${cur.ma_compra} compra / ${cur.ma_venta} venta · osciladores ${cur.osc_compra} compra / ${cur.osc_venta} venta · tendencia ${cur.tendencia.toLowerCase()}`;
+    }
+    const mini = document.getElementById('mini'); mini.replaceChildren();
+    marcos.forEach((mk) => {
+      const b = document.createElement('button'); b.type = 'button'; b.setAttribute('aria-pressed', String(mk.tf === state.tf));
+      const s = document.createElement('small'); s.textContent = TF_TXT[mk.tf];
+      const c = document.createElement('span'); c.className = 'ab-chip ' + signClass(num(mk.rating) > 0.1 ? 'compra' : num(mk.rating) < -0.1 ? 'venta' : 'neutral');
+      c.textContent = mk.rating_txt;
+      const bar = document.createElement('div'); bar.className = 'ab-mini-bar'; const i = document.createElement('i');
+      const r = num(mk.rating);
+      i.style.background = r >= 0 ? 'var(--color-ok)' : 'var(--color-bad)';
+      i.style.left = '50%'; i.style.width = '0';
+      bar.append(i);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        i.style.left = (r >= 0 ? 50 : 50 + r * 50) + '%'; i.style.width = Math.abs(r) * 50 + '%';
+      }));
+      b.append(s, c, bar);
+      b.addEventListener('click', () => setTf(mk.tf));
+      mini.append(b);
+    });
+  }
+
+  // ---------- ondas y FVG ----------
+  function drawWaves(rows) {
+    const cur = pick(rows, 'marco', state.tf)[0];
+    const desc = document.getElementById('wave-desc');
+    where(desc, `tabla=marco&tf=${state.tf}`);
+    const target = cur ? num(cur.elliott_objetivo) : null;
+    desc.textContent = cur ? `${TF_TXT[state.tf]}: ${cur.elliott}${target ? `. Objetivo de la onda: ${f0(target)}` : ''}.` : '—';
+    const ul = document.getElementById('fvg-list'); ul.replaceChildren();
+    const zones = pick(rows, 'fvg', state.tf);
+    if (!zones.length) { const li = document.createElement('li'); li.append(document.createElement('span'));
+      const t = document.createElement('span'); t.className = 'ab-t'; t.textContent = 'Sin zonas FVG abiertas cerca del precio.'; li.append(t); ul.append(li); }
+    zones.forEach((z) => {
+      const li = document.createElement('li');
+      const dot = document.createElement('span'); dot.className = 'ab-dotc ' + signClass(z.tipo);
+      const t = document.createElement('span'); t.className = 'ab-t';
+      const b = document.createElement('b'); b.textContent = `${f0(num(z.bajo))} – ${f0(num(z.alto))}`;
+      t.append(`FVG ${z.tipo} `, b);
+      const d = document.createElement('span'); d.className = 'ab-d'; d.textContent = `Formada el ${fmtDate(z.t, state.tf)}, todavía sin llenar`;
+      li.append(dot, t, d); ul.append(li);
+    });
+  }
+
+  // ---------- contexto ----------
+  function drawContext(rows) {
+    const ul = document.getElementById('ctx-list'); ul.replaceChildren();
+    pick(rows, 'contexto').forEach((c) => {
+      const li = document.createElement('li');
+      const dot = document.createElement('span'); dot.className = 'ab-dotc ' + signClass(c.senal);
+      const t = document.createElement('span'); t.className = 'ab-t';
+      const b = document.createElement('b'); b.textContent = c.valor;
+      t.append(`${c.titulo}: `, b);
+      const d = document.createElement('span'); d.className = 'ab-d'; d.textContent = c.detalle;
+      li.append(dot, t, d); ul.append(li);
+    });
+    const books = document.getElementById('books'); books.replaceChildren();
+    pick(rows, 'libro').forEach((b) => {
+      const imb = num(b.desequilibrio);
+      const row = document.createElement('div'); row.className = 'ab-book';
+      const n = document.createElement('span'); n.textContent = b.exchange;
+      const track = document.createElement('span'); track.className = 'ab-book-track';
+      const i = document.createElement('i'); i.style.background = imb >= 0 ? 'var(--color-ok)' : 'var(--color-bad)';
+      i.style.left = '50%'; i.style.width = '0'; track.append(i);
+      const v = document.createElement('span'); v.style.textAlign = 'right'; v.textContent = signed(imb, 0);
+      row.append(n, track, v); books.append(row);
+      const w = Math.min(50, Math.abs(imb) / 2);
+      requestAnimationFrame(() => requestAnimationFrame(() => { i.style.left = (imb >= 0 ? 50 : 50 - w) + '%'; i.style.width = w + '%'; }));
+    });
+  }
+
+  // ---------- niveles ----------
+  function drawLadder(rows, sum) {
+    const box = document.getElementById('ladder'); box.replaceChildren();
+    const price = num(sum.precio);
+    const lv = pick(rows, 'nivel').map((r) => ({ ...r, precio: num(r.precio), distancia: num(r.distancia) }))
+      .filter((r) => Math.abs(r.distancia) <= 15);
+    lv.push({ nombre: 'BTC ahora', precio: price, distancia: 0, now: true });
+    lv.sort((a, b) => b.precio - a.precio);
+    lv.forEach((r) => {
+      const row = document.createElement('div');
+      row.className = 'ab-rung ' + (r.now ? 'ab-now' : r.precio > price ? 'ab-res' : 'ab-sup');
+      const a = document.createElement('span'); a.textContent = r.nombre;
+      const b = document.createElement('span'); b.textContent = f0(r.precio);
+      const c = document.createElement('span'); c.style.textAlign = 'right'; c.textContent = r.now ? '' : signed(r.distancia, 1);
+      row.append(a, b, c); box.append(row);
+    });
+  }
+
+  // ---------- nota de Claude ----------
+  function drawNote(sum) {
+    const el = document.getElementById('nota');
+    el.textContent = sum.nota_claude ? sum.nota_claude : 'Todavía no hay lectura de noticias en este análisis. Se agrega en cada corrida programada (8, 12, 16, 20 y 0 h).';
+  }
+
+  // ---------- indicadores ----------
+  function drawIndicators(rows) {
+    const tb = document.querySelector('#ind-table tbody'); tb.replaceChildren();
+    let group = null;
+    pick(rows, 'indicador', state.tf).forEach((r) => {
+      if (r.grupo !== group) {
+        group = r.grupo;
+        const g = document.createElement('tr'); g.className = 'ab-group';
+        const td = document.createElement('td'); td.colSpan = 4; td.textContent = group; g.append(td); tb.append(g);
+      }
+      const tr = document.createElement('tr');
+      tr.dataset.key = `${encodeURIComponent(r.tf)},${encodeURIComponent(r.indicador)}`;
+      const name = document.createElement('td'); name.textContent = r.indicador;
+      const val = document.createElement('td'); val.className = 'ab-num'; val.textContent = r.valor === null ? '' : f2(num(r.valor));
+      const sig = document.createElement('td'); const chip = document.createElement('span');
+      chip.className = 'ab-chip ' + signClass(r.senal); chip.textContent = r.senal.charAt(0).toUpperCase() + r.senal.slice(1); sig.append(chip);
+      const det = document.createElement('td'); det.textContent = r.detalle + (r.vota ? '' : (r.detalle ? ' · ' : '') + 'no vota');
+      tr.append(name, val, sig, det); tb.append(tr);
+    });
+  }
+
+  // ---------- aciertos ----------
+  function drawHits(rows) {
+    const box = document.getElementById('hits'); box.replaceChildren();
+    const hits = pick(rows, 'acierto');
+    if (!hits.length) {
+      const p = document.createElement('p'); p.className = 'ab-note';
+      p.textContent = 'Cada pronóstico queda registrado. Los aciertos aparecen cuando se cumple el plazo de cada uno, a partir de las próximas corridas.';
+      box.append(p); return;
+    }
+    const tbl = document.createElement('table'); tbl.className = 'ab-table';
+    tbl.setAttribute('data-source', 'analisis'); tbl.setAttribute('data-row-key', 'tf,horizonte');
+    const head = document.createElement('tr');
+    [['tf', 'Temporalidad'], ['horizonte', 'Plazo'], ['pronosticos', 'Pronósticos'], ['aciertos', 'Aciertos'], ['brier', 'Brier']].forEach(([f, t]) => {
+      const th = document.createElement('th'); th.setAttribute('data-field', f); th.textContent = t; head.append(th); });
+    const thead = document.createElement('thead'); thead.append(head);
+    const tbody = document.createElement('tbody');
+    hits.forEach((h) => {
+      const tr = document.createElement('tr'); tr.dataset.key = `${encodeURIComponent(h.tf)},${encodeURIComponent(h.horizonte)}`;
+      [h.tf, h.horizonte, h.pronosticos, `${f1(num(h.aciertos))}%`, d3.format('.3f')(num(h.brier))].forEach((v) => {
+        const td = document.createElement('td'); td.textContent = v; tr.append(td); });
+      tbody.append(tr);
+    });
+    tbl.append(thead, tbody); box.append(tbl);
+    const p = document.createElement('p'); p.className = 'ab-note';
+    p.textContent = 'Brier mide qué tan buenas son las probabilidades: 0.250 es lo mismo que tirar una moneda, menos es mejor.';
+    box.append(p);
+  }
+})();
+</script>
