@@ -552,6 +552,153 @@ def mapa_liquidaciones(price_by_hour, oi_hist, ls_hist, after_extremes, lev_weig
              "shorts": round(shorts[k] / 1e6, 2)} for k in range(n_bins) if longs[k] or shorts[k]]
 
 
+def patrones_velas(o, h, l, c, atr_, trend, i):
+    """Patrones de velas japonesas que terminan en la vela i, del mas fuerte al mas debil: [(nombre, sesgo)]."""
+    if i < 3 or atr_[i] is None:
+        return []
+    body = lambda k: abs(c[k] - o[k])
+    rng = lambda k: (h[k] - l[k]) or 1e-9
+    green = lambda k: c[k] > o[k]
+    red = lambda k: c[k] < o[k]
+    big = lambda k: body(k) > 0.6 * rng(k) and rng(k) > 0.6 * atr_[i]
+    up = trend[i - 1] is not None and c[i - 1] > trend[i - 1]
+    out = []
+    if all(green(k) and body(k) > 0.5 * rng(k) for k in (i - 2, i - 1, i)) and c[i] > c[i - 1] > c[i - 2] and body(i) > 0.4 * atr_[i]:
+        out.append(("Tres soldados blancos", "alcista"))
+    if all(red(k) and body(k) > 0.5 * rng(k) for k in (i - 2, i - 1, i)) and c[i] < c[i - 1] < c[i - 2] and body(i) > 0.4 * atr_[i]:
+        out.append(("Tres cuervos negros", "bajista"))
+    if red(i - 2) and big(i - 2) and body(i - 1) < 0.3 * body(i - 2) and green(i) and c[i] > (o[i - 2] + c[i - 2]) / 2:
+        out.append(("Estrella de la mañana", "alcista"))
+    if green(i - 2) and big(i - 2) and body(i - 1) < 0.3 * body(i - 2) and red(i) and c[i] < (o[i - 2] + c[i - 2]) / 2:
+        out.append(("Estrella vespertina", "bajista"))
+    if red(i - 1) and green(i) and c[i] >= o[i - 1] and o[i] <= c[i - 1] and body(i) > body(i - 1) and body(i) > 0.5 * atr_[i]:
+        out.append(("Envolvente alcista", "alcista"))
+    if green(i - 1) and red(i) and c[i] <= o[i - 1] and o[i] >= c[i - 1] and body(i) > body(i - 1) and body(i) > 0.5 * atr_[i]:
+        out.append(("Envolvente bajista", "bajista"))
+    if big(i - 1) and body(i) < 0.5 * body(i - 1) and max(o[i], c[i]) < max(o[i - 1], c[i - 1]) and min(o[i], c[i]) > min(o[i - 1], c[i - 1]):
+        out.append(("Harami alcista", "alcista") if red(i - 1) else ("Harami bajista", "bajista"))
+    if rng(i) > 0.7 * atr_[i]:
+        b, lw, uw = body(i), min(o[i], c[i]) - l[i], h[i] - max(o[i], c[i])
+        if b <= 0.1 * rng(i):
+            out.append(("Doji", "neutral"))
+        elif lw >= 2 * b and uw <= 0.6 * b:
+            out.append(("Hombre colgado", "bajista") if up else ("Martillo", "alcista"))
+        elif uw >= 2 * b and lw <= 0.6 * b:
+            out.append(("Estrella fugaz", "bajista") if up else ("Martillo invertido", "alcista"))
+    return out
+
+
+def estadistica_velas(o, h, l, c, atr_, trend, horizon, start=30):
+    """Para cada patron: en cuantos casos del historial el precio fue hacia donde dice el patron en `horizon` velas."""
+    stats = {}
+    for i in range(start, len(c) - horizon):
+        for name, bias in patrones_velas(o, h, l, c, atr_, trend, i):
+            if bias == "neutral":
+                continue
+            ret = c[i + horizon] / c[i] - 1
+            n, ok = stats.get(name, (0, 0))
+            stats[name] = (n + 1, ok + ((ret > 0) == (bias == "alcista")))
+    return stats
+
+
+def patron_grafico(bars, pivots, atr_last):
+    """Busca figuras clasicas sobre los giros confirmados. Devuelve un dict o None.
+
+    Lineas en formato (t, precio, pendiente por milisegundo) para dibujarlas extendidas.
+    """
+    P = pivots[:-1]                     # el ultimo giro todavia no esta confirmado
+    if len(P) < 4:
+        return None
+    i_last, px = len(bars) - 1, bars[-1][4]
+    if P[-1][1] < i_last - 80:
+        return None                     # sin giros recientes: ninguna figura vigente
+    t = lambda k: bars[k][0]
+    tol = 0.8 * atr_last
+    line = lambda a, b: (t(a[1]), a[2], (b[2] - a[2]) / ((t(b[1]) - t(a[1])) or 1))
+    at_now = lambda ln: ln[1] + ln[2] * (t(i_last) - ln[0])
+    highs = [p for p in P if p[0] == "alto"]
+    lows = [p for p in P if p[0] == "bajo"]
+
+    def result(name, bias, lines, target, desc, broke):
+        return {"nombre": name, "sesgo": bias, "estado": "confirmado" if broke else "en formación",
+                "objetivo": None if target is None else round(target, 1), "descripcion": desc, "lineas": lines}
+
+    # hombro-cabeza-hombro (y su inverso) sobre los ultimos 5 giros
+    q = P[-5:]
+    if len(q) == 5:
+        k = [p[2] for p in q]
+        if q[0][0] == "alto" and k[2] > k[0] + tol and k[2] > k[4] + tol and abs(k[0] - k[4]) < 1.5 * tol:
+            neck = line(q[1], q[3])
+            n_now = at_now(neck)
+            return result("Hombro-cabeza-hombro", "bajista", [neck], n_now - (k[2] - (k[1] + k[3]) / 2),
+                          "Tres máximos con el del medio más alto. Se confirma si cierra debajo de la línea de cuello.", px < n_now)
+        if q[0][0] == "bajo" and k[2] < k[0] - tol and k[2] < k[4] - tol and abs(k[0] - k[4]) < 1.5 * tol:
+            neck = line(q[1], q[3])
+            n_now = at_now(neck)
+            return result("Hombro-cabeza-hombro invertido", "alcista", [neck], n_now + ((k[1] + k[3]) / 2 - k[2]),
+                          "Tres mínimos con el del medio más bajo. Se confirma si cierra arriba de la línea de cuello.", px > n_now)
+    # doble techo / doble piso
+    if len(highs) >= 2 and highs[-1][1] > highs[-2][1]:
+        a, b = highs[-2], highs[-1]
+        mid = [p for p in lows if a[1] < p[1] < b[1]]
+        if mid and abs(a[2] - b[2]) < tol and min(a[2], b[2]) - mid[0][2] > 2 * tol and P[-1][1] >= b[1]:
+            neck = (t(mid[0][1]), mid[0][2], 0.0)
+            top = (a[2] + b[2]) / 2
+            return result("Doble techo", "bajista", [neck, (t(a[1]), top, 0.0)], mid[0][2] - (top - mid[0][2]),
+                          "Dos máximos parecidos. Se confirma si pierde el mínimo intermedio (línea de cuello).", px < mid[0][2])
+    if len(lows) >= 2 and lows[-1][1] > lows[-2][1]:
+        a, b = lows[-2], lows[-1]
+        mid = [p for p in highs if a[1] < p[1] < b[1]]
+        if mid and abs(a[2] - b[2]) < tol and mid[0][2] - max(a[2], b[2]) > 2 * tol and P[-1][1] >= b[1]:
+            neck = (t(mid[0][1]), mid[0][2], 0.0)
+            bot = (a[2] + b[2]) / 2
+            return result("Doble piso", "alcista", [neck, (t(a[1]), bot, 0.0)], mid[0][2] + (mid[0][2] - bot),
+                          "Dos mínimos parecidos. Se confirma si supera el máximo intermedio (línea de cuello).", px > mid[0][2])
+    # triangulos, cunas y canales con los dos ultimos maximos y minimos
+    if len(highs) >= 2 and len(lows) >= 2:
+        h1, h2, l1, l2 = highs[-2], highs[-1], lows[-2], lows[-1]
+        up_l, lo_l = line(h1, h2), line(l1, l2)
+        bar_ms = bars[-1][0] - bars[-2][0]
+        su, sl = up_l[2] * bar_ms * 20 / px, lo_l[2] * bar_ms * 20 / px     # pendiente en 20 velas, en fraccion del precio
+        flat = 0.003
+        u_now, l_now = at_now(up_l), at_now(lo_l)
+        start = min(h1[1], l1[1])
+        width0 = (up_l[1] + up_l[2] * (t(start) - up_l[0])) - (lo_l[1] + lo_l[2] * (t(start) - lo_l[0]))
+        width = u_now - l_now
+        if width <= 0:
+            return None
+        converging = width < width0 * 0.85
+        if abs(su) < flat and sl > flat:
+            name, bias = "Triángulo ascendente", "alcista"
+        elif abs(sl) < flat and su < -flat:
+            name, bias = "Triángulo descendente", "bajista"
+        elif su < -flat and sl > flat:
+            name, bias = "Triángulo simétrico", "neutral"
+        elif su > flat and sl > flat and converging:
+            name, bias = "Cuña ascendente", "bajista"
+        elif su < -flat and sl < -flat and converging:
+            name, bias = "Cuña descendente", "alcista"
+        elif su > flat and sl > flat:
+            name, bias = "Canal alcista", "alcista"
+        elif su < -flat and sl < -flat:
+            name, bias = "Canal bajista", "bajista"
+        else:
+            name, bias = "Rango lateral", "neutral"
+        height = max(width0, width)
+        if px > u_now + tol:
+            return result(f"Ruptura alcista de {name.lower()}", "alcista", [up_l, lo_l], u_now + height,
+                          f"El precio cerró arriba de la línea superior del {name.lower()}.", True)
+        if px < l_now - tol:
+            return result(f"Ruptura bajista de {name.lower()}", "bajista", [up_l, lo_l], l_now - height,
+                          f"El precio cerró debajo de la línea inferior del {name.lower()}.", True)
+        target = u_now + height if bias == "alcista" else l_now - height if bias == "bajista" else None
+        side = {"alcista": "suele romper hacia arriba", "bajista": "suele romper hacia abajo",
+                "neutral": "puede romper para cualquier lado: la dirección la da la ruptura"}[bias]
+        return result(name, bias, [up_l, lo_l], target,
+                      f"El precio se mueve entre {_ar(l_now)} y {_ar(u_now)}; {side}.", False)
+    return None
+
+
 def pivotes(prev_day):
     """Pivotes clasicos a partir de la vela diaria anterior [ts, o, h, l, c, v]."""
     _, _, h, l, c, _ = prev_day
