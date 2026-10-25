@@ -978,36 +978,83 @@ def wyckoff(bars, pivots, atr_last):
     return None
 
 
-def divergencias(bars, pivots, max_age=40, min_gap=5):
-    """Divergencias clasicas en RSI y MACD sobre los dos ultimos giros del precio del mismo tipo.
+def divergencias(bars, pivots=None, max_age=30, min_gap=6, lookback=60, left=4, right=2, win=2):
+    """Divergencias clasicas en RSI y MACD, como las busca un trader.
 
-    Bajista: el precio hace un maximo mas alto y el indicador uno mas bajo. Alcista: el precio hace un
-    minimo mas bajo y el indicador uno mas alto. Solo cuentan si el ultimo giro es reciente.
+    Bajista: el precio hace un maximo mas alto y el indicador uno mas bajo. Alcista: el precio hace un minimo mas
+    bajo y el indicador uno mas alto. Los giros del precio son maximos (o minimos) locales: mas altos que las `left`
+    velas anteriores y que las `right` siguientes (con cualquier tamano de movimiento). El giro mas reciente se
+    compara con los anteriores (hasta `lookback` velas atras), empezando por el mas cercano. El valor del indicador
+    es su propio extremo a +-`win` velas del giro (el pico del RSI no siempre cae en la misma vela que el del precio).
+    Para que cuente: entre los dos giros el precio retrocedio al menos 0,8 ATR, el indicador difiere al menos 2 puntos
+    (RSI) o 5% (MACD), y ningun valor intermedio del
+    indicador cruza la linea que une sus dos puntos (divergencia limpia). `pivots` ya no se usa (compatibilidad).
     """
-    c = [b[4] for b in bars]
-    series = {"RSI": rsi(c), "MACD": macd(c)[0]}
-    last = len(bars) - 1
+    h, l, c = [b[2] for b in bars], [b[3] for b in bars], [b[4] for b in bars]
+    n, last = len(bars), len(bars) - 1
+    atr_ = dmi(h, l, c)[3]
+    series = (("RSI", rsi(c)), ("MACD", macd(c)[0]))
     out = []
     for kind in ("alto", "bajo"):
-        pts = [p for p in pivots if p[0] == kind]
-        if len(pts) < 2:
+        top = kind == "alto"
+        src = h if top else l
+        piv = []
+        for i in range(left, n - right):
+            lft = all(src[i] > src[j] if top else src[i] < src[j] for j in range(i - left, i))
+            rgt = all(src[i] >= src[j] if top else src[i] <= src[j] for j in range(i + 1, i + right + 1))
+            if lft and rgt:
+                piv.append(i)
+        if len(piv) < 2 or last - piv[-1] > max_age:
             continue
-        a, b = pts[-2], pts[-1]
-        if last - b[1] > max_age or b[1] - a[1] < min_gap:
-            continue
-        for name, ser in series.items():
-            va, vb = ser[a[1]], ser[b[1]]
-            # una diferencia minima en el indicador no es divergencia: es ruido
-            if va is None or vb is None or abs(vb - va) < (2 if name == "RSI" else 0.05 * abs(va)):
+        b = piv[-1]
+        a_atr = atr_[b] or (h[b] - l[b])
+        for name, ser in series:
+            def ext(k):
+                vals = [(ser[j], j) for j in range(max(0, k - win), min(n, k + win + 1)) if ser[j] is not None]
+                if not vals:
+                    return None
+                # a igualdad de valor gana la vela mas nueva (igual que en JS)
+                return max(vals) if top else min(vals, key=lambda t: (t[0], -t[1]))
+            eb = ext(b)
+            if eb is None:
                 continue
-            if kind == "alto" and b[2] > a[2] and vb < va:
-                tipo = "bajista"
-            elif kind == "bajo" and b[2] < a[2] and vb > va:
-                tipo = "alcista"
-            else:
-                continue
-            out.append({"indicador": name, "tipo": tipo, "t1": bars[a[1]][0], "p1": a[2], "t2": bars[b[1]][0], "p2": b[2],
-                        "v1": round(va, 2), "v2": round(vb, 2)})
+            vb, jb = eb
+            for a in reversed(piv[:-1]):
+                if b - a < min_gap:
+                    continue
+                if b - a > lookback:
+                    break
+                if not (src[b] > src[a] if top else src[b] < src[a]):
+                    continue
+                ea = ext(a)
+                if ea is None:
+                    continue
+                va, ja = ea
+                thr = 2.0 if name == "RSI" else 0.05 * max(abs(va), abs(vb))
+                if not (vb < va - thr if top else vb > va + thr) or jb <= ja:
+                    continue
+                # entre los dos giros el precio tuvo que retroceder: si no, es un solo tramo
+                pull = min(l[a:b + 1]) if top else max(h[a:b + 1])
+                edge = min(src[a], src[b]) if top else max(src[a], src[b])
+                if (edge - pull if top else pull - edge) < 0.8 * a_atr:
+                    continue
+                # ningun valor intermedio del indicador cruza la linea entre sus dos puntos
+                tol = thr * 0.5
+                clean = True
+                for k in range(ja + 1, jb):
+                    v = ser[k]
+                    if v is None:
+                        continue
+                    line = va + (vb - va) * (k - ja) / (jb - ja)
+                    if (v > line + tol) if top else (v < line - tol):
+                        clean = False
+                        break
+                if not clean:
+                    continue
+                out.append({"indicador": name, "tipo": "bajista" if top else "alcista", "t1": bars[a][0], "p1": src[a],
+                            "t2": bars[b][0], "p2": src[b], "v1": round(va, 2), "v2": round(vb, 2),
+                            "ti1": bars[ja][0], "ti2": bars[jb][0]})
+                break
     return out
 
 

@@ -678,7 +678,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   const S = { plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
     ph: null, oscZ: { rsi: 1, macd: 1 },
     layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, liq: true, osc: true } };
-  const defBars = () => (window.innerWidth < 600 ? 50 : 90);   // en el telefono, menos velas para que se lean
+  const defBars = () => (window.innerWidth < 600 ? 62 : 102);  // incluye las 12 del futuro posible; en el telefono, menos para que se lean
   S.nbars = defBars();
   const TF_MIN = { '5m': 5, '15m': 15, '30m': 30, '1h': 60, '4h': 240, '1d': 1440 };
   const dur = (min) => (min < 60 ? `${min} min` : min < 1440 ? `${Math.round(min / 60)} h` : `${Math.round(min / 1440)} d`);
@@ -1245,20 +1245,24 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       if (liveBar.t === last.t) all[all.length - 1] = { ...last, h: liveBar.h, l: liveBar.l, c: liveBar.c, v: liveBar.v };
       else if (liveBar.t > last.t) all.push({ ...liveBar, e20: null, e50: null, bu: null, bl: null, rsi: null, macd: null, sig: null, hist: null });
     }
-    const nb = Math.max(20, Math.min(all.length, Math.round(S.nbars)));
-    S.offset = Math.max(0, Math.min(all.length - nb, S.offset));
-    const end = all.length - Math.round(S.offset), bars = all.slice(end - nb, end);
-    const live = Math.round(S.offset) === 0;   // mirando el presente: se dibuja el futuro posible
-    document.getElementById('zoom-info').textContent = `${nb} velas`;
-    const ghosts = !live ? [] : pick(rows, 'escenario', tf).filter((r) => r.escenario === S.scen)
+    // el futuro posible es parte de la serie: al arrastrar se corre como cualquier vela, no desaparece de golpe
+    const ghostsAll = pick(rows, 'escenario', tf).filter((r) => r.escenario === S.scen)
       .map((r) => ({ k: num(r.paso), t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), desde: r.desde })).sort((a, b) => a.k - b.k);
-    const cone = !live ? [] : pick(rows, 'cono', tf).map((r) => ({ k: num(r.paso), lo: num(r.p10), mid: num(r.p50), hi: num(r.p90) })).sort((a, b) => a.k - b.k);
+    const coneAll = pick(rows, 'cono', tf).map((r) => ({ k: num(r.paso), lo: num(r.p10), mid: num(r.p50), hi: num(r.p90) })).sort((a, b) => a.k - b.k);
+    const futN = Math.max(ghostsAll.length, coneAll.length), total = all.length + futN;
+    const nb = Math.max(20, Math.min(total, Math.round(S.nbars)));
+    S.offset = Math.max(0, Math.min(total - nb, S.offset));
+    const end = total - Math.round(S.offset), bars = all.slice(end - nb, Math.min(end, all.length));
+    const shown = Math.max(0, end - all.length);                  // velas del futuro que entran en la vista
+    const ghosts = ghostsAll.filter((g) => g.k <= shown), cone = coneAll.filter((c) => c.k <= shown);
+    const live = end >= all.length;                               // la ultima vela real esta a la vista
+    document.getElementById('zoom-info').textContent = `${nb} velas`;
     const fvgs = pick(rows, 'fvg', tf).map((r) => ({ up: r.tipo === 'alcista', t: num(r.t), lo: num(r.bajo), hi: num(r.alto) }));
     const giros = pick(rows, 'giro', tf).map((r) => ({ t: num(r.t), p: num(r.precio), w: r.onda, alto: r.tipo === 'alto' }));
     const liq = pick(rows, 'liquidacion').map((r) => ({ p: num(r.precio), l: num(r.longs), s: num(r.shorts) }));
 
     const W = Math.max(300, box.clientWidth);
-    const steps = Math.max(ghosts.length, cone.length), n = bars.length + steps;
+    const steps = shown, n = bars.length + steps;
     const narrow = W < 520;
     const heatW = L.liq ? Math.min(narrow ? 44 : 78, W * .11) : 0, axW = narrow ? 54 : 66;
     const m = { t: 36, b: 26, l: 2 }, gapP = 16;
@@ -1502,7 +1506,9 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     pick(rows, 'divergencia', tf).forEach((d) => { (divGroups[`${d.t1}-${d.t2}-${d.tipo}`] = divGroups[`${d.t1}-${d.t2}-${d.tipo}`] || []).push(d); });
     const oscDivs = (name, yo, g) => Object.entries(divGroups).forEach(([k, ds]) => {
       const d = ds.find((z) => z.indicador === name); if (!d || !L.patrones) return;
-      const i1 = bars.findIndex((b) => b.t === num(d.t1)), i2 = bars.findIndex((b) => b.t === num(d.t2)); if (i1 < 0 || i2 < 0) return;
+      // en el panel del indicador, la linea va entre sus propios picos (pueden caer una o dos velas antes o despues que en el precio)
+      const it1 = num(d.ti1 ?? d.t1), it2 = num(d.ti2 ?? d.t2);
+      const i1 = bars.findIndex((b) => b.t === it1), i2 = bars.findIndex((b) => b.t === it2); if (i1 < 0 || i2 < 0) return;
       const col = d.tipo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)', dg = g.append('g').attr('data-ex', `div-${k}`);
       dg.append('line').attr('x1', cxi(i1)).attr('y1', yo(num(d.v1))).attr('x2', cxi(i2)).attr('y2', yo(num(d.v2)))
         .style('stroke', col).style('stroke-width', 2.2).style('stroke-linecap', 'round');

@@ -93,14 +93,16 @@
   <button type="button" class="btn close" data-close>✕</button>
   <h2 id="ayuda-t">Cómo se usa</h2>
   <div class="gest">
-    <b>🤏</b><span><strong>Pellizcá</strong> (pulgar con índice) y mové la mano: arrastrás el gráfico hacia los lados o arriba y abajo.</span>
-    <b>🙌</b><span><strong>Pellizcá con las dos manos</strong> y separalas o juntalas: zoom.</span>
+    <b>🤏</b><span><strong>Pellizcá</strong> (pulgar con índice) y mové la mano: arrastrás el gráfico. Al soltar sigue un poco, como al deslizar el dedo en el teléfono.</span>
+    <b>🙌</b><span><strong>Pellizcá con las dos manos</strong> y separalas o juntalas: zoom. Giralas como un volante: girás el holograma.</span>
     <b>✊</b><span><strong>Puño cerrado</strong> y movelo: girás el holograma en 3D.</span>
     <b>👋</b><span><strong>Palma abierta</strong> y deslizá rápido de costado: cambiás de cripto. Hacia arriba o abajo: cambiás la temporalidad.</span>
+    <b>☝️</b><span><strong>Apuntá con el índice</strong> (los demás dedos doblados): aparece una mira sobre la vela que señalás, con su precio y su hora.</span>
     <b>✋</b><span><strong>Palma quieta</strong> un segundo y medio: vuelve a la vista inicial.</span>
   </div>
   <h3>Sin cámara</h3>
   <p>Arrastrá con el dedo o el mouse para mover, pellizcá o usá la rueda para el zoom, arrastrá con dos dedos (o con el botón derecho) para girar, y tocá dos veces para reiniciar.</p>
+  <p class="note">Para que te detecte bien: buena luz de frente, las manos a la altura del pecho y a 40–80 cm de la cámara, con la palma mirando a la cámara.</p>
   <h3>Para que parezca un holograma</h3>
   <ul>
     <li><strong>Ventana 3D</strong>: activá "Seguir mi cabeza". Con la cámara mirándote, el gráfico se dibuja según dónde estás y parece salir de la pantalla. Funciona mejor con un solo ojo de referencia: movete despacio de costado.</li>
@@ -135,9 +137,10 @@
     <button type="button" data-tema="holo" aria-pressed="true">Holograma</button>
     <button type="button" data-tema="clasico" aria-pressed="false">Verde y rojo</button>
     <button type="button" data-tema="fuego" aria-pressed="false">Fuego</button></span></div>
+  <div class="row"><label style="flex:1">Brillo (efecto neón) <input type="range" id="s-brillo" min="0" max="100" step="5" value="0" style="flex:1; accent-color: var(--acc)"></label></div>
+  <div class="row"><label><input type="checkbox" id="s-barrido"> Líneas de barrido</label></div>
   <div class="row"><label><input type="checkbox" id="s-lados" checked> Paneles a los costados</label></div>
   <div class="row"><label><input type="checkbox" id="s-pred" checked> Predicción del analista (BTC)</label></div>
-  <div class="row"><label><input type="checkbox" id="s-fx" checked> Partículas y haz de luz</label></div>
   <h3>iPhone como proyector</h3>
   <p class="note">La cámara de esta compu mueve el gráfico del iPhone (acostado, con la lámina). Los dos tienen que tener internet.</p>
   <div class="row"><button type="button" class="btn" id="b-enlazar">📱 Enlazar el iPhone</button></div>

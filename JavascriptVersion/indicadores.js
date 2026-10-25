@@ -930,32 +930,75 @@
     return null;
   }
 
-  /** Divergencias clasicas en RSI y MACD sobre los dos ultimos giros del precio del mismo tipo. */
-  function divergencias(bars, pivots, maxAge = 40, minGap = 5) {
-    const c = col(bars, 4);
+  /**
+   * Divergencias clasicas en RSI y MACD, como las busca un trader (igual que divergencias() de Python): el giro mas
+   * reciente contra los anteriores, con el extremo propio del indicador cerca de cada giro y la linea del indicador
+   * entre los dos puntos sin cruces. `pivots` ya no se usa (compatibilidad).
+   */
+  function divergencias(bars, pivots = null, maxAge = 30, minGap = 6, lookback = 60, left = 4, right = 2, win = 2) {
+    const h = col(bars, 2), l = col(bars, 3), c = col(bars, 4);
+    const n = bars.length, last = n - 1;
+    const atr = dmi(h, l, c)[3];
     const series = [['RSI', rsi(c)], ['MACD', macd(c)[0]]];
-    const last = bars.length - 1;
     const out = [];
     ['alto', 'bajo'].forEach((kind) => {
-      const pts = pivots.filter((p) => p[0] === kind);
-      if (pts.length < 2) return;
-      const a = pts[pts.length - 2], b = pts[pts.length - 1];
-      if (last - b[1] > maxAge || b[1] - a[1] < minGap) return;
+      const top = kind === 'alto', src = top ? h : l;
+      const piv = [];
+      for (let i = left; i < n - right; i++) {
+        let ok = true;
+        for (let j = i - left; j < i && ok; j++) ok = top ? src[i] > src[j] : src[i] < src[j];
+        for (let j = i + 1; j <= i + right && ok; j++) ok = top ? src[i] >= src[j] : src[i] <= src[j];
+        if (ok) piv.push(i);
+      }
+      if (piv.length < 2 || last - piv[piv.length - 1] > maxAge) return;
+      const b = piv[piv.length - 1];
+      const aAtr = atr[b] || h[b] - l[b];
       series.forEach(([name, ser]) => {
-        const va = ser[a[1]], vb = ser[b[1]];
-        // una diferencia minima en el indicador no es divergencia: es ruido
-        if (va === null || vb === null || Math.abs(vb - va) < (name === 'RSI' ? 2 : 0.05 * Math.abs(va))) return;
-        let tipo;
-        if (kind === 'alto' && b[2] > a[2] && vb < va) tipo = 'bajista';
-        else if (kind === 'bajo' && b[2] < a[2] && vb > va) tipo = 'alcista';
-        else return;
-        out.push({ indicador: name, tipo, t1: bars[a[1]][0], p1: a[2], t2: bars[b[1]][0], p2: b[2], v1: rnd(va, 2), v2: rnd(vb, 2) });
+        // el extremo del indicador cerca del giro: [valor, vela] (a igualdad de valor gana la vela mas nueva, como en Python)
+        const ext = (k) => {
+          let best = null;
+          for (let j = Math.max(0, k - win); j < Math.min(n, k + win + 1); j++) {
+            const v = ser[j];
+            if (v === null) continue;
+            if (best === null || (top ? v > best[0] || (v === best[0] && j > best[1]) : v < best[0] || (v === best[0] && j > best[1]))) best = [v, j];
+          }
+          return best;
+        };
+        const eb = ext(b);
+        if (eb === null) return;
+        const [vb, jb] = eb;
+        for (let ai = piv.length - 2; ai >= 0; ai--) {
+          const a = piv[ai];
+          if (b - a < minGap) continue;
+          if (b - a > lookback) break;
+          if (!(top ? src[b] > src[a] : src[b] < src[a])) continue;
+          const ea = ext(a);
+          if (ea === null) continue;
+          const [va, ja] = ea;
+          const thr = name === 'RSI' ? 2.0 : 0.05 * Math.max(Math.abs(va), Math.abs(vb));
+          if (!(top ? vb < va - thr : vb > va + thr) || jb <= ja) continue;
+          let pull = top ? Infinity : -Infinity;
+          for (let k = a; k <= b; k++) pull = top ? Math.min(pull, l[k]) : Math.max(pull, h[k]);
+          const edge = top ? Math.min(src[a], src[b]) : Math.max(src[a], src[b]);
+          if ((top ? edge - pull : pull - edge) < 0.8 * aAtr) continue;
+          const tol = thr * 0.5;
+          let clean = true;
+          for (let k = ja + 1; k < jb && clean; k++) {
+            const v = ser[k];
+            if (v === null) continue;
+            const ln = va + ((vb - va) * (k - ja)) / (jb - ja);
+            if (top ? v > ln + tol : v < ln - tol) clean = false;
+          }
+          if (!clean) continue;
+          out.push({ indicador: name, tipo: top ? 'bajista' : 'alcista', t1: bars[a][0], p1: src[a], t2: bars[b][0], p2: src[b],
+            v1: rnd(va, 2), v2: rnd(vb, 2), ti1: bars[ja][0], ti2: bars[jb][0] });
+          break;
+        }
       });
     });
     return out;
   }
 
-  /** Pivotes clasicos a partir de la vela diaria anterior [t, o, h, l, c, v]. */
   function pivotes(prevDay) {
     const [, , h, l, c] = prevDay;
     const p = (h + l + c) / 3;
