@@ -37,6 +37,7 @@ from datetime import datetime, timedelta, timezone
 
 import ccxt
 
+import aprendizaje as apr
 import backtest_grid as bg
 import indicadores as ind
 
@@ -178,18 +179,7 @@ def label(minutes):
 
 
 # ---------- situaciones parecidas ----------
-def states(closes, rsi, e50, e200, lookback):
-    out = []
-    for i, (c, r) in enumerate(zip(closes, rsi)):
-        if r is None or i < lookback:
-            out.append(None)
-            continue
-        move = c / closes[i - lookback] - 1
-        out.append((c > e50[i], c > e200[i], 0 if r < 35 else 1 if r < 50 else 2 if r < 65 else 3,
-                    0 if move < -0.02 else 1 if move <= 0.02 else 2))
-    return out
-
-
+# la situacion de cada vela (que rasgos se comparan) la elige el aprendizaje: ver aprendizaje.py
 def similar(st, last, warmup):
     now = st[-1]
     idxs, keep = [], 0
@@ -240,7 +230,7 @@ def scenarios(bars, idxs, price, tf_ms):
 NICE_STEPS = (25, 50, 100, 250, 500, 1000, 2500, 5000, 10000)
 
 
-def targets(bars, idxs, price, h, when):
+def targets(bars, idxs, price, h, when, f=1.0):
     """Probabilidad de TOCAR precios redondos antes de 'when', y precio mas probable a esa hora.
 
     Para cada situacion parecida se mira el maximo y el minimo que alcanzo el precio en las h velas
@@ -282,31 +272,84 @@ def targets(bars, idxs, price, h, when):
              "obj_arriba": up_lvl, "obj_abajo": dn_lvl, "distancia": unit,
              "toca_arriba": round(sum(x >= rel for x in highs) / len(usable) * 100, 1),
              "toca_abajo": round(sum(x <= -rel for x in lows) / len(usable) * 100, 1),
-             "primero_arriba": None if pf is None else round(pf * 100, 1),
-             "margen_primero": None if pf is None else round(196 * (pf * (1 - pf) / len(first)) ** 0.5, 1),
+             # con la confianza aprendida (la cruda queda aparte)
+             "primero_arriba": None if pf is None else round(apr.ajustar(pf, f) * 100, 1),
+             "primero_crudo": None if pf is None else round(pf * 100, 1),
+             "margen_primero": None if pf is None else round(196 * (pf * (1 - pf) / len(first)) ** 0.5 * f, 1),
              "ninguno": round((1 - len(first) / len(usable)) * 100, 1)}
     return rows, close
 
 
-def horizon_stats(tf, s, h, price):
-    """Todo lo que se puede decir de las proximas h velas a partir de las situaciones parecidas."""
-    bars, closes = s["bars"], s["closes"]
-    o, b = outcomes(closes, s["sample"], h), outcomes(closes, s["base"], h)
-    edge = o["up"] - b["up"]
+def tune(tf, s, h):
+    """Lo aprendido para predecir h velas de esta temporalidad, y los casos parecidos segun la receta aprendida."""
+    if h in s["fit"]:
+        return s["fit"][h]
+    learn = apr.aprendido((tf, h), s["closed"], s["combo"], h, s["warmup"])
+    r = learn["receta"] if learn else 0
+    if r not in s["similar"]:
+        s["similar"][r] = similar(apr.estados(s["feats"], r), s["last"], s["warmup"])
+    idxs, keep = s["similar"][r]
+    s["fit"][h] = {"learn": learn, "receta": r, "factor": learn["factor"] if learn else 1.0, "idxs": idxs,
+                   "keep": keep, "sample": idxs or s["base"]}
+    return s["fit"][h]
+
+
+def learning_rows(name, tf, h, fit):
+    """Que aprendio el analista para un plazo y como le fue, con la curva de aciertos a lo largo del repaso."""
+    L = fit["learn"] or {}
+    r2 = lambda k, d: None if L.get(k) is None else round(L[k], d)
+    rows = [{"tabla": "aprendizaje", "plazo": name, "tf": tf, "velas": h, "receta": fit["receta"],
+             "receta_txt": apr.receta_txt(fit["receta"]), "factor": fit["factor"],
+             "confianza": apr.confianza_txt(fit["factor"]), "repasadas": L.get("repasadas", 0),
+             "desde": L.get("desde"), "hasta": L.get("hasta"), "cambios": L.get("cambios", 0),
+             "distancia": L.get("distancia"), "medidas": L.get("medidas", 0),
+             "brier_aprendido": r2("brier_aprendido", 4), "brier_original": r2("brier_original", 4),
+             "aciertos_aprendido": r2("aciertos_aprendido", 1), "aciertos_original": r2("aciertos_original", 1),
+             "decisivas_aprendido": L.get("decisivas_aprendido", 0), "decisivas_original": L.get("decisivas_original", 0),
+             "ranking": ",".join(str(r) for r in L.get("ranking", []))}]
+    rows += [{"tabla": "aprendizaje_curva", "plazo": name, "paso": k, "aprendido": None if a is None else round(a, 1),
+              "original": None if o is None else round(o, 1)} for k, a, o in L.get("curva", [])]
+    return rows
+
+
+def round2(x):
+    return None if x is None else round(x, 2)
+
+
+def change_since(closed_5m, now_ms, price, hours):
+    """Cambio % contra el precio de hace exactamente `hours` horas (cierre de la vela de 5m de ese momento)."""
+    ref = now_ms - hours * bg.HOUR_MS
+    for c in reversed(closed_5m):
+        if c[0] + 300_000 <= ref:
+            return pct(price, c[4])
+    return None
+
+
+def horizon_stats(tf, s, h, price, fit):
+    """Todo lo que se puede decir de las proximas h velas a partir de las situaciones parecidas.
+
+    fit: lo aprendido para este plazo (ver tune): con que receta se buscan los casos parecidos y cuanto confiar
+    en las probabilidades. Las probabilidades que se muestran ya vienen ajustadas; las crudas quedan aparte.
+    """
+    bars, closes, sample, f = s["bars"], s["closes"], fit["sample"], fit["factor"]
+    o, b = outcomes(closes, sample, h), outcomes(closes, s["base"], h)
+    up = o["up"] if f == 1.0 else apr.ajustar(o["up"] / 100, f) * 100
+    edge = up - b["up"]
     # margen de error del 95%: con pocos casos, una diferencia chica contra la tasa normal es ruido
-    margin = 196 * ((o["up"] / 100) * (1 - o["up"] / 100) / o["n"]) ** 0.5
+    margin = 196 * ((o["up"] / 100) * (1 - o["up"] / 100) / o["n"]) ** 0.5 * f
     verdict = "Casi moneda" if abs(edge) < max(3, margin) else ("Sesgo alcista" if edge > 0 else "Sesgo bajista")
     when_ms = bars[-1][0] + (h + 1) * s["tf_ms"]
     when = datetime.fromtimestamp(when_ms / 1000, LOCAL_TZ).strftime("%d/%m %H:%M")
-    tg, close = targets(bars, s["sample"], price, h, when)
+    tg, close = targets(bars, sample, price, h, when, f)
     return ({"tf": tf, "horizonte": label(h * s["tf_min"]), "velas": h,
-             "sube": round(o["up"], 1), "baja": round(100 - o["up"], 1), "base": round(b["up"], 1),
+             "sube": round(up, 1), "baja": round(100 - up, 1), "base": round(b["up"], 1),
+             "sube_crudo": round(o["up"], 1), "receta": fit["receta"], "factor": f,
              "veredicto": verdict, "n": o["n"], "dias": s["days"], "hora": when, "t_hasta": when_ms,
              "margen": round(margin, 1), "pocos_casos": o["n"] < 100,
              "min": round(price * (1 + o["p10"] / 100), 1), "max": round(price * (1 + o["p90"] / 100), 1),
              **(close or {"mediana": None, "p25": None, "p75": None, "obj_arriba": None, "obj_abajo": None,
                           "distancia": None, "toca_arriba": None, "toca_abajo": None,
-                          "primero_arriba": None, "margen_primero": None, "ninguno": None})}, tg)
+                          "primero_arriba": None, "primero_crudo": None, "margen_primero": None, "ninguno": None})}, tg)
 
 
 # ---------- contexto actual ----------
@@ -433,7 +476,7 @@ def liquidation_map(bnc, h1, hours=168):
 
 TF_TXT = {"5m": "5 min", "15m": "15 min", "30m": "30 min", "1h": "1 hora", "4h": "4 horas", "1d": "diario"}
 NO_LINES = {"l1_t": None, "l1_p": None, "l1_m": None, "l1_nombre": None, "l2_t": None, "l2_p": None, "l2_m": None,
-            "l2_nombre": None, **{f"pt{k}_{f}": None for k in (1, 2, 3) for f in ("t", "p", "nombre")}}
+            "l2_nombre": None, **{f"pt{k}_{f}": None for k in (1, 2, 3, 4, 5) for f in ("t", "p", "nombre")}}
 
 
 def patterns(tf, bars, pivots, e20, horizon, tf_min, partial=False):
@@ -462,12 +505,14 @@ def patterns(tf, bars, pivots, e20, horizon, tf_min, partial=False):
                      "estado": ("vela en curso" if partial else "última vela") if k == i else "vela anterior", "objetivo": None, "exito": rate, "casos": n,
                      "plazo": label(horizon * tf_min), "descripcion": desc, **NO_LINES})
         break
-    g = ind.patron_grafico(bars, pivots, atr_[i])
-    if g:
+    # una figura clasica y, aparte, un esquema de Wyckoff si lo hay
+    for g in (ind.patron_grafico(bars, pivots, atr_[i]), ind.wyckoff(bars, pivots, atr_[i])):
+        if not g:
+            continue
         lines = dict(NO_LINES)
         for n_, ln in enumerate(g["lineas"][:2], start=1):
             lines.update({f"l{n_}_t": ln[0], f"l{n_}_p": round(ln[1], 1), f"l{n_}_m": ln[2], f"l{n_}_nombre": ln[3]})
-        for n_, pt in enumerate(g["puntos"][:3], start=1):
+        for n_, pt in enumerate(g["puntos"][:5], start=1):
             lines.update({f"pt{n_}_t": pt[0], f"pt{n_}_p": round(pt[1], 1), f"pt{n_}_nombre": pt[2]})
         rows.append({"tabla": "patron", "tf": tf, "clase": "grafico", "nombre": g["nombre"], "sesgo": g["sesgo"],
                      "t": bars[i][0], "estado": g["estado"], "objetivo": g["objetivo"], "exito": None, "casos": None,
@@ -537,7 +582,7 @@ def explain(rows, price, spec):
     m_last = get("marco", tf=sig_tfs[-1])[0]
     if m_last["elliott_objetivo"]:
         signals.append((7, "alcista" if m_last["elliott_objetivo"] > price else "bajista",
-                        f"Elliott {TF_TXT[sig_tfs[-1]]}: {lc1(m_last['elliott']).replace(' en curso', '')} → {ar(m_last['elliott_objetivo'])}"))
+                        f"Elliott {TF_TXT[sig_tfs[-1]]}: {m_last['elliott_corto'].split(':')[0]} → {ar(m_last['elliott_objetivo'])}"))
     sma = next((n for n in get("nivel") if n["nombre"] == "Media 200 días"), None)
     if sma and name == "1 día":
         signals.append((6, "alcista" if price > sma["precio"] else "bajista",
@@ -589,7 +634,21 @@ def explain(rows, price, spec):
     else:
         inval = f"La dirección la marca la primera vela de {candle} que cierre fuera de {ar(dn)} a {ar(up)}."
     out.append(row(k + 2, "invalida", bias, inval))
+    out.append(row(k + 3, "aprendizaje", bias, learning_text(get("aprendizaje", plazo=name)[0])))
     return out
+
+
+def learning_text(a):
+    """En una o dos frases: que aprendio para este plazo y si le esta sirviendo."""
+    if not a["repasadas"]:
+        return "Todavía junta experiencia para este plazo: por ahora usa el método original."
+    txt = (f"Repasó sus últimas {ar(a['repasadas'])} predicciones: ahora busca casos parecidos por "
+           f"{a['receta_txt']}. {a['confianza']}.")
+    ap, og = a["aciertos_aprendido"], a["aciertos_original"]
+    if ap is not None and og is not None:
+        txt += (f" Con lo aprendido acertó {ar(ap)}% de las veces qué tocaba primero; el método original, "
+                f"{ar(og)}%.")
+    return txt
 
 
 def log_and_score(entries, closes_by_tf):
@@ -654,25 +713,29 @@ def analyze():
         rsi = ind.rsi(closes)
         ml, ms, mh = ind.macd(closes)
         warmup = min(200, len(bars) // 3)
-        st = states(closes, rsi, e50, e200, max(1, 1440 // tf_min))
-        idxs, keep = similar(st, len(bars) - 1 - max(horizons + (SCENARIO_STEPS,)), warmup)
+        feats = apr.rasgos(bars, tf_min, e50, e200, rsi, mh)
         base = range(warmup, len(bars) - 1 - max(horizons))
+        series[tf] = {"bars": bars, "closes": closes, "base": list(base), "tf_ms": tf_ms, "tf_min": tf_min, "days": days,
+                      "closed": candles[tf], "feats": feats, "combo": apr.combos(feats), "warmup": warmup,
+                      "last": len(bars) - 1 - max(horizons + (SCENARIO_STEPS,)), "similar": {}, "fit": {}}
+        main_fit = tune(tf, series[tf], horizons[0])
+        idxs, keep = main_fit["idxs"], main_fit["keep"]
         i = len(bars) - 1
         trend = trend_word(closes[i], e20[i], e50[i], e200[i])
         by_tf[tf] = {"summary": summary, "trend": trend}
         pivots = ind.zigzag(bars)
-        wave_labels, wave_desc, wave_target = ind.elliott(pivots)
+        wave_labels, wave_desc, wave_target, wave_now, wave_short = ind.elliott(pivots, bars)
         # cruce del MACD con su senal en la ultima o la anteultima vela
         crosses = ("alcista" if mh[k] > 0 and mh[k - 1] <= 0 else "bajista" if mh[k] < 0 and mh[k - 1] >= 0 else None
                    for k in (i, i - 1))
         cross = next((x for x in crosses if x), None)
         rows.append({"tabla": "marco", "tf": tf, "tendencia": trend, **summary, "macd_cruce": cross,
                      "ema50": round(e50[i], 1), "ema200": round(e200[i], 1), "similares": len(idxs),
-                     "criterio": ["", "precio vs EMA50", "precio vs EMA50 y EMA200", "medias y RSI",
-                                  "medias, RSI y movimiento del ultimo dia"][keep],
-                     "elliott": wave_desc, "elliott_objetivo": None if wave_target is None else round(wave_target, 1)})
+                     "criterio": apr.receta_txt(main_fit["receta"], keep) if keep else "",
+                     "elliott": wave_desc, "elliott_objetivo": None if wave_target is None else round(wave_target, 1),
+                     "elliott_curso": wave_now, "elliott_corto": wave_short})
         rows += [{"tabla": "indicador", "tf": tf, **r} for r in ind_rows]
-        tail = pivots[-8:]
+        tail = pivots[-10:]
         offset = len(tail) - len(wave_labels)
         for n, (kind, k, p) in enumerate(tail):
             rows.append({"tabla": "giro", "tf": tf, "t": bars[k][0], "precio": round(p, 1), "tipo": kind,
@@ -683,10 +746,8 @@ def analyze():
         rows += [{"tabla": "divergencia", "tf": tf, **d, "p1": round(d["p1"], 1), "p2": round(d["p2"], 1)}
                  for d in ind.divergencias(bars, pivots)]
 
-        series[tf] = {"bars": bars, "closes": closes, "sample": idxs or list(base), "base": list(base),
-                      "tf_ms": tf_ms, "tf_min": tf_min, "days": days}
         for h in horizons:
-            prob, tg = horizon_stats(tf, series[tf], h, price)
+            prob, tg = horizon_stats(tf, series[tf], h, price, tune(tf, series[tf], h))
             rows.append({"tabla": "probabilidad", **prob})
             rows += [{"tabla": "objetivo", "tf": tf, "horizonte": prob["horizonte"], "hora": prob["hora"], **t} for t in tg]
             entries.append((bars[-1][0] + tf_ms, tf, h, closes[-1], prob["sube"]))
@@ -707,8 +768,10 @@ def analyze():
 
     # una prediccion por plazo, cada una con la temporalidad que mas casos tiene para ese plazo
     for name, tf, h, *_ in PLAZOS:
-        prob, tg = horizon_stats(tf, series[tf], h, price)
+        fit = tune(tf, series[tf], h)
+        prob, tg = horizon_stats(tf, series[tf], h, price, fit)
         rows.append({"tabla": "plazo", "plazo": name, **prob})
+        rows += learning_rows(name, tf, h, fit)
         rows += [{"tabla": "objetivo_plazo", "plazo": name, **t} for t in tg]
         if not any(e[1] == tf and e[2] == h for e in entries):
             entries.append((series[tf]["bars"][-1][0] + series[tf]["tf_ms"], tf, h, series[tf]["closes"][-1], prob["sube"]))
@@ -780,7 +843,8 @@ def analyze():
     local = datetime.fromtimestamp(now_ms / 1000, LOCAL_TZ)
     rows.insert(0, {"tabla": "resumen", "fecha": datetime.now(LOCAL_TZ).isoformat(timespec="milliseconds"),
                     "hora_local": local.strftime("%d/%m %H:%M"), "precio": round(price, 1),
-                    "cambio_24h": round(pct(price, h1[-24][4]), 2), "cambio_7d": round(pct(price, h1[-168][4]), 2),
+                    "cambio_24h": round2(change_since(candles["5m"], now_ms, price, 24)),
+                    "cambio_7d": round2(change_since(candles["5m"], now_ms, price, 168)),
                     "sma200d": round(sma200d, 1), "sma200d_dist": round(pct(price, sma200d), 2),
                     "funding": None if funding is None else round(funding * 100, 4),
                     "rating_1h": by_tf["1h"]["summary"]["rating"], "rating_1d": by_tf["1d"]["summary"]["rating"],
@@ -949,7 +1013,7 @@ def run_live(every, public=False):
 
     # el analisis corre desde el modulo (no desde este script) para poder recargarlo cuando cambia el codigo
     import analisis_btc as live_mod
-    code_files = [live_mod.__file__, ind.__file__]
+    code_files = [live_mod.__file__, ind.__file__, apr.__file__]
     code_stamp = [os.path.getmtime(f) for f in code_files]
     page_stamp = None
 
@@ -1018,6 +1082,7 @@ def run_live(every, public=False):
                 stamp = [os.path.getmtime(f) for f in code_files]
                 if stamp != code_stamp:
                     importlib.reload(ind)
+                    importlib.reload(apr)
                     live_mod = importlib.reload(live_mod)
                     code_stamp = stamp
                     print("Código del análisis actualizado: se usa la versión nueva desde este análisis.")

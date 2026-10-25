@@ -2,7 +2,7 @@
  * El analisis corre aca, en segundo plano, para que la pantalla no se trabe mientras calcula.
  * Repite cada INTERVALO ms mientras la app esta a la vista; se pausa cuando no.
  */
-importScripts('indicadores.js', 'analisis.js', 'datos.js');
+importScripts('indicadores.js', 'aprendizaje.js', 'analisis.js', 'datos.js');
 
 const INTERVALO = 12000;
 let pausado = false, corriendo = false, timer = null, numero = 0;

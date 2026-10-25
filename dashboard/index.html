@@ -367,6 +367,51 @@
     .ab-only-touch { display: inline; } .ab-only-mouse { display: none; }
   }
   .ab-sigchip { white-space: nowrap; }
+  /* aprendizaje */
+  .ab-apr-line { margin: 0; display: flex; gap: 8px; align-items: baseline; font-size: var(--cds-font-size-caption); color: var(--mute); line-height: 1.45; }
+  .ab-apr-line b { color: var(--ink); font-weight: 600; }
+  .ab-apr-top { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--cds-gap-sm); }
+  .ab-apr-stat { display: grid; gap: 2px; padding: var(--cds-pad-sm) var(--cds-pad-md); border-radius: var(--cds-radius); background: var(--paper); min-width: 0; }
+  .ab-apr-stat small { font-size: var(--cds-font-size-caption); color: var(--mute); line-height: 1.3; }
+  .ab-apr-stat b { font-family: var(--serif); font-weight: 400; font-size: clamp(1.25rem, 3.4vw, 1.7rem); font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .ab-apr-stat span { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--mute); }
+  .ab-apr-chart svg { display: block; width: 100%; overflow: visible; }
+  .ab-apr-chart text { font-size: 10.5px; fill: var(--mute); font-variant-numeric: tabular-nums; }
+  .ab-tbl tr.ab-sel td { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+  .ab-tbl td small { display: block; color: var(--mute); font-size: 10.5px; line-height: 1.35; margin-top: 2px; }
+  #apr-tbl tbody tr { cursor: pointer; }
+  .ab-delta { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 999px; white-space: nowrap; }
+  .ab-delta.ab-pos { color: var(--up); background: color-mix(in srgb, var(--up) 12%, transparent); }
+  .ab-delta.ab-neg { color: var(--down); background: color-mix(in srgb, var(--down) 12%, transparent); }
+  @media (max-width: 600px) { .ab-apr-stat { padding: var(--cds-pad-xs) var(--cds-pad-sm); } }
+
+  /* precio que late con cada tick */
+  .ab-price { transition: color .5s ease-out; }
+  .ab-price.ab-tick-up { color: var(--up); transition: none; } .ab-price.ab-tick-dn { color: var(--down); transition: none; }
+  .ab-cd rect { fill: var(--panel); stroke: var(--line); } .ab-cd text { fill: var(--mute); font-size: 10px; font-variant-numeric: tabular-nums; }
+  .ab-wave-cur circle { stroke-dasharray: 2.5 2; } .ab-wave-proj { stroke: var(--ink); stroke-opacity: .55; stroke-width: 1.3; stroke-dasharray: 4 4; fill: none; }
+  /* velas que forman la marca resaltada en "que estas viendo" */
+  .ab-chart svg.is-focus .ab-candle.ex-c { opacity: 1; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--color-fg) 55%, transparent)); }
+  .ab-chart svg.is-focus .ab-candle.ex-c rect, .ab-chart svg.is-focus .ab-candle.ex-c line { stroke-width: 2; }
+
+  /* grafico en pantalla completa: ocupa toda la pantalla (tambien en el iPhone, donde no hay pantalla completa real) */
+  html.ab-fs-on, html.ab-fs-on body { overflow: hidden; overscroll-behavior: none; }
+  #grafico.ab-fs { position: fixed; inset: 0; z-index: 60; margin: 0; max-width: none; border-radius: 0; border: 0; resize: none;
+    display: flex; flex-direction: column; gap: 6px; overflow: hidden;
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+  #grafico.ab-fs > .ab-card-head h2, #grafico.ab-fs .ab-zoom .ab-note, #grafico.ab-fs > .ab-kicker, #grafico.ab-fs #legend, #grafico.ab-fs #scen-note { display: none; }
+  #grafico.ab-fs .ab-tools, #grafico.ab-fs .ab-zoom { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; flex: none; }
+  #grafico.ab-fs .ab-tools::-webkit-scrollbar, #grafico.ab-fs .ab-zoom::-webkit-scrollbar { display: none; }
+  #grafico.ab-fs .ab-chips { flex-wrap: nowrap; }
+  #grafico.ab-fs .ab-tools > *, #grafico.ab-fs .ab-zoom > *, #grafico.ab-fs .ab-chips > * { flex: none; }
+  #grafico.ab-fs .ab-tools { margin-right: 92px; }
+  #grafico.ab-fs .ab-zoom-g > span { white-space: nowrap; }
+  #grafico.ab-fs .ab-zoom-lbl { display: none; }
+  #grafico.ab-fs > .ab-card-head { position: absolute; top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); z-index: 3; }
+  #grafico.ab-fs .ab-chipbtn, #grafico.ab-fs .ab-iconbtn { white-space: nowrap; flex: none; }
+  #grafico.ab-fs .ab-chart, #grafico.ab-fs .ab-chart.ab-with-osc { flex: 1 1 auto; height: auto !important; min-height: 0; }
+  .ab-fs-btn { margin-left: auto; }
+  @media (max-height: 500px) and (orientation: landscape) { #grafico.ab-fs .ab-zoom { display: none; } }
   @keyframes ab-fresh { 0% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-ok) 70%, transparent); } 100% { box-shadow: 0 0 0 1px transparent; } }
   @keyframes ab-in { from { opacity: .001; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   @keyframes ab-rise { from { opacity: .001; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -402,6 +447,7 @@
       <div class="ab-card-head"><span class="ab-kicker" id="pred-k">Predicción</span><span class="ab-kicker" id="pred-n"></span></div>
       <p class="ab-verdict-big" id="verdict-big">—</p>
       <p class="ab-hero-sub dash-skeleton" id="titular" data-source="analisis">—</p>
+      <p class="ab-apr-line" id="apr-line"></p>
       <div class="ab-tug-wrap">
         <div class="ab-tug-legend"><span>¿Qué toca primero?</span><span id="first-mg"></span></div>
         <div class="ab-tug" id="first-split"></div>
@@ -421,7 +467,8 @@
   </section>
 
   <section class="ab-card" id="grafico" aria-labelledby="graf-t">
-      <div class="ab-card-head"><h2 id="graf-t">Dónde está BTC y hacia dónde suele ir desde acá</h2></div>
+      <div class="ab-card-head"><h2 id="graf-t">Dónde está BTC y hacia dónde suele ir desde acá</h2>
+        <button type="button" class="ab-iconbtn ab-fs-btn" id="fs-btn" aria-pressed="false" aria-label="Ver el gráfico en pantalla completa">⤢ Pantalla completa</button></div>
       <div class="ab-tools">
         <nav class="ab-seg ab-small" id="tfs" aria-label="Velas del gráfico">
           <span class="ab-seg-thumb"></span>
@@ -453,7 +500,7 @@
         <span class="ab-zoom-g"><button type="button" class="ab-iconbtn" data-zoom="out" aria-label="Ver más velas">−</button>
           <span id="zoom-info" class="ab-num">— velas</span>
           <button type="button" class="ab-iconbtn" data-zoom="in" aria-label="Ver menos velas">+</button></span>
-        <span class="ab-zoom-g"><span>Rango de precio</span>
+        <span class="ab-zoom-g"><span class="ab-zoom-lbl">Rango de precio</span>
           <button type="button" class="ab-iconbtn" data-yzoom="out" aria-label="Comprimir el eje de precios">↕ más</button>
           <button type="button" class="ab-iconbtn" data-yzoom="in" aria-label="Estirar el eje de precios">↕ menos</button></span>
         <button type="button" class="ab-iconbtn" id="fit">Ajustar</button>
@@ -473,6 +520,20 @@
       <div class="ab-story-col"><h3 id="contra-t">En contra</h3><ul class="ab-sig-list" id="contra"></ul></div>
       <div class="ab-story-col"><h3>Niveles</h3><ul class="ab-sig-list" id="vigilar"></ul><p class="ab-inval" id="inval"></p></div>
     </div>
+  </section>
+
+  <section class="ab-card" id="aprendizaje" aria-labelledby="apr-t" data-source="analisis">
+    <div class="ab-card-head"><h2 id="apr-t">Cómo viene aprendiendo</h2><span class="ab-kicker" id="apr-k"></span></div>
+    <div class="ab-apr-top">
+      <div class="ab-apr-stat"><small>Acierta con lo aprendido</small><b id="apr-ap">—</b><span id="apr-ap-n"></span></div>
+      <div class="ab-apr-stat"><small>Con el método original</small><b id="apr-og">—</b><span id="apr-og-n"></span></div>
+      <div class="ab-apr-stat"><small>Error de sus probabilidades</small><b id="apr-br">—</b><span id="apr-br-n"></span></div>
+    </div>
+    <p class="ab-note" id="apr-txt"></p>
+    <div class="ab-apr-chart" id="apr-chart"></div>
+    <div class="ab-legend" id="apr-legend"></div>
+    <div class="ab-tbl-box"><table class="ab-tbl" id="apr-tbl"><thead><tr><th>Plazo</th><th class="r">Aprendido</th><th class="r">Original</th><th class="r">Confianza</th></tr></thead><tbody></tbody></table></div>
+    <p class="ab-note">Cada vez que cierra una vela, el analista repasa sus últimas 600 predicciones de cada plazo (cada una hecha solo con lo que se sabía en ese momento) y las compara con lo que pasó. Prueba 8 formas de buscar situaciones parecidas y elige la que viene acertando más; si sus probabilidades venían exageradas, las modera, y si venían tímidas, las refuerza. Cada predicción se juzga con lo que había elegido antes de conocer el resultado, así la comparación con el método original es honesta. Los aciertos son sobre "qué toca primero"; el error mide qué tan bien calibradas están las probabilidades (0,250 es tirar una moneda; menos es mejor).</p>
   </section>
 
   <div class="ab-more-list">
@@ -589,14 +650,14 @@
   try {
     const saved = JSON.parse(sessionStorage.getItem('ab-vista') || 'null');
     if (saved) {
-      Object.assign(S, { plazo: saved.plazo, tf: saved.tf, scen: saved.scen, nbars: saved.nbars, yzoom: saved.yzoom, ph: saved.ph || null });
+      Object.assign(S, { plazo: saved.plazo, tf: saved.tf, scen: saved.scen, nbars: saved.nbars, yzoom: saved.yzoom, ph: saved.ph || null, fs: !!saved.fs });
       Object.assign(S.layers, saved.layers || {});
       document.querySelectorAll('#scens button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.scen === S.scen)));
       document.querySelectorAll('#layers [data-layer]').forEach((x) => x.setAttribute('aria-pressed', String(!!S.layers[x.dataset.layer])));
     }
   } catch (e) { /* sin almacenamiento: arranca con la vista por defecto */ }
   window.addEventListener('pagehide', () => {
-    try { sessionStorage.setItem('ab-vista', JSON.stringify({ plazo: S.plazo, tf: S.tf, scen: S.scen, nbars: S.nbars, yzoom: S.yzoom, layers: S.layers, ph: S.ph })); } catch (e) { /* idem */ }
+    try { sessionStorage.setItem('ab-vista', JSON.stringify({ plazo: S.plazo, tf: S.tf, scen: S.scen, nbars: S.nbars, yzoom: S.yzoom, layers: S.layers, ph: S.ph, fs: S.fs })); } catch (e) { /* idem */ }
   });
   const placeTf = seg(document.getElementById('tfs'), 'data-tf', (v) => { S.tf = v; S.hz = null; S.offset = 0; draw(); });
   const placeSc = seg(document.getElementById('scens'), 'data-scen', (v) => { S.scen = v; draw(); });
@@ -611,6 +672,32 @@
     document.querySelectorAll('#tfs button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.tf === tf)));
     placeTf(); draw();
   }
+
+  // ---------- pantalla completa ----------
+  // en el iPhone Safari no deja poner un elemento en pantalla completa: el grafico pasa a ocupar toda la ventana
+  // con CSS. Donde se puede (compu, Android) ademas se pide la pantalla completa real.
+  const card = document.getElementById('grafico'), fsBtn = document.getElementById('fs-btn');
+  function setFs(on, native = true) {
+    S.fs = on;
+    card.classList.toggle('ab-fs', on);
+    document.documentElement.classList.toggle('ab-fs-on', on);
+    fsBtn.setAttribute('aria-pressed', String(on));
+    fsBtn.textContent = on ? '✕ Salir' : '⤢ Pantalla completa';
+    fsBtn.setAttribute('aria-label', on ? 'Salir de pantalla completa' : 'Ver el gráfico en pantalla completa');
+    if (native) {
+      try {
+        if (on && !document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+        else if (!on && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+      } catch (e) { /* sin pantalla completa real: queda la de CSS */ }
+    }
+    S.hz = null;
+    requestAnimationFrame(() => { if (S.rows) { drawChart(S.rows, S.sum); placeTf(); placeSc(); } });
+  }
+  fsBtn.addEventListener('click', () => setFs(!S.fs));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.fs) setFs(false); });
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && S.fs) setFs(false, false); });
+  window.addEventListener('resize', () => { if (S.fs && S.rows) requestAnimationFrame(() => drawChart(S.rows, S.sum)); });
+  if (S.fs) setFs(true, false);
 
   (function chartInteractions() {
     // como en TradingView: arrastrar mueve el grafico en cualquier direccion; arrastrar el eje de precios lo comprime o estira;
@@ -757,7 +844,18 @@
       const k = JSON.parse(ev.data).k; if (!k) return;
       liveBar = { tf: wsTf, t: k.t, o: +k.o, h: +k.h, l: +k.l, c: +k.c, v: +k.v };
       ticks++;
-      const pe = root.querySelector('.ab-price'); if (pe && pe.firstChild) pe.firstChild.textContent = f0(liveBar.c);
+      const pe = root.querySelector('.ab-price');
+      if (pe && pe.firstChild) {
+        const prev = S.lastTick;
+        pe.firstChild.textContent = f0(liveBar.c);
+        if (prev !== undefined && liveBar.c !== prev) {
+          pe.classList.remove('ab-tick-up', 'ab-tick-dn'); void pe.offsetWidth;
+          pe.classList.add(liveBar.c > prev ? 'ab-tick-up' : 'ab-tick-dn');
+          clearTimeout(S.tickT); S.tickT = setTimeout(() => pe.classList.remove('ab-tick-up', 'ab-tick-dn'), 350);
+        }
+        S.lastTick = liveBar.c;
+        document.title = `${f0(liveBar.c)} · Analista BTC`;
+      }
       document.getElementById('live-state').textContent = ` · ● en vivo · análisis #${f0(window.abAnalyses || 1)} · ${f0(ticks)} ticks`;
       if (ticks % 10 === 0 && S.rows && !S.hover) drawChart(S.rows, S.sum);
     };
@@ -806,6 +904,7 @@
     drawPlazos(rows);
     drawStory(rows);
     drawPrediction(rows, sum);
+    drawLearning(rows);
     drawGauge(rows);
     drawChart(rows, sum);
     drawProbs(rows, sum);
@@ -828,6 +927,7 @@
     document.getElementById('next-run').textContent = window.abLive ? 'se reanaliza solo'
       : `próximo análisis ${String(next === undefined ? 0 : next).padStart(2, '0')}:00 h`;
     root.querySelector('.ab-price').replaceChildren(f0(num(s.precio)), el('small', '', 'USDT'));
+    document.title = `${f0(num(s.precio))} · Analista BTC`;
     const put = (id, v, d) => { const e = document.getElementById(id); e.textContent = v === null ? '—' : sg(v, d);
       e.classList.toggle('ab-up-t', v > 0); e.classList.toggle('ab-down-t', v < 0); };
     put('c24', num(s.cambio_24h), 2); put('c7', num(s.cambio_7d), 2); put('c200', num(s.sma200d_dist), 1);
@@ -877,6 +977,9 @@
     const svg = document.querySelector('#chart svg'); if (!svg) return;
     svg.classList.toggle('is-focus', !!key);
     svg.querySelectorAll('[data-ex]').forEach((n) => n.classList.toggle('ex-on', n.getAttribute('data-ex') === key));
+    // las velas que forman esa marca quedan encendidas
+    const set = key && S.exCandles ? S.exCandles[key] : null;
+    svg.querySelectorAll('.ab-candle').forEach((n) => n.classList.toggle('ex-c', !!set && set.has(Number(n.getAttribute('data-t')))));
     document.querySelectorAll('#legend [data-ex]').forEach((n) => n.classList.toggle('is-on', n.dataset.ex === key));
   }
 
@@ -966,6 +1069,80 @@
     });
   }
 
+  // ---------- aprendizaje ----------
+  function pctTxt(v) { return v === null || v === undefined ? '—' : `${f1(num(v))}%`; }
+  function learnLine(a) {
+    if (!a || !num(a.repasadas)) return 'Todavía junta experiencia para este plazo.';
+    const ap = num(a.aciertos_aprendido), og = num(a.aciertos_original), f = num(a.factor);
+    const conf = f === 1 ? 'probabilidades tal cual' : f === 0 ? 'sin ventaja: trata el plazo como moneda' : f < 1 ? `probabilidades moderadas al ${f0(f * 100)}%` : `probabilidades reforzadas al ${f0(f * 100)}%`;
+    return ap === null || og === null ? `Aprendiendo · ${conf}` : `Acierta ${f1(ap)}% (método original ${f1(og)}%) · ${conf}`;
+  }
+  function drawLearning(rows) {
+    const all = pick(rows, 'aprendizaje'), a = all.find((r) => r.plazo === S.plazo);
+    const line = document.getElementById('apr-line'); line.replaceChildren();
+    if (a) line.append(el('b', '', 'Aprendizaje'), el('span', '', learnLine(a)));
+    document.getElementById('apr-k').textContent = `a ${S.plazo}`;
+    const put = (id, v, sub) => { document.getElementById(id).textContent = v; document.getElementById(id + '-n').textContent = sub; };
+    if (!a || !num(a.repasadas)) {
+      put('apr-ap', '—', ''); put('apr-og', '—', ''); put('apr-br', '—', '');
+      document.getElementById('apr-txt').textContent = 'Todavía no hay historia suficiente para repasar predicciones en este plazo: usa el método original.';
+    } else {
+      const ap = num(a.aciertos_aprendido), og = num(a.aciertos_original), ba = num(a.brier_aprendido), bo = num(a.brier_original);
+      put('apr-ap', pctTxt(ap), `${f0(num(a.decisivas_aprendido))} predicciones`);
+      put('apr-og', pctTxt(og), `${f0(num(a.decisivas_original))} predicciones`);
+      put('apr-br', ba === null ? '—' : ar.format(',.3f')(ba), bo === null ? '' : `original ${ar.format(',.3f')(bo)}`);
+      const b = document.getElementById('apr-ap');
+      if (ap !== null && og !== null && Math.abs(ap - og) >= 0.05) {
+        const d = el('span', 'ab-delta ' + (ap > og ? 'ab-pos' : 'ab-neg'), `${ap > og ? '+' : ''}${f1(ap - og)}`);
+        b.append(' ', d);
+      }
+      const desde = new Date(num(a.desde)).toLocaleDateString('es-AR', { ...tz, day: '2-digit', month: '2-digit' });
+      document.getElementById('apr-txt').textContent = `Repasó ${f0(num(a.repasadas))} predicciones desde el ${desde}. Para buscar casos parecidos usa ${a.receta_txt}. ${a.confianza}. Cambió de idea ${f0(num(a.cambios))} ${num(a.cambios) === 1 ? 'vez' : 'veces'} mientras aprendía.`;
+    }
+    // curva: aciertos en ventanas de 120 predicciones, a medida que repasaba
+    const box = document.getElementById('apr-chart'); box.replaceChildren();
+    const lg = document.getElementById('apr-legend'); lg.replaceChildren();
+    const pts = pick(rows, 'aprendizaje_curva').filter((r) => r.plazo === S.plazo)
+      .map((r) => ({ k: num(r.paso), a: num(r.aprendido), o: num(r.original) })).sort((p, q) => p.k - q.k);
+    if (pts.length > 1) {
+      const W = Math.max(260, box.clientWidth), H = 150, ml = 30, mr = 8, mt = 8, mb = 20;
+      const vals = pts.flatMap((p) => [p.a, p.o]).filter((v) => v !== null).concat([50]);
+      const [lo, hi] = d3.extent(vals);
+      const x = d3.scaleLinear(d3.extent(pts, (p) => p.k), [ml, W - mr]);
+      const yy = d3.scaleLinear([Math.floor((lo - 3) / 5) * 5, Math.ceil((hi + 3) / 5) * 5], [H - mb, mt]);
+      const svg = d3.select(box).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Aciertos a medida que aprende');
+      yy.ticks(4).forEach((v) => {
+        svg.append('line').attr('class', 'ab-gl').attr('x1', ml).attr('x2', W - mr).attr('y1', yy(v)).attr('y2', yy(v)).style('stroke-dasharray', v === 50 ? '3 3' : null);
+        svg.append('text').attr('x', ml - 4).attr('y', yy(v)).attr('dy', '.32em').attr('text-anchor', 'end').text(`${v}%`);
+      });
+      svg.append('text').attr('x', ml).attr('y', H - 4).text('predicciones repasadas →');
+      svg.append('text').attr('x', W - mr).attr('y', H - 4).attr('text-anchor', 'end').text(f0(pts[pts.length - 1].k));
+      [['o', 'var(--color-fg-muted)', '4 3'], ['a', dash.colors[0], null]].forEach(([k, c, da]) => {
+        svg.append('path').attr('d', d3.line().defined((p) => p[k] !== null).curve(d3.curveMonotoneX).x((p) => x(p.k)).y((p) => yy(p[k]))(pts))
+          .style('fill', 'none').style('stroke', c).style('stroke-width', k === 'a' ? 2.2 : 1.6).style('stroke-dasharray', da).style('stroke-linecap', 'round');
+      });
+      const last = pts[pts.length - 1];
+      if (last.a !== null) svg.append('circle').attr('cx', x(last.k)).attr('cy', yy(last.a)).attr('r', 3.5).style('fill', dash.colors[0]);
+      [[dash.colors[0], 'Con lo aprendido'], ['var(--color-fg-muted)', 'Método original'], ['transparent', 'Línea punteada: 50%, tirar una moneda']].forEach(([c, t]) => {
+        const sp = el('span'); const i = el('i'); i.style.background = c; if (c === 'transparent') i.style.borderTop = '1.5px dashed var(--color-fg-muted)';
+        sp.append(i, t); lg.append(sp);
+      });
+    }
+    const tb = document.querySelector('#apr-tbl tbody'); tb.replaceChildren();
+    all.forEach((r) => {
+      const tr = el('tr'); if (r.plazo === S.plazo) tr.className = 'ab-sel';
+      const short = String(r.receta_txt).replace(/precio vs /g, '').replace('movimiento del último día', 'mov. 24 h').replace(/ y /, ', ');
+      const c0 = el('td'); c0.append(el('span', '', r.plazo), el('small', '', num(r.repasadas) ? short : 'junta experiencia'));
+      const ap = num(r.aciertos_aprendido), og = num(r.aciertos_original);
+      const c1 = el('td', 'r', pctTxt(ap));
+      if (ap !== null && og !== null) { c1.style.color = ap > og ? 'var(--color-ok)' : ap < og ? 'var(--color-bad)' : null; c1.style.fontWeight = '600'; }
+      const f = num(r.factor);
+      tr.append(c0, c1, el('td', 'r', pctTxt(og)), el('td', 'r', f === 0 ? 'moneda' : `${f0(f * 100)}%`));
+      tr.addEventListener('click', () => setPlazo(r.plazo));
+      tb.append(tr);
+    });
+  }
+
   // ---------- sesgo ----------
   function drawGauge(rows) {
     const marcos = pick(rows, 'marco');
@@ -1037,8 +1214,15 @@
     let H, ph;
     if (S.ph) {
       ph = S.ph;
+      if (S.fs) {
+        // en pantalla completa los altos elegidos se respetan en proporcion, para que todo entre en la pantalla
+        box.style.height = '';
+        const avail = Math.max(240, (box.clientHeight || 440) - 4), fixed = m.t + 8 + (L.osc ? 2 * gapP : 0) + m.b;
+        const panes = ph.price + ph.vol + (L.osc ? ph.rsi + ph.macd : 0), k = Math.max(0.2, (avail - fixed) / panes);
+        ph = { price: Math.round(ph.price * k), vol: Math.round(ph.vol * k), rsi: Math.round(ph.rsi * k), macd: Math.round(ph.macd * k) };
+      }
       H = m.t + ph.price + 8 + ph.vol + (L.osc ? 2 * gapP + ph.rsi + ph.macd : 0) + m.b;
-      box.style.height = `${H + 4}px`;
+      if (!S.fs) box.style.height = `${H + 4}px`;
     } else {
       box.style.height = '';
       H = Math.max(280, (box.clientHeight || 440) - 4);
@@ -1120,8 +1304,8 @@
       .style('font-weight', (d) => (d.bold ? 700 : null)).text((d) => d.txt);
 
     // futuro
-    const fx = live ? x(bars.length) - x.step() * .15 : plotR;
-    if (live) {
+    const fx = live && steps ? x(bars.length) - x.step() * .15 : plotR;   // sin escenarios no hay zona de futuro
+    if (live && steps) {
       svg.append('rect').attr('x', fx).attr('y', m.t - 16).attr('width', plotR - fx).attr('height', H - m.b - m.t + 16).style('fill', 'url(#ab-hatch)');
       svg.append('text').attr('class', 'ab-future-lbl').attr('x', fx + 6).attr('y', m.t - 5).text(`Futuro posible · ${SCEN_TXT[S.scen]}`);
       // la hora de la prediccion del plazo elegido, para leer el grafico y los numeros juntos
@@ -1130,7 +1314,7 @@
         const xx = xt(num(pz.t_hasta)) - x.step() / 2;
         if (xx > fx && xx <= plotR) {
           svg.append('line').attr('class', 'ab-plazo-mark').attr('x1', xx).attr('x2', xx).attr('y1', m.t + 6).attr('y2', priceB).style('stroke', 'var(--color-fg)').style('stroke-opacity', .6).style('stroke-dasharray', '3 3');
-          svg.append('text').attr('class', 'ab-future-lbl ab-plazo-mark').attr('x', xx).attr('y', priceB + 12).attr('text-anchor', 'middle').text(`${S.plazo} · ${pz.hora.slice(-5)} h`);
+          svg.append('text').attr('class', 'ab-future-lbl ab-plazo-mark').attr('x', Math.min(xx, plotR - 4)).attr('y', priceB - 6).attr('text-anchor', 'end').text(`${S.plazo} · ${pz.hora.slice(-5)} h`);
         }
       }
     }
@@ -1183,19 +1367,20 @@
             if (now > lo && now < hi) pill(g0, xt(lastT) - 10, y(now) + (name === 'Piso' ? 14 : -14), `${name} ${f0(now)}${when}`, col, false, 'end');
             if (!label) label = { x: xt(ta) + 4, y: y(val(ta)) + (name === 'Piso' ? 16 : -16) };
           });
-          // los puntos que forman la figura: pisos, techos, hombros y cabeza
+          // los puntos que forman la figura: pisos, techos, hombros, cabeza y eventos de Wyckoff
           let first = null;
-          [1, 2, 3].forEach((k) => {
+          [1, 2, 3, 4, 5].forEach((k) => {
             const t0 = num(p[`pt${k}_t`]); if (t0 === null) return;
             const i = bars.findIndex((b) => b.t === t0); if (i < 0) return;
-            const below = p.sesgo === 'alcista', py0 = y(num(p[`pt${k}_p`]));
+            // la etiqueta va debajo de un minimo y arriba de un maximo
+            const pv = num(p[`pt${k}_p`]), below = Math.abs(pv - bars[i].l) < Math.abs(pv - bars[i].h), py0 = y(pv);
             g0.append('circle').attr('cx', cxi(i)).attr('cy', py0).attr('r', 4.5).style('fill', 'var(--color-panel)').style('stroke', col).style('stroke-width', 2);
             g0.append('text').attr('class', 'ab-pat-lbl').style('fill', col).attr('x', cxi(i)).attr('y', py0 + (below ? 17 : -10))
               .attr('text-anchor', 'middle').text(p[`pt${k}_nombre`]);
             if (!first) first = { x: cxi(i), y: py0 + (below ? 34 : -28) };
           });
           const head = first || label;
-          if (head) pill(g0, head.x, head.y, conf ? `✓ ${p.nombre}` : `Posible ${p.nombre.toLowerCase()}`, col, conf, first ? 'middle' : 'start');
+          if (head) pill(g0, head.x, head.y, conf ? `✓ ${p.nombre}` : `Posible ${p.nombre.slice(0, 1).toLowerCase()}${p.nombre.slice(1)}`, col, conf, first ? 'middle' : 'start');
           const obj = num(p.objetivo);
           if (obj !== null && live) {
             const txt = `${conf ? 'Objetivo' : 'Objetivo si se confirma'}: ${f0(obj)}`;
@@ -1317,7 +1502,7 @@
     if (L.ema) [['e20', dash.colors[0]], ['e50', dash.colors[1]]].forEach(([k, c]) =>
       pane.append('path').attr('class', 'ab-ema').style('stroke', c).attr('d', d3.line().defined((b) => b[k] !== null).x((b, i) => cxi(i)).y((b) => y(b[k]))(bars)));
     // velas
-    const cs = pane.append('g').selectAll('g').data(bars).join('g').attr('class', (b) => 'ab-candle ' + (b.c >= b.o ? 'ab-c-up' : 'ab-c-dn'))
+    const cs = pane.append('g').selectAll('g').data(bars).join('g').attr('class', (b) => 'ab-candle ' + (b.c >= b.o ? 'ab-c-up' : 'ab-c-dn')).attr('data-t', (b) => b.t)
       .style('animation-delay', (b, i) => `${i * 10}ms`);
     cs.append('line').attr('x1', (b, i) => cxi(i)).attr('x2', (b, i) => cxi(i)).attr('y1', (b) => y(b.h)).attr('y2', (b) => y(b.l)).style('stroke-width', 1);
     cs.append('rect').attr('x', (b, i) => x(i)).attr('width', bw).attr('rx', Math.min(1.5, bw / 4))
@@ -1326,9 +1511,21 @@
     if (L.ondas) {
       const gp = giros.map((g) => ({ ...g, i: bars.findIndex((b) => b.t === g.t) })).filter((g) => g.i >= 0);
       if (gp.length > 1) pane.append('path').attr('class', 'ab-zig').attr('d', d3.line().x((g) => cxi(g.i)).y((g) => y(g.p))(gp));
-      const wv = pane.append('g').selectAll('g').data(gp.filter((g) => g.w)).join('g').attr('class', 'ab-wave')
+      // la onda en curso: si es la del ultimo giro, su circulo va punteado; si ya arranco la siguiente, se proyecta
+      // con una linea punteada hasta su objetivo y un circulo punteado con su numero o letra
+      const mkE = pick(rows, 'marco', tf)[0], cur = mkE ? mkE.elliott_curso : null, lastG = gp[gp.length - 1];
+      const wv = pane.append('g').selectAll('g').data(gp.filter((g) => g.w)).join('g')
+        .attr('class', (g) => 'ab-wave' + (cur && g === lastG && g.w === cur ? ' ab-wave-cur' : ''))
         .attr('transform', (g) => `translate(${cxi(g.i)},${Math.max(m.t, Math.min(priceB, y(g.p) + (g.alto ? -13 : 13)))})`);
       wv.append('circle').attr('r', 8.5); wv.append('text').text((g) => g.w);
+      if (cur && lastG && lastG.w && lastG.w !== cur && live) {
+        const tgt = num(mkE.elliott_objetivo);
+        const x1 = Math.min(plotR - 12, steps ? cxi(bars.length - 1 + Math.min(steps, 8)) : cxi(bars.length - 1) + 30);
+        const y1 = tgt === null ? y(price) : Math.max(m.t + 10, Math.min(priceB - 10, y(tgt)));
+        pane.append('path').attr('class', 'ab-wave-proj').attr('d', `M${cxi(lastG.i)},${y(lastG.p)} L${cxi(bars.length - 1)},${y(price)} L${x1},${y1}`);
+        const pg = pane.append('g').attr('class', 'ab-wave ab-wave-cur').attr('transform', `translate(${x1},${y1})`);
+        pg.append('circle').attr('r', 8.5); pg.append('text').text(cur);
+      }
     }
     // escenario
     const gx = (g) => x(bars.length - 1 + g.k);
@@ -1363,6 +1560,23 @@
     const tag = svg.append('g').attr('class', 'ab-tag');
     tag.append('rect').attr('x', W - axW + 2).attr('y', py - 10).attr('width', axW - 2).attr('height', 20).attr('rx', 4);
     tag.append('text').attr('x', W - 4).attr('y', py).attr('dy', '.34em').attr('text-anchor', 'end').text(f0(price));
+    // cuanto falta para que cierre la vela en curso, debajo del precio (como TradingView)
+    clearInterval(S.cdTimer);
+    if (live) {
+      const closeAt = bars[bars.length - 1].t + tfMs;
+      const cd = svg.append('g').attr('class', 'ab-cd');
+      const cdY = Math.min(priceB - 8, py + 19);
+      cd.append('rect').attr('x', W - axW + 2).attr('y', cdY - 8).attr('width', axW - 2).attr('height', 16).attr('rx', 4);
+      const cdt = cd.append('text').attr('x', W - 4).attr('y', cdY).attr('dy', '.34em').attr('text-anchor', 'end');
+      const pad2 = (v) => String(v).padStart(2, '0');
+      const tickCd = () => {
+        const left = Math.max(0, Math.round((closeAt - Date.now()) / 1000));
+        const h = Math.floor(left / 3600), mi = Math.floor((left % 3600) / 60), se = left % 60;
+        cdt.text(h >= 24 ? `${Math.floor(h / 24)} d ${h % 24} h` : h ? `${h}:${pad2(mi)}:${pad2(se)}` : `${pad2(mi)}:${pad2(se)}`);
+      };
+      tickCd(); S.cdTimer = setInterval(tickCd, 1000);
+      tagYs.push(cdY);
+    }
     if (live) {
     svg.append('circle').attr('class', 'ab-pulse').attr('cx', hx0).attr('cy', py).attr('r', 5);
     svg.append('circle').attr('class', 'ab-dot').attr('cx', hx0).attr('cy', py).attr('r', 4);
@@ -1512,6 +1726,25 @@
     }
     document.getElementById('scen-note').textContent = ghosts.length || !live ? '' : 'No hay suficientes situaciones parecidas para armar escenarios en esta temporalidad.';
 
+    // que velas forman cada marca: se encienden al resaltarla
+    const ex = {};
+    const inView = (t) => bars.some((b) => b.t === t);
+    pick(rows, 'patron', tf).forEach((p) => {
+      if (p.clase === 'grafico') {
+        const ts = ['l1_t', 'l2_t', 'pt1_t', 'pt2_t', 'pt3_t', 'pt4_t', 'pt5_t'].map((k) => num(p[k])).filter((v) => v !== null);
+        const t0 = ts.length ? Math.min(...ts) : num(p.t);
+        ex[`pat-grafico-${p.nombre}`] = new Set(bars.filter((b) => b.t >= t0).map((b) => b.t));
+      } else {
+        const k = /^Tres|^Estrella de la|vespertina/.test(p.nombre) ? 3 : /^Envolvente|^Harami/.test(p.nombre) ? 2 : 1;
+        ex[`pat-vela-${p.nombre}`] = new Set(Array.from({ length: k }, (_, j) => num(p.t) - j * tfMs));
+      }
+    });
+    pick(rows, 'divergencia', tf).forEach((d) => { ex[`div-${d.t1}-${d.t2}-${d.tipo}`] = new Set([num(d.t1), num(d.t2)]); });
+    ex.fvg = new Set(fvgs.flatMap((z) => [z.t - tfMs, z.t, z.t + tfMs]).filter(inView));
+    ex.ondas = new Set(giros.filter((g) => g.w).map((g) => g.t));
+    const srLv = pick(rows, 'explicacion').filter((e) => e.plazo === S.plazo && e.tipo === 'vigilar' && e.precio !== null && e.precio !== undefined).map((e) => num(e.precio));
+    ex.sr = new Set(bars.filter((b) => srLv.some((v) => b.l <= v && v <= b.h)).map((b) => b.t));
+    S.exCandles = ex;
     focusEx(S.focus);
     // zonas para arrastrar: separadores de paneles, eje de tiempo y cada panel
     const divs = [{ k: 'price', y: priceB + 4 }, { k: 'vol', y: L.osc ? volB + gapP / 2 : volB + 3 }]

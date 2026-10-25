@@ -6,6 +6,21 @@ gráfico con escenarios, figuras, divergencias, liquidaciones estimadas, libros 
 
 No es una recomendación de inversión.
 
+## Aprendizaje automático
+
+El analista aprende solo de sus predicciones acertadas y erradas (`aprendizaje.py` y su traducción
+`JavascriptVersion/aprendizaje.js`). Cada vez que cierra una vela, para cada plazo:
+
+1. Repasa sus últimas 600 predicciones, cada una calculada solo con lo que se sabía en ese momento, y las
+   compara con lo que pasó (qué tocó primero y si cerró arriba).
+2. Prueba 8 recetas para buscar "situaciones parecidas" (medias, RSI, MACD, volatilidad, Bollinger, movimiento
+   del día) y se queda con la que viene acertando más.
+3. Calibra su confianza: si sus probabilidades venían exageradas las modera; si venían tímidas, las refuerza.
+
+Aprende en línea: cada predicción se juzga con lo que había elegido antes de conocer el resultado, así la
+comparación con el método original es honesta. Todo sale de las velas, así que no se pierde cuando Render
+borra el disco. En el dashboard: sección "Cómo viene aprendiendo".
+
 ## En tu PC
 
 ```
@@ -58,8 +73,9 @@ python JavascriptVersion/generar_pagina.py
 | Archivo | Qué hace |
 |---|---|
 | `analisis_btc.py` | Baja los datos, calcula todo y sirve el dashboard (`--vivo`, `--vivo --servidor`) |
-| `indicadores.py` | Indicadores, patrones de velas, figuras, divergencias, ondas, FVG y liquidaciones |
+| `indicadores.py` | Indicadores, patrones de velas, figuras (triángulos, cuñas, canales, rangos, dobles, HCH), Wyckoff, divergencias, ondas de Elliott, FVG y liquidaciones |
+| `aprendizaje.py` | Aprendizaje automático: repasa sus predicciones, elige la receta y calibra la confianza |
 | `dashboard/index.html` | La página del dashboard |
 | `render.yaml` | Configuración para Render |
-| `JavascriptVersion/` | La versión que corre entera en el teléfono (Vercel): `analisis.js`, `indicadores.js`, `datos.js`, `worker.js` |
+| `JavascriptVersion/` | La versión que corre entera en el teléfono (Vercel): `analisis.js`, `indicadores.js`, `aprendizaje.js`, `datos.js`, `worker.js` |
 | `backtest_*.py`, `grid_bot_zec.py` | Backtests y bot de grilla (BingX demo) |
