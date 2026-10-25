@@ -605,7 +605,8 @@ def estadistica_velas(o, h, l, c, atr_, trend, horizon, start=30):
 def patron_grafico(bars, pivots, atr_last):
     """Busca figuras clasicas sobre los giros confirmados. Devuelve un dict o None.
 
-    Lineas en formato (t, precio, pendiente por milisegundo) para dibujarlas extendidas.
+    Lineas en formato (t, precio, pendiente por milisegundo, nombre) para dibujarlas extendidas, y los
+    puntos de la figura como (t, precio, nombre), para marcarlos sobre las velas.
     """
     P = pivots[:-1]                     # el ultimo giro todavia no esta confirmado
     if len(P) < 4:
@@ -615,50 +616,85 @@ def patron_grafico(bars, pivots, atr_last):
         return None                     # sin giros recientes: ninguna figura vigente
     t = lambda k: bars[k][0]
     tol = 0.8 * atr_last
-    line = lambda a, b: (t(a[1]), a[2], (b[2] - a[2]) / ((t(b[1]) - t(a[1])) or 1))
+    line = lambda a, b, name: (t(a[1]), a[2], (b[2] - a[2]) / ((t(b[1]) - t(a[1])) or 1), name)
+    flat_line = lambda a, name: (t(a[1]), a[2], 0.0, name)
     at_now = lambda ln: ln[1] + ln[2] * (t(i_last) - ln[0])
+    point = lambda p, name: (t(p[1]), p[2], name)
     highs = [p for p in P if p[0] == "alto"]
     lows = [p for p in P if p[0] == "bajo"]
 
-    def result(name, bias, lines, target, desc, broke):
+    def result(name, bias, lines, points, target, desc, broke):
         return {"nombre": name, "sesgo": bias, "estado": "confirmado" if broke else "en formación",
-                "objetivo": None if target is None else round(target, 1), "descripcion": desc, "lineas": lines}
+                "objetivo": None if target is None else round(target, 1), "descripcion": desc,
+                "lineas": lines, "puntos": points}
+
+    def still_valid(last_point, bias, extreme, neck_at):
+        """Una figura se anula si despues el precio paso su extremo (en contra) o si ya confirmo y volvio."""
+        after = range(last_point[1] + 1, len(bars))
+        if bias == "alcista":
+            if any(bars[j][3] < extreme - tol for j in after):
+                return False
+            fired = any(bars[j][4] > neck_at(j) for j in after)
+            return not fired or px > neck_at(i_last)
+        if any(bars[j][2] > extreme + tol for j in after):
+            return False
+        fired = any(bars[j][4] < neck_at(j) for j in after)
+        return not fired or px < neck_at(i_last)
 
     # hombro-cabeza-hombro (y su inverso) sobre los ultimos 5 giros
     q = P[-5:]
     if len(q) == 5:
         k = [p[2] for p in q]
-        if q[0][0] == "alto" and k[2] > k[0] + tol and k[2] > k[4] + tol and abs(k[0] - k[4]) < 1.5 * tol:
-            neck = line(q[1], q[3])
+        shoulders = [point(q[0], "Hombro"), point(q[2], "Cabeza"), point(q[4], "Hombro")]
+        neck_line = line(q[1], q[3], "Cuello")
+        neck_at = lambda j: neck_line[1] + neck_line[2] * (t(j) - neck_line[0])
+        if (q[0][0] == "alto" and k[2] > k[0] + tol and k[2] > k[4] + tol and abs(k[0] - k[4]) < 1.5 * tol
+                and still_valid(q[4], "bajista", k[2], neck_at)):
+            neck = line(q[1], q[3], "Cuello")
             n_now = at_now(neck)
-            return result("Hombro-cabeza-hombro", "bajista", [neck], n_now - (k[2] - (k[1] + k[3]) / 2),
-                          "Tres máximos con el del medio más alto. Se confirma si cierra debajo de la línea de cuello.", px < n_now)
-        if q[0][0] == "bajo" and k[2] < k[0] - tol and k[2] < k[4] - tol and abs(k[0] - k[4]) < 1.5 * tol:
-            neck = line(q[1], q[3])
+            target, broke = n_now - (k[2] - (k[1] + k[3]) / 2), px < n_now
+            desc = (f"Tres máximos, el del medio más alto. BTC perdió el cuello en {_ar(n_now)}: objetivo {_ar(target)}." if broke
+                    else f"Tres máximos, el del medio más alto. Si BTC cierra debajo del cuello ({_ar(n_now)}), "
+                         f"se confirma y el objetivo es {_ar(target)}.")
+            return result("Hombro-cabeza-hombro", "bajista", [neck], shoulders, target, desc, broke)
+        if (q[0][0] == "bajo" and k[2] < k[0] - tol and k[2] < k[4] - tol and abs(k[0] - k[4]) < 1.5 * tol
+                and still_valid(q[4], "alcista", k[2], neck_at)):
+            neck = line(q[1], q[3], "Cuello")
             n_now = at_now(neck)
-            return result("Hombro-cabeza-hombro invertido", "alcista", [neck], n_now + ((k[1] + k[3]) / 2 - k[2]),
-                          "Tres mínimos con el del medio más bajo. Se confirma si cierra arriba de la línea de cuello.", px > n_now)
-    # doble techo / doble piso
+            target, broke = n_now + ((k[1] + k[3]) / 2 - k[2]), px > n_now
+            desc = (f"Tres mínimos, el del medio más bajo. BTC superó el cuello en {_ar(n_now)}: objetivo {_ar(target)}." if broke
+                    else f"Tres mínimos, el del medio más bajo. Si BTC cierra arriba del cuello ({_ar(n_now)}), "
+                         f"se confirma y el objetivo es {_ar(target)}.")
+            return result("Hombro-cabeza-hombro invertido", "alcista", [neck], shoulders, target, desc, broke)
+    # doble techo / doble piso: dos extremos parecidos y el cuello en el giro del medio
     if len(highs) >= 2 and highs[-1][1] > highs[-2][1]:
         a, b = highs[-2], highs[-1]
         mid = [p for p in lows if a[1] < p[1] < b[1]]
-        if mid and abs(a[2] - b[2]) < tol and min(a[2], b[2]) - mid[0][2] > 2 * tol and P[-1][1] >= b[1]:
-            neck = (t(mid[0][1]), mid[0][2], 0.0)
-            top = (a[2] + b[2]) / 2
-            return result("Doble techo", "bajista", [neck, (t(a[1]), top, 0.0)], mid[0][2] - (top - mid[0][2]),
-                          "Dos máximos parecidos. Se confirma si pierde el mínimo intermedio (línea de cuello).", px < mid[0][2])
+        if (mid and abs(a[2] - b[2]) < tol and min(a[2], b[2]) - mid[0][2] > 2 * tol and P[-1][1] >= b[1]
+                and still_valid(b, "bajista", max(a[2], b[2]), lambda j: mid[0][2])):
+            neck, top = mid[0][2], (a[2] + b[2]) / 2
+            target, broke = neck - (top - neck), px < neck
+            desc = (f"Dos máximos parecidos cerca de {_ar(top)}. BTC perdió el cuello en {_ar(neck)}: objetivo {_ar(target)}." if broke
+                    else f"Dos máximos parecidos cerca de {_ar(top)}. Si BTC cierra debajo del cuello ({_ar(neck)}), "
+                         f"se confirma y el objetivo es {_ar(target)}.")
+            return result("Doble techo", "bajista", [flat_line(mid[0], "Cuello")],
+                          [point(a, "Techo 1"), point(b, "Techo 2")], target, desc, broke)
     if len(lows) >= 2 and lows[-1][1] > lows[-2][1]:
         a, b = lows[-2], lows[-1]
         mid = [p for p in highs if a[1] < p[1] < b[1]]
-        if mid and abs(a[2] - b[2]) < tol and mid[0][2] - max(a[2], b[2]) > 2 * tol and P[-1][1] >= b[1]:
-            neck = (t(mid[0][1]), mid[0][2], 0.0)
-            bot = (a[2] + b[2]) / 2
-            return result("Doble piso", "alcista", [neck, (t(a[1]), bot, 0.0)], mid[0][2] + (mid[0][2] - bot),
-                          "Dos mínimos parecidos. Se confirma si supera el máximo intermedio (línea de cuello).", px > mid[0][2])
+        if (mid and abs(a[2] - b[2]) < tol and mid[0][2] - max(a[2], b[2]) > 2 * tol and P[-1][1] >= b[1]
+                and still_valid(b, "alcista", min(a[2], b[2]), lambda j: mid[0][2])):
+            neck, bot = mid[0][2], (a[2] + b[2]) / 2
+            target, broke = neck + (neck - bot), px > neck
+            desc = (f"Dos mínimos parecidos cerca de {_ar(bot)}. BTC superó el cuello en {_ar(neck)}: objetivo {_ar(target)}." if broke
+                    else f"Dos mínimos parecidos cerca de {_ar(bot)}. Si BTC cierra arriba del cuello ({_ar(neck)}), "
+                         f"se confirma y el objetivo es {_ar(target)}.")
+            return result("Doble piso", "alcista", [flat_line(mid[0], "Cuello")],
+                          [point(a, "Piso 1"), point(b, "Piso 2")], target, desc, broke)
     # triangulos, cunas y canales con los dos ultimos maximos y minimos
     if len(highs) >= 2 and len(lows) >= 2:
         h1, h2, l1, l2 = highs[-2], highs[-1], lows[-2], lows[-1]
-        up_l, lo_l = line(h1, h2), line(l1, l2)
+        up_l, lo_l = line(h1, h2, "Techo"), line(l1, l2, "Piso")
         bar_ms = bars[-1][0] - bars[-2][0]
         su, sl = up_l[2] * bar_ms * 20 / px, lo_l[2] * bar_ms * 20 / px     # pendiente en 20 velas, en fraccion del precio
         flat = 0.003
@@ -686,18 +722,66 @@ def patron_grafico(bars, pivots, atr_last):
         else:
             name, bias = "Rango lateral", "neutral"
         height = max(width0, width)
+        art = "una" if name.startswith("Cuña") else "un"
+        val = lambda ln, j: ln[1] + ln[2] * (t(j) - ln[0])
+        recent = range(max(0, i_last - 20), i_last)
         if px > u_now + tol:
-            return result(f"Ruptura alcista de {name.lower()}", "alcista", [up_l, lo_l], u_now + height,
-                          f"El precio cerró arriba de la línea superior del {name.lower()}.", True)
+            if not any(bars[j][4] <= val(up_l, j) for j in recent):
+                return None             # la ruptura fue hace mucho: la figura ya no esta vigente
+            target = u_now + height
+            return result(f"Ruptura alcista de {name.lower()}", "alcista", [up_l, lo_l], [], target,
+                          f"BTC rompió hacia arriba el techo de {art} {name.lower()} en {_ar(u_now)}: "
+                          f"el objetivo de la ruptura es {_ar(target)}.", True)
         if px < l_now - tol:
-            return result(f"Ruptura bajista de {name.lower()}", "bajista", [up_l, lo_l], l_now - height,
-                          f"El precio cerró debajo de la línea inferior del {name.lower()}.", True)
+            if not any(bars[j][4] >= val(lo_l, j) for j in recent):
+                return None
+            target = l_now - height
+            return result(f"Ruptura bajista de {name.lower()}", "bajista", [up_l, lo_l], [], target,
+                          f"BTC rompió hacia abajo el piso de {art} {name.lower()} en {_ar(l_now)}: "
+                          f"el objetivo de la ruptura es {_ar(target)}.", True)
         target = u_now + height if bias == "alcista" else l_now - height if bias == "bajista" else None
-        side = {"alcista": "suele romper hacia arriba", "bajista": "suele romper hacia abajo",
-                "neutral": "puede romper para cualquier lado: la dirección la da la ruptura"}[bias]
-        return result(name, bias, [up_l, lo_l], target,
-                      f"El precio se mueve entre {_ar(l_now)} y {_ar(u_now)}; {side}.", False)
+        if bias == "alcista":
+            side = f"suele romper hacia arriba; si supera {_ar(u_now)}, el objetivo es {_ar(target)}"
+        elif bias == "bajista":
+            side = f"suele romper hacia abajo; si pierde {_ar(l_now)}, el objetivo es {_ar(target)}"
+        else:
+            side = "puede romper para cualquier lado: la dirección la da la ruptura"
+        return result(name, bias, [up_l, lo_l], [], target,
+                      f"BTC se mueve entre un piso en {_ar(l_now)} y un techo en {_ar(u_now)}; {side}.", False)
     return None
+
+
+def divergencias(bars, pivots, max_age=40, min_gap=5):
+    """Divergencias clasicas en RSI y MACD sobre los dos ultimos giros del precio del mismo tipo.
+
+    Bajista: el precio hace un maximo mas alto y el indicador uno mas bajo. Alcista: el precio hace un
+    minimo mas bajo y el indicador uno mas alto. Solo cuentan si el ultimo giro es reciente.
+    """
+    c = [b[4] for b in bars]
+    series = {"RSI": rsi(c), "MACD": macd(c)[0]}
+    last = len(bars) - 1
+    out = []
+    for kind in ("alto", "bajo"):
+        pts = [p for p in pivots if p[0] == kind]
+        if len(pts) < 2:
+            continue
+        a, b = pts[-2], pts[-1]
+        if last - b[1] > max_age or b[1] - a[1] < min_gap:
+            continue
+        for name, ser in series.items():
+            va, vb = ser[a[1]], ser[b[1]]
+            # una diferencia minima en el indicador no es divergencia: es ruido
+            if va is None or vb is None or abs(vb - va) < (2 if name == "RSI" else 0.05 * abs(va)):
+                continue
+            if kind == "alto" and b[2] > a[2] and vb < va:
+                tipo = "bajista"
+            elif kind == "bajo" and b[2] < a[2] and vb > va:
+                tipo = "alcista"
+            else:
+                continue
+            out.append({"indicador": name, "tipo": tipo, "t1": bars[a[1]][0], "p1": a[2], "t2": bars[b[1]][0], "p2": b[2],
+                        "v1": round(va, 2), "v2": round(vb, 2)})
+    return out
 
 
 def pivotes(prev_day):

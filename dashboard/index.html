@@ -118,6 +118,7 @@
   .ab-pat-line { fill: none; stroke-width: 1.6; stroke-dasharray: 6 4; }
   .ab-pat-lbl { font-size: 10.5px; font-weight: 600; }
   .ab-pat-mark { font-size: 12px; text-anchor: middle; dominant-baseline: central; }
+  .ab-pill-svg text { font-size: 10.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
 
   /* precio */
   .ab-price { font-family: var(--serif); font-weight: 400; font-size: clamp(2.6rem, 5vw, 3.4rem); line-height: 1; letter-spacing: -.02em; }
@@ -215,6 +216,10 @@
     box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; z-index: 3; display: grid; gap: 2px; }
   .ab-tip-d { color: var(--cds-text-secondary); }
   .ab-tip-g { display: grid; grid-template-columns: auto auto; gap: 0 10px; }
+  .ab-explain { display: grid; gap: 6px; }
+  .ab-ex-item { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 8px; font-size: var(--cds-font-size-caption); color: var(--mute); line-height: 1.45; }
+  .ab-ex-item i { display: block; width: 14px; height: 8px; border-radius: 2px; margin-top: .45em; box-sizing: border-box; }
+  .ab-ex-item b { color: var(--ink); font-weight: 600; }
   .ab-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: var(--cds-font-size-caption); color: var(--mute); }
   .ab-legend span { display: inline-flex; align-items: center; gap: 6px; }
   .ab-legend i { width: 14px; height: 8px; border-radius: 2px; display: inline-block; }
@@ -296,6 +301,10 @@
   @media (prefers-reduced-motion: reduce) {
     .ab-ghost, .ab-ring-val, .ab-needle, .ab-split div, .ab-range-iqr, .ab-range-mark, .ab-range-now, .ab-lv-bar, .ab-book-tr i, .ab-vote-bar i, .ab-seg-thumb { transition: none !important; }
   }
+  @media (prefers-reduced-motion: no-preference) {
+    .ab-fresh .ab-card, .ab-fresh .ab-plazo, .ab-fresh .ab-more[open] { animation: ab-fresh 1.1s ease-out; }
+  }
+  @keyframes ab-fresh { 0% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-ok) 70%, transparent); } 100% { box-shadow: 0 0 0 1px transparent; } }
   @keyframes ab-in { from { opacity: .001; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   @keyframes ab-rise { from { opacity: .001; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   @keyframes ab-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
@@ -370,7 +379,7 @@
           <button type="button" class="ab-chipbtn" data-layer="ema" aria-pressed="true"><i style="background: var(--ab-c0)"></i>EMA 20 / 50</button>
           <button type="button" class="ab-chipbtn" data-layer="bb" aria-pressed="true"><i style="background: var(--color-fg-muted)"></i>Bollinger</button>
           <button type="button" class="ab-chipbtn" data-layer="fvg" aria-pressed="true"><i style="background: var(--color-ok)"></i>FVG</button>
-          <button type="button" class="ab-chipbtn" data-layer="patrones" aria-pressed="true"><i style="background: var(--color-warn)"></i>Patrones</button>
+          <button type="button" class="ab-chipbtn" data-layer="patrones" aria-pressed="true"><i style="background: var(--color-warn)"></i>Patrones y divergencias</button>
           <button type="button" class="ab-chipbtn" data-layer="ondas" aria-pressed="true"><i style="background: var(--color-fg)"></i>Ondas</button>
           <button type="button" class="ab-chipbtn" data-layer="liq" aria-pressed="true"><i style="background: var(--color-bad)"></i>Liquidaciones</button>
           <button type="button" class="ab-iconbtn" id="replay">↻ Repetir</button>
@@ -387,7 +396,8 @@
         <span class="ab-note">Rueda: zoom · arrastrá el gráfico para ir atrás · arrastrá el eje de precios para comprimirlo · doble clic: ajustar</span>
       </div>
       <div class="ab-chart dash-skeleton" id="chart" data-source="analisis"></div>
-      <div class="ab-legend" id="legend"></div>
+      <span class="ab-kicker">Qué estás viendo</span>
+      <div class="ab-explain" id="legend"></div>
       <p class="ab-note" id="scen-note"></p>
     </section>
 
@@ -430,7 +440,7 @@
       </div>
     </details>
     <details class="ab-more" id="ondas" data-source="analisis">
-      <summary><span>Patrones, ondas de Elliott y FVG</span><span class="ab-kicker" id="ond-tf"></span></summary>
+      <summary><span>Patrones, divergencias, ondas de Elliott y FVG</span><span class="ab-kicker" id="ond-tf"></span></summary>
       <div class="ab-more-body">
         <div class="ab-pats" id="pats" data-source="analisis"></div>
         <span class="ab-kicker">Ondas de Elliott</span>
@@ -619,6 +629,9 @@
     const rows = res.data;
     const sum = pick(rows, 'resumen')[0];
     S.rows = rows; S.sum = sum;
+    const nA = window.abAnalyses || 1;
+    if (S.lastA && nA !== S.lastA) { root.classList.remove('ab-fresh'); void root.offsetWidth; root.classList.add('ab-fresh'); }
+    S.lastA = nA;
     document.querySelectorAll('#tfs button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.tf === S.tf)));
     root.style.setProperty('--ab-c0', dash.colors[0]);
     drawHeader(rows, sum);
@@ -787,7 +800,7 @@
     if (ghostTimer) { clearInterval(ghostTimer); ghostTimer = null; }
     const box = document.getElementById('chart'); box.replaceChildren();
     const tf = S.tf, price = liveBar && liveBar.tf === tf ? liveBar.c : num(sum.precio), L = S.layers;
-    const all = pick(rows, 'vela', tf).map((r) => ({ t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), v: num(r.v),
+    const all = pick(rows, 'vela', tf).map((r) => ({ t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), v: num(r.v), en: !!r.en_curso,
       e20: num(r.ema20), e50: num(r.ema50), bu: num(r.bb_up), bl: num(r.bb_lo) })).sort((a, b) => a.t - b.t);
     if (!all.length) return;
     if (liveBar && liveBar.tf === tf) {
@@ -832,6 +845,18 @@
       tip.style.left = Math.max(4, px > box.clientWidth / 2 ? px - tip.offsetWidth - 14 : px + 14) + 'px'; tip.style.top = '10px';
     };
     const tfMs = TF_MIN[tf] * 60000;
+    const pill = (g, px, py, text, col, solid, anchor = 'start') => {
+      const gr = g.append('g').attr('class', 'ab-pill-svg');
+      const t = gr.append('text').attr('dy', '.34em').style('fill', col).text(text);
+      const w = t.node().getComputedTextLength() + 14;
+      let x0 = anchor === 'end' ? px - w : anchor === 'middle' ? px - w / 2 : px;
+      x0 = Math.max(m.l + 2, Math.min(x0, plotR - w - 2));
+      const y0 = Math.max(m.t + 2, Math.min(py, priceB - 10));
+      gr.insert('rect', 'text').attr('x', x0).attr('y', y0 - 9).attr('width', w).attr('height', 18).attr('rx', 9)
+        .style('fill', col).style('fill-opacity', solid ? .2 : .08).style('stroke', col).style('stroke-opacity', solid ? .9 : .55)
+        .style('stroke-dasharray', solid ? null : '3 2');
+      t.attr('x', x0 + 7).attr('y', y0);
+    };
     const xt = (t) => cxi(0) + (t - bars[0].t) / tfMs * x.step();
     const defs = svg.append('defs');
     defs.append('clipPath').attr('id', 'ab-clip').append('rect').attr('x', m.l).attr('y', m.t - 16).attr('width', plotR - m.l).attr('height', priceB - m.t + 16);
@@ -896,17 +921,35 @@
       pick(rows, 'patron', tf).forEach((p) => {
         const col = p.sesgo === 'alcista' ? 'var(--color-ok)' : p.sesgo === 'bajista' ? 'var(--color-bad)' : 'var(--color-warn)';
         if (p.clase === 'grafico') {
+          const conf = p.estado === 'confirmado';
           let label = null;
           [1, 2].forEach((k) => {
             const t0 = num(p[`l${k}_t`]); if (t0 === null) return;
             const p0 = num(p[`l${k}_p`]), mm = num(p[`l${k}_m`]), val = (t) => p0 + mm * (t - t0), ta = Math.max(t0, bars[0].t);
-            pg.append('line').attr('class', 'ab-pat-line').style('stroke', col).attr('x1', xt(ta)).attr('y1', y(val(ta))).attr('x2', xt(endT)).attr('y2', y(val(endT)));
-            if (!label) label = { x: xt(ta) + 4, y: y(val(ta)) - 7 };
+            pg.append('line').attr('class', 'ab-pat-line').style('stroke', col).style('stroke-dasharray', conf ? null : '6 4')
+              .style('stroke-width', conf ? 2 : 1.4).attr('x1', xt(ta)).attr('y1', y(val(ta))).attr('x2', xt(endT)).attr('y2', y(val(endT)));
+            // el nombre de la linea y su precio de hoy, junto a la ultima vela
+            const name = p[`l${k}_nombre`] || '', now = val(lastT);
+            const when = name === 'Cuello' && !conf ? (p.sesgo === 'alcista' ? ' · se confirma si lo supera' : ' · se confirma si lo pierde') : '';
+            if (now > lo && now < hi) pill(pg, xt(lastT) - 10, y(now) + (name === 'Piso' ? 14 : -14), `${name} ${f0(now)}${when}`, col, false, 'end');
+            if (!label) label = { x: xt(ta) + 4, y: y(val(ta)) + (name === 'Piso' ? 16 : -16) };
           });
-          if (label) pg.append('text').attr('class', 'ab-pat-lbl').style('fill', col).attr('x', label.x).attr('y', Math.max(m.t + 4, label.y)).text(p.nombre);
+          // los puntos que forman la figura: pisos, techos, hombros y cabeza
+          let first = null;
+          [1, 2, 3].forEach((k) => {
+            const t0 = num(p[`pt${k}_t`]); if (t0 === null) return;
+            const i = bars.findIndex((b) => b.t === t0); if (i < 0) return;
+            const below = p.sesgo === 'alcista', py0 = y(num(p[`pt${k}_p`]));
+            pg.append('circle').attr('cx', cxi(i)).attr('cy', py0).attr('r', 4.5).style('fill', 'var(--color-panel)').style('stroke', col).style('stroke-width', 2);
+            pg.append('text').attr('class', 'ab-pat-lbl').style('fill', col).attr('x', cxi(i)).attr('y', py0 + (below ? 17 : -10))
+              .attr('text-anchor', 'middle').text(p[`pt${k}_nombre`]);
+            if (!first) first = { x: cxi(i), y: py0 + (below ? 34 : -28) };
+          });
+          const head = first || label;
+          if (head) pill(pg, head.x, head.y, conf ? `✓ ${p.nombre}` : `Posible ${p.nombre.toLowerCase()}`, col, conf, first ? 'middle' : 'start');
           const obj = num(p.objetivo);
-          if (obj !== null) {
-            const txt = `Objetivo ${p.nombre.toLowerCase()}: ${f0(obj)}`;
+          if (obj !== null && live) {
+            const txt = `${conf ? 'Objetivo' : 'Objetivo si se confirma'}: ${f0(obj)}`;
             if (obj > lo && obj < hi) {
               svg.append('line').attr('class', 'ab-pat-line').style('stroke', col).attr('x1', fx).attr('x2', plotR).attr('y1', y(obj)).attr('y2', y(obj));
               svg.append('text').attr('class', 'ab-pat-lbl').style('fill', col).attr('x', plotR - 4).attr('y', y(obj) - 5).attr('text-anchor', 'end').text(txt);
@@ -920,8 +963,26 @@
           const below = p.sesgo === 'alcista';
           const yy = below ? y(bars[i].l) + 12 : y(bars[i].h) - 12;
           pg.append('text').attr('class', 'ab-pat-mark').style('fill', col).attr('x', cxi(i)).attr('y', yy).text(p.sesgo === 'alcista' ? '▲' : p.sesgo === 'bajista' ? '▼' : '◆');
-          pg.append('text').attr('class', 'ab-pat-lbl').style('fill', col).attr('x', cxi(i) - 8).attr('y', below ? yy + 13 : yy - 11).attr('text-anchor', 'end').text(p.nombre);
+          pill(pg, cxi(i) - 8, below ? yy + 16 : yy - 16, p.exito !== null ? `${p.nombre} · funcionó ${f0(num(p.exito))}%` : p.nombre, col, false, 'end');
         }
+      });
+    }
+    if (L.patrones) {
+      const pd = svg.append('g').attr('clip-path', 'url(#ab-clip)');
+      const groups = {};
+      pick(rows, 'divergencia', tf).forEach((d) => {
+        const k = `${d.t1}-${d.t2}-${d.tipo}`;
+        (groups[k] = groups[k] || { ...d, names: [] }).names.push(d.indicador);
+      });
+      Object.values(groups).forEach((d) => {
+        const i1 = bars.findIndex((b) => b.t === num(d.t1)), i2 = bars.findIndex((b) => b.t === num(d.t2));
+        if (i1 < 0 || i2 < 0) return;
+        const col = d.tipo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)', off = d.tipo === 'bajista' ? -9 : 9;
+        const x1 = cxi(i1), y1 = y(num(d.p1)) + off, x2 = cxi(i2), y2 = y(num(d.p2)) + off;
+        pd.append('line').attr('x1', x1).attr('y1', y1).attr('x2', x2).attr('y2', y2).style('stroke', col).style('stroke-width', 2.2).style('stroke-linecap', 'round');
+        [[x1, y1], [x2, y2]].forEach(([cx, cy]) => pd.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 3.5).style('fill', col));
+        // la etiqueta va en el medio de la linea: en las puntas estan las marcas de las ondas
+        pill(pd, (x1 + x2) / 2, (y1 + y2) / 2 + (d.tipo === 'bajista' ? -14 : 14), `Div. ${d.tipo} · ${d.names.join(' + ')}`, col, true, 'middle');
       });
     }
     // volumen
@@ -1001,22 +1062,44 @@
         if (!fut) g.append(el('span', 'ab-tip-d', 'Volumen'), el('span', '', `${f1(b.v)} BTC`));
         const head = fut
           ? [el('div', '', `${fmtT(b.t, tf)} h · dentro de ${dur(b.k * TF_MIN[tf])}`), el('div', 'ab-tip-d', `Vela futura ${b.k} del escenario ${SCEN_TXT[S.scen]}`)]
-          : [el('div', 'ab-tip-d', `${fmtT(b.t, tf)} h`)];
+          : [el('div', 'ab-tip-d', `${fmtT(b.t, tf)} h${b.en || (liveBar && liveBar.t === b.t) ? ' · vela en curso' : ''}`)];
         showTip([...head, g], cxi(i));
       })
       .on('pointerleave', () => { tip.hidden = true; cross.style('display', 'none'); });
 
-    // leyenda y nota
+    // que estas viendo: una linea por cada cosa dibujada, solo de las capas activas
     const leg = document.getElementById('legend'); leg.replaceChildren();
-    const item = (bg, txt, border) => { const s = el('span'); const i = el('i'); i.style.background = bg; if (border) i.style.border = border; s.append(i, txt); leg.append(s); };
-    if (L.ema) { item(dash.colors[0], 'EMA 20'); item(dash.colors[1], 'EMA 50'); }
-    item('transparent', 'Velas del escenario', '1px dashed var(--color-fg-muted)');
-    item('color-mix(in srgb, var(--color-fg) 16%, transparent)', 'Donde terminó el 80% de los casos');
-    if (L.fvg) item('color-mix(in srgb, var(--color-ok) 30%, transparent)', 'FVG alcista / bajista');
-    if (L.liq) item('linear-gradient(90deg, var(--color-bad), var(--color-ok))', 'Liquidaciones de longs / shorts');
-    document.getElementById('scen-note').textContent = ghosts.length
-      ? `Las velas punteadas son un camino real del ${ghosts[0].desde.split('-').reverse().join('/')}, cuando BTC estaba en una situación parecida, llevado al precio de hoy. Las liquidaciones son una estimación con open interest y ratio long/short.`
-      : 'No hay suficientes situaciones parecidas para armar escenarios en esta temporalidad.';
+    const item = (sw, title, text) => {
+      const r = el('div', 'ab-ex-item'), i = el('i'); Object.assign(i.style, sw);
+      const t = el('span'); t.append(el('b', '', title), ' ', text); r.append(i, t); leg.append(r);
+    };
+    const C = (c) => ({ background: c }), D = (c) => ({ background: 'transparent', border: `1.5px dashed ${c}` });
+    pick(rows, 'patron', tf).filter((p) => L.patrones && p.clase === 'grafico').forEach((p) => {
+      const col = p.sesgo === 'alcista' ? 'var(--color-ok)' : p.sesgo === 'bajista' ? 'var(--color-bad)' : 'var(--color-warn)';
+      item(p.estado === 'confirmado' ? C(col) : D(col), `${p.estado === 'confirmado' ? '✓' : 'Posible'} ${p.nombre.toLowerCase()}:`, p.descripcion);
+    });
+    const dvs = {};
+    if (L.patrones) pick(rows, 'divergencia', tf).forEach((d) => { const k = `${d.t1}-${d.t2}-${d.tipo}`; (dvs[k] = dvs[k] || { ...d, names: [] }).names.push(d.indicador); });
+    Object.values(dvs).forEach((d) => item(C(d.tipo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)'), `Divergencia ${d.tipo} (${d.names.join(' + ')}):`,
+      d.tipo === 'bajista' ? `el precio hizo un máximo más alto (${f0(num(d.p1))} → ${f0(num(d.p2))}) pero ${d.names.join(' y ')} no acompañó: la suba pierde fuerza.`
+        : `el precio hizo un mínimo más bajo (${f0(num(d.p1))} → ${f0(num(d.p2))}) pero ${d.names.join(' y ')} no acompañó: la baja pierde fuerza.`));
+    pick(rows, 'patron', tf).filter((p) => L.patrones && p.clase === 'vela' && bars.some((b) => b.t === num(p.t))).forEach((p) =>
+      item(C(p.sesgo === 'alcista' ? 'var(--color-ok)' : p.sesgo === 'bajista' ? 'var(--color-bad)' : 'var(--color-warn)'), `Flechita · ${p.nombre}:`, p.descripcion));
+    if (pick(rows, 'explicacion').some((e) => e.plazo === S.plazo && e.tipo === 'vigilar'))
+      item(D('var(--color-fg-muted)'), 'Líneas largas verde y roja:', `resistencia y soporte más cercanos para el plazo de ${S.plazo}.`);
+    if (ghosts.length) item(D('var(--color-fg-muted)'), 'Velas punteadas a la derecha:',
+      `un camino real del ${ghosts[0].desde.split('-').reverse().join('/')}, cuando BTC estaba en una situación parecida, llevado al precio de hoy. La zona gris es donde terminó el 80% de esos casos y la línea vertical, la hora del plazo elegido.`);
+    if (L.ondas && giros.some((g) => g.w)) {
+      const mk = pick(rows, 'marco', tf)[0];
+      item({ background: 'transparent', border: '1.5px solid var(--color-fg)', borderRadius: '50%', width: '10px', height: '10px' }, 'Círculos con letras o números:',
+        `conteo de Elliott. ${mk ? mk.elliott : ''}.`);
+    }
+    if (L.fvg && fvgs.length) item(C('color-mix(in srgb, var(--color-ok) 35%, transparent)'), 'Franjas verdes o rojas:', 'huecos (FVG) que el precio dejó sin operar; suele volver a llenarlos.');
+    if (L.ema) item({ background: `linear-gradient(90deg, ${dash.colors[0]} 50%, ${dash.colors[1]} 50%)` }, 'Líneas azul y naranja:', 'medias móviles EMA 20 y EMA 50.');
+    if (L.bb) item(C('color-mix(in srgb, var(--color-fg) 12%, transparent)'), 'Banda gris:', 'Bollinger, el rango normal del precio en las últimas 20 velas.');
+    if (L.liq) item({ background: 'linear-gradient(90deg, var(--color-bad), var(--color-ok))' }, 'Barras de la derecha:',
+      'liquidaciones estimadas. Rojas: longs que se liquidan si baja; verdes: shorts si sube. Pasá el mouse para ver los USD.');
+    document.getElementById('scen-note').textContent = ghosts.length || !live ? '' : 'No hay suficientes situaciones parecidas para armar escenarios en esta temporalidad.';
 
     S.geom = { W, plotR, heatW, step: x.step() };
     if (!ghosts.length) return;
@@ -1143,7 +1226,7 @@
     document.getElementById('ond-tf').textContent = TF_TXT[S.tf];
     const pats = document.getElementById('pats'); pats.replaceChildren();
     const list = pick(rows, 'patron', S.tf).sort((a, b) => (a.clase === 'grafico' ? -1 : 1));
-    if (!list.length) pats.append(el('p', 'ab-note', 'Sin figuras ni patrones de velas claros en esta temporalidad.'));
+    if (!list.length && !pick(rows, 'divergencia', S.tf).length) pats.append(el('p', 'ab-note', 'Sin figuras, patrones de velas ni divergencias claras en esta temporalidad.'));
     list.forEach((p) => {
       const card = el('div', 'ab-pat'); const top = el('div', 'ab-pat-top');
       const chip = el('span', 'ab-sigchip ab-' + (p.sesgo === 'alcista' ? 'compra' : p.sesgo === 'bajista' ? 'venta' : 'neutral'),
@@ -1157,6 +1240,17 @@
         i.style.width = '0'; tr.append(i); r.append(tr, el('span', '', `${f0(num(p.exito))}% de ${num(p.casos)}`)); card.append(r);
         later(() => { i.style.width = num(p.exito) + '%'; });
       }
+      pats.append(card);
+    });
+    const dg = {};
+    pick(rows, 'divergencia', S.tf).forEach((d) => {
+      const k = `${d.t1}-${d.t2}-${d.tipo}`; (dg[k] = dg[k] || { ...d, names: [] }).names.push(d.indicador);
+    });
+    Object.values(dg).forEach((d) => {
+      const card = el('div', 'ab-pat'); const top = el('div', 'ab-pat-top');
+      top.append(el('b', '', `Divergencia ${d.tipo}`), el('span', 'ab-sigchip ab-' + (d.tipo === 'alcista' ? 'compra' : 'venta'), d.names.join(' + ')));
+      const hiLo = d.tipo === 'bajista' ? 'máximo más alto' : 'mínimo más bajo', mom = d.tipo === 'bajista' ? 'la suba pierde fuerza' : 'la baja pierde fuerza';
+      card.append(top, el('p', '', `El precio hizo un ${hiLo} (${f0(num(d.p1))} → ${f0(num(d.p2))}) pero ${d.names.join(' y ')} no acompañó: ${mom}.`));
       pats.append(card);
     });
     const w = document.getElementById('wave'); w.setAttribute('data-where', `tabla=marco&tf=${S.tf}`);
