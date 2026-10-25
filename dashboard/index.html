@@ -1,7 +1,8 @@
 <style>
   /* Layout: franja superior (precio · prediccion protagonista · sesgo), selector de temporalidad,
      grafico grande con panel de probabilidades al costado, y debajo senales, niveles, ondas, indicadores. */
-  #dash-root { --dash-gutter: clamp(12px, 3vw, 32px); }
+  /* sin zoom por doble toque en el iPhone (el pellizco sigue andando); el grafico usa sus propios gestos */
+  #dash-root { --dash-gutter: clamp(12px, 3vw, 32px); touch-action: manipulation; }
   .ab { --up: var(--color-ok); --down: var(--color-bad); --mute: var(--color-fg-muted); --line: var(--color-border-line);
     --panel: var(--color-panel); --ink: var(--color-fg); --paper: var(--color-bg);
     --serif: var(--font-anthropic-serif); --sans: var(--font-anthropic-sans);
