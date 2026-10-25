@@ -35,7 +35,7 @@ SHELL = """<!doctype html>
 @media (prefers-color-scheme: dark) { :root { --color-fg: #e8eaee; --color-fg-muted: #949bab; --color-bg: #121418; --color-panel: #1b1e24;
   --color-border-line: #2b3038; --color-ok: #3cc58a; --color-warn: #e0a64a; --color-bad: #f0645a; --cds-chart-grid: #252a31;
   --cds-surface-popover: #22262d; --cds-border: #343a43; --cds-shadow-popover: 0 6px 24px rgba(0,0,0,.45); --cds-text-secondary: #949bab; color-scheme: dark; } }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }   /* sin zoom por doble toque */
 body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14px var(--font-anthropic-sans); }
 /* abierta desde la pantalla de inicio del iPhone: respeta la isla y la barra de abajo */
 #dash-root { padding-top: max(24px, env(safe-area-inset-top)); padding-bottom: max(40px, calc(env(safe-area-inset-bottom) + 56px));

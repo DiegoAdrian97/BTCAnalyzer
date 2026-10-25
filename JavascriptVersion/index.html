@@ -25,7 +25,7 @@
 @media (prefers-color-scheme: dark) { :root { --color-fg: #e8eaee; --color-fg-muted: #949bab; --color-bg: #121418; --color-panel: #1b1e24;
   --color-border-line: #2b3038; --color-ok: #3cc58a; --color-warn: #e0a64a; --color-bad: #f0645a; --cds-chart-grid: #252a31;
   --cds-surface-popover: #22262d; --cds-border: #343a43; --cds-shadow-popover: 0 6px 24px rgba(0,0,0,.45); --cds-text-secondary: #949bab; color-scheme: dark; } }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }   /* sin zoom por doble toque */
 body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14px var(--font-anthropic-sans); }
 /* abierta desde la pantalla de inicio del iPhone: respeta la isla y la barra de abajo */
 #dash-root { padding-top: max(24px, env(safe-area-inset-top)); padding-bottom: max(40px, calc(env(safe-area-inset-bottom) + 56px));
@@ -45,7 +45,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 <style>
   /* Layout: franja superior (precio · prediccion protagonista · sesgo), selector de temporalidad,
      grafico grande con panel de probabilidades al costado, y debajo senales, niveles, ondas, indicadores. */
-  #dash-root { --dash-gutter: clamp(12px, 3vw, 32px); }
+  /* sin zoom por doble toque en el iPhone (el pellizco sigue andando); el grafico usa sus propios gestos */
+  #dash-root { --dash-gutter: clamp(12px, 3vw, 32px); touch-action: manipulation; }
   .ab { --up: var(--color-ok); --down: var(--color-bad); --mute: var(--color-fg-muted); --line: var(--color-border-line);
     --panel: var(--color-panel); --ink: var(--color-fg); --paper: var(--color-bg);
     --serif: var(--font-anthropic-serif); --sans: var(--font-anthropic-sans);

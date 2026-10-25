@@ -847,6 +847,7 @@ LOCAL_SHELL = """<!doctype html>
 @media (prefers-color-scheme: dark) { :root { --color-fg: #e8eaee; --color-fg-muted: #949bab; --color-bg: #121418; --color-panel: #1b1e24;
   --color-border-line: #2b3038; --color-ok: #3cc58a; --color-warn: #e0a64a; --color-bad: #f0645a; --cds-chart-grid: #252a31;
   --cds-surface-popover: #22262d; --cds-border: #343a43; --cds-shadow-popover: 0 6px 24px rgba(0,0,0,.45); --cds-text-secondary: #949bab; color-scheme: dark; } }
+html { touch-action: manipulation; }   /* sin zoom por doble toque en el telefono */
 body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14px var(--font-anthropic-sans); }
 #dash-root { padding-block: 24px 40px; padding-left: max(16px, var(--dash-gutter, 24px)); padding-right: max(16px, var(--dash-gutter, 24px)); }
 </style>
