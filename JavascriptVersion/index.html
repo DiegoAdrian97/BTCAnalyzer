@@ -1,0 +1,1621 @@
+<!doctype html>
+<!-- Generado por generar_pagina.py desde dashboard/index.html: no editar a mano -->
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Analista BTC</title>
+<meta name="description" content="Análisis de BTC/USDT en vivo, calculado en el teléfono.">
+<meta name="theme-color" content="#121418">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Analista BTC">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icono-180.png">
+<link rel="icon" type="image/png" href="icono-192.png">
+<style>
+:root { --color-fg: #1d2129; --color-fg-muted: #6a7180; --color-bg: #f3f4f6; --color-panel: #ffffff;
+  --color-border-line: #e2e5ea; --color-ok: #138a5b; --color-warn: #b7791f; --color-bad: #c8423a;
+  --font-anthropic-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-anthropic-serif: Georgia, "Times New Roman", serif;
+  --cds-font-size-caption: .78rem; --cds-font-size-body: .95rem; --cds-font-size-heading: 1.08rem; --cds-font-size-title: 1.6rem;
+  --cds-font-weight-medium: 600; --cds-gap-xs: 4px; --cds-gap-sm: 8px; --cds-gap-md: 14px; --cds-gap-lg: 22px; --cds-gap-xl: 32px;
+  --cds-pad-xs: 4px; --cds-pad-sm: 8px; --cds-pad-md: 12px; --cds-pad-lg: 18px; --cds-pad-xl: 28px; --cds-radius: 8px;
+  --cds-chart-grid: #eceef2; --cds-surface-popover: #ffffff; --cds-border: #dde1e7; --cds-shadow-popover: 0 6px 24px rgba(20,24,32,.12);
+  --cds-text-secondary: #6a7180; --cds-ease-out: cubic-bezier(.2,.8,.2,1); --cds-dur-slow: .4s; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root { --color-fg: #e8eaee; --color-fg-muted: #949bab; --color-bg: #121418; --color-panel: #1b1e24;
+  --color-border-line: #2b3038; --color-ok: #3cc58a; --color-warn: #e0a64a; --color-bad: #f0645a; --cds-chart-grid: #252a31;
+  --cds-surface-popover: #22262d; --cds-border: #343a43; --cds-shadow-popover: 0 6px 24px rgba(0,0,0,.45); --cds-text-secondary: #949bab; color-scheme: dark; } }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14px var(--font-anthropic-sans); }
+/* abierta desde la pantalla de inicio del iPhone: respeta la isla y la barra de abajo */
+#dash-root { padding-top: max(24px, env(safe-area-inset-top)); padding-bottom: max(40px, calc(env(safe-area-inset-bottom) + 56px));
+  padding-left: max(16px, var(--dash-gutter, 24px), env(safe-area-inset-left)); padding-right: max(16px, var(--dash-gutter, 24px), env(safe-area-inset-right)); }
+#estado-app { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(14px, env(safe-area-inset-bottom)); z-index: 20;
+  display: flex; align-items: center; gap: 8px; max-width: min(34rem, calc(100vw - 32px)); padding: 9px 14px; border-radius: 999px;
+  background: var(--cds-surface-popover); border: 1px solid var(--cds-border); box-shadow: var(--cds-shadow-popover);
+  font-size: .8rem; line-height: 1.35; color: var(--color-fg); }
+#estado-app[hidden] { display: none; }
+#estado-app i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--color-ok); animation: ea 1.1s infinite alternate; }
+#estado-app.es-error i { background: var(--color-bad); animation: none; }
+@keyframes ea { to { opacity: .25; } }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="app.js"></script>
+</head><body><div id="dash-root">
+<style>
+  /* Layout: franja superior (precio · prediccion protagonista · sesgo), selector de temporalidad,
+     grafico grande con panel de probabilidades al costado, y debajo senales, niveles, ondas, indicadores. */
+  #dash-root { --dash-gutter: clamp(12px, 3vw, 32px); }
+  .ab { --up: var(--color-ok); --down: var(--color-bad); --mute: var(--color-fg-muted); --line: var(--color-border-line);
+    --panel: var(--color-panel); --ink: var(--color-fg); --paper: var(--color-bg);
+    --serif: var(--font-anthropic-serif); --sans: var(--font-anthropic-sans);
+    font-family: var(--sans); color: var(--ink); max-width: 84rem; margin-inline: auto; display: grid; gap: var(--cds-gap-lg); }
+  .ab * { box-sizing: border-box; }
+  .ab-row { display: grid; gap: var(--cds-gap-md); grid-template-columns: repeat(12, minmax(0, 1fr)); }
+  .ab-s3 { grid-column: span 3; } .ab-s4 { grid-column: span 4; } .ab-s5 { grid-column: span 5; } .ab-s8 { grid-column: span 8; } .ab-s12 { grid-column: span 12; }
+  @media (max-width: 1100px) { .ab-s3, .ab-s4, .ab-s5 { grid-column: span 6; } .ab-s5 { grid-column: span 12; order: -1; } .ab-s8 { grid-column: span 12; } }
+  @media (max-width: 700px) { .ab-row > * { grid-column: span 12 !important; } }
+
+  .ab-card { background: var(--panel); border: 1px solid var(--line); border-radius: calc(var(--cds-radius) * 1.5);
+    padding: var(--cds-pad-lg); display: grid; gap: var(--cds-gap-md); align-content: start; min-width: 0; position: relative; }
+  .ab-card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: var(--cds-gap-xs) var(--cds-gap-md); }
+  .ab-card h2 { margin: 0; font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); text-wrap: balance; }
+  .ab-kicker { font-size: var(--cds-font-size-caption); color: var(--mute); letter-spacing: .06em; text-transform: uppercase; }
+  .ab-note { margin: 0; font-size: var(--cds-font-size-caption); color: var(--mute); line-height: 1.5; }
+  .ab-num { font-variant-numeric: tabular-nums; }
+  .ab-up-t { color: var(--up); } .ab-down-t { color: var(--down); }
+
+  /* cabecera */
+  .ab-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: var(--cds-gap-md); }
+  .ab-head-l { display: grid; gap: var(--cds-gap-xs); min-width: 0; }
+  .ab-title { margin: 0; font-family: var(--serif); font-weight: 400; font-size: clamp(2rem, 4.5vw, 3rem); line-height: 1.05; letter-spacing: -.01em; }
+  .ab-live { display: inline-flex; align-items: center; gap: 8px; font-size: var(--cds-font-size-caption); color: var(--mute); }
+  .ab-live i { width: 8px; height: 8px; border-radius: 50%; background: var(--up); box-shadow: 0 0 0 0 color-mix(in srgb, var(--up) 60%, transparent); }
+  .ab-takeaway { margin: 0; max-width: 70ch; font-size: var(--cds-font-size-body); line-height: 1.55; color: var(--ink); }
+
+  /* cabecera con precio */
+  .ab-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: var(--cds-gap-md); }
+  .ab-top-l { display: grid; gap: var(--cds-gap-xs); min-width: 0; }
+  .ab-top-r { display: grid; gap: 8px; justify-items: end; }
+  .ab-top-price { display: flex; align-items: center; gap: var(--cds-gap-md); }
+  .ab-top .ab-spark { width: 140px; height: 40px; }
+  @media (max-width: 700px) { .ab-top-r { justify-items: start; } }
+
+  .ab-live-state { color: var(--up); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ab-live-state:empty { display: none; }
+
+  /* tarjeta protagonista */
+  .ab-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 290px); gap: var(--cds-gap-xl); }
+  .ab-hero-main, .ab-hero-side { display: grid; gap: var(--cds-gap-md); align-content: start; min-width: 0; }
+  .ab-hero-side { border-left: 1px solid var(--line); padding-left: var(--cds-gap-xl); }
+  @media (max-width: 860px) { .ab-hero { grid-template-columns: 1fr; }
+    .ab-hero-side { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: var(--cds-gap-md); } }
+  .ab-verdict-big { margin: 0; font-family: var(--serif); font-weight: 400; font-size: clamp(2rem, 4.6vw, 3.1rem); line-height: 1.05; letter-spacing: -.01em; }
+  .ab-verdict-big.ab-alcista { color: var(--up); } .ab-verdict-big.ab-bajista { color: var(--down); }
+  .ab-hero-sub { margin: 0; font-size: var(--cds-font-size-body); line-height: 1.5; max-width: 64ch; }
+  .ab-tug-wrap { display: grid; gap: 6px; }
+  .ab-tug-legend { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; font-size: var(--cds-font-size-caption); color: var(--mute); }
+  .ab-tug { position: relative; display: flex; height: 56px; border-radius: 14px; overflow: hidden; background: var(--paper); }
+  .ab-tug > div { display: flex; align-items: center; gap: 10px; padding-inline: 14px; min-width: 0; overflow: hidden; white-space: nowrap;
+    color: var(--paper); transition: flex-basis 1.1s var(--cds-ease-out); }
+  .ab-tug-d { background: var(--down); } .ab-tug-u { background: var(--up); justify-content: flex-end; }
+  .ab-tug b { font-family: var(--serif); font-weight: 400; font-size: 1.55rem; font-variant-numeric: tabular-nums; }
+  .ab-tug span { font-size: var(--cds-font-size-caption); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ab-tug-mid { position: absolute; left: calc(50% - 1px); top: 0; bottom: 0; width: 2px; background: var(--paper); opacity: .8; }
+
+  /* secciones plegables */
+  .ab-more-list { display: grid; gap: var(--cds-gap-sm); }
+  .ab-more { background: var(--panel); border: 1px solid var(--line); border-radius: calc(var(--cds-radius) * 1.5); }
+  .ab-more summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    padding: var(--cds-pad-md) var(--cds-pad-lg); font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); }
+  .ab-more summary::-webkit-details-marker { display: none; }
+  .ab-more summary > span:first-child::before { content: "▸"; display: inline-block; margin-right: 10px; color: var(--mute); transition: transform .2s; }
+  .ab-more[open] summary > span:first-child::before { transform: rotate(90deg); }
+  .ab-more summary:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; border-radius: calc(var(--cds-radius) * 1.5); }
+  .ab-more-body { padding: 0 var(--cds-pad-lg) var(--cds-pad-lg); display: grid; gap: var(--cds-gap-md); min-width: 0; }
+
+  /* selector de plazo */
+  .ab-plazos { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--cds-gap-sm); }
+  @media (max-width: 760px) { .ab-plazos { grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); } }
+  .ab-plazo { font: inherit; text-align: left; display: grid; gap: 4px; padding: var(--cds-pad-md); border-radius: calc(var(--cds-radius) * 1.5);
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; transition: border-color .2s, transform .2s; min-width: 0; }
+  .ab-plazo:hover { transform: translateY(-1px); }
+  .ab-plazo[aria-pressed="true"] { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink) inset; }
+  .ab-plazo small { font-size: var(--cds-font-size-caption); color: var(--mute); letter-spacing: .04em; text-transform: uppercase; }
+  .ab-plazo b { font-family: var(--serif); font-weight: 400; font-size: var(--cds-font-size-heading); }
+  .ab-plazo span { font-size: var(--cds-font-size-caption); color: var(--mute); font-variant-numeric: tabular-nums; }
+  .ab-plazo.ab-alcista b { color: var(--up); } .ab-plazo.ab-bajista b { color: var(--down); }
+
+  /* zoom del grafico */
+  .ab-zoom { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm) var(--cds-gap-md); align-items: center; font-size: var(--cds-font-size-caption); color: var(--mute); }
+  .ab-zoom-g { display: inline-flex; align-items: center; gap: 6px; }
+  .ab-zoom .ab-iconbtn { min-width: 30px; }
+  .ab-chart { cursor: crosshair; user-select: none; }
+  .ab-chart.is-panning { cursor: grabbing; }
+  .ab-chart.is-scaling { cursor: ns-resize; }
+
+  /* que creo que va a pasar */
+  .ab-story-head { margin: 0; font-family: var(--serif); font-weight: 400; font-size: clamp(1.25rem, 2.4vw, 1.65rem); line-height: 1.35; max-width: 62ch; text-wrap: pretty; }
+  .ab-story-grid { display: grid; gap: var(--cds-gap-lg); grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); }
+  .ab-story-col { display: grid; gap: var(--cds-gap-sm); align-content: start; min-width: 0; }
+  .ab-story-col h3 { margin: 0; font-size: var(--cds-font-size-caption); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--mute); }
+  .ab-sig-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+  .ab-sig-list li { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; font-size: var(--cds-font-size-body); line-height: 1.45; }
+  .ab-sig-list li::before { content: ""; width: 8px; height: 8px; margin-top: .45em; border-radius: 50%; background: var(--mute); }
+  .ab-sig-list li.ab-alcista::before { background: var(--up); } .ab-sig-list li.ab-bajista::before { background: var(--down); }
+  .ab-sig-list li.ab-empty { color: var(--mute); }
+  .ab-inval { margin: 0; font-size: var(--cds-font-size-body); line-height: 1.45; padding: var(--cds-pad-sm) var(--cds-pad-md); border-radius: var(--cds-radius);
+    background: color-mix(in srgb, var(--color-warn) 12%, transparent); }
+  .ab-inval b { font-weight: 600; }
+  .ab-bias { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-size: var(--cds-font-size-caption);
+    letter-spacing: 0; text-transform: none; border: 1px solid currentColor; }
+
+  /* patrones */
+  .ab-pats { display: grid; gap: var(--cds-gap-sm); }
+  .ab-pat { display: grid; gap: 4px; padding: var(--cds-pad-sm) var(--cds-pad-md); border-radius: var(--cds-radius); background: var(--paper); }
+  .ab-pat-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; align-items: baseline; }
+  .ab-pat-top b { font-weight: var(--cds-font-weight-medium); font-size: var(--cds-font-size-body); }
+  .ab-pat p { margin: 0; font-size: var(--cds-font-size-caption); color: var(--mute); line-height: 1.45; }
+  .ab-pat-rate { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+  .ab-pat-rate span:first-child { height: 6px; border-radius: 3px; background: var(--panel); position: relative; overflow: hidden; }
+  .ab-pat-rate i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; transition: width .9s var(--cds-ease-out); }
+  .ab-pat-line { fill: none; stroke-width: 1.6; stroke-dasharray: 6 4; }
+  .ab-pat-lbl { font-size: 10.5px; font-weight: 600; }
+  .ab-pat-mark { font-size: 12px; text-anchor: middle; dominant-baseline: central; }
+  .ab-pill-svg text { font-size: 10.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* precio */
+  .ab-price { font-family: var(--serif); font-weight: 400; font-size: clamp(2.6rem, 5vw, 3.4rem); line-height: 1; letter-spacing: -.02em; }
+  .ab-price small { font-family: var(--sans); font-size: var(--cds-font-size-body); color: var(--mute); margin-left: 4px; letter-spacing: 0; }
+  .ab-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ab-pill { display: inline-flex; gap: 6px; align-items: baseline; padding: 4px 10px; border-radius: 999px; background: var(--paper);
+    border: 1px solid var(--line); font-size: var(--cds-font-size-caption); white-space: nowrap; }
+  .ab-pill b { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ab-spark { width: 100%; height: 64px; display: block; overflow: visible; }
+
+  /* prediccion */
+  .ab-pred { background: linear-gradient(160deg, color-mix(in srgb, var(--ink) 5%, var(--panel)), var(--panel) 60%); }
+  .ab-pred-when { font-family: var(--serif); font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 400; line-height: 1.1; margin: 0; }
+  .ab-rings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--cds-gap-md); }
+  .ab-ring { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--cds-gap-sm); align-items: center; }
+  .ab-ring svg { width: 84px; height: 84px; display: block; }
+  .ab-ring-track { fill: none; stroke: var(--paper); stroke-width: 9; }
+  .ab-ring-val { fill: none; stroke-width: 9; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset 1.2s var(--cds-ease-out); }
+  .ab-ring text { font-family: var(--serif); font-size: 22px; fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
+  .ab-ring-label { font-size: var(--cds-font-size-caption); color: var(--mute); line-height: 1.35; }
+  .ab-ring-label b { display: block; font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); color: var(--ink); font-variant-numeric: tabular-nums; }
+  .ab-likely { display: grid; gap: 6px; }
+  .ab-likely-top { display: flex; justify-content: space-between; align-items: baseline; gap: var(--cds-gap-sm); font-size: var(--cds-font-size-caption); color: var(--mute); }
+  .ab-likely-top b { font-family: var(--serif); font-weight: 400; font-size: var(--cds-font-size-title); color: var(--ink); font-variant-numeric: tabular-nums; }
+  .ab-range { position: relative; height: 10px; border-radius: 5px; background: var(--paper); }
+  .ab-range-iqr { position: absolute; top: 0; bottom: 0; border-radius: 5px; background: color-mix(in srgb, var(--ink) 22%, transparent); transition: left 1s var(--cds-ease-out), width 1s var(--cds-ease-out); }
+  .ab-range-mark { position: absolute; top: -4px; bottom: -4px; width: 3px; border-radius: 2px; background: var(--ink); transition: left 1s var(--cds-ease-out); }
+  .ab-range-now { position: absolute; top: -6px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid var(--mute); transform: translateX(-5px); transition: left 1s var(--cds-ease-out); }
+  .ab-range-ends { display: flex; justify-content: space-between; font-size: var(--cds-font-size-caption); color: var(--mute); font-variant-numeric: tabular-nums; }
+
+  /* sesgo */
+  .ab-gauge { width: 100%; max-width: 260px; justify-self: center; display: block; overflow: visible; }
+  .ab-needle { transition: transform 1.2s cubic-bezier(.2, 1.4, .4, 1); transform-origin: 110px 104px; }
+  .ab-gauge-txt { text-align: center; display: grid; gap: 2px; }
+  .ab-gauge-txt b { font-family: var(--serif); font-weight: 400; font-size: var(--cds-font-size-title); }
+  .ab-strip { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+  .ab-strip button { font: inherit; display: grid; gap: 4px; justify-items: center; padding: 6px 2px; border-radius: 8px; border: 1px solid transparent;
+    background: var(--paper); color: var(--ink); cursor: pointer; font-size: 11px; }
+  .ab-strip button[aria-pressed="true"] { border-color: var(--ink); }
+  .ab-strip i { width: 100%; max-width: 34px; height: 6px; border-radius: 3px; }
+
+  /* selector de temporalidad */
+  .ab-seg { position: relative; display: inline-grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); padding: 4px; gap: 0;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 999px; max-width: 100%; overflow-x: auto; }
+  .ab-seg button { position: relative; z-index: 1; font: inherit; font-size: var(--cds-font-size-body); padding: 8px 16px; border: 0; border-radius: 999px;
+    background: transparent; color: var(--mute); cursor: pointer; white-space: nowrap; transition: color .25s; }
+  .ab-seg button[aria-pressed="true"] { color: var(--paper); }
+  .ab-seg-thumb { position: absolute; z-index: 0; top: 4px; bottom: 4px; border-radius: 999px; background: var(--ink); transition: left .35s var(--cds-ease-out), width .35s var(--cds-ease-out); }
+  .ab-seg.ab-small button { font-size: var(--cds-font-size-caption); padding: 5px 12px; }
+  .ab-bar-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--cds-gap-sm); align-items: center; }
+  .ab button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  /* grafico */
+  .ab-tools { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm); align-items: center; justify-content: space-between; }
+  .ab-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ab-chipbtn { font: inherit; font-size: var(--cds-font-size-caption); padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line);
+    background: transparent; color: var(--mute); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .ab-chipbtn i { width: 8px; height: 8px; border-radius: 2px; opacity: .35; }
+  .ab-chipbtn[aria-pressed="true"] { color: var(--ink); border-color: color-mix(in srgb, var(--ink) 40%, transparent); }
+  .ab-chipbtn[aria-pressed="true"] i { opacity: 1; }
+  .ab-iconbtn { font: inherit; font-size: var(--cds-font-size-caption); padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line);
+    background: var(--paper); color: var(--ink); cursor: pointer; }
+  .ab-chart { position: relative; height: 460px; min-height: 280px; resize: vertical; overflow: hidden; }
+  .ab-chart.ab-with-osc { height: 640px; }
+  @media (max-width: 600px) { .ab-chart { height: 380px; } .ab-chart.ab-with-osc { height: 560px; } }
+  .ab-osc-bg { fill: var(--color-fg); fill-opacity: .035; }
+  .ab-osc-ref { stroke: var(--mute); stroke-opacity: .55; stroke-dasharray: 3 3; }
+  .ab-osc-line { fill: none; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+  .ab-osc-lbl, .ab-ax-t { fill: var(--mute); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+  .ab-osc-lbl { font-weight: 600; }
+  .ab-card:not(#grafico), .ab-more { resize: both; overflow: auto; max-width: 100%; }
+  .ab-card, .ab-more { min-width: 0; }
+  .ab-chart, .ab-chart svg { touch-action: none; }
+  .ab-chart svg { display: block; overflow: hidden; }
+  .ab-ax text { fill: var(--mute); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .ab-gl { stroke: var(--cds-chart-grid); stroke-width: 1; }
+  .ab-c-up line, .ab-c-up rect { stroke: var(--up); fill: var(--up); }
+  .ab-c-dn line, .ab-c-dn rect { stroke: var(--down); fill: var(--down); }
+  .ab-vol-up { fill: var(--up); fill-opacity: .28; } .ab-vol-dn { fill: var(--down); fill-opacity: .28; }
+  .ab-ghost rect { fill-opacity: .14; stroke-width: 1.3; stroke-dasharray: 3 2; }
+  .ab-ghost { opacity: 0; transform: translateY(10px) scaleY(.6); transform-box: fill-box; transform-origin: center; transition: opacity .4s var(--cds-ease-out), transform .45s var(--cds-ease-out); }
+  .ab-ghost.on { opacity: 1; transform: none; }
+  .ab-scan { stroke: var(--ink); stroke-opacity: .35; stroke-width: 1; transition: transform .38s linear; }
+  .ab-future-lbl { fill: var(--mute); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
+  .ab-median { fill: none; stroke: var(--ink); stroke-opacity: .55; stroke-width: 1.4; stroke-dasharray: 5 4; }
+  .ab-ema { fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .ab-bb { stroke: var(--mute); stroke-opacity: .4; stroke-width: 1; }
+  .ab-fvg-u { fill: var(--up); fill-opacity: .12; } .ab-fvg-d { fill: var(--down); fill-opacity: .12; }
+  .ab-fvg-edge-u { stroke: var(--up); stroke-opacity: .6; } .ab-fvg-edge-d { stroke: var(--down); stroke-opacity: .6; }
+  .ab-zig { fill: none; stroke: var(--ink); stroke-opacity: .5; stroke-width: 1.2; stroke-dasharray: 1 4; stroke-linecap: round; }
+  .ab-wave circle { fill: var(--panel); stroke: var(--ink); stroke-width: 1.2; }
+  .ab-wave text { fill: var(--ink); font-size: 10px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+  .ab-liq-l { fill: var(--down); } .ab-liq-s { fill: var(--up); }
+  .ab-now-line { stroke: var(--ink); stroke-width: 1; stroke-dasharray: 2 3; }
+  .ab-tag rect { fill: var(--ink); } .ab-tag text { fill: var(--paper); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ab-here text { fill: var(--ink); font-size: 11px; font-weight: 600; }
+  .ab-here rect { fill: var(--panel); stroke: var(--ink); stroke-width: 1; }
+  .ab-dot { fill: var(--ink); } .ab-pulse { fill: var(--ink); transform-box: fill-box; transform-origin: center; }
+  .ab-cross line { stroke: var(--mute); stroke-width: 1; stroke-dasharray: 3 3; }
+  .ab-cross rect { fill: var(--mute); } .ab-cross text { fill: var(--paper); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .ab-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius);
+    box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; z-index: 3; display: grid; gap: 2px; }
+  .ab-tip-d { color: var(--cds-text-secondary); }
+  .ab-tip-g { display: grid; grid-template-columns: auto auto; gap: 0 10px; }
+  .ab-explain { display: grid; gap: 4px; }
+  .ab-ex-link { border-radius: 6px; padding: 3px 6px; margin-inline: -6px; transition: background .15s; }
+  .ab-ex-link:hover, .ab-ex-link.is-on { background: color-mix(in srgb, var(--color-fg) 9%, transparent); }
+  .ab-chart svg [data-ex], .ab-chart svg .ab-candle, .ab-chart svg .ab-vol-up, .ab-chart svg .ab-vol-dn { transition: opacity .2s ease; }
+  .ab-chart svg.is-focus [data-ex]:not(.ex-on), .ab-chart svg.is-focus .ab-candle,
+  .ab-chart svg.is-focus .ab-vol-up, .ab-chart svg.is-focus .ab-vol-dn { opacity: .12; }
+  .ab-chart svg.is-focus .ex-on { filter: drop-shadow(0 0 5px color-mix(in srgb, var(--color-fg) 45%, transparent)); }
+  .ab-ex-item { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 8px; font-size: var(--cds-font-size-caption); color: var(--mute); line-height: 1.45; }
+  .ab-ex-item i { display: block; width: 14px; height: 8px; border-radius: 2px; margin-top: .45em; box-sizing: border-box; }
+  .ab-ex-item b { color: var(--ink); font-weight: 600; }
+  .ab-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: var(--cds-font-size-caption); color: var(--mute); }
+  .ab-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .ab-legend i { width: 14px; height: 8px; border-radius: 2px; display: inline-block; }
+
+  /* probabilidades */
+  .ab-split { position: relative; display: flex; height: 34px; border-radius: 10px; overflow: hidden; background: var(--paper); }
+  .ab-split div { display: flex; align-items: center; padding-inline: 10px; font-size: var(--cds-font-size-caption); font-weight: 600; color: var(--paper);
+    white-space: nowrap; transition: flex-basis 1s var(--cds-ease-out); min-width: 0; overflow: hidden; }
+  .ab-split .ab-sp-u { background: var(--up); } .ab-split .ab-sp-d { background: var(--down); justify-content: flex-end; }
+  .ab-split .ab-sp-base { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--ink); padding: 0; transition: left 1s var(--cds-ease-out); }
+  .ab-ladder svg { display: block; width: 100%; overflow: visible; }
+  .ab-ladder text { font-size: 11.5px; font-variant-numeric: tabular-nums; fill: var(--ink); }
+  .ab-ladder .ab-lv-mute { fill: var(--mute); }
+  .ab-ladder .ab-lv-bar { transition: width 1s var(--cds-ease-out); }
+  .ab-verdict { display: inline-flex; align-items: center; gap: 6px; font-size: var(--cds-font-size-caption); padding: 3px 10px; border-radius: 999px; border: 1px solid currentColor; }
+
+  /* senales */
+  .ab-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12.5rem), 1fr)); gap: var(--cds-gap-sm); }
+  .ab-tile { background: var(--paper); border-radius: var(--cds-radius); padding: var(--cds-pad-md); display: grid; gap: 4px; align-content: start; }
+  .ab-tile-t { display: flex; align-items: center; gap: 6px; font-size: var(--cds-font-size-caption); color: var(--mute); }
+  .ab-tile-t i { width: 8px; height: 8px; border-radius: 50%; background: var(--mute); flex: none; }
+  .ab-tile-v { font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); font-variant-numeric: tabular-nums; }
+  .ab-tile-d { font-size: var(--cds-font-size-caption); color: var(--mute); line-height: 1.4; }
+  .ab-sig-alcista i { background: var(--up); } .ab-sig-bajista i { background: var(--down); }
+  .ab-sig-alcista .ab-tile-v { color: var(--up); } .ab-sig-bajista .ab-tile-v { color: var(--down); }
+  .ab-books { display: grid; gap: 6px; }
+  .ab-book { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) 3rem; gap: var(--cds-gap-sm); align-items: center; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+  .ab-book-tr { position: relative; height: 10px; border-radius: 5px; background: var(--paper); overflow: hidden; }
+  .ab-book-tr::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--mute); }
+  .ab-book-tr i { position: absolute; top: 0; bottom: 0; transition: left .9s var(--cds-ease-out), width .9s var(--cds-ease-out); }
+  .ab-book.ab-off { color: var(--mute); }
+
+  /* niveles */
+  .ab-levels svg { display: block; width: 100%; overflow: visible; }
+  .ab-levels text { font-size: 11.5px; font-variant-numeric: tabular-nums; }
+
+  /* ondas */
+  .ab-wave-big { margin: 0; font-family: var(--serif); font-weight: 400; font-size: var(--cds-font-size-title); line-height: 1.25; text-wrap: balance; }
+  .ab-target { display: inline-flex; gap: 8px; align-items: baseline; font-size: var(--cds-font-size-caption); color: var(--mute); }
+  .ab-target b { font-size: var(--cds-font-size-heading); color: var(--ink); font-weight: var(--cds-font-weight-medium); font-variant-numeric: tabular-nums; }
+  .ab-fvgs { display: grid; gap: 6px; }
+  .ab-fvg { display: grid; grid-template-columns: 1.4rem minmax(0, 1fr) auto; gap: var(--cds-gap-sm); align-items: center; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+  .ab-fvg i { height: 14px; border-radius: 3px; }
+  .ab-fvg span:last-child { color: var(--mute); }
+
+  /* indicadores */
+  .ab-votes { display: grid; gap: var(--cds-gap-sm); grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); }
+  .ab-vote { display: grid; gap: 6px; }
+  .ab-vote-top { display: flex; justify-content: space-between; font-size: var(--cds-font-size-caption); color: var(--mute); }
+  .ab-vote-bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--paper); }
+  .ab-vote-bar i { transition: flex-basis .9s var(--cds-ease-out); flex-basis: 0; }
+  .ab-tbl-box { overflow: auto; max-height: 36rem; border-radius: var(--cds-radius); }
+  .ab-tbl { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+  .ab-tbl th { position: sticky; top: 0; z-index: 1; background: var(--panel); text-align: left; color: var(--mute); font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  .ab-tbl td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .ab-tbl td.r, .ab-tbl th.r { text-align: right; }
+  .ab-tbl tr.ab-g td { background: var(--paper); font-weight: var(--cds-font-weight-medium); color: var(--ink); padding-block: 6px; }
+  .ab-tbl tbody tr:not(.ab-g):hover td { background: color-mix(in srgb, var(--ink) 4%, transparent); }
+  .ab-sigchip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--paper); color: var(--mute); }
+  .ab-sigchip.ab-compra { color: var(--up); background: color-mix(in srgb, var(--up) 12%, transparent); }
+  .ab-sigchip.ab-venta { color: var(--down); background: color-mix(in srgb, var(--down) 12%, transparent); }
+  .ab-novote { color: var(--mute); font-size: 10.5px; }
+
+  .ab-claude { margin: 0; white-space: pre-line; font-size: var(--cds-font-size-body); line-height: 1.6; max-width: 74ch; }
+  .ab-foot { margin: 0; font-size: var(--cds-font-size-caption); color: var(--mute); max-width: 90ch; line-height: 1.5; }
+  .ab-fail { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 440px; color: var(--mute); font-size: var(--cds-font-size-caption); }
+  .ab-fail i { width: .375rem; height: .375rem; border-radius: 50%; background: var(--color-bad); }
+  [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+  [data-dash-source-state=empty] { color: transparent; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .ab-first .ab-card { animation: ab-in .6s var(--cds-ease-out) both; }
+    .ab-first .ab-row > :nth-child(2) { animation-delay: 70ms; } .ab-first .ab-row > :nth-child(3) { animation-delay: 140ms; }
+    .ab-first .ab-candle { animation: ab-rise .45s var(--cds-ease-out) both; }
+    .ab-first .ab-spark-line { animation: ab-draw 1.4s var(--cds-ease-out) both; }
+    .ab-pulse { animation: ab-pulse 2s ease-out infinite; }
+    .ab-live i { animation: ab-live 2s ease-out infinite; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ab-ghost, .ab-ring-val, .ab-needle, .ab-split div, .ab-range-iqr, .ab-range-mark, .ab-range-now, .ab-lv-bar, .ab-book-tr i, .ab-vote-bar i, .ab-seg-thumb { transition: none !important; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .ab-fresh .ab-card, .ab-fresh .ab-plazo, .ab-fresh .ab-more[open] { animation: ab-fresh 1.1s ease-out; }
+  }
+  /* telefono (iPhone y similares): todo en una columna, sin nada encimado */
+  @media (max-width: 600px) {
+    .ab { gap: var(--cds-gap-md); }
+    .ab-card { padding: var(--cds-pad-md); }
+    .ab-more summary { padding: var(--cds-pad-md); }
+    .ab-more-body { padding: 0 var(--cds-pad-md) var(--cds-pad-md); }
+    .ab-plazos { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding-bottom: 2px; }
+    .ab-plazos::-webkit-scrollbar { display: none; }
+    .ab-plazo { flex: 0 0 8.6rem; scroll-snap-align: start; }
+    .ab-plazo:hover { transform: none; }
+    .ab-tug { height: 62px; }
+    .ab-tug > div { flex-direction: column; justify-content: center; align-items: flex-start; gap: 0; padding-inline: 10px; }
+    .ab-tug-u { align-items: flex-end; }
+    .ab-tug-u span { order: 2; }
+    .ab-tug b { font-size: 1.3rem; line-height: 1.15; }
+    .ab-range-ends { flex-wrap: wrap; row-gap: 2px; }
+    .ab-range-ends span:nth-child(2) { order: 3; width: 100%; text-align: center; }
+    .ab-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ab-tile { padding: var(--cds-pad-sm); }
+    .ab-zoom .ab-note { flex-basis: 100%; }
+  }
+  .ab-only-touch { display: none; }
+  @media (hover: none) {
+    .ab-card:not(#grafico), .ab-more, .ab-chart { resize: none; }
+    .ab-only-touch { display: inline; } .ab-only-mouse { display: none; }
+  }
+  .ab-sigchip { white-space: nowrap; }
+  @keyframes ab-fresh { 0% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-ok) 70%, transparent); } 100% { box-shadow: 0 0 0 1px transparent; } }
+  @keyframes ab-in { from { opacity: .001; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @keyframes ab-rise { from { opacity: .001; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes ab-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+  @keyframes ab-pulse { from { transform: scale(.7); opacity: .5; } to { transform: scale(3); opacity: 0; } }
+  @keyframes ab-live { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-ok) 55%, transparent); } 100% { box-shadow: 0 0 0 8px transparent; } }
+</style>
+
+<div class="ab ab-first" id="analista" data-source="analisis">
+  <header class="ab-top" id="resumen">
+    <div class="ab-top-l">
+      <span class="ab-live"><i></i><span>BTC/USDT perpetuo · actualizado <span data-source="analisis" data-field="hora_local" data-where="tabla=resumen">—</span> · <span id="next-run">—</span></span><span class="ab-live-state" id="live-state"></span></span>
+      <h1 class="ab-title">Analista BTC</h1>
+    </div>
+    <div class="ab-top-r" id="precio">
+      <div class="ab-top-price">
+        <div class="ab-price ab-num" data-source="analisis" data-field="precio" data-where="tabla=resumen">—</div>
+        <svg class="ab-spark" id="spark" data-source="analisis" preserveAspectRatio="none"></svg>
+      </div>
+      <div class="ab-pills">
+        <span class="ab-pill">24 h <b id="c24" data-source="analisis" data-field="cambio_24h" data-where="tabla=resumen">—</b></span>
+        <span class="ab-pill">7 días <b id="c7" data-source="analisis" data-field="cambio_7d" data-where="tabla=resumen">—</b></span>
+        <span class="ab-pill">vs media 200 d <b id="c200" data-source="analisis" data-field="sma200d_dist" data-where="tabla=resumen">—</b></span>
+        <span class="ab-pill">Funding <b id="fund" data-source="analisis" data-field="funding" data-where="tabla=resumen">—</b></span>
+      </div>
+    </div>
+  </header>
+
+  <nav class="ab-plazos" id="plazos" aria-label="Plazo del análisis" data-source="analisis"></nav>
+
+  <section class="ab-card ab-hero" id="prediccion" aria-labelledby="verdict-big" data-source="analisis">
+    <div class="ab-hero-main">
+      <div class="ab-card-head"><span class="ab-kicker" id="pred-k">Predicción</span><span class="ab-kicker" id="pred-n"></span></div>
+      <p class="ab-verdict-big" id="verdict-big">—</p>
+      <p class="ab-hero-sub dash-skeleton" id="titular" data-source="analisis">—</p>
+      <div class="ab-tug-wrap">
+        <div class="ab-tug-legend"><span>¿Qué toca primero?</span><span id="first-mg"></span></div>
+        <div class="ab-tug" id="first-split"></div>
+      </div>
+      <div class="ab-likely">
+        <div class="ab-likely-top"><span>Precio más probable a esa hora</span><b id="likely">—</b></div>
+        <div class="ab-range"><div class="ab-range-iqr" id="iqr"></div><div class="ab-range-now" id="rnow"></div><div class="ab-range-mark" id="rmed"></div></div>
+        <div class="ab-range-ends"><span id="r-lo">—</span><span>franja oscura: la mitad de los casos · ▼ precio actual</span><span id="r-hi">—</span></div>
+      </div>
+    </div>
+    <div class="ab-hero-side" id="sesgo">
+      <div class="ab-card-head"><span class="ab-kicker">Sesgo técnico</span><span class="ab-kicker" id="sesgo-tf">—</span></div>
+      <svg class="ab-gauge" id="gauge" viewBox="0 0 220 128" role="img" aria-label="Sesgo técnico"></svg>
+      <div class="ab-gauge-txt"><b id="gauge-txt" data-source="analisis" data-field="rating_txt">—</b><span class="ab-note" id="gauge-votes"></span></div>
+      <div class="ab-strip" id="strip"></div>
+    </div>
+  </section>
+
+  <section class="ab-card" id="grafico" aria-labelledby="graf-t">
+      <div class="ab-card-head"><h2 id="graf-t">Dónde está BTC y hacia dónde suele ir desde acá</h2></div>
+      <div class="ab-tools">
+        <nav class="ab-seg ab-small" id="tfs" aria-label="Velas del gráfico">
+          <span class="ab-seg-thumb"></span>
+          <button type="button" data-tf="5m" aria-pressed="false">5m</button>
+          <button type="button" data-tf="15m" aria-pressed="false">15m</button>
+          <button type="button" data-tf="30m" aria-pressed="false">30m</button>
+          <button type="button" data-tf="1h" aria-pressed="true">1h</button>
+          <button type="button" data-tf="4h" aria-pressed="false">4h</button>
+          <button type="button" data-tf="1d" aria-pressed="false">1D</button>
+        </nav>
+        <nav class="ab-seg ab-small" id="scens" aria-label="Escenario">
+          <span class="ab-seg-thumb"></span>
+          <button type="button" data-scen="tipico" aria-pressed="true">Típico</button>
+          <button type="button" data-scen="alcista" aria-pressed="false">Alcista</button>
+          <button type="button" data-scen="bajista" aria-pressed="false">Bajista</button>
+        </nav>
+        <div class="ab-chips" id="layers">
+          <button type="button" class="ab-chipbtn" data-layer="ema" aria-pressed="true"><i style="background: var(--ab-c0)"></i>EMA 20 / 50</button>
+          <button type="button" class="ab-chipbtn" data-layer="bb" aria-pressed="true"><i style="background: var(--color-fg-muted)"></i>Bollinger</button>
+          <button type="button" class="ab-chipbtn" data-layer="fvg" aria-pressed="true"><i style="background: var(--color-ok)"></i>FVG</button>
+          <button type="button" class="ab-chipbtn" data-layer="patrones" aria-pressed="true"><i style="background: var(--color-warn)"></i>Patrones y divergencias</button>
+          <button type="button" class="ab-chipbtn" data-layer="ondas" aria-pressed="true"><i style="background: var(--color-fg)"></i>Ondas</button>
+          <button type="button" class="ab-chipbtn" data-layer="liq" aria-pressed="true"><i style="background: var(--color-bad)"></i>Liquidaciones</button>
+          <button type="button" class="ab-chipbtn" data-layer="osc" aria-pressed="true"><i style="background: var(--ab-c2)"></i>RSI y MACD</button>
+          <button type="button" class="ab-iconbtn" id="replay">↻ Repetir</button>
+        </div>
+      </div>
+      <div class="ab-zoom" role="group" aria-label="Zoom del gráfico">
+        <span class="ab-zoom-g"><button type="button" class="ab-iconbtn" data-zoom="out" aria-label="Ver más velas">−</button>
+          <span id="zoom-info" class="ab-num">— velas</span>
+          <button type="button" class="ab-iconbtn" data-zoom="in" aria-label="Ver menos velas">+</button></span>
+        <span class="ab-zoom-g"><span>Rango de precio</span>
+          <button type="button" class="ab-iconbtn" data-yzoom="out" aria-label="Comprimir el eje de precios">↕ más</button>
+          <button type="button" class="ab-iconbtn" data-yzoom="in" aria-label="Estirar el eje de precios">↕ menos</button></span>
+        <button type="button" class="ab-iconbtn" id="fit">Ajustar</button>
+        <span class="ab-note"><span class="ab-only-mouse">Arrastrá el gráfico para moverte · rueda: zoom · arrastrá el eje de precios o el de horas para estirarlos · arrastrá las líneas entre paneles para cambiar su alto · doble clic: ajustar</span><span class="ab-only-touch">Arrastrá con un dedo para moverte · pellizcá para zoom (de costado: velas; vertical: precios) · arrastrá los ejes o las líneas entre paneles para ajustarlos · tocá una vela para ver sus datos</span></span>
+      </div>
+      <div class="ab-chart dash-skeleton" id="chart" data-source="analisis"></div>
+      <span class="ab-kicker">Qué estás viendo</span>
+      <div class="ab-explain" id="legend"></div>
+      <p class="ab-note" id="scen-note"></p>
+    </section>
+
+  <section class="ab-card ab-story" id="que-espero" aria-labelledby="story-t" data-source="analisis">
+    <div class="ab-card-head"><h2 id="story-t">Por qué</h2><span class="ab-kicker" id="story-chip"></span></div>
+    <p class="ab-note" id="porque"></p>
+    <div class="ab-story-grid">
+      <div class="ab-story-col"><h3 id="favor-t">A favor</h3><ul class="ab-sig-list" id="favor"></ul></div>
+      <div class="ab-story-col"><h3 id="contra-t">En contra</h3><ul class="ab-sig-list" id="contra"></ul></div>
+      <div class="ab-story-col"><h3>Niveles</h3><ul class="ab-sig-list" id="vigilar"></ul><p class="ab-inval" id="inval"></p></div>
+    </div>
+  </section>
+
+  <div class="ab-more-list">
+    <span class="ab-kicker">Más detalle</span>
+    <details class="ab-more" id="probabilidades" data-source="analisis">
+      <summary><span>Probabilidad de tocar cada precio</span><span class="ab-kicker" id="prob-tf"></span></summary>
+      <div class="ab-more-body">
+        <p class="ab-pred-when" id="prob-when">—</p>
+        <div class="ab-split" id="split"></div>
+        <div class="ab-bar-row"><span class="ab-verdict" id="verdict">—</span><span class="ab-note" id="prob-base"></span></div>
+        <div class="ab-ladder" id="ladder"></div>
+        <p class="ab-note" id="prob-foot"></p>
+      </div>
+    </details>
+    <details class="ab-more" id="senales" data-source="analisis">
+      <summary><span>Qué está pasando ahora: flujo, posicionamiento y libros de órdenes</span></summary>
+      <div class="ab-more-body">
+        <div class="ab-tiles" id="tiles"></div>
+        <div class="ab-card-head"><span class="ab-kicker">Libros de órdenes ±0,1%</span><span class="ab-kicker">← ventas · compras →</span></div>
+        <div class="ab-books" id="books"></div>
+        <p class="ab-note">Son órdenes esperando, no posiciones: pueden retirarse.</p>
+      </div>
+    </details>
+    <details class="ab-more" id="niveles" data-source="analisis">
+      <summary><span>Niveles clave a escala</span></summary>
+      <div class="ab-more-body">
+        <div class="ab-levels" id="levels"></div>
+        <p class="ab-note">Arriba, resistencias; abajo, soportes. Pivotes del día, Fibonacci del mes, medias de 200 días, muros en los libros y zonas de liquidación estimadas.</p>
+      </div>
+    </details>
+    <details class="ab-more" id="ondas" data-source="analisis">
+      <summary><span>Patrones, divergencias, ondas de Elliott y FVG</span><span class="ab-kicker" id="ond-tf"></span></summary>
+      <div class="ab-more-body">
+        <div class="ab-pats" id="pats" data-source="analisis"></div>
+        <span class="ab-kicker">Ondas de Elliott</span>
+        <p class="ab-wave-big" id="wave" data-source="analisis" data-field="elliott">—</p>
+        <span class="ab-target" id="wave-target"></span>
+        <span class="ab-kicker">Zonas FVG sin llenar</span>
+        <div class="ab-fvgs" id="fvgs"></div>
+        <p class="ab-note">Las figuras y el conteo de Elliott se detectan solos sobre los giros del precio: son lecturas posibles, no las únicas. Un FVG es un hueco que el precio dejó sin operar y al que suele volver.</p>
+      </div>
+    </details>
+    <details class="ab-more" id="indicadores" data-source="analisis">
+      <summary><span>Todos los indicadores</span><span class="ab-kicker" id="ind-tf"></span></summary>
+      <div class="ab-more-body">
+        <p class="ab-note">Cada indicador dice hacia dónde apunta según su propia regla: <b>alcista</b> si favorece una suba, <b>bajista</b> si favorece una baja. No son órdenes de comprar o vender; son votos que se suman en el sesgo técnico.</p>
+        <div class="ab-votes" id="votes"></div>
+        <div class="ab-tbl-box">
+          <table class="ab-tbl" id="ind-table" data-source="analisis" data-row-key="tf,indicador">
+            <thead><tr><th data-field="indicador">Indicador</th><th data-field="valor" class="r">Valor</th><th data-field="senal">Señal</th><th data-field="detalle">Detalle</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </details>
+    <details class="ab-more" id="noticias">
+      <summary><span>Noticias y lectura de Claude</span></summary>
+      <div class="ab-more-body"><p class="ab-claude" id="nota" data-source="analisis" data-field="nota_claude" data-where="tabla=resumen">—</p></div>
+    </details>
+    <details class="ab-more" id="aciertos" data-source="analisis">
+      <summary><span>¿Viene acertando?</span></summary>
+      <div class="ab-more-body"><div id="hits"></div></div>
+    </details>
+  </div>
+
+  <p class="ab-foot">Datos públicos de Binance Futures, Bybit, OKX y Bitget, calculados en este teléfono. Las probabilidades y los escenarios cuentan lo que pasó en situaciones parecidas del pasado reciente; el mercado puede hacer otra cosa. No es una recomendación de inversión.</p>
+</div>
+
+<script>
+(function () {
+  const root = document.getElementById('analista');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const ar = d3.formatLocale({ decimal: ',', thousands: '.', grouping: [3], currency: ['$', ''] });
+  const f0 = ar.format(',.0f'), f1 = ar.format(',.1f'), f2 = ar.format(',.2f');
+  const sg = (v, d = 2) => (v > 0 ? '+' : '') + ar.format(`,.${d}f`)(v) + '%';
+  const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
+  const TF_TXT = { '5m': '5 min', '15m': '15 min', '30m': '30 min', '1h': '1 hora', '4h': '4 horas', '1d': 'Diario' };
+  const SCEN_TXT = { tipico: 'típico', alcista: 'alcista', bajista: 'bajista' };
+  const tz = { timeZone: 'America/Argentina/Buenos_Aires' };
+  const fmtT = (t, tf) => new Date(Number(t)).toLocaleString('es-AR', tf === '1d' ? { ...tz, day: '2-digit', month: '2-digit' }
+    : { ...tz, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const pick = (rows, t, tf) => rows.filter((r) => r.tabla === t && (tf === undefined || r.tf === tf));
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  const later = (fn) => (reduce ? fn() : requestAnimationFrame(() => requestAnimationFrame(fn)));
+  // cada plazo se mira con las velas que mejor lo muestran
+  const PLAZO_VIEW = { '5 min': '5m', '15 min': '15m', '1 hora': '1h', '4 horas': '4h', '1 día': '1d' };
+  const S = { plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
+    pane: { vol: null, rsi: .14, macd: .14 }, oscZ: { rsi: 1, macd: 1 },
+    layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, liq: true, osc: true } };
+  const defBars = () => (window.innerWidth < 600 ? 50 : 90);   // en el telefono, menos velas para que se lean
+  S.nbars = defBars();
+  const TF_MIN = { '5m': 5, '15m': 15, '30m': 30, '1h': 60, '4h': 240, '1d': 1440 };
+  const dur = (min) => (min < 60 ? `${min} min` : min < 1440 ? `${Math.round(min / 60)} h` : `${Math.round(min / 1440)} d`);
+  const M = (v) => `${f1(v)} M USD`;
+  let ghostTimer = null, first = true, ghostK = 0;
+  let liveBar = null, ws = null, wsTf = null, ticks = 0;
+
+  // ---------- controles ----------
+  function seg(nav, attr, onPick) {
+    const thumb = nav.querySelector('.ab-seg-thumb');
+    const place = () => {
+      const on = nav.querySelector('button[aria-pressed="true"]');
+      if (!on || !thumb) return;
+      thumb.style.left = on.offsetLeft + 'px'; thumb.style.width = on.offsetWidth + 'px';
+    };
+    nav.addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      nav.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      place(); onPick(b.getAttribute(attr));
+    });
+    return place;
+  }
+  // al recargarse (el modo en vivo la recarga cuando cambia el diseno) vuelve a la misma vista
+  try {
+    const saved = JSON.parse(sessionStorage.getItem('ab-vista') || 'null');
+    if (saved) {
+      Object.assign(S, { plazo: saved.plazo, tf: saved.tf, scen: saved.scen, nbars: saved.nbars, yzoom: saved.yzoom });
+      Object.assign(S.layers, saved.layers || {});
+      document.querySelectorAll('#scens button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.scen === S.scen)));
+      document.querySelectorAll('#layers [data-layer]').forEach((x) => x.setAttribute('aria-pressed', String(!!S.layers[x.dataset.layer])));
+    }
+  } catch (e) { /* sin almacenamiento: arranca con la vista por defecto */ }
+  window.addEventListener('pagehide', () => {
+    try { sessionStorage.setItem('ab-vista', JSON.stringify({ plazo: S.plazo, tf: S.tf, scen: S.scen, nbars: S.nbars, yzoom: S.yzoom, layers: S.layers })); } catch (e) { /* idem */ }
+  });
+  const placeTf = seg(document.getElementById('tfs'), 'data-tf', (v) => { S.tf = v; S.hz = null; S.offset = 0; draw(); });
+  const placeSc = seg(document.getElementById('scens'), 'data-scen', (v) => { S.scen = v; draw(); });
+  document.getElementById('layers').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-layer]'); if (!b) return;
+    const k = b.dataset.layer; S.layers[k] = !S.layers[k]; b.setAttribute('aria-pressed', String(S.layers[k])); draw();
+  });
+  document.getElementById('replay').addEventListener('click', () => { ghostK = 0; draw(); });
+  function setPlazo(name) { S.plazo = name; S.offset = 0; setTf(PLAZO_VIEW[name]); }
+  function setTf(tf) {
+    S.tf = tf; S.hz = null;
+    document.querySelectorAll('#tfs button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.tf === tf)));
+    placeTf(); draw();
+  }
+
+  (function chartInteractions() {
+    // como en TradingView: arrastrar mueve el grafico en cualquier direccion; arrastrar el eje de precios lo comprime o estira;
+    // arrastrar el eje de horas (abajo) cambia cuantas velas entran; arrastrar las lineas entre paneles cambia sus alturas
+    const box = document.getElementById('chart');
+    const clampY = (v) => Math.min(10, Math.max(0.15, v)), clampN = (v) => Math.min(300, Math.max(12, v));
+    const clampZ = (v) => Math.min(8, Math.max(0.5, v)), clampP = (v) => Math.min(.4, Math.max(.05, v));
+    let drag = null, pending = false;
+    const redrawChart = () => {
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(() => { pending = false; if (S.rows) drawChart(S.rows, S.sum); });
+    };
+    const scale = () => (S.geom ? S.geom.W / box.getBoundingClientRect().width : 1);
+    const at = (e) => { const r = box.getBoundingClientRect(), k = scale(); return { x: (e.clientX - r.left) * k, y: (e.clientY - r.top) * k }; };
+    // que hay debajo del puntero
+    function zone(e) {
+      const g = S.geom, p = at(e);
+      const dv = g.divs.find((d) => Math.abs(p.y - d.y) <= 7);
+      if (dv) return { mode: 'div', pane: dv.k };
+      if (p.y >= g.timeT) return { mode: 't' };
+      const osc = g.panes.find((q) => p.y >= q.t - 4 && p.y <= q.b + 4);
+      const axis = p.x > g.plotR + g.heatW;
+      if (osc) return { mode: axis ? 'oz' : 'x', pane: osc.k };
+      if (axis) return p.y <= g.priceB ? { mode: 'y' } : { mode: 'x' };
+      return { mode: p.y <= g.priceB ? 'xy' : 'x' };
+    }
+    const CURSOR = { div: 'row-resize', t: 'ew-resize', y: 'ns-resize', oz: 'ns-resize', x: 'grab', xy: 'grab' };
+    const paneNow = (k) => (k === 'vol' ? (S.pane.vol !== null ? S.pane.vol : S.layers.osc ? .09 : .14) : S.pane[k]);
+    box.addEventListener('wheel', (e) => {
+      if (!S.geom) return;
+      e.preventDefault();
+      const z = zone(e), f = e.deltaY > 0 ? 1.12 : 1 / 1.12;
+      if (z.mode === 'y') S.yzoom = clampY(S.yzoom * f);
+      else if (z.mode === 'oz') S.oscZ[z.pane] = clampZ(S.oscZ[z.pane] / f);
+      else S.nbars = clampN(S.nbars * (e.deltaY > 0 ? 1.15 : 1 / 1.15));
+      redrawChart();
+    }, { passive: false });
+    box.addEventListener('pointerenter', () => { S.hover = true; });
+    box.addEventListener('pointerleave', (e) => {
+      S.hover = false;
+      if (!drag) box.style.cursor = '';
+      // en el telefono el detalle queda a la vista despues de tocar; con el mouse se va al salir
+      if (e.pointerType === 'mouse' && !drag) { S.lastPt = null; if (S.pointAt) S.pointAt(null); }
+    });
+    const touches = new Map();
+    let pinch = null;
+    const spreads = () => { const [a, b] = [...touches.values()]; return { x: Math.abs(a.x - b.x), y: Math.abs(a.y - b.y) }; };
+    box.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'touch') {
+        touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (touches.size === 2) { drag = null; pinch = { d: spreads(), n: S.nbars, yz: S.yzoom }; return; }
+      }
+      if (!S.geom || e.button !== 0) return;
+      S.lastPt = at(e); if (S.pointAt) S.pointAt(S.lastPt);   // tocar o hacer clic muestra el detalle de esa vela
+      const z = zone(e);
+      drag = { ...z, x: e.clientX, y: e.clientY, off: S.offset, yz: S.yzoom, yp: S.ypan, n: S.nbars,
+        pv: z.mode === 'oz' ? S.oscZ[z.pane] : z.mode === 'div' ? paneNow(z.pane) : null };
+      box.setPointerCapture(e.pointerId);
+      box.classList.add('is-panning');
+      box.style.cursor = drag.mode === 'x' || drag.mode === 'xy' ? 'grabbing' : CURSOR[drag.mode];
+    });
+    box.addEventListener('pointermove', (e) => {
+      if (touches.has(e.pointerId)) touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinch && touches.size === 2) {
+        // pellizcar de costado cambia las velas que entran; de arriba a abajo, el rango de precios
+        const d = spreads();
+        if (pinch.d.x > 30) S.nbars = clampN(pinch.n * pinch.d.x / Math.max(10, d.x));
+        if (pinch.d.y > 30) S.yzoom = clampY(pinch.yz * pinch.d.y / Math.max(10, d.y));
+        redrawChart(); return;
+      }
+      if (!S.geom) return;
+      S.lastPt = at(e);
+      if (!drag) { if (e.pointerType === 'mouse') box.style.cursor = CURSOR[zone(e).mode]; if (S.pointAt) S.pointAt(S.lastPt); return; }
+      const k = scale(), dx = (e.clientX - drag.x) * k, dy = (e.clientY - drag.y) * k, g = S.geom;
+      if (drag.mode === 'x' || drag.mode === 'xy') S.offset = drag.off + dx / g.step;
+      if (drag.mode === 'xy') S.ypan = drag.yp + dy / Math.max(40, g.priceB - g.priceT) * S.yzoom;
+      if (drag.mode === 'y') S.yzoom = clampY(drag.yz * Math.exp(dy * 0.006));
+      if (drag.mode === 't') S.nbars = clampN(drag.n * Math.exp(-dx * 0.006));
+      if (drag.mode === 'oz') S.oscZ[drag.pane] = clampZ(drag.pv * Math.exp(-dy * 0.01));
+      if (drag.mode === 'div') S.pane[drag.pane] = clampP(drag.pv - dy / g.H);
+      redrawChart();
+    });
+    const stop = (e) => {
+      touches.delete(e.pointerId); if (touches.size < 2) pinch = null;
+      drag = null; box.classList.remove('is-panning', 'is-scaling'); box.style.cursor = '';
+    };
+    box.addEventListener('pointerup', stop);
+    box.addEventListener('pointercancel', stop);
+    const fit = () => { S.nbars = defBars(); S.offset = 0; S.yzoom = 1; S.ypan = 0; S.oscZ = { rsi: 1, macd: 1 }; redrawChart(); };
+    box.addEventListener('dblclick', fit);
+    document.getElementById('fit').addEventListener('click', fit);
+    document.querySelectorAll('[data-zoom]').forEach((b) => b.addEventListener('click', () => {
+      S.nbars = clampN(S.nbars * (b.dataset.zoom === 'out' ? 1.4 : 1 / 1.4)); redrawChart(); }));
+    document.querySelectorAll('[data-yzoom]').forEach((b) => b.addEventListener('click', () => {
+      S.yzoom = clampY(S.yzoom * (b.dataset.yzoom === 'out' ? 1.5 : 1 / 1.5)); redrawChart(); }));
+  })();
+
+  document.querySelectorAll('.ab-more').forEach((d) => d.addEventListener('toggle', () => { if (d.open && S.rows) draw(); }));
+
+  // ---------- en vivo (solo en la version local con --vivo: en claude.ai la pagina no puede conectarse a Binance) ----------
+  function connectLive() {
+    if (!window.abLive || wsTf === S.tf) return;
+    if (ws) ws.close();
+    wsTf = S.tf; liveBar = null;
+    const sock = new WebSocket(`wss://fstream.binance.com/market/ws/btcusdt@kline_${S.tf}`);
+    ws = sock;
+    sock.onmessage = (ev) => {
+      const k = JSON.parse(ev.data).k; if (!k) return;
+      liveBar = { tf: wsTf, t: k.t, o: +k.o, h: +k.h, l: +k.l, c: +k.c, v: +k.v };
+      ticks++;
+      const pe = root.querySelector('.ab-price'); if (pe && pe.firstChild) pe.firstChild.textContent = f0(liveBar.c);
+      document.getElementById('live-state').textContent = ` · ● en vivo · análisis #${f0(window.abAnalyses || 1)} · ${f0(ticks)} ticks`;
+      if (ticks % 10 === 0 && S.rows && !S.hover) drawChart(S.rows, S.sum);
+    };
+    sock.onclose = () => { if (ws === sock) { wsTf = null; setTimeout(connectLive, 3000); } };
+  }
+
+  // al agrandar o achicar un modulo se redibuja a su tamano nuevo (solo cuando cambia el tamano, no el contenido)
+  (function watchSizes() {
+    if (!window.ResizeObserver) return;
+    const seen = new WeakMap();
+    let t = null;
+    const ro = new ResizeObserver((entries) => {
+      let changed = false;
+      entries.forEach((e) => {
+        const w = Math.round(e.contentRect.width), h = Math.round(e.contentRect.height), prev = seen.get(e.target);
+        const isChart = e.target.id === 'chart';
+        if (prev && (Math.abs(prev.w - w) > 2 || (isChart && Math.abs(prev.h - h) > 2))) changed = true;
+        seen.set(e.target, { w, h });
+      });
+      if (changed) { clearTimeout(t); t = setTimeout(() => { if (S.rows) draw(); }, 120); }
+    });
+    document.querySelectorAll('#analista .ab-card, #analista .ab-more, #chart').forEach((n) => ro.observe(n));
+  })();
+
+  dash.onData(draw);
+
+  function draw() {
+    const res = dash.data('analisis');
+    const chart = document.getElementById('chart');
+    if (ghostTimer) { clearInterval(ghostTimer); ghostTimer = null; }
+    if (res.status !== 'ok') {
+      chart.replaceChildren();
+      if (res.status === 'error') { chart.classList.remove('dash-skeleton'); const f = el('div', 'ab-fail'); f.append(el('i'), 'Failed to load'); chart.append(f); }
+      return;
+    }
+    document.querySelectorAll('#analista .dash-skeleton').forEach((e) => e.classList.remove('dash-skeleton'));
+    const rows = res.data;
+    const sum = pick(rows, 'resumen')[0];
+    S.rows = rows; S.sum = sum;
+    const nA = window.abAnalyses || 1;
+    if (S.lastA && nA !== S.lastA) { root.classList.remove('ab-fresh'); void root.offsetWidth; root.classList.add('ab-fresh'); }
+    S.lastA = nA;
+    document.querySelectorAll('#tfs button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.tf === S.tf)));
+    root.style.setProperty('--ab-c0', dash.colors[0]); root.style.setProperty('--ab-c2', dash.colors[2]);
+    drawHeader(rows, sum);
+    drawPlazos(rows);
+    drawStory(rows);
+    drawPrediction(rows, sum);
+    drawGauge(rows);
+    drawChart(rows, sum);
+    drawProbs(rows, sum);
+    drawSignals(rows);
+    drawLevels(rows, sum);
+    drawWaves(rows);
+    drawIndicators(rows);
+    drawNote(sum);
+    drawHits(rows);
+    placeTf(); placeSc();
+    connectLive();
+    if (first) { first = false; setTimeout(() => root.classList.remove('ab-first'), 1800); }
+  }
+
+  // ---------- cabecera y precio ----------
+  function drawHeader(rows, s) {
+    root.querySelector('[data-field="hora_local"]').textContent = s.hora_local + ' h';
+    const hour = Number(String(s.hora_local).slice(-5, -3));
+    const next = [0, 8, 12, 16, 20].find((h) => h > hour);
+    document.getElementById('next-run').textContent = window.abLive ? 'se reanaliza solo'
+      : `próximo análisis ${String(next === undefined ? 0 : next).padStart(2, '0')}:00 h`;
+    root.querySelector('.ab-price').replaceChildren(f0(num(s.precio)), el('small', '', 'USDT'));
+    const put = (id, v, d) => { const e = document.getElementById(id); e.textContent = v === null ? '—' : sg(v, d);
+      e.classList.toggle('ab-up-t', v > 0); e.classList.toggle('ab-down-t', v < 0); };
+    put('c24', num(s.cambio_24h), 2); put('c7', num(s.cambio_7d), 2); put('c200', num(s.sma200d_dist), 1);
+    const fu = num(s.funding); document.getElementById('fund').textContent = fu === null ? '—' : (fu > 0 ? '+' : '') + ar.format(',.4f')(fu) + '%';
+
+    const bars = pick(rows, 'vela', '1h').map((r) => ({ t: num(r.t), c: num(r.c) })).sort((a, b) => a.t - b.t).slice(-48);
+    const svg = d3.select('#spark'); svg.selectAll('*').remove();
+    const box = document.getElementById('spark'); const W = Math.max(200, box.clientWidth), H = 64;
+    svg.attr('viewBox', `0 0 ${W} ${H}`);
+    if (bars.length < 2) return;
+    const x = d3.scaleLinear([0, bars.length - 1], [0, W]);
+    const y = d3.scaleLinear(d3.extent(bars, (b) => b.c), [H - 4, 6]);
+    const upDay = bars[bars.length - 1].c >= bars[0].c;
+    const col = upDay ? 'var(--color-ok)' : 'var(--color-bad)';
+    const gid = 'ab-spark-g';
+    const g = svg.append('defs').append('linearGradient').attr('id', gid).attr('x1', 0).attr('x2', 0).attr('y1', 0).attr('y2', 1);
+    [[0, .28], [.5, .08], [1, 0]].forEach(([o, a]) => g.append('stop').attr('offset', o).style('stop-color', col).style('stop-opacity', a));
+    svg.append('path').attr('d', d3.area().x((b, i) => x(i)).y0(H).y1((b) => y(b.c))(bars)).style('fill', `url(#${gid})`);
+    svg.append('path').attr('class', 'ab-spark-line').attr('pathLength', 1).style('stroke-dasharray', 1)
+      .attr('d', d3.line().x((b, i) => x(i)).y((b) => y(b.c))(bars)).style('fill', 'none').style('stroke', col).style('stroke-width', 2).style('stroke-linecap', 'round');
+    svg.append('circle').attr('cx', x(bars.length - 1)).attr('cy', y(bars[bars.length - 1].c)).attr('r', 3.5).style('fill', col);
+  }
+
+  // ---------- resaltar en el grafico lo que se senala en "que estas viendo" ----------
+  function focusEx(key) {
+    S.focus = key;
+    const svg = document.querySelector('#chart svg'); if (!svg) return;
+    svg.classList.toggle('is-focus', !!key);
+    svg.querySelectorAll('[data-ex]').forEach((n) => n.classList.toggle('ex-on', n.getAttribute('data-ex') === key));
+    document.querySelectorAll('#legend [data-ex]').forEach((n) => n.classList.toggle('is-on', n.dataset.ex === key));
+  }
+
+  // ---------- plazos ----------
+  function drawPlazos(rows) {
+    const nav = document.getElementById('plazos'), keep = nav.scrollLeft; nav.replaceChildren();
+    pick(rows, 'plazo').forEach((p) => {
+      const head = pick(rows, 'explicacion').find((e) => e.plazo === p.plazo && e.tipo === 'titular');
+      const bias = head ? head.sesgo : 'neutral', pu = num(p.primero_arriba);
+      const b = el('button', 'ab-plazo ab-' + bias); b.type = 'button'; b.setAttribute('aria-pressed', String(p.plazo === S.plazo));
+      const word = bias === 'alcista' ? `▲ Sube ${f0(pu)}%` : bias === 'bajista' ? `▼ Baja ${f0(100 - pu)}%` : '◆ Lateral';
+      b.append(el('small', '', `En ${p.plazo}`), el('b', '', word),
+        el('span', '', `${f0(num(p.obj_abajo))} – ${f0(num(p.obj_arriba))} · hasta ${p.hora.slice(-5)} h`));
+      b.addEventListener('click', () => setPlazo(p.plazo));
+      nav.append(b);
+    });
+    // en el telefono la tira se desliza: se respeta donde la dejo el usuario y solo se mueve si cambia el plazo
+    nav.scrollLeft = keep;
+    const on = nav.querySelector('[aria-pressed="true"]');
+    if (on && S.plazoShown !== S.plazo && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = on.offsetLeft - nav.offsetLeft - 8;
+    S.plazoShown = S.plazo;
+  }
+
+  // ---------- que creo que va a pasar ----------
+  function drawStory(rows) {
+    const ex = pick(rows, 'explicacion').filter((e) => e.plazo === S.plazo).sort((a, b) => num(a.orden) - num(b.orden));
+    const head = ex.find((e) => e.tipo === 'titular');
+    const bias = head ? head.sesgo : 'neutral';
+    const chip = document.getElementById('story-chip'); chip.replaceChildren();
+    const b = el('span', 'ab-bias', bias === 'alcista' ? '▲ Escenario alcista' : bias === 'bajista' ? '▼ Escenario bajista' : '◆ Sin dirección clara');
+    b.style.color = bias === 'alcista' ? 'var(--color-ok)' : bias === 'bajista' ? 'var(--color-bad)' : 'var(--color-fg-muted)';
+    chip.append(b);
+    const neutral = bias === 'neutral';
+    document.getElementById('favor-t').textContent = neutral ? 'Señales alcistas' : 'A favor';
+    document.getElementById('contra-t').textContent = neutral ? 'Señales bajistas' : 'En contra';
+    const fill = (id, items) => {
+      const ul = document.getElementById(id); ul.replaceChildren();
+      if (!items.length) { ul.append(el('li', 'ab-empty', 'Ninguna por ahora.')); return; }
+      items.forEach((e) => ul.append(el('li', 'ab-' + e.sesgo, e.texto)));
+    };
+    document.getElementById('titular').textContent = head ? head.texto : '—';
+    const why = ex.find((e) => e.tipo === 'porque');
+    document.getElementById('porque').textContent = why ? why.texto : '';
+    // vienen ordenadas por importancia: alcanza con las 4 primeras de cada lado
+    const sigs = ex.filter((e) => e.tipo === 'senal');
+    const favorSide = neutral ? 'alcista' : bias;
+    fill('favor', sigs.filter((e) => e.sesgo === favorSide).slice(0, 4));
+    fill('contra', sigs.filter((e) => e.sesgo !== favorSide).slice(0, 4));
+    fill('vigilar', ex.filter((e) => e.tipo === 'vigilar'));
+    const inv = ex.find((e) => e.tipo === 'invalida');
+    document.getElementById('inval').textContent = inv ? inv.texto : '';
+  }
+
+  // ---------- prediccion principal (1 h, primer plazo) ----------
+  function drawPrediction(rows, s) {
+    const p = pick(rows, 'plazo').find((r) => r.plazo === S.plazo);
+    if (!p) return;
+    const head = pick(rows, 'explicacion').find((e) => e.plazo === S.plazo && e.tipo === 'titular');
+    const bias = head ? head.sesgo : 'neutral';
+    const price = num(s.precio), pu = num(p.primero_arriba);
+    document.getElementById('pred-k').textContent = `Predicción a ${S.plazo} · hasta las ${p.hora.slice(-5)} h del ${p.hora.slice(0, 5)}`;
+    document.getElementById('pred-n').textContent = `${f0(num(p.n))} casos parecidos`;
+    const vb = document.getElementById('verdict-big');
+    vb.className = 'ab-verdict-big ab-' + bias;
+    vb.textContent = bias === 'alcista' ? '▲ Más probable que suba' : bias === 'bajista' ? '▼ Más probable que baje' : '◆ Lateral';
+    // baja a la izquierda, sube a la derecha: el lado mas ancho es el que se toco primero mas veces
+    const tug = document.getElementById('first-split'); tug.replaceChildren();
+    if (pu !== null) {
+      const d = el('div', 'ab-tug-d'), u = el('div', 'ab-tug-u');
+      d.append(el('b', '', `${f0(100 - pu)}%`), el('span', '', `▼ baja a ${f0(num(p.obj_abajo))}`));
+      u.append(el('span', '', `sube a ${f0(num(p.obj_arriba))} ▲`), el('b', '', `${f0(pu)}%`));
+      d.style.flexBasis = '50%'; u.style.flexBasis = '50%';
+      tug.append(d, u, el('i', 'ab-tug-mid'));
+      later(() => { d.style.flexBasis = (100 - pu) + '%'; u.style.flexBasis = pu + '%'; });
+      document.getElementById('first-mg').textContent = `${f0(num(p.distancia))} USD para cada lado · margen ±${f0(num(p.margen_primero))} pts`;
+    }
+    const lo = num(p.min), hi = num(p.max), span = hi - lo || 1;
+    const at = (v) => Math.max(0, Math.min(100, (v - lo) / span * 100));
+    document.getElementById('likely').textContent = p.mediana === null ? '—' : f0(num(p.mediana));
+    document.getElementById('r-lo').textContent = f0(lo); document.getElementById('r-hi').textContent = f0(hi);
+    const iqr = document.getElementById('iqr'), med = document.getElementById('rmed'), now = document.getElementById('rnow');
+    iqr.style.left = '50%'; iqr.style.width = '0'; med.style.left = '50%'; now.style.left = '50%';
+    later(() => {
+      if (p.p25 !== null) { iqr.style.left = at(num(p.p25)) + '%'; iqr.style.width = (at(num(p.p75)) - at(num(p.p25))) + '%'; }
+      if (p.mediana !== null) med.style.left = `calc(${at(num(p.mediana))}% - 1.5px)`;
+      now.style.left = at(price) + '%';
+    });
+  }
+
+  // ---------- sesgo ----------
+  function drawGauge(rows) {
+    const marcos = pick(rows, 'marco');
+    const cur = marcos.find((m) => m.tf === S.tf);
+    document.getElementById('sesgo-tf').textContent = TF_TXT[S.tf];
+    const svg = d3.select('#gauge'); svg.selectAll('*').remove();
+    const cx = 110, cy = 104, arc = d3.arc().innerRadius(74).outerRadius(92).cornerRadius(3);
+    const segs = [['var(--color-bad)', 1], ['var(--color-bad)', .5], ['var(--color-fg-muted)', .35], ['var(--color-ok)', .5], ['var(--color-ok)', 1]];
+    const a0 = -Math.PI / 2, step = Math.PI / 5;
+    segs.forEach(([c, o], k) => svg.append('path').attr('transform', `translate(${cx},${cy})`)
+      .attr('d', arc({ startAngle: a0 + k * step + .025, endAngle: a0 + (k + 1) * step - .025 })).style('fill', c).style('fill-opacity', o));
+    [['Bajista', 12, 'start'], ['Neutral', cx, 'middle'], ['Alcista', 208, 'end']].forEach(([t, x0, anc], k) =>
+      svg.append('text').attr('x', x0).attr('y', k === 1 ? 6 : 124).attr('text-anchor', anc).style('fill', 'var(--color-fg-muted)').style('font-size', '10px').text(t));
+    const nd = svg.append('g').attr('class', 'ab-needle').style('transform', 'rotate(-90deg)');
+    nd.append('path').attr('d', `M${cx - 4},${cy} L${cx},${cy - 66} L${cx + 4},${cy} Z`).style('fill', 'var(--color-fg)');
+    svg.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 8).style('fill', 'var(--color-fg)');
+    svg.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 3).style('fill', 'var(--color-panel)');
+    if (cur) {
+      later(() => nd.style('transform', `rotate(${num(cur.rating) * 90}deg)`));
+      const t = document.getElementById('gauge-txt'); t.textContent = cur.rating_txt; t.setAttribute('data-where', `tabla=marco&tf=${S.tf}`);
+      document.getElementById('gauge-votes').textContent = `Medias ${cur.ma_compra}↑ ${cur.ma_venta}↓ · osciladores ${cur.osc_compra}↑ ${cur.osc_venta}↓ · ${cur.tendencia.toLowerCase()}`;
+    }
+    const strip = document.getElementById('strip'); strip.replaceChildren();
+    marcos.forEach((m) => {
+      const r = num(m.rating);
+      const b = el('button'); b.type = 'button'; b.setAttribute('aria-pressed', String(m.tf === S.tf)); b.title = `${TF_TXT[m.tf]}: ${m.rating_txt}`;
+      const i = el('i'); i.style.background = r > .1 ? 'var(--color-ok)' : r < -.1 ? 'var(--color-bad)' : 'var(--color-fg-muted)';
+      i.style.opacity = String(.35 + Math.min(1, Math.abs(r) * 1.6) * .65);
+      b.append(el('span', '', m.tf), i); b.addEventListener('click', () => setTf(m.tf)); strip.append(b);
+    });
+  }
+
+  // ---------- grafico ----------
+  function drawChart(rows, sum) {
+    if (ghostTimer) { clearInterval(ghostTimer); ghostTimer = null; }
+    const box = document.getElementById('chart'); box.replaceChildren();
+    box.classList.toggle('ab-with-osc', !!S.layers.osc);   // con RSI y MACD el grafico crece para que el precio no quede chico
+    const tf = S.tf, price = liveBar && liveBar.tf === tf ? liveBar.c : num(sum.precio), L = S.layers;
+    const all = pick(rows, 'vela', tf).map((r) => ({ t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), v: num(r.v), en: !!r.en_curso,
+      e20: num(r.ema20), e50: num(r.ema50), bu: num(r.bb_up), bl: num(r.bb_lo),
+      rsi: num(r.rsi), macd: num(r.macd), sig: num(r.macd_senal), hist: num(r.macd_hist) })).sort((a, b) => a.t - b.t);
+    if (!all.length) return;
+    if (liveBar && liveBar.tf === tf) {
+      const last = all[all.length - 1];
+      if (liveBar.t === last.t) all[all.length - 1] = { ...last, h: liveBar.h, l: liveBar.l, c: liveBar.c, v: liveBar.v };
+      else if (liveBar.t > last.t) all.push({ ...liveBar, e20: null, e50: null, bu: null, bl: null, rsi: null, macd: null, sig: null, hist: null });
+    }
+    const nb = Math.max(20, Math.min(all.length, Math.round(S.nbars)));
+    S.offset = Math.max(0, Math.min(all.length - nb, S.offset));
+    const end = all.length - Math.round(S.offset), bars = all.slice(end - nb, end);
+    const live = Math.round(S.offset) === 0;   // mirando el presente: se dibuja el futuro posible
+    document.getElementById('zoom-info').textContent = `${nb} velas`;
+    const ghosts = !live ? [] : pick(rows, 'escenario', tf).filter((r) => r.escenario === S.scen)
+      .map((r) => ({ k: num(r.paso), t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), desde: r.desde })).sort((a, b) => a.k - b.k);
+    const cone = !live ? [] : pick(rows, 'cono', tf).map((r) => ({ k: num(r.paso), lo: num(r.p10), mid: num(r.p50), hi: num(r.p90) })).sort((a, b) => a.k - b.k);
+    const fvgs = pick(rows, 'fvg', tf).map((r) => ({ up: r.tipo === 'alcista', t: num(r.t), lo: num(r.bajo), hi: num(r.alto) }));
+    const giros = pick(rows, 'giro', tf).map((r) => ({ t: num(r.t), p: num(r.precio), w: r.onda, alto: r.tipo === 'alto' }));
+    const liq = pick(rows, 'liquidacion').map((r) => ({ p: num(r.precio), l: num(r.longs), s: num(r.shorts) }));
+
+    const W = Math.max(300, box.clientWidth), H = Math.max(280, (box.clientHeight || 440) - 4);
+    const steps = Math.max(ghosts.length, cone.length), n = bars.length + steps;
+    const narrow = W < 520;
+    const heatW = L.liq ? Math.min(narrow ? 44 : 78, W * .11) : 0, axW = narrow ? 54 : 66;
+    const m = { t: 24, b: 24, l: 2 };
+    const plotR = W - axW - heatW;
+    // de arriba a abajo: precio, volumen y, si estan prendidos, los paneles de RSI y MACD
+    // las alturas de volumen, RSI y MACD se cambian arrastrando la linea que los separa
+    const gapP = 16, PP = S.pane;
+    const rsiH = L.osc ? Math.round(H * PP.rsi) : 0, macdH = L.osc ? Math.round(H * PP.macd) : 0;
+    const macdB = H - m.b, macdT = macdB - macdH, rsiB = macdT - gapP, rsiT = rsiB - rsiH;
+    const volB = L.osc ? rsiT - gapP : H - m.b;
+    const volH = Math.round(H * (PP.vol !== null ? PP.vol : L.osc ? .09 : .14)), priceB = volB - volH - 8;
+    const x = d3.scaleBand(d3.range(n), [m.l, plotR]).paddingInner(.3);
+    const bw = x.bandwidth(), cxi = (i) => x(i) + bw / 2;
+    const vals = live ? [price] : [];
+    bars.forEach((b) => { vals.push(b.h, b.l); if (L.bb && b.bu !== null) vals.push(b.bu, b.bl); });
+    ghosts.forEach((g) => vals.push(g.h, g.l)); cone.forEach((c) => vals.push(c.lo, c.hi));
+    let [lo, hi] = d3.extent(vals); const pad = (hi - lo) * .06; lo -= pad; hi += pad;
+    { const mid = (lo + hi) / 2, half = (hi - lo) / 2 * S.yzoom; lo = mid - half; hi = mid + half; }   // eje comprimido o estirado
+    { const sh = (hi - lo) * S.ypan; lo += sh; hi += sh; }                                              // arrastrado hacia arriba o abajo
+    const y = d3.scaleLinear([lo, hi], [priceB, m.t]);
+    const yv = d3.scaleLinear([0, d3.max(bars, (b) => b.v) || 1], [volB, volB - volH]);
+
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
+      .attr('aria-label', `Velas de ${TF_TXT[tf]} con escenario ${SCEN_TXT[S.scen]}`);
+    const tip = el('div', 'ab-tip'); tip.hidden = true; box.append(tip);
+    const showTip = (parts, sx) => {
+      tip.replaceChildren(...parts); tip.hidden = false;
+      const px = sx / W * box.clientWidth;
+      tip.style.left = Math.max(4, px > box.clientWidth / 2 ? px - tip.offsetWidth - 14 : px + 14) + 'px'; tip.style.top = '10px';
+    };
+    const tfMs = TF_MIN[tf] * 60000;
+    const pill = (g, px, py, text, col, solid, anchor = 'start') => {
+      const gr = g.append('g').attr('class', 'ab-pill-svg');
+      const t = gr.append('text').attr('dy', '.34em').style('fill', col).text(text);
+      const w = t.node().getComputedTextLength() + 14;
+      let x0 = anchor === 'end' ? px - w : anchor === 'middle' ? px - w / 2 : px;
+      x0 = Math.max(m.l + 2, Math.min(x0, plotR - w - 2));
+      const y0 = Math.max(m.t + 2, Math.min(py, priceB - 10));
+      gr.insert('rect', 'text').attr('x', x0).attr('y', y0 - 9).attr('width', w).attr('height', 18).attr('rx', 9)
+        .style('fill', col).style('fill-opacity', solid ? .2 : .08).style('stroke', col).style('stroke-opacity', solid ? .9 : .55)
+        .style('stroke-dasharray', solid ? null : '3 2');
+      t.attr('x', x0 + 7).attr('y', y0);
+    };
+    const xt = (t) => cxi(0) + (t - bars[0].t) / tfMs * x.step();
+    const defs = svg.append('defs');
+    defs.append('clipPath').attr('id', 'ab-clip').append('rect').attr('x', m.l).attr('y', m.t - 16).attr('width', plotR - m.l).attr('height', priceB - m.t + 16);
+    const hatch = defs.append('pattern').attr('id', 'ab-hatch').attr('width', 7).attr('height', 7).attr('patternUnits', 'userSpaceOnUse').attr('patternTransform', 'rotate(45)');
+    hatch.append('line').attr('x1', 0).attr('y1', 0).attr('x2', 0).attr('y2', 7).style('stroke', 'var(--color-fg)').style('stroke-opacity', .06).style('stroke-width', 3);
+    const cg = defs.append('linearGradient').attr('id', 'ab-cone-g').attr('x1', 0).attr('x2', 1);
+    [[0, .2], [1, .07]].forEach(([o, a]) => cg.append('stop').attr('offset', o).style('stop-color', 'var(--color-fg)').style('stop-opacity', a));
+
+    const ticks = y.ticks(6);
+    svg.append('g').selectAll('line').data(ticks).join('line').attr('class', 'ab-gl').attr('x1', m.l).attr('x2', plotR + heatW).attr('y1', y).attr('y2', y);
+    svg.append('g').attr('class', 'ab-ax').selectAll('text').data(ticks).join('text').attr('x', W - 4).attr('y', y).attr('dy', '.32em').attr('text-anchor', 'end').text(f0);
+    // una marca cada ~80 px, en horas redondas; cuando cambia el dia se escribe el dia en negrita
+    const axT = bars.map((b) => b.t).concat(ghosts.map((g) => g.t));
+    const parts = (t) => {
+      const o = {}; new Intl.DateTimeFormat('es-AR', { ...tz, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+        .formatToParts(new Date(Number(t))).forEach((q) => { o[q.type] = q.value; }); return o;
+    };
+    const every = Math.max(1, Math.ceil(80 / x.step()));
+    const NICE = { '5m': [12, 6, 3, 1], '15m': [16, 8, 4, 1], '30m': [16, 8, 4, 2], '1h': [24, 12, 6, 3], '4h': [6, 3, 1], '1d': [30, 14, 7, 1] }[tf] || [1];
+    const stride = NICE.slice().reverse().find((k) => k >= every) || every;
+    const marks = [];
+    let prevDay = null;
+    axT.forEach((t, i) => {
+      const q = parts(t), day = `${q.day}/${q.month}`;
+      const slot = Math.round(t / tfMs);
+      if (slot % stride !== 0 && !(tf !== '1d' && day !== prevDay && i > 0)) return;
+      const newDay = day !== prevDay;
+      prevDay = day;
+      const mk = { x: cxi(i), txt: tf === '1d' || newDay && i > 0 ? day : `${q.hour}:${q.minute}`, bold: newDay && i > 0 && tf !== '1d' };
+      if (mk.x < 22 || mk.x > plotR - 10) return;
+      // si dos marcas quedan pegadas, gana la del cambio de dia
+      const last = marks[marks.length - 1];
+      if (last && mk.x - last.x < 46) { if (mk.bold && !last.bold) marks[marks.length - 1] = mk; return; }
+      marks.push(mk);
+    });
+    const axg = svg.append('g').attr('class', 'ab-ax');
+    axg.selectAll('line').data(marks).join('line').attr('class', 'ab-gl').attr('x1', (d) => d.x).attr('x2', (d) => d.x).attr('y1', m.t).attr('y2', H - m.b).style('stroke-opacity', .5);
+    axg.selectAll('text').data(marks).join('text').attr('x', (d) => d.x).attr('y', H - 8).attr('text-anchor', 'middle')
+      .style('font-weight', (d) => (d.bold ? 700 : null)).text((d) => d.txt);
+
+    // futuro
+    const fx = live ? x(bars.length) - x.step() * .15 : plotR;
+    if (live) {
+      svg.append('rect').attr('x', fx).attr('y', m.t - 16).attr('width', plotR - fx).attr('height', H - m.b - m.t + 16).style('fill', 'url(#ab-hatch)');
+      svg.append('text').attr('class', 'ab-future-lbl').attr('x', fx + 6).attr('y', m.t - 5).text(`Futuro posible · ${SCEN_TXT[S.scen]}`);
+      // la hora de la prediccion del plazo elegido, para leer el grafico y los numeros juntos
+      const pz = pick(rows, 'plazo').find((r) => r.plazo === S.plazo);
+      if (pz) {
+        const xx = xt(num(pz.t_hasta)) - x.step() / 2;
+        if (xx > fx && xx <= plotR) {
+          svg.append('line').attr('class', 'ab-plazo-mark').attr('x1', xx).attr('x2', xx).attr('y1', m.t + 6).attr('y2', priceB).style('stroke', 'var(--color-fg)').style('stroke-opacity', .6).style('stroke-dasharray', '3 3');
+          svg.append('text').attr('class', 'ab-future-lbl ab-plazo-mark').attr('x', xx).attr('y', priceB + 12).attr('text-anchor', 'middle').text(`${S.plazo} · ${pz.hora.slice(-5)} h`);
+        }
+      }
+    }
+
+    defs.append('clipPath').attr('id', 'ab-pane').append('rect').attr('x', m.l).attr('y', m.t - 16).attr('width', plotR - m.l).attr('height', priceB - m.t + 16);
+    const pane = svg.append('g').attr('clip-path', 'url(#ab-pane)');
+    if (L.bb) {
+      const bb = bars.map((b, i) => ({ i, u: b.bu, l: b.bl })).filter((b) => b.u !== null);
+      pane.append('path').attr('class', 'ab-bb-area').attr('d', d3.area().x((d) => cxi(d.i)).y0((d) => y(d.l)).y1((d) => y(d.u))(bb)).style('fill', 'var(--color-fg)').style('fill-opacity', .04);
+      ['u', 'l'].forEach((k) => pane.append('path').attr('class', 'ab-bb').style('fill', 'none').attr('d', d3.line().x((d) => cxi(d.i)).y((d) => y(d[k]))(bb)));
+    }
+    if (L.fvg) fvgs.forEach((z) => {
+      const i0 = bars.findIndex((b) => b.t >= z.t); if (i0 < 0) return;
+      const yt = y(Math.min(z.hi, hi)), yb = y(Math.max(z.lo, lo)); if (yb <= m.t || yt >= priceB) return;
+      pane.append('rect').attr('class', z.up ? 'ab-fvg-u' : 'ab-fvg-d').attr('x', x(i0)).attr('y', yt).attr('width', plotR - x(i0)).attr('height', Math.max(2, yb - yt));
+      pane.append('line').attr('class', z.up ? 'ab-fvg-edge-u' : 'ab-fvg-edge-d').attr('x1', x(i0)).attr('x2', x(i0)).attr('y1', yt).attr('y2', Math.max(yt + 2, yb));
+    });
+    pick(rows, 'explicacion').filter((e) => e.plazo === S.plazo && e.tipo === 'vigilar' && e.precio !== null && e.precio !== undefined).forEach((e) => {
+      const v = num(e.precio); if (!(v > lo && v < hi)) return;
+      const col = e.sesgo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)';
+      pane.append('line').attr('class', 'ab-sr').attr('x1', m.l).attr('x2', plotR).attr('y1', y(v)).attr('y2', y(v)).style('stroke', col).style('stroke-width', 1.3)
+        .style('stroke-dasharray', '10 5').style('stroke-opacity', .85);
+      pane.append('text').attr('class', 'ab-pat-lbl ab-sr').style('fill', col).attr('x', m.l + 6).attr('y', y(v) + (e.sesgo === 'alcista' ? -5 : 13)).text(e.texto);
+    });
+    if (cone.length) {
+      const li = bars.length - 1, c0 = bars[li].c;
+      const pts = [{ i: li, lo: c0, hi: c0, mid: c0 }].concat(cone.map((c) => ({ i: li + c.k, ...c })));
+      pane.append('path').attr('class', 'ab-cone-area').attr('d', d3.area().curve(d3.curveMonotoneX).x((d) => cxi(d.i)).y0((d) => y(d.lo)).y1((d) => y(d.hi))(pts)).style('fill', 'url(#ab-cone-g)');
+      pane.append('path').attr('class', 'ab-median').attr('d', d3.line().curve(d3.curveMonotoneX).x((d) => cxi(d.i)).y((d) => y(d.mid))(pts));
+    }
+    // figuras del grafico y patrones de velas
+    if (L.patrones) {
+      const pg = svg.append('g').attr('clip-path', 'url(#ab-clip)');
+      const lastT = bars[bars.length - 1].t, endT = lastT + steps * tfMs;
+      pick(rows, 'patron', tf).forEach((p) => {
+        const exKey = `pat-${p.clase}-${p.nombre}`;
+        const g0 = pg.append('g').attr('data-ex', exKey), tg = svg.append('g').attr('data-ex', exKey);
+        const col = p.sesgo === 'alcista' ? 'var(--color-ok)' : p.sesgo === 'bajista' ? 'var(--color-bad)' : 'var(--color-warn)';
+        if (p.clase === 'grafico') {
+          const conf = p.estado === 'confirmado';
+          let label = null;
+          [1, 2].forEach((k) => {
+            const t0 = num(p[`l${k}_t`]); if (t0 === null) return;
+            const p0 = num(p[`l${k}_p`]), mm = num(p[`l${k}_m`]), val = (t) => p0 + mm * (t - t0), ta = Math.max(t0, bars[0].t);
+            g0.append('line').attr('class', 'ab-pat-line').style('stroke', col).style('stroke-dasharray', conf ? null : '6 4')
+              .style('stroke-width', conf ? 2 : 1.4).attr('x1', xt(ta)).attr('y1', y(val(ta))).attr('x2', xt(endT)).attr('y2', y(val(endT)));
+            // el nombre de la linea y su precio de hoy, junto a la ultima vela
+            const name = p[`l${k}_nombre`] || '', now = val(lastT);
+            const when = name === 'Cuello' && !conf ? (p.sesgo === 'alcista' ? ' · se confirma si lo supera' : ' · se confirma si lo pierde') : '';
+            if (now > lo && now < hi) pill(g0, xt(lastT) - 10, y(now) + (name === 'Piso' ? 14 : -14), `${name} ${f0(now)}${when}`, col, false, 'end');
+            if (!label) label = { x: xt(ta) + 4, y: y(val(ta)) + (name === 'Piso' ? 16 : -16) };
+          });
+          // los puntos que forman la figura: pisos, techos, hombros y cabeza
+          let first = null;
+          [1, 2, 3].forEach((k) => {
+            const t0 = num(p[`pt${k}_t`]); if (t0 === null) return;
+            const i = bars.findIndex((b) => b.t === t0); if (i < 0) return;
+            const below = p.sesgo === 'alcista', py0 = y(num(p[`pt${k}_p`]));
+            g0.append('circle').attr('cx', cxi(i)).attr('cy', py0).attr('r', 4.5).style('fill', 'var(--color-panel)').style('stroke', col).style('stroke-width', 2);
+            g0.append('text').attr('class', 'ab-pat-lbl').style('fill', col).attr('x', cxi(i)).attr('y', py0 + (below ? 17 : -10))
+              .attr('text-anchor', 'middle').text(p[`pt${k}_nombre`]);
+            if (!first) first = { x: cxi(i), y: py0 + (below ? 34 : -28) };
+          });
+          const head = first || label;
+          if (head) pill(g0, head.x, head.y, conf ? `✓ ${p.nombre}` : `Posible ${p.nombre.toLowerCase()}`, col, conf, first ? 'middle' : 'start');
+          const obj = num(p.objetivo);
+          if (obj !== null && live) {
+            const txt = `${conf ? 'Objetivo' : 'Objetivo si se confirma'}: ${f0(obj)}`;
+            if (obj > lo && obj < hi) {
+              tg.append('line').attr('class', 'ab-pat-line').style('stroke', col).attr('x1', fx).attr('x2', plotR).attr('y1', y(obj)).attr('y2', y(obj));
+              tg.append('text').attr('class', 'ab-pat-lbl').style('fill', col).attr('x', plotR - 4).attr('y', y(obj) - 5).attr('text-anchor', 'end').text(txt);
+            } else {
+              tg.append('text').attr('class', 'ab-pat-lbl').style('fill', col).attr('x', plotR - 4).attr('y', obj > hi ? m.t + 10 : priceB - 6)
+                .attr('text-anchor', 'end').text(`${obj > hi ? '▲' : '▼'} ${txt}`);
+            }
+          }
+        } else {
+          const i = bars.findIndex((b) => b.t === num(p.t)); if (i < 0) return;
+          const below = p.sesgo === 'alcista';
+          const yy = below ? y(bars[i].l) + 12 : y(bars[i].h) - 12;
+          g0.append('text').attr('class', 'ab-pat-mark').style('fill', col).attr('x', cxi(i)).attr('y', yy).text(p.sesgo === 'alcista' ? '▲' : p.sesgo === 'bajista' ? '▼' : '◆');
+          pill(g0, cxi(i) - 8, below ? yy + 16 : yy - 16, p.exito !== null ? `${p.nombre} · funcionó ${f0(num(p.exito))}%` : p.nombre, col, false, 'end');
+        }
+      });
+    }
+    if (L.patrones) {
+      const pd = svg.append('g').attr('clip-path', 'url(#ab-clip)');
+      const groups = {};
+      pick(rows, 'divergencia', tf).forEach((d) => {
+        const k = `${d.t1}-${d.t2}-${d.tipo}`;
+        (groups[k] = groups[k] || { ...d, names: [] }).names.push(d.indicador);
+      });
+      Object.values(groups).forEach((d) => {
+        const g0 = pd.append('g').attr('data-ex', `div-${d.t1}-${d.t2}-${d.tipo}`);
+        const i1 = bars.findIndex((b) => b.t === num(d.t1)), i2 = bars.findIndex((b) => b.t === num(d.t2));
+        if (i1 < 0 || i2 < 0) return;
+        const col = d.tipo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)', off = d.tipo === 'bajista' ? -9 : 9;
+        const x1 = cxi(i1), y1 = y(num(d.p1)) + off, x2 = cxi(i2), y2 = y(num(d.p2)) + off;
+        g0.append('line').attr('x1', x1).attr('y1', y1).attr('x2', x2).attr('y2', y2).style('stroke', col).style('stroke-width', 2.2).style('stroke-linecap', 'round');
+        [[x1, y1], [x2, y2]].forEach(([cx, cy]) => g0.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 3.5).style('fill', col));
+        // la etiqueta va en el medio de la linea: en las puntas estan las marcas de las ondas
+        pill(g0, (x1 + x2) / 2, (y1 + y2) / 2 + (d.tipo === 'bajista' ? -14 : 14), `Div. ${d.tipo} · ${d.names.join(' + ')}`, col, true, 'middle');
+      });
+    }
+    // volumen
+    svg.append('g').selectAll('rect').data(bars).join('rect').attr('class', (b) => (b.c >= b.o ? 'ab-vol-up' : 'ab-vol-dn'))
+      .attr('x', (b, i) => x(i)).attr('width', bw).attr('y', (b) => yv(b.v)).attr('height', (b) => volB - yv(b.v)).attr('rx', Math.min(1.5, bw / 4));
+    svg.append('text').attr('class', 'ab-future-lbl').attr('x', m.l + 2).attr('y', volB - volH - 2).text('Volumen');
+    // RSI y MACD, con sus divergencias marcadas tambien en cada panel
+    const divGroups = {};
+    pick(rows, 'divergencia', tf).forEach((d) => { (divGroups[`${d.t1}-${d.t2}-${d.tipo}`] = divGroups[`${d.t1}-${d.t2}-${d.tipo}`] || []).push(d); });
+    const oscDivs = (name, yo, g) => Object.entries(divGroups).forEach(([k, ds]) => {
+      const d = ds.find((z) => z.indicador === name); if (!d || !L.patrones) return;
+      const i1 = bars.findIndex((b) => b.t === num(d.t1)), i2 = bars.findIndex((b) => b.t === num(d.t2)); if (i1 < 0 || i2 < 0) return;
+      const col = d.tipo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)', dg = g.append('g').attr('data-ex', `div-${k}`);
+      dg.append('line').attr('x1', cxi(i1)).attr('y1', yo(num(d.v1))).attr('x2', cxi(i2)).attr('y2', yo(num(d.v2)))
+        .style('stroke', col).style('stroke-width', 2.2).style('stroke-linecap', 'round');
+      [[i1, d.v1], [i2, d.v2]].forEach(([i, v]) => dg.append('circle').attr('cx', cxi(i)).attr('cy', yo(num(v))).attr('r', 3).style('fill', col));
+    });
+    const oscLbl = (g, yy, parts) => {
+      const t = g.append('text').attr('class', 'ab-osc-lbl').attr('x', m.l + 2).attr('y', yy);
+      parts.forEach(([txt, col]) => t.append('tspan').style('fill', col || null).text(txt));
+    };
+    let lastOsc = null;
+    const oscY = {};
+    if (L.osc) {
+      lastOsc = [...bars].reverse().find((b) => b.rsi !== null && b.macd !== null) || null;
+      const og = svg.append('g').attr('data-ex', 'osc');
+      const clip = (id, t, b) => { defs.append('clipPath').attr('id', id).append('rect').attr('x', m.l).attr('y', t).attr('width', plotR - m.l).attr('height', Math.max(1, b - t)); return `url(#${id})`; };
+      const zr = S.oscZ.rsi, yr = d3.scaleLinear([50 - 50 / zr, 50 + 50 / zr], [rsiB, rsiT]);
+      oscY.rsi = yr;
+      const rg = og.append('g').attr('clip-path', clip('ab-clip-rsi', rsiT, rsiB));
+      rg.append('rect').attr('class', 'ab-osc-bg').attr('x', m.l).attr('width', plotR - m.l).attr('y', yr(70)).attr('height', yr(30) - yr(70));
+      [70, 50, 30].forEach((v) => rg.append('line').attr('class', v === 50 ? 'ab-gl' : 'ab-osc-ref').attr('x1', m.l).attr('x2', plotR).attr('y1', yr(v)).attr('y2', yr(v)));
+      [70, 30].filter((v) => yr(v) >= rsiT && yr(v) <= rsiB).forEach((v) => og.append('text').attr('class', 'ab-ax-t').attr('x', W - 4).attr('y', yr(v)).attr('dy', '.32em').attr('text-anchor', 'end').text(v));
+      rg.append('path').attr('class', 'ab-osc-line').style('stroke', dash.colors[2])
+        .attr('d', d3.line().defined((b) => b.rsi !== null).x((b, i) => cxi(i)).y((b) => yr(b.rsi))(bars));
+      oscDivs('RSI', yr, svg.append('g').attr('clip-path', clip('ab-clip-rsi2', rsiT - 4, rsiB + 4)));
+      const rv = lastOsc ? lastOsc.rsi : null;
+      oscLbl(og, rsiT - 4, [['RSI 14 '], [rv === null ? '—' : f1(rv), dash.colors[2]],
+        [rv === null ? '' : rv >= 70 ? ' · sobrecompra' : rv <= 30 ? ' · sobreventa' : '']]);
+
+      const mv = bars.flatMap((b) => [b.macd, b.sig, b.hist]).filter((v) => v !== null);
+      const ma = d3.max(mv, Math.abs) || 1;
+      const ym = d3.scaleLinear([-ma * 1.1 / S.oscZ.macd, ma * 1.1 / S.oscZ.macd], [macdB, macdT]);
+      oscY.macd = ym;
+      const mg = og.append('g').attr('clip-path', clip('ab-clip-macd', macdT, macdB));
+      mg.append('line').attr('class', 'ab-gl').attr('x1', m.l).attr('x2', plotR).attr('y1', ym(0)).attr('y2', ym(0));
+      mg.append('g').selectAll('rect').data(bars.map((b, i) => ({ i, h: b.hist })).filter((d) => d.h !== null)).join('rect')
+        .attr('class', (d) => (d.h >= 0 ? 'ab-vol-up' : 'ab-vol-dn')).attr('x', (d) => x(d.i)).attr('width', bw)
+        .attr('y', (d) => Math.min(ym(0), ym(d.h))).attr('height', (d) => Math.max(1, Math.abs(ym(d.h) - ym(0))));
+      [['macd', dash.colors[0]], ['sig', dash.colors[1]]].forEach(([k, c]) => mg.append('path').attr('class', 'ab-osc-line').style('stroke', c)
+        .attr('d', d3.line().defined((b) => b[k] !== null).x((b, i) => cxi(i)).y((b) => ym(b[k]))(bars)));
+      oscDivs('MACD', ym, svg.append('g').attr('clip-path', clip('ab-clip-macd2', macdT - 4, macdB + 4)));
+      const mk = pick(rows, 'marco', tf)[0];
+      const cruce = mk && mk.macd_cruce ? ` · cruzó ${mk.macd_cruce === 'alcista' ? 'al alza' : 'a la baja'}` : '';
+      oscLbl(og, macdT - 4, [['MACD '], [lastOsc ? f1(lastOsc.macd) : '—', dash.colors[0]], [' señal '], [lastOsc ? f1(lastOsc.sig) : '—', dash.colors[1]], [cruce]]);
+    }
+    if (L.ema) [['e20', dash.colors[0]], ['e50', dash.colors[1]]].forEach(([k, c]) =>
+      pane.append('path').attr('class', 'ab-ema').style('stroke', c).attr('d', d3.line().defined((b) => b[k] !== null).x((b, i) => cxi(i)).y((b) => y(b[k]))(bars)));
+    // velas
+    const cs = pane.append('g').selectAll('g').data(bars).join('g').attr('class', (b) => 'ab-candle ' + (b.c >= b.o ? 'ab-c-up' : 'ab-c-dn'))
+      .style('animation-delay', (b, i) => `${i * 10}ms`);
+    cs.append('line').attr('x1', (b, i) => cxi(i)).attr('x2', (b, i) => cxi(i)).attr('y1', (b) => y(b.h)).attr('y2', (b) => y(b.l)).style('stroke-width', 1);
+    cs.append('rect').attr('x', (b, i) => x(i)).attr('width', bw).attr('rx', Math.min(1.5, bw / 4))
+      .attr('y', (b) => y(Math.max(b.o, b.c))).attr('height', (b) => Math.max(1, Math.abs(y(b.o) - y(b.c))));
+    // ondas
+    if (L.ondas) {
+      const gp = giros.map((g) => ({ ...g, i: bars.findIndex((b) => b.t === g.t) })).filter((g) => g.i >= 0);
+      if (gp.length > 1) pane.append('path').attr('class', 'ab-zig').attr('d', d3.line().x((g) => cxi(g.i)).y((g) => y(g.p))(gp));
+      const wv = pane.append('g').selectAll('g').data(gp.filter((g) => g.w)).join('g').attr('class', 'ab-wave')
+        .attr('transform', (g) => `translate(${cxi(g.i)},${Math.max(m.t, Math.min(priceB, y(g.p) + (g.alto ? -13 : 13)))})`);
+      wv.append('circle').attr('r', 8.5); wv.append('text').text((g) => g.w);
+    }
+    // escenario
+    const gx = (g) => x(bars.length - 1 + g.k);
+    const gg = pane.append('g').selectAll('g').data(ghosts).join('g').attr('class', (g) => 'ab-ghost ' + (g.c >= g.o ? 'ab-c-up' : 'ab-c-dn'));
+    gg.append('line').attr('x1', (g) => gx(g) + bw / 2).attr('x2', (g) => gx(g) + bw / 2).attr('y1', (g) => y(g.h)).attr('y2', (g) => y(g.l)).style('stroke-width', 1.2);
+    gg.append('rect').attr('x', gx).attr('width', bw).attr('rx', Math.min(1.5, bw / 4)).attr('y', (g) => y(Math.max(g.o, g.c))).attr('height', (g) => Math.max(1, Math.abs(y(g.o) - y(g.c))));
+    const scan = pane.append('line').attr('class', 'ab-scan').attr('x1', 0).attr('x2', 0).attr('y1', m.t - 12).attr('y2', priceB).style('opacity', ghosts.length && !reduce ? 1 : 0);
+    // liquidaciones
+    if (L.liq && liq.length) {
+      const inR = liq.filter((r) => r.p > lo && r.p < hi);
+      const mx = d3.max(inR, (r) => Math.max(r.l, r.s)) || 1;
+      const hx = d3.scaleSqrt([0, mx], [0, heatW - 8]);
+      const bh = Math.max(2, Math.abs(y(price) - y(price * 1.0025)) - 1);
+      const op = d3.scaleLinear([0, mx], [.18, .8]);
+      defs.append('clipPath').attr('id', 'ab-clip-liq').append('rect').attr('x', plotR).attr('y', m.t).attr('width', heatW).attr('height', priceB - m.t);
+      svg.append('g').attr('clip-path', 'url(#ab-clip-liq)').selectAll('rect').data(inR.flatMap((r) => [r.l > 0 ? { p: r.p, v: r.l, side: 'l' } : null, r.s > 0 ? { p: r.p, v: r.s, side: 's' } : null]).filter(Boolean))
+        .join('rect').attr('class', (d) => (d.side === 'l' ? 'ab-liq-l' : 'ab-liq-s')).attr('x', plotR + 4).attr('y', (d) => y(d.p) - bh / 2)
+        .attr('height', bh).attr('width', (d) => Math.max(3, hx(d.v))).attr('rx', 1).style('fill-opacity', (d) => op(d.v)).style('cursor', 'help')
+        .on('pointermove', (ev, d) => {
+          const r = liq.find((z) => z.p === d.p) || { l: 0, s: 0 };
+          const g = el('div', 'ab-tip-g');
+          g.append(el('span', 'ab-tip-d', 'Longs que se liquidan'), el('span', '', M(r.l)), el('span', 'ab-tip-d', 'Shorts que se liquidan'), el('span', '', M(r.s)));
+          showTip([el('div', 'ab-tip-d', `Si BTC llega a ≈ ${f0(d.p)} (${sg((d.p / price - 1) * 100, 1)})`), g,
+            el('div', 'ab-tip-d', 'Estimación con open interest de la última semana')], d3.pointer(ev, svg.node())[0]);
+        })
+        .on('pointerleave', () => { tip.hidden = true; });
+      svg.append('text').attr('class', 'ab-future-lbl').attr('x', plotR + 4).attr('y', priceB + 14).text('Liquid.');
+    }
+    // precio actual
+    const py = y(price), hx0 = cxi(bars.length - 1);
+    svg.append('line').attr('class', 'ab-now-line').attr('x1', m.l).attr('x2', plotR + heatW).attr('y1', py).attr('y2', py);
+    const tag = svg.append('g').attr('class', 'ab-tag');
+    tag.append('rect').attr('x', W - axW + 2).attr('y', py - 10).attr('width', axW - 2).attr('height', 20).attr('rx', 4);
+    tag.append('text').attr('x', W - 4).attr('y', py).attr('dy', '.34em').attr('text-anchor', 'end').text(f0(price));
+    if (live) {
+    svg.append('circle').attr('class', 'ab-pulse').attr('cx', hx0).attr('cy', py).attr('r', 5);
+    svg.append('circle').attr('class', 'ab-dot').attr('cx', hx0).attr('cy', py).attr('r', 4);
+    }
+
+    // mira: sigue al puntero en todos los paneles (tambien mientras se arrastra), con el valor en el eje
+    // derecho y la fecha y hora en el eje de abajo
+    const cross = svg.append('g').attr('class', 'ab-cross').style('display', 'none');
+    const vx = cross.append('line').attr('y1', m.t).attr('y2', H - m.b);
+    const hy = cross.append('line').attr('x1', m.l).attr('x2', plotR + heatW);
+    const crect = cross.append('rect').attr('x', W - axW + 2).attr('width', axW - 2).attr('height', 18).attr('rx', 4);
+    const ctext = cross.append('text').attr('x', W - 4).attr('text-anchor', 'end');
+    const trect = cross.append('rect').attr('y', H - m.b + 3).attr('height', 18).attr('rx', 4);
+    const ttext = cross.append('text').attr('y', H - m.b + 12).attr('dy', '.34em').attr('text-anchor', 'middle');
+    const longT = (t) => {
+      const o = {}; new Intl.DateTimeFormat('es-AR', { ...tz, weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+        .formatToParts(new Date(Number(t))).forEach((q) => { o[q.type] = q.value; });
+      const wd = o.weekday.replace('.', '');
+      return tf === '1d' ? `${wd} ${o.day}/${o.month}/${o.year}` : `${wd} ${o.day}/${o.month} ${o.hour}:${o.minute} h`;
+    };
+    const hideCross = () => { tip.hidden = true; cross.style('display', 'none'); };
+    S.pointAt = (pt) => {
+      if (!pt) { hideCross(); return; }
+      const mx2 = pt.x, my = pt.y;
+      if (my < m.t - 16 || my > H) { hideCross(); return; }
+      if (mx2 > plotR) { cross.style('display', 'none'); return; }   // sobre las liquidaciones manda su propio detalle
+      const i = Math.max(0, Math.min(n - 1, Math.floor((mx2 - m.l) / x.step())));
+      const fut = i >= bars.length, b = fut ? ghosts[i - bars.length] : bars[i];
+      if (!b) { hideCross(); return; }
+      cross.style('display', null); vx.attr('x1', cxi(i)).attr('x2', cxi(i));
+      // el valor del eje depende del panel donde esta el puntero
+      const yy = Math.max(m.t, Math.min(my, H - m.b));
+      let val = null;
+      if (yy <= priceB) val = f0(y.invert(yy));
+      else if (yy <= volB && yy >= volB - volH) val = `${f1(yv.invert(yy))} BTC`;
+      else if (oscY.rsi && yy >= rsiT && yy <= rsiB) val = f1(oscY.rsi.invert(yy));
+      else if (oscY.macd && yy >= macdT && yy <= macdB) val = f1(oscY.macd.invert(yy));
+      hy.attr('y1', yy).attr('y2', yy).style('display', val === null ? 'none' : null);
+      crect.style('display', val === null ? 'none' : null).attr('y', yy - 9);
+      ctext.style('display', val === null ? 'none' : null).attr('y', yy).attr('dy', '.34em').text(val || '');
+      const tt = longT(b.t);
+      ttext.text(tt);
+      const tw = ttext.node().getComputedTextLength() + 12, tx = Math.max(m.l + tw / 2, Math.min(cxi(i), plotR + heatW - tw / 2));
+      ttext.attr('x', tx); trect.attr('x', tx - tw / 2).attr('width', tw);
+      const g = el('div', 'ab-tip-g');
+      [['Apertura', b.o], ['Máximo', b.h], ['Mínimo', b.l], ['Cierre', b.c]].forEach(([k, v]) => g.append(el('span', 'ab-tip-d', k), el('span', '', f0(v))));
+      if (!fut) g.append(el('span', 'ab-tip-d', 'Volumen'), el('span', '', `${f1(b.v)} BTC`));
+      if (!fut && L.osc && b.rsi !== null && b.rsi !== undefined) g.append(el('span', 'ab-tip-d', 'RSI'), el('span', '', f1(b.rsi)));
+      if (!fut && L.osc && b.macd !== null && b.macd !== undefined) g.append(el('span', 'ab-tip-d', 'MACD / señal'), el('span', '', `${f1(b.macd)} / ${f1(b.sig)}`));
+      const head = fut
+        ? [el('div', '', `${fmtT(b.t, tf)} h · dentro de ${dur(b.k * TF_MIN[tf])}`), el('div', 'ab-tip-d', `Vela futura ${b.k} del escenario ${SCEN_TXT[S.scen]}`)]
+        : [el('div', 'ab-tip-d', `${fmtT(b.t, tf)} h${b.en || (liveBar && liveBar.t === b.t) ? ' · vela en curso' : ''}`)];
+      showTip([...head, g], cxi(i));
+    };
+    if (S.lastPt) S.pointAt(S.lastPt);   // al redibujar (en vivo o arrastrando) la mira queda donde estaba
+
+    const tagEx = (sel, key) => svg.selectAll(sel).attr('data-ex', key);
+    tagEx('.ab-ema', 'ema'); tagEx('.ab-bb, .ab-bb-area', 'bb'); tagEx('.ab-fvg-u, .ab-fvg-d, .ab-fvg-edge-u, .ab-fvg-edge-d', 'fvg');
+    tagEx('.ab-zig, .ab-wave', 'ondas'); tagEx('.ab-liq-l, .ab-liq-s', 'liq'); tagEx('.ab-sr', 'sr');
+    tagEx('.ab-ghost, .ab-median, .ab-cone-area, .ab-scan, .ab-plazo-mark', 'futuro');
+
+    // que estas viendo: una linea por cada cosa dibujada, solo de las capas activas
+    const leg = document.getElementById('legend'); leg.replaceChildren();
+    const item = (key, sw, title, text) => {
+      const r = el('div', 'ab-ex-item ab-ex-link'), i = el('i'); Object.assign(i.style, sw);
+      const t = el('span'); t.append(el('b', '', title), ' ', text); r.append(i, t); leg.append(r);
+      r.dataset.ex = key;
+      r.addEventListener('pointerenter', () => focusEx(key));
+      r.addEventListener('pointerleave', () => focusEx(null));
+    };
+    const C = (c) => ({ background: c }), D = (c) => ({ background: 'transparent', border: `1.5px dashed ${c}` });
+    pick(rows, 'patron', tf).filter((p) => L.patrones && p.clase === 'grafico').forEach((p) => {
+      const col = p.sesgo === 'alcista' ? 'var(--color-ok)' : p.sesgo === 'bajista' ? 'var(--color-bad)' : 'var(--color-warn)';
+      item(`pat-grafico-${p.nombre}`, p.estado === 'confirmado' ? C(col) : D(col), `${p.estado === 'confirmado' ? '✓' : 'Posible'} ${p.nombre.toLowerCase()}:`, p.descripcion);
+    });
+    const dvs = {};
+    if (L.patrones) pick(rows, 'divergencia', tf).forEach((d) => { const k = `${d.t1}-${d.t2}-${d.tipo}`; (dvs[k] = dvs[k] || { ...d, names: [] }).names.push(d.indicador); });
+    Object.values(dvs).forEach((d) => item(`div-${d.t1}-${d.t2}-${d.tipo}`, C(d.tipo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)'), `Divergencia ${d.tipo} (${d.names.join(' + ')}):`,
+      d.tipo === 'bajista' ? `el precio hizo un máximo más alto (${f0(num(d.p1))} → ${f0(num(d.p2))}) pero ${d.names.join(' y ')} no acompañó: la suba pierde fuerza.`
+        : `el precio hizo un mínimo más bajo (${f0(num(d.p1))} → ${f0(num(d.p2))}) pero ${d.names.join(' y ')} no acompañó: la baja pierde fuerza.`));
+    pick(rows, 'patron', tf).filter((p) => L.patrones && p.clase === 'vela' && bars.some((b) => b.t === num(p.t))).forEach((p) =>
+      item(`pat-vela-${p.nombre}`, C(p.sesgo === 'alcista' ? 'var(--color-ok)' : p.sesgo === 'bajista' ? 'var(--color-bad)' : 'var(--color-warn)'), `Flechita · ${p.nombre}:`, p.descripcion));
+    if (pick(rows, 'explicacion').some((e) => e.plazo === S.plazo && e.tipo === 'vigilar'))
+      item('sr', D('var(--color-fg-muted)'), 'Líneas largas verde y roja:', `resistencia y soporte más cercanos para el plazo de ${S.plazo}.`);
+    if (ghosts.length) item('futuro', D('var(--color-fg-muted)'), 'Velas punteadas a la derecha:',
+      `un camino real del ${ghosts[0].desde.split('-').reverse().join('/')}, cuando BTC estaba en una situación parecida, llevado al precio de hoy. La zona gris es donde terminó el 80% de esos casos y la línea vertical, la hora del plazo elegido.`);
+    if (L.ondas && giros.some((g) => g.w)) {
+      const mk = pick(rows, 'marco', tf)[0];
+      item('ondas', { background: 'transparent', border: '1.5px solid var(--color-fg)', borderRadius: '50%', width: '10px', height: '10px' }, 'Círculos con letras o números:',
+        `conteo de Elliott. ${mk ? mk.elliott : ''}.`);
+    }
+    if (L.fvg && fvgs.length) item('fvg', C('color-mix(in srgb, var(--color-ok) 35%, transparent)'), 'Franjas verdes o rojas:', 'huecos (FVG) que el precio dejó sin operar; suele volver a llenarlos.');
+    if (L.ema) item('ema', { background: `linear-gradient(90deg, ${dash.colors[0]} 50%, ${dash.colors[1]} 50%)` }, 'Líneas azul y naranja:', 'medias móviles EMA 20 y EMA 50.');
+    if (L.bb) item('bb', C('color-mix(in srgb, var(--color-fg) 12%, transparent)'), 'Banda gris:', 'Bollinger, el rango normal del precio en las últimas 20 velas.');
+    if (L.liq) item('liq', { background: 'linear-gradient(90deg, var(--color-bad), var(--color-ok))' }, 'Barras de la derecha:',
+      'liquidaciones estimadas. Rojas: longs que se liquidan si baja; verdes: shorts si sube. Pasá el mouse para ver los USD.');
+    if (L.osc && lastOsc) {
+      const rv = lastOsc.rsi, mk = pick(rows, 'marco', tf)[0];
+      const rTxt = rv >= 70 ? 'en sobrecompra (arriba de 70): la suba está estirada y suele frenar' : rv <= 30 ? 'en sobreventa (debajo de 30): la baja está estirada y suele rebotar'
+        : `en ${f0(rv)}, zona neutral (entre 30 y 70)`;
+      const mTxt = mk && mk.macd_cruce ? `el MACD acaba de cruzar ${mk.macd_cruce === 'alcista' ? 'por encima de su señal: impulso a favor de la suba' : 'por debajo de su señal: impulso a favor de la baja'}`
+        : lastOsc.macd >= lastOsc.sig ? 'el MACD está por encima de su señal (impulso alcista)' : 'el MACD está por debajo de su señal (impulso bajista)';
+      item('osc', { background: `linear-gradient(90deg, ${dash.colors[2]} 50%, ${dash.colors[0]} 50%)` }, 'Paneles de abajo:',
+        `RSI ${rTxt}; ${mTxt}. Las barras son la diferencia entre las dos líneas. Si hay divergencias, se marcan con la misma línea en el precio y en el indicador.`);
+    }
+    document.getElementById('scen-note').textContent = ghosts.length || !live ? '' : 'No hay suficientes situaciones parecidas para armar escenarios en esta temporalidad.';
+
+    focusEx(S.focus);
+    // zonas para arrastrar: separadores de paneles, eje de tiempo y cada panel
+    S.geom = { W, H, plotR, heatW, step: x.step(), priceT: m.t, priceB, timeT: H - m.b,
+      divs: [{ k: 'vol', y: priceB + 4 }].concat(L.osc ? [{ k: 'rsi', y: rsiT - gapP / 2 }, { k: 'macd', y: macdT - gapP / 2 }] : []),
+      panes: L.osc ? [{ k: 'rsi', t: rsiT, b: rsiB }, { k: 'macd', t: macdT, b: macdB }] : [] };
+    if (!ghosts.length) return;
+    if (reduce) { gg.classed('on', true); return; }
+    const paint = () => {
+      gg.classed('on', (g) => g.k <= ghostK);
+      const last = Math.min(ghostK, ghosts.length);
+      scan.style('transform', `translateX(${last ? gx(ghosts[last - 1]) + bw + 3 : fx}px)`).style('opacity', ghostK > ghosts.length ? 0 : 1);
+    };
+    const tick = () => { ghostK = ghostK > ghosts.length + 6 ? 0 : ghostK + 1; paint(); };
+    paint(); ghostTimer = setInterval(tick, 380);
+  }
+
+  // ---------- probabilidades ----------
+  function drawProbs(rows, sum) {
+    const p = pick(rows, 'plazo').find((r) => r.plazo === S.plazo);
+    document.getElementById('prob-tf').textContent = `a ${S.plazo}`;
+    if (!p) return;
+    const up = num(p.sube), base = num(p.base), price = num(sum.precio);
+    document.getElementById('prob-when').textContent = `Hasta las ${p.hora.slice(-5)} h del ${p.hora.slice(0, 5)}`;
+    const split = document.getElementById('split'); split.replaceChildren();
+    const u = el('div', 'ab-sp-u', `▲ Cierra arriba ${f0(up)}%`), d = el('div', 'ab-sp-d', `${f0(100 - up)}% abajo ▼`), bm = el('div', 'ab-sp-base');
+    u.style.flexBasis = '50%'; d.style.flexBasis = '50%'; bm.style.left = '50%'; split.append(u, d, bm);
+    later(() => { u.style.flexBasis = up + '%'; d.style.flexBasis = (100 - up) + '%'; bm.style.left = `calc(${base}% - 1px)`; });
+    const v = document.getElementById('verdict'); v.textContent = `Al cierre: ${p.veredicto.toLowerCase()}`;
+    v.style.color = p.veredicto === 'Sesgo alcista' ? 'var(--color-ok)' : p.veredicto === 'Sesgo bajista' ? 'var(--color-bad)' : 'var(--color-fg-muted)';
+    document.getElementById('prob-base').textContent = (p.pocos_casos ? 'Pocos casos: poco confiable · ' : '')
+      + `margen ±${f0(num(p.margen))} pts · línea = normal ${f0(base)}%`;
+
+    const goals = pick(rows, 'objetivo_plazo').filter((t) => t.plazo === S.plazo).map((t) => ({ p: num(t.precio), prob: num(t.prob), up: t.lado === 'arriba' }));
+    const items = goals.concat([{ p: price, now: true }]).sort((a, b) => b.p - a.p);
+    const box = document.getElementById('ladder'); box.replaceChildren();
+    const W = Math.max(240, box.clientWidth), rh = 26, H = items.length * rh + 6;
+    const svg = d3.select(box).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Probabilidad de tocar cada precio');
+    const lx = 74, rx = W - 40, bx = d3.scaleLinear([0, 100], [0, rx - lx - 8]);
+    const med = p.mediana === null ? null : num(p.mediana);
+    items.forEach((it, k) => {
+      const yy = k * rh + 4;
+      const g = svg.append('g');
+      if (it.now) {
+        g.append('rect').attr('x', 0).attr('y', yy).attr('width', W).attr('height', rh - 4).attr('rx', 6).style('fill', 'var(--color-fg)');
+        g.append('text').attr('x', 8).attr('y', yy + 15).style('fill', 'var(--color-bg)').style('font-weight', 600).text(f0(it.p));
+        g.append('text').attr('x', lx).attr('y', yy + 15).style('fill', 'var(--color-bg)').text('BTC ahora');
+        return;
+      }
+      const col = it.up ? 'var(--color-ok)' : 'var(--color-bad)';
+      g.append('text').attr('x', 8).attr('y', yy + 15).style('fill', col).text(`${it.up ? '▲' : '▼'} ${f0(it.p)}`);
+      g.append('rect').attr('x', lx).attr('y', yy + 5).attr('width', rx - lx - 8).attr('height', 10).attr('rx', 5).style('fill', 'var(--color-bg)');
+      const bar = g.append('rect').attr('class', 'ab-lv-bar').attr('x', lx).attr('y', yy + 5).attr('height', 10).attr('rx', 5).style('fill', col)
+        .style('fill-opacity', .35 + it.prob / 160).attr('width', 0).style('width', '0px');
+      later(() => bar.style('width', bx(it.prob) + 'px'));
+      g.append('text').attr('x', W - 4).attr('y', yy + 15).attr('text-anchor', 'end').style('font-weight', 600).text(`${f0(it.prob)}%`);
+    });
+    document.getElementById('prob-foot').textContent = `Probabilidad de que BTC toque cada precio antes de esa hora, según ${f0(num(p.n))} casos parecidos de los últimos ${num(p.dias)} días.`
+      + (med === null ? '' : ` Precio más probable al cierre: ${f0(med)}.`) + ` El 80% terminó entre ${f0(num(p.min))} y ${f0(num(p.max))}.`;
+  }
+
+  // ---------- senales ----------
+  function drawSignals(rows) {
+    const tiles = document.getElementById('tiles'); tiles.replaceChildren();
+    pick(rows, 'contexto').forEach((c) => {
+      const t = el('div', 'ab-tile ab-sig-' + c.senal);
+      const h = el('div', 'ab-tile-t'); h.append(el('i'), c.titulo);
+      t.append(h, el('div', 'ab-tile-v', c.valor), el('div', 'ab-tile-d', c.detalle)); tiles.append(t);
+    });
+    const books = document.getElementById('books'); books.replaceChildren();
+    pick(rows, 'libro').forEach((b) => {
+      const imb = num(b.desequilibrio), w = Math.min(50, Math.abs(imb) / 1.2);
+      const row = el('div', 'ab-book' + (b.en_total ? '' : ' ab-off'));
+      const tr = el('span', 'ab-book-tr'); const i = el('i'); i.style.background = imb >= 0 ? 'var(--color-ok)' : 'var(--color-bad)';
+      i.style.left = '50%'; i.style.width = '0'; tr.append(i);
+      row.append(el('span', '', b.exchange + (b.en_total ? '' : '*')), tr, el('span', '', sg(imb, 0))); row.lastChild.style.textAlign = 'right';
+      books.append(row);
+      later(() => { i.style.left = (imb >= 0 ? 50 : 50 - w) + '%'; i.style.width = w + '%'; });
+    });
+  }
+
+  // ---------- niveles a escala ----------
+  function drawLevels(rows, sum) {
+    const box = document.getElementById('levels'); box.replaceChildren();
+    const price = num(sum.precio);
+    const lv = pick(rows, 'nivel').map((r) => ({ name: r.nombre, p: num(r.precio), d: num(r.distancia) })).filter((r) => Math.abs(r.d) <= 8);
+    if (!lv.length) return;
+    const W = Math.max(260, box.clientWidth), H = Math.max(360, lv.length * 19 + 40);
+    const ext = d3.extent(lv.map((r) => r.p).concat([price]));
+    const y = d3.scaleLinear(ext, [H - 14, 14]);
+    const svg = d3.select(box).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Niveles clave a escala');
+    const axisX = Math.round(W * .52);
+    svg.append('line').attr('x1', axisX).attr('x2', axisX).attr('y1', 8).attr('y2', H - 8).style('stroke', 'var(--color-border-line)').style('stroke-width', 2);
+    svg.append('rect').attr('x', axisX - 3).attr('y', y(ext[1])).attr('width', 6).attr('height', Math.max(0, y(price) - y(ext[1]))).attr('rx', 3)
+      .style('fill', 'var(--color-ok)').style('fill-opacity', .25);
+    svg.append('rect').attr('x', axisX - 3).attr('y', y(price)).attr('width', 6).attr('height', Math.max(0, y(ext[0]) - y(price))).attr('rx', 3)
+      .style('fill', 'var(--color-bad)').style('fill-opacity', .25);
+    // separar etiquetas que se pisan (el precio actual ocupa su propio renglon, mas alto)
+    const items = lv.concat([{ name: 'BTC ahora', p: price, d: 0, now: true }]).sort((a, b) => b.p - a.p)
+      .map((r) => ({ ...r, y: y(r.p), ly: y(r.p), gap: r.now ? 26 : 17 }));
+    const gapOf = (a, b) => (a.now || b.now ? 22 : 17);
+    for (let k = 1; k < items.length; k++) if (items[k].ly - items[k - 1].ly < gapOf(items[k], items[k - 1])) items[k].ly = items[k - 1].ly + gapOf(items[k], items[k - 1]);
+    const over = items.length ? items[items.length - 1].ly - (H - 10) : 0;
+    if (over > 0) items.forEach((it) => { it.ly -= over; });
+    for (let k = items.length - 2; k >= 0; k--) if (items[k + 1].ly - items[k].ly < gapOf(items[k], items[k + 1])) items[k].ly = items[k + 1].ly - gapOf(items[k], items[k + 1]);
+    items.forEach((it) => {
+      if (it.now) {
+        const tg = svg.append('g');
+        tg.append('path').attr('d', `M${axisX},${it.y} L${axisX},${it.ly}`).style('stroke', 'var(--color-fg)');
+        tg.append('rect').attr('x', axisX - 50).attr('y', it.ly - 11).attr('width', 100).attr('height', 22).attr('rx', 11).style('fill', 'var(--color-fg)');
+        tg.append('text').attr('x', axisX).attr('y', it.ly).attr('dy', '.34em').attr('text-anchor', 'middle').style('fill', 'var(--color-bg)').style('font-weight', 600).text(`Ahora ${f0(price)}`);
+        return;
+      }
+      const col = it.p > price ? 'var(--color-ok)' : 'var(--color-bad)';
+      const g = svg.append('g');
+      g.append('circle').attr('cx', axisX).attr('cy', it.y).attr('r', 3.5).style('fill', col);
+      g.append('path').attr('d', `M${axisX - 6},${it.y} L${axisX - 16},${it.ly} L${axisX - 22},${it.ly}`).style('fill', 'none').style('stroke', 'var(--color-border-line)');
+      g.append('text').attr('x', axisX - 26).attr('y', it.ly).attr('dy', '.34em').attr('text-anchor', 'end').style('fill', 'var(--color-fg)').text(it.name.replace(/ \(estimada\)/, ''))
+        .each(function () { const max = axisX - 30; let s = this.textContent; while (this.getComputedTextLength() > max && s.length > 4) { s = s.slice(0, -2); this.textContent = s + '…'; } });
+      g.append('text').attr('x', axisX + 12).attr('y', it.ly).attr('dy', '.34em').style('fill', col).style('font-weight', 600).text(f0(it.p));
+      g.append('text').attr('x', W - 2).attr('y', it.ly).attr('dy', '.34em').attr('text-anchor', 'end').style('fill', 'var(--color-fg-muted)').text(sg(it.d, 1));
+    });
+  }
+
+  // ---------- ondas y FVG ----------
+  function drawWaves(rows) {
+    const cur = pick(rows, 'marco', S.tf)[0];
+    document.getElementById('ond-tf').textContent = TF_TXT[S.tf];
+    const pats = document.getElementById('pats'); pats.replaceChildren();
+    const list = pick(rows, 'patron', S.tf).sort((a, b) => (a.clase === 'grafico' ? -1 : 1));
+    if (!list.length && !pick(rows, 'divergencia', S.tf).length) pats.append(el('p', 'ab-note', 'Sin figuras, patrones de velas ni divergencias claras en esta temporalidad.'));
+    list.forEach((p) => {
+      const card = el('div', 'ab-pat'); const top = el('div', 'ab-pat-top');
+      const chip = el('span', 'ab-sigchip ab-' + (p.sesgo === 'alcista' ? 'compra' : p.sesgo === 'bajista' ? 'venta' : 'neutral'),
+        `${p.sesgo === 'alcista' ? '▲' : p.sesgo === 'bajista' ? '▼' : '◆'} ${p.clase === 'grafico' ? 'Figura' : 'Vela'} · ${p.estado}`);
+      top.append(el('b', '', p.nombre), chip); card.append(top);
+      if (p.objetivo !== null) card.append(el('span', 'ab-target', `Objetivo ${f0(num(p.objetivo))} (${sg((num(p.objetivo) / num(pick(rows, 'resumen')[0].precio) - 1) * 100, 1)})`));
+      card.append(el('p', '', p.descripcion));
+      if (p.exito !== null) {
+        const r = el('div', 'ab-pat-rate'); const tr = el('span'); const i = el('i');
+        i.style.background = num(p.exito) >= 55 ? 'var(--color-ok)' : num(p.exito) >= 45 ? 'var(--color-fg-muted)' : 'var(--color-bad)';
+        i.style.width = '0'; tr.append(i); r.append(tr, el('span', '', `${f0(num(p.exito))}% de ${num(p.casos)}`)); card.append(r);
+        later(() => { i.style.width = num(p.exito) + '%'; });
+      }
+      pats.append(card);
+    });
+    const dg = {};
+    pick(rows, 'divergencia', S.tf).forEach((d) => {
+      const k = `${d.t1}-${d.t2}-${d.tipo}`; (dg[k] = dg[k] || { ...d, names: [] }).names.push(d.indicador);
+    });
+    Object.values(dg).forEach((d) => {
+      const card = el('div', 'ab-pat'); const top = el('div', 'ab-pat-top');
+      top.append(el('b', '', `Divergencia ${d.tipo}`), el('span', 'ab-sigchip ab-' + (d.tipo === 'alcista' ? 'compra' : 'venta'), d.names.join(' + ')));
+      const hiLo = d.tipo === 'bajista' ? 'máximo más alto' : 'mínimo más bajo', mom = d.tipo === 'bajista' ? 'la suba pierde fuerza' : 'la baja pierde fuerza';
+      card.append(top, el('p', '', `El precio hizo un ${hiLo} (${f0(num(d.p1))} → ${f0(num(d.p2))}) pero ${d.names.join(' y ')} no acompañó: ${mom}.`));
+      pats.append(card);
+    });
+    const w = document.getElementById('wave'); w.setAttribute('data-where', `tabla=marco&tf=${S.tf}`);
+    w.textContent = cur ? cur.elliott : '—';
+    const tg = document.getElementById('wave-target'); tg.replaceChildren();
+    if (cur && cur.elliott_objetivo !== null) tg.append('Objetivo de la onda', el('b', '', f0(num(cur.elliott_objetivo))));
+    const box = document.getElementById('fvgs'); box.replaceChildren();
+    const zones = pick(rows, 'fvg', S.tf);
+    if (!zones.length) { box.append(el('p', 'ab-note', 'Sin zonas FVG abiertas cerca del precio.')); return; }
+    zones.forEach((z) => {
+      const r = el('div', 'ab-fvg'); const i = el('i');
+      i.style.background = z.tipo === 'alcista' ? 'color-mix(in srgb, var(--color-ok) 45%, transparent)' : 'color-mix(in srgb, var(--color-bad) 45%, transparent)';
+      r.append(i, el('span', '', `${f0(num(z.bajo))} – ${f0(num(z.alto))}`), el('span', '', z.tipo)); box.append(r);
+    });
+  }
+
+  // ---------- indicadores ----------
+  function drawIndicators(rows) {
+    document.getElementById('ind-tf').textContent = TF_TXT[S.tf];
+    const cur = pick(rows, 'marco', S.tf)[0];
+    const votes = document.getElementById('votes'); votes.replaceChildren();
+    if (cur) [['Medias móviles', cur.ma_compra, cur.ma_neutral, cur.ma_venta], ['Osciladores', cur.osc_compra, cur.osc_neutral, cur.osc_venta]].forEach(([name, b, nn, s]) => {
+      const v = el('div', 'ab-vote'); const top = el('div', 'ab-vote-top');
+      top.append(el('span', '', name), el('span', '', `${b} alcistas · ${nn} neutrales · ${s} bajistas`));
+      const bar = el('div', 'ab-vote-bar'); const tot = b + nn + s || 1;
+      const parts = [[b, 'var(--color-ok)'], [nn, 'var(--color-fg-muted)'], [s, 'var(--color-bad)']].map(([k, c]) => { const i = el('i'); i.style.background = c; if (c.includes('muted')) i.style.opacity = '.35'; bar.append(i); return [i, k]; });
+      v.append(top, bar); votes.append(v);
+      later(() => parts.forEach(([i, k]) => { i.style.flexBasis = (k / tot * 100) + '%'; }));
+    });
+    const tb = document.querySelector('#ind-table tbody'); tb.replaceChildren();
+    let group = null;
+    pick(rows, 'indicador', S.tf).forEach((r) => {
+      if (r.grupo !== group) { group = r.grupo; const g = el('tr', 'ab-g'); const td = el('td', '', group); td.colSpan = 4; g.append(td); tb.append(g); }
+      const tr = el('tr'); tr.dataset.key = `${encodeURIComponent(r.tf)},${encodeURIComponent(r.indicador)}`;
+      const sig = el('td'); const chip = el('span', 'ab-sigchip ab-' + r.senal, r.senal === 'compra' ? '▲ Alcista' : r.senal === 'venta' ? '▼ Bajista' : '• Neutral'); sig.append(chip);
+      const det = el('td', '', r.detalle); if (!r.vota) det.append(el('span', 'ab-novote', (r.detalle ? ' · ' : '') + 'no vota'));
+      tr.append(el('td', '', r.indicador), el('td', 'r', r.valor === null ? '' : f2(num(r.valor))), sig, det); tb.append(tr);
+    });
+  }
+
+  function drawNote(s) {
+    document.getElementById('nota').textContent = s.nota_claude ||
+      'Todavía no hay lectura de noticias en este análisis. La rutina programada la agrega en cada corrida (8, 12, 16, 20 y 0 h): qué pasó, qué eventos vienen con horario y si refuerzan o contradicen el análisis técnico.';
+  }
+
+  function drawHits(rows) {
+    const box = document.getElementById('hits'); box.replaceChildren();
+    const hits = pick(rows, 'acierto');
+    if (!hits.length) { box.append(el('p', 'ab-note', 'Cada predicción queda registrada. Los aciertos aparecen cuando se cumple el plazo de cada una, desde las próximas corridas.')); return; }
+    const tbl = el('table', 'ab-tbl'); tbl.setAttribute('data-source', 'analisis'); tbl.setAttribute('data-row-key', 'tf,horizonte');
+    const hr = el('tr');
+    [['tf', 'Velas'], ['horizonte', 'Plazo'], ['pronosticos', 'Casos'], ['aciertos', 'Aciertos'], ['brier', 'Brier']].forEach(([f, t]) => { const th = el('th', '', t); th.setAttribute('data-field', f); hr.append(th); });
+    const th = el('thead'); th.append(hr); const tb = el('tbody');
+    hits.forEach((h) => { const tr = el('tr'); tr.dataset.key = `${encodeURIComponent(h.tf)},${encodeURIComponent(h.horizonte)}`;
+      [h.tf, h.horizonte, h.pronosticos, `${f1(num(h.aciertos))}%`, ar.format('.3f')(num(h.brier))].forEach((v) => tr.append(el('td', '', String(v)))); tb.append(tr); });
+    tbl.append(th, tb); box.append(tbl, el('p', 'ab-note', 'Brier mide la calidad de las probabilidades: 0,250 es tirar una moneda; menos es mejor.'));
+  }
+})();
+</script>
+
+</div>
+<div id="estado-app" role="status" aria-live="polite"><i></i><span>Preparando el primer análisis…</span></div>
+</body></html>

@@ -32,6 +32,27 @@ instante por WebSocket). Cada push a `main` se publica solo.
 La IP de salida de Render es compartida: si Binance la limita por exceso de pedidos, el análisis
 respeta la pausa y mientras tanto toma las velas de Bybit, sin cortarse.
 
+## En el iPhone, sin servidor: versión JavaScript (Vercel)
+
+La carpeta `JavascriptVersion/` es el mismo analista traducido a JavaScript: el teléfono baja los
+datos directo de los exchanges (APIs públicas) y hace todo el cálculo. Así cada teléfono usa su propia
+conexión, no se duerme como Render y no hay límites de pedidos compartidos. Es una página estática, sin build.
+
+1. En [vercel.com](https://vercel.com), **Add New → Project** e importá este repositorio.
+2. En **Root Directory** elegí `JavascriptVersion`. Framework Preset: **Other**. Sin Build Command ni Output Directory.
+3. **Deploy**. Cada push a `main` se publica solo.
+4. En el iPhone abrí la dirección en Safari → **Compartir → Agregar a inicio**: queda como una app a pantalla completa.
+
+La primera vez baja el historial de velas (unos segundos) y lo guarda en el teléfono; después solo
+pide lo nuevo. Reanaliza todo cada ~12 segundos mientras está abierta y se pausa en segundo plano.
+BingX no se usa en esta versión: su API no acepta pedidos desde páginas web.
+
+Si cambiás `dashboard/index.html`, regenerá la página de esta versión antes del push:
+
+```
+python JavascriptVersion/generar_pagina.py
+```
+
 ## Archivos
 
 | Archivo | Qué hace |
@@ -40,4 +61,5 @@ respeta la pausa y mientras tanto toma las velas de Bybit, sin cortarse.
 | `indicadores.py` | Indicadores, patrones de velas, figuras, divergencias, ondas, FVG y liquidaciones |
 | `dashboard/index.html` | La página del dashboard |
 | `render.yaml` | Configuración para Render |
+| `JavascriptVersion/` | La versión que corre entera en el teléfono (Vercel): `analisis.js`, `indicadores.js`, `datos.js`, `worker.js` |
 | `backtest_*.py`, `grid_bot_zec.py` | Backtests y bot de grilla (BingX demo) |
