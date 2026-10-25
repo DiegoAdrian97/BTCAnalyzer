@@ -4,6 +4,7 @@ Analisis de mercado de BTC/USDT perpetuo, de 5 minutos a diario (APIs publicas, 
 Uso:
     .venv\\Scripts\\python.exe analisis_btc.py                 # analiza, imprime y guarda data/analisis_btc.json
     .venv\\Scripts\\python.exe analisis_btc.py --abrir         # ademas abre el dashboard local (reporte_btc.html)
+    .venv\\Scripts\\python.exe analisis_btc.py --vivo          # dashboard en vivo en http://127.0.0.1:8765
     .venv\\Scripts\\python.exe analisis_btc.py --nota nota.txt # agrega la lectura de noticias al ultimo analisis
 
 Fuentes:
@@ -29,6 +30,7 @@ import csv
 import json
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 import ccxt
@@ -50,6 +52,18 @@ TIMEFRAMES = {"5m": (30, (3, 12)), "15m": (90, (4, 16)), "30m": (180, (4, 16)),
 
 
 # ---------- datos ----------
+_EXCHANGES = {}
+
+
+def exchange(eid):
+    """Cliente de cada exchange con sus mercados ya cargados: cargarlos tarda segundos y en vivo se reusan."""
+    if eid not in _EXCHANGES:
+        ex = getattr(ccxt, eid)({"enableRateLimit": True, "options": {"defaultType": "swap"}})
+        bg._retry(ex.load_markets)
+        _EXCHANGES[eid] = ex
+    return _EXCHANGES[eid]
+
+
 def update_candles(ex, tf, days):
     """Velas cerradas de Binance Futures con cache incremental en data/."""
     path = os.path.join(DATA_DIR, f"BTC_USDT_binance_perp_{tf}.csv")
@@ -296,8 +310,7 @@ def order_books():
     per, merged_bids, merged_asks, rows = [], {}, {}, []
     for eid, limit in BOOKS.items():
         try:
-            ex = getattr(ccxt, eid)({"enableRateLimit": True, "options": {"defaultType": "swap"}})
-            ex.load_markets()
+            ex = exchange(eid)
             size = ex.market(SYMBOL).get("contractSize") or 1    # OKX cotiza en contratos de 0.01 BTC
             book = bg._retry(ex.fetch_order_book, SYMBOL, limit=limit)
         except Exception as e:
@@ -459,8 +472,9 @@ def explain(rows, price, spec):
     else:
         why = f"Ojo: solo {agree} de {len(signals)} señales acompañan. Convicción baja."
 
-    def row(orden, tipo, sesgo, texto):
-        return {"tabla": "explicacion", "plazo": name, "orden": orden, "tipo": tipo, "sesgo": sesgo, "texto": texto}
+    def row(orden, tipo, sesgo, texto, precio=None):
+        return {"tabla": "explicacion", "plazo": name, "orden": orden, "tipo": tipo, "sesgo": sesgo, "texto": texto,
+                "precio": precio}
 
     out = [row(0, "titular", bias, head), row(1, "porque", bias, why)]
     out += [row(k, "senal", s, txt) for k, (_, s, txt) in enumerate(signals, start=2)]
@@ -471,9 +485,9 @@ def explain(rows, price, spec):
     sup = next((n for n in reversed(levels) if n["precio"] < price * (1 - gap)), None)
     k = len(out)
     if res:
-        out.append(row(k, "vigilar", "alcista", f"Resistencia {ar(res['precio'])} ({lc1(res['nombre'])})"))
+        out.append(row(k, "vigilar", "alcista", f"Resistencia {ar(res['precio'])} ({lc1(res['nombre'])})", res["precio"]))
     if sup:
-        out.append(row(k + 1, "vigilar", "bajista", f"Soporte {ar(sup['precio'])} ({lc1(sup['nombre'])})"))
+        out.append(row(k + 1, "vigilar", "bajista", f"Soporte {ar(sup['precio'])} ({lc1(sup['nombre'])})", sup["precio"]))
     if bias == "alcista" and sup:
         inval = f"Si una vela de {candle} cierra debajo de {ar(sup['precio'])}, la idea deja de valer."
     elif bias == "bajista" and res:
@@ -509,9 +523,13 @@ def log_and_score(entries, closes_by_tf):
 
 # ---------- analisis completo ----------
 def analyze():
-    bnc = ccxt.binanceusdm({"enableRateLimit": True})
-    bgx = ccxt.bingx({"enableRateLimit": True, "options": {"defaultType": "swap"}})
-    candles = {tf: update_candles(bnc, tf, days) for tf, (days, _) in TIMEFRAMES.items()}
+    bnc, bgx = exchange("binanceusdm"), exchange("bingx")
+    # los pedidos de red van en paralelo: velas de todas las temporalidades a la vez, y los libros de ordenes
+    # se bajan mientras se calcula lo demas
+    pool = ThreadPoolExecutor(max_workers=8)
+    books_job = pool.submit(order_books)
+    jobs = {tf: pool.submit(update_candles, bnc, tf, days) for tf, (days, _) in TIMEFRAMES.items()}
+    candles = {tf: job.result() for tf, job in jobs.items()}
     price = float(bg._retry(bgx.fetch_ticker, SYMBOL)["last"])
     now_ms = bnc.milliseconds()
     rows, entries, by_tf, series = [], [], {}, {}
@@ -597,7 +615,8 @@ def analyze():
         funding = None
         rows.append({"tabla": "contexto", "clave": "error", "titulo": "Contexto no disponible", "valor": "",
                      "senal": "neutral", "detalle": f"No se pudo leer: {type(e).__name__}"})
-    book_rows, per, mb, ma = order_books()
+    book_rows, per, mb, ma = books_job.result()
+    pool.shutdown(wait=False)
     rows += book_rows
     if per:
         b, a = sum(x[0] for x in per), sum(x[1] for x in per)
@@ -635,7 +654,7 @@ def analyze():
     rows += explanation
     takeaway = next(e["texto"] for e in explanation if e["plazo"] == "1 hora" and e["tipo"] == "titular")
     local = datetime.fromtimestamp(now_ms / 1000, LOCAL_TZ)
-    rows.insert(0, {"tabla": "resumen", "fecha": local.strftime("%Y-%m-%dT%H:%M:%S-03:00"),
+    rows.insert(0, {"tabla": "resumen", "fecha": datetime.now(LOCAL_TZ).isoformat(timespec="milliseconds"),
                     "hora_local": local.strftime("%d/%m %H:%M"), "precio": round(price, 1),
                     "cambio_24h": round(pct(price, h1[-24][4]), 2), "cambio_7d": round(pct(price, h1[-168][4]), 2),
                     "sma200d": round(sma200d, 1), "sma200d_dist": round(pct(price, sma200d), 2),
@@ -711,6 +730,17 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 <script>
 (function () {
   var rows = __DATA__, fns = [];
+  // modo en vivo (servido por analisis_btc.py --vivo): la pagina se conecta a Binance y trae cada analisis nuevo
+  window.abLive = __LIVE__;
+  if (window.abLive) {
+    setInterval(function () {
+      fetch('analisis_btc.json', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
+        if (d.rows && d.rows[0] && d.rows[0].fecha !== rows[0].fecha) {
+          rows = d.rows; window.abAnalyses = (window.abAnalyses || 1) + 1; fns.forEach(function (f) { f(); });
+        }
+      }).catch(function () {});
+    }, 2000);
+  }
   var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   window.dash = {
     colors: dark ? ['#7aa7ff', '#e0a64a', '#c78bff', '#4fd1c5', '#f08bb4', '#a3e635', '#fb923c', '#94a3b8']
@@ -728,21 +758,78 @@ __PAGE__
 """
 
 
-def write_local_html(data):
-    """La misma pagina del dashboard, con los datos de este analisis adentro, para abrir sin internet de por medio."""
+def write_local_html(data, path=LOCAL_HTML, live=False):
+    """La misma pagina del dashboard, con los datos de este analisis adentro."""
     with open(PAGE_FILE, encoding="utf-8") as f:
         page = f.read()
     rows = json.dumps(data["rows"], ensure_ascii=False).replace("</", "<\\/")
-    with open(LOCAL_HTML, "w", encoding="utf-8") as f:
-        f.write(LOCAL_SHELL.replace("__DATA__", rows).replace("__PAGE__", page))
+    html = LOCAL_SHELL.replace("__DATA__", rows).replace("__LIVE__", "true" if live else "false").replace("__PAGE__", page)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(html)
+    os.replace(tmp, path)
+
+
+# el modo en vivo publica SOLO esta carpeta, y solo en esta PC: nunca el proyecto entero (ahi esta el .env)
+LIVE_DIR = os.path.join(DATA_DIR, "vivo")
+LIVE_PORT = 8765
+
+
+def run_live(every):
+    """Recalcula el analisis cada `every` segundos y lo sirve en http://127.0.0.1:8765 hasta Ctrl+C."""
+    import functools
+    import http.server
+    import threading
+    import time
+    import webbrowser
+
+    class Quiet(http.server.SimpleHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+    os.makedirs(LIVE_DIR, exist_ok=True)
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", LIVE_PORT), functools.partial(Quiet, directory=LIVE_DIR))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{LIVE_PORT}/"
+    print(f"Modo en vivo: {url} (recalcula cada {every} s, Ctrl+C para salir)")
+    first = True
+    try:
+        while True:
+            started = time.time()
+            try:
+                data = {"rows": analyze()}
+                with open(OUT_FILE, "w", encoding="utf-8") as f:
+                    json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+                live_json = os.path.join(LIVE_DIR, "analisis_btc.json")
+                with open(live_json + ".tmp", "w", encoding="utf-8") as f:
+                    json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+                os.replace(live_json + ".tmp", live_json)
+                if first:
+                    write_local_html(data, os.path.join(LIVE_DIR, "index.html"), live=True)
+                    webbrowser.open(url)
+                    first = False
+                head = next(r for r in data["rows"] if r["tabla"] == "resumen")
+                print(f"{time.strftime('%H:%M:%S')}  BTC {ar(head['precio'], 1)}  ({time.time() - started:.1f} s)  {head['lectura']}")
+            except Exception as e:  # un corte de red no tiene que frenar el modo en vivo
+                print(f"(no se pudo actualizar: {type(e).__name__}: {e})")
+            time.sleep(max(1, every - (time.time() - started)))
+    except KeyboardInterrupt:
+        print("Modo en vivo detenido.")
+    finally:
+        server.shutdown()
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--nota", help="archivo de texto con la lectura de noticias para agregar al ultimo analisis")
     ap.add_argument("--abrir", action="store_true", help="abrir el dashboard local en el navegador al terminar")
+    ap.add_argument("--vivo", nargs="?", const=5, type=int, metavar="SEGUNDOS",
+                    help="modo en vivo: precio por WebSocket y analisis completo recalculado cada SEGUNDOS (5, sin pausa)")
     args = ap.parse_args()
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")   # la consola de Windows no siempre es UTF-8
+    if args.vivo:
+        run_live(max(5, args.vivo))
+        return
     if args.nota:
         with open(OUT_FILE, encoding="utf-8") as f:
             data = json.load(f)
