@@ -181,7 +181,14 @@
   .ab-chipbtn[aria-pressed="true"] i { opacity: 1; }
   .ab-iconbtn { font: inherit; font-size: var(--cds-font-size-caption); padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line);
     background: var(--paper); color: var(--ink); cursor: pointer; }
-  .ab-chart { position: relative; height: 460px; min-height: 280px; resize: vertical; overflow: hidden; }
+  .ab-chart { position: relative; height: 460px; min-height: 280px; overflow: hidden; }
+  .ab-sep { stroke: var(--line); stroke-width: 1; }
+  .ab-grip { fill: var(--panel); stroke: var(--mute); stroke-width: 1; }
+  .ab-grip-l { stroke: var(--mute); stroke-width: 1.2; stroke-linecap: round; }
+  .ab-sep-g.is-hot .ab-sep, .ab-sep-g.is-on .ab-sep { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 6 4; }
+  .ab-sep-g.is-hot .ab-grip, .ab-sep-g.is-on .ab-grip { fill: var(--ink); stroke: var(--ink); }
+  .ab-sep-g.is-hot .ab-grip-l, .ab-sep-g.is-on .ab-grip-l { stroke: var(--panel); }
+  .ab-grip-bg { fill: var(--ink); } .ab-grip-t { fill: var(--panel); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .ab-chart.ab-with-osc { height: 640px; }
   @media (max-width: 600px) { .ab-chart { height: 380px; } .ab-chart.ab-with-osc { height: 560px; } }
   .ab-osc-bg { fill: var(--color-fg); fill-opacity: .035; }
@@ -441,7 +448,7 @@
           <button type="button" class="ab-iconbtn" data-yzoom="out" aria-label="Comprimir el eje de precios">↕ más</button>
           <button type="button" class="ab-iconbtn" data-yzoom="in" aria-label="Estirar el eje de precios">↕ menos</button></span>
         <button type="button" class="ab-iconbtn" id="fit">Ajustar</button>
-        <span class="ab-note"><span class="ab-only-mouse">Arrastrá el gráfico para moverte · rueda: zoom · arrastrá el eje de precios o el de horas para estirarlos · arrastrá las líneas entre paneles para cambiar su alto · doble clic: ajustar</span><span class="ab-only-touch">Arrastrá con un dedo para moverte · pellizcá para zoom (de costado: velas; vertical: precios) · arrastrá los ejes o las líneas entre paneles para ajustarlos · tocá una vela para ver sus datos</span></span>
+        <span class="ab-note"><span class="ab-only-mouse">Arrastrá el gráfico para moverte · rueda: zoom · arrastrá el eje de precios o el de horas para estirarlos · arrastrá el borde de abajo del precio o de cada indicador para hacerlo más alto o más bajo · doble clic: ajustar</span><span class="ab-only-touch">Arrastrá con un dedo para moverte · pellizcá para zoom (de costado: velas; vertical: precios) · arrastrá los ejes para estirarlos · arrastrá la manija de abajo de cada panel para cambiar su alto · tocá una vela para ver sus datos</span></span>
       </div>
       <div class="ab-chart dash-skeleton" id="chart" data-source="analisis"></div>
       <span class="ab-kicker">Qué estás viendo</span>
@@ -544,7 +551,7 @@
   // cada plazo se mira con las velas que mejor lo muestran
   const PLAZO_VIEW = { '5 min': '5m', '15 min': '15m', '1 hora': '1h', '4 horas': '4h', '1 día': '1d' };
   const S = { plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
-    pane: { vol: null, rsi: .14, macd: .14 }, oscZ: { rsi: 1, macd: 1 },
+    ph: null, oscZ: { rsi: 1, macd: 1 },
     layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, liq: true, osc: true } };
   const defBars = () => (window.innerWidth < 600 ? 50 : 90);   // en el telefono, menos velas para que se lean
   S.nbars = defBars();
@@ -573,14 +580,14 @@
   try {
     const saved = JSON.parse(sessionStorage.getItem('ab-vista') || 'null');
     if (saved) {
-      Object.assign(S, { plazo: saved.plazo, tf: saved.tf, scen: saved.scen, nbars: saved.nbars, yzoom: saved.yzoom });
+      Object.assign(S, { plazo: saved.plazo, tf: saved.tf, scen: saved.scen, nbars: saved.nbars, yzoom: saved.yzoom, ph: saved.ph || null });
       Object.assign(S.layers, saved.layers || {});
       document.querySelectorAll('#scens button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.scen === S.scen)));
       document.querySelectorAll('#layers [data-layer]').forEach((x) => x.setAttribute('aria-pressed', String(!!S.layers[x.dataset.layer])));
     }
   } catch (e) { /* sin almacenamiento: arranca con la vista por defecto */ }
   window.addEventListener('pagehide', () => {
-    try { sessionStorage.setItem('ab-vista', JSON.stringify({ plazo: S.plazo, tf: S.tf, scen: S.scen, nbars: S.nbars, yzoom: S.yzoom, layers: S.layers })); } catch (e) { /* idem */ }
+    try { sessionStorage.setItem('ab-vista', JSON.stringify({ plazo: S.plazo, tf: S.tf, scen: S.scen, nbars: S.nbars, yzoom: S.yzoom, layers: S.layers, ph: S.ph })); } catch (e) { /* idem */ }
   });
   const placeTf = seg(document.getElementById('tfs'), 'data-tf', (v) => { S.tf = v; S.hz = null; S.offset = 0; draw(); });
   const placeSc = seg(document.getElementById('scens'), 'data-scen', (v) => { S.scen = v; draw(); });
@@ -601,7 +608,8 @@
     // arrastrar el eje de horas (abajo) cambia cuantas velas entran; arrastrar las lineas entre paneles cambia sus alturas
     const box = document.getElementById('chart');
     const clampY = (v) => Math.min(10, Math.max(0.15, v)), clampN = (v) => Math.min(300, Math.max(12, v));
-    const clampZ = (v) => Math.min(8, Math.max(0.5, v)), clampP = (v) => Math.min(.4, Math.max(.05, v));
+    const clampZ = (v) => Math.min(8, Math.max(0.5, v));
+    const clampH = (k, v) => Math.round(Math.min(1400, Math.max(k === 'price' ? 120 : 30, v)));
     let drag = null, pending = false;
     const redrawChart = () => {
       if (pending) return;
@@ -613,7 +621,9 @@
     // que hay debajo del puntero
     function zone(e) {
       const g = S.geom, p = at(e);
-      const dv = g.divs.find((d) => Math.abs(p.y - d.y) <= 7);
+      // con el dedo la manija se agarra mas facil
+      const tol = e.pointerType === 'touch' ? 12 : 6;
+      const dv = g.divs.map((d) => ({ ...d, dd: Math.abs(p.y - d.y) })).filter((d) => d.dd <= tol).sort((a, b) => a.dd - b.dd)[0];
       if (dv) return { mode: 'div', pane: dv.k };
       if (p.y >= g.timeT) return { mode: 't' };
       const osc = g.panes.find((q) => p.y >= q.t - 4 && p.y <= q.b + 4);
@@ -623,7 +633,6 @@
       return { mode: p.y <= g.priceB ? 'xy' : 'x' };
     }
     const CURSOR = { div: 'row-resize', t: 'ew-resize', y: 'ns-resize', oz: 'ns-resize', x: 'grab', xy: 'grab' };
-    const paneNow = (k) => (k === 'vol' ? (S.pane.vol !== null ? S.pane.vol : S.layers.osc ? .09 : .14) : S.pane[k]);
     box.addEventListener('wheel', (e) => {
       if (!S.geom) return;
       e.preventDefault();
@@ -651,9 +660,10 @@
       if (!S.geom || e.button !== 0) return;
       S.lastPt = at(e); if (S.pointAt) S.pointAt(S.lastPt);   // tocar o hacer clic muestra el detalle de esa vela
       const z = zone(e);
+      if (z.mode === 'div') { if (!S.ph) S.ph = { ...S.geom.ph }; S.dragDiv = z.pane; redrawChart(); }
       drag = { ...z, x: e.clientX, y: e.clientY, off: S.offset, yz: S.yzoom, yp: S.ypan, n: S.nbars,
-        pv: z.mode === 'oz' ? S.oscZ[z.pane] : z.mode === 'div' ? paneNow(z.pane) : null };
-      box.setPointerCapture(e.pointerId);
+        pv: z.mode === 'oz' ? S.oscZ[z.pane] : z.mode === 'div' ? S.ph[z.pane] : null };
+      try { box.setPointerCapture(e.pointerId); } catch (err) { /* puntero que ya se solto */ }
       box.classList.add('is-panning');
       box.style.cursor = drag.mode === 'x' || drag.mode === 'xy' ? 'grabbing' : CURSOR[drag.mode];
     });
@@ -668,24 +678,34 @@
       }
       if (!S.geom) return;
       S.lastPt = at(e);
-      if (!drag) { if (e.pointerType === 'mouse') box.style.cursor = CURSOR[zone(e).mode]; if (S.pointAt) S.pointAt(S.lastPt); return; }
+      if (!drag) {
+        if (e.pointerType === 'mouse') {
+          const z = zone(e);
+          box.style.cursor = CURSOR[z.mode];
+          box.querySelectorAll('.ab-sep-g').forEach((n) => n.classList.toggle('is-hot', z.mode === 'div' && n.dataset.k === z.pane));
+        }
+        if (S.pointAt) S.pointAt(S.lastPt); return;
+      }
       const k = scale(), dx = (e.clientX - drag.x) * k, dy = (e.clientY - drag.y) * k, g = S.geom;
       if (drag.mode === 'x' || drag.mode === 'xy') S.offset = drag.off + dx / g.step;
       if (drag.mode === 'xy') S.ypan = drag.yp + dy / Math.max(40, g.priceB - g.priceT) * S.yzoom;
       if (drag.mode === 'y') S.yzoom = clampY(drag.yz * Math.exp(dy * 0.006));
       if (drag.mode === 't') S.nbars = clampN(drag.n * Math.exp(-dx * 0.006));
       if (drag.mode === 'oz') S.oscZ[drag.pane] = clampZ(drag.pv * Math.exp(-dy * 0.01));
-      if (drag.mode === 'div') S.pane[drag.pane] = clampP(drag.pv - dy / g.H);
+      if (drag.mode === 'div') S.ph[drag.pane] = clampH(drag.pane, drag.pv + dy);
       redrawChart();
     });
     const stop = (e) => {
       touches.delete(e.pointerId); if (touches.size < 2) pinch = null;
-      drag = null; box.classList.remove('is-panning', 'is-scaling'); box.style.cursor = '';
+      const wasDiv = S.dragDiv;
+      drag = null; S.dragDiv = null; box.classList.remove('is-panning', 'is-scaling'); box.style.cursor = '';
+      if (wasDiv) redrawChart();
     };
     box.addEventListener('pointerup', stop);
     box.addEventListener('pointercancel', stop);
     const fit = () => { S.nbars = defBars(); S.offset = 0; S.yzoom = 1; S.ypan = 0; S.oscZ = { rsi: 1, macd: 1 }; redrawChart(); };
-    box.addEventListener('dblclick', fit);
+    // doble clic en un borde: los paneles vuelven a su alto original; en el resto, se ajusta la vista
+    box.addEventListener('dblclick', (e) => { if (S.geom && zone(e).mode === 'div') { S.ph = null; redrawChart(); } else fit(); });
     document.getElementById('fit').addEventListener('click', fit);
     document.querySelectorAll('[data-zoom]').forEach((b) => b.addEventListener('click', () => {
       S.nbars = clampN(S.nbars * (b.dataset.zoom === 'out' ? 1.4 : 1 / 1.4)); redrawChart(); }));
@@ -723,7 +743,7 @@
       entries.forEach((e) => {
         const w = Math.round(e.contentRect.width), h = Math.round(e.contentRect.height), prev = seen.get(e.target);
         const isChart = e.target.id === 'chart';
-        if (prev && (Math.abs(prev.w - w) > 2 || (isChart && Math.abs(prev.h - h) > 2))) changed = true;
+        if (prev && (Math.abs(prev.w - w) > 2 || (isChart && !S.ph && Math.abs(prev.h - h) > 2))) changed = true;
         seen.set(e.target, { w, h });
       });
       if (changed) { clearTimeout(t); t = setTimeout(() => { if (S.rows) draw(); }, 120); }
@@ -954,19 +974,28 @@
     const giros = pick(rows, 'giro', tf).map((r) => ({ t: num(r.t), p: num(r.precio), w: r.onda, alto: r.tipo === 'alto' }));
     const liq = pick(rows, 'liquidacion').map((r) => ({ p: num(r.precio), l: num(r.longs), s: num(r.shorts) }));
 
-    const W = Math.max(300, box.clientWidth), H = Math.max(280, (box.clientHeight || 440) - 4);
+    const W = Math.max(300, box.clientWidth);
     const steps = Math.max(ghosts.length, cone.length), n = bars.length + steps;
     const narrow = W < 520;
     const heatW = L.liq ? Math.min(narrow ? 44 : 78, W * .11) : 0, axW = narrow ? 54 : 66;
-    const m = { t: 36, b: 24, l: 2 };
+    const m = { t: 36, b: 26, l: 2 }, gapP = 16;
     const plotR = W - axW - heatW;
     // de arriba a abajo: precio, volumen y, si estan prendidos, los paneles de RSI y MACD
-    // las alturas de volumen, RSI y MACD se cambian arrastrando la linea que los separa
-    const gapP = 16, PP = S.pane;
-    const rsiH = L.osc ? Math.round(H * PP.rsi) : 0, macdH = L.osc ? Math.round(H * PP.macd) : 0;
-    const macdB = H - m.b, macdT = macdB - macdH, rsiB = macdT - gapP, rsiT = rsiB - rsiH;
-    const volB = L.osc ? rsiT - gapP : H - m.b;
-    const volH = Math.round(H * (PP.vol !== null ? PP.vol : L.osc ? .09 : .14)), priceB = volB - volH - 8;
+    // de arriba a abajo: precio, volumen, RSI y MACD. Cada uno se hace mas alto o mas bajo arrastrando su borde
+    // de abajo (como en TradingView) y el grafico entero crece o se achica con ellos
+    let H, ph;
+    if (S.ph) {
+      ph = S.ph;
+      H = m.t + ph.price + 8 + ph.vol + (L.osc ? 2 * gapP + ph.rsi + ph.macd : 0) + m.b;
+      box.style.height = `${H + 4}px`;
+    } else {
+      box.style.height = '';
+      H = Math.max(280, (box.clientHeight || 440) - 4);
+      const oh = Math.round(H * .14), vh = Math.round(H * (L.osc ? .09 : .14));
+      ph = { vol: vh, rsi: oh, macd: oh, price: H - m.t - m.b - vh - 8 - (L.osc ? 2 * gapP + 2 * oh : 0) };
+    }
+    const priceB = m.t + ph.price, volH = ph.vol, volB = priceB + 8 + volH;
+    const rsiT = volB + gapP, rsiB = rsiT + (L.osc ? ph.rsi : 0), macdT = rsiB + gapP, macdB = macdT + (L.osc ? ph.macd : 0);
     const x = d3.scaleBand(d3.range(n), [m.l, plotR]).paddingInner(.3);
     const bw = x.bandwidth(), cxi = (i) => x(i) + bw / 2;
     const vals = live ? [price] : [];
@@ -1322,6 +1351,24 @@
       if (setMacd) setMacd(ob, isLast);
     };
     legend(lastReal, false);
+    // el borde de abajo de cada panel: una linea con una manija bien visible en el medio; mientras se arrastra
+    // se resalta y dice que panel es y cuanto mide
+    const PANE_TXT = { price: 'Precio', vol: 'Volumen', rsi: 'RSI', macd: 'MACD' };
+    const sep = svg.append('g').attr('class', 'ab-seps');
+    const gw = narrow ? 64 : 48, gh = narrow ? 10 : 8, gcx = plotR - gw / 2 - 8;   // a la derecha: a la izquierda estan los titulos
+    [{ k: 'price', y: priceB + 4 }, { k: 'vol', y: L.osc ? volB + gapP / 2 : volB + 3 }].concat(L.osc ? [{ k: 'rsi', y: rsiB + gapP / 2 }, { k: 'macd', y: macdB + 3 }] : []).forEach((d) => {
+      const on = S.dragDiv === d.k;
+      const g0 = sep.append('g').attr('class', 'ab-sep-g' + (on ? ' is-on' : '')).attr('data-k', d.k);
+      g0.append('line').attr('class', 'ab-sep').attr('x1', m.l).attr('x2', W).attr('y1', d.y).attr('y2', d.y);
+      g0.append('rect').attr('class', 'ab-grip').attr('x', gcx - gw / 2).attr('y', d.y - gh / 2).attr('width', gw).attr('height', gh).attr('rx', gh / 2);
+      [-1, 1].forEach((k) => g0.append('line').attr('class', 'ab-grip-l').attr('x1', gcx - gw / 4).attr('x2', gcx + gw / 4).attr('y1', d.y + k * 1.5).attr('y2', d.y + k * 1.5));
+      if (on) {
+        const tx = gcx - gw / 2 - 8;
+        const t = g0.append('text').attr('class', 'ab-grip-t').attr('x', tx).attr('y', d.y).attr('dy', '.34em').attr('text-anchor', 'end').text(`↕ ${PANE_TXT[d.k]} · ${f0(ph[d.k])} px`);
+        const tw = t.node().getComputedTextLength() + 14;
+        g0.insert('rect', '.ab-grip-t').attr('class', 'ab-grip-bg').attr('x', tx - tw + 7).attr('y', d.y - 10).attr('width', tw).attr('height', 20).attr('rx', 10);
+      }
+    });
     // las referencias del eje que quedan debajo de una etiqueta se sacan
     axG.selectAll('text').filter(function () { const yy = +this.getAttribute('y'); return tagYs.some((t) => Math.abs(t - yy) < 13); }).remove();
     const hideCross = () => { tip.hidden = true; cross.style('display', 'none'); legend(lastReal, false); };
@@ -1408,8 +1455,9 @@
 
     focusEx(S.focus);
     // zonas para arrastrar: separadores de paneles, eje de tiempo y cada panel
-    S.geom = { W, H, plotR, heatW, step: x.step(), priceT: m.t, priceB, timeT: H - m.b,
-      divs: [{ k: 'vol', y: priceB + 4 }].concat(L.osc ? [{ k: 'rsi', y: rsiT - gapP / 2 }, { k: 'macd', y: macdT - gapP / 2 }] : []),
+    const divs = [{ k: 'price', y: priceB + 4 }, { k: 'vol', y: L.osc ? volB + gapP / 2 : volB + 3 }]
+      .concat(L.osc ? [{ k: 'rsi', y: rsiB + gapP / 2 }, { k: 'macd', y: macdB + 3 }] : []);
+    S.geom = { W, H, plotR, heatW, step: x.step(), priceT: m.t, priceB, timeT: H - m.b + 8, ph: { ...ph }, divs,
       panes: L.osc ? [{ k: 'rsi', t: rsiT, b: rsiB }, { k: 'macd', t: macdT, b: macdB }] : [] };
     if (!ghosts.length) return;
     if (reduce) { gg.classed('on', true); return; }
