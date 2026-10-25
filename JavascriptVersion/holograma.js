@@ -477,7 +477,13 @@ const header = textPlane(CW + 0.6, 2.3, (ctx, w, h) => {
   glowText(ctx, `${nameOf(CFG.asset)}/USDT`, 10, h * 0.2, h * 0.2, T().acc, 800);
   glowText(ctx, `${TF_LBL[CFG.tf]} · ${D.src || '…'}`, w - 10, h * 0.2, h * 0.17, '#9fe9ff', 600, 'right', 0.05);
   // la vela bajo el dedo o la cruz (la ultima si no hay ninguna): apertura, maximo, minimo, cierre y cambio
-  const hb = HOVER ? HOVER.b : D.bars[D.bars.length - 1];
+  const hb = HOVER && HOVER.liq ? null : HOVER ? HOVER.b : D.bars[D.bars.length - 1];
+  if (HOVER && HOVER.liq) {
+    const r = HOVER.liq, fs = h * 0.135, usd = (v) => (v >= 1e9 ? `${fmt(v / 1e9, 2)} mil M` : `${fmt(v / 1e6, 1)} M`) + ' US$';
+    rightParts(ctx, [['Liquidaciones en', '#7fd8f5'], [fmt(r.precio, dec(r.precio)), '#e8fbff', 1]], w - 10, h * 0.43, fs);
+    rightParts(ctx, [['Longs (si baja)', '#7fd8f5'], [r.longs > 0 ? usd(r.longs) : '—', T().dn, 1]], w - 10, h * 0.61, fs);
+    rightParts(ctx, [['Shorts (si sube)', '#7fd8f5'], [r.shorts > 0 ? usd(r.shorts) : '—', T().up, 1]], w - 10, h * 0.79, fs);
+  }
   if (hb) {
     const d = dec(hb[4]), cc = hb[4] >= hb[1] ? T().up : T().dn, fs = h * 0.135;
     const when = new Date(hb[0]).toLocaleString('es-AR', CFG.tf === '1d' ? { weekday: 'short', day: '2-digit', month: '2-digit' } : { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
@@ -710,6 +716,16 @@ function pinSlot() {
   if (i < 0) return null;
   return { i, b: g ? [g.t, g.o, g.h, g.l, g.c, 0] : LAY.vis[i], g: !!g, price: PIN.price };
 }
+/** La fila de liquidaciones en un punto (sobre la columna de la derecha), o null. */
+function liqAt(x, y) {
+  if (!LQW || !LAY || !LIQ.length) return null;
+  const p = chartAt(x, y);
+  if (!p || p.x < CW / 2 + 0.2 || p.x > CW / 2 + LQW + 0.2 || Math.abs(p.y) > CH / 2) return null;
+  const price = LAY.lo + (p.y - LAY.yb) / (LAY.yt - LAY.yb) * (LAY.hi - LAY.lo);
+  let best = null;
+  LIQ.forEach((r) => { if (!best || Math.abs(r.precio - price) < Math.abs(best.precio - price)) best = r; });
+  return best && Math.abs(best.precio - price) / price < 0.004 ? best : null;
+}
 let HOVER = null, headDirty = false;   // la vela que se muestra en la cabecera (como el hover de TradingView)
 /**
  * Un clic (pulgar + medio, o un toque corto): en un boton lo aprieta; en una cripto la elige; en el grafico deja la
@@ -723,17 +739,26 @@ function clickAt(x, y, dom) {
   }
   const sym = tileAt(x, y);
   if (sym) { if (sym !== CFG.asset) { setAsset(sym, true, assetTurn(sym)); link.send({ t: 'sync', asset: sym, tf: CFG.tf }); } return; }
-  const hit = slotAt(x, y);
-  PIN = hit ? { t: hit.b[0], price: hit.price } : null;
+  const lq = liqAt(x, y), hit = lq ? null : slotAt(x, y);
+  PIN = lq ? { liq: lq.precio } : hit ? { t: hit.b[0], price: hit.price } : null;
   link.send({ t: 'pin', pin: PIN });
 }
 /** La mira: la vela que esta debajo del dedo (o del mouse) o la que fijo el clic, con su precio y su fecha. */
 function updateCross() {
   const show = (v) => [crossV, crossH, crossTag].forEach((o) => { o.visible = v; });
   crossLbl.visible = false;            // los datos de la vela van en la cabecera, arriba a la derecha
-  const hit = (POINT && slotAt(POINT.x, POINT.y)) || pinSlot();
-  const hk = hit ? `${hit.b[0]}|${hit.b[1]}|${hit.b[2]}|${hit.b[3]}|${hit.b[4]}|${hit.g}` : '';
-  if (hk !== (HOVER ? HOVER.k : '')) { HOVER = hit ? { ...hit, k: hk } : null; headDirty = true; }
+  const lq = (POINT && liqAt(POINT.x, POINT.y)) || (PIN && PIN.liq && LIQ.find((r) => r.precio === PIN.liq)) || null;
+  const hit = lq ? null : (POINT && slotAt(POINT.x, POINT.y)) || pinSlot();
+  const hk = lq ? `L${lq.precio}|${lq.longs}|${lq.shorts}` : hit ? `${hit.b[0]}|${hit.b[1]}|${hit.b[2]}|${hit.b[3]}|${hit.b[4]}|${hit.g}` : '';
+  if (hk !== (HOVER ? HOVER.k : '')) { HOVER = lq ? { liq: lq, k: hk } : hit ? { ...hit, k: hk } : null; headDirty = true; }
+  if (lq) {
+    // sobre las liquidaciones: la linea de ese precio y los USD arriba a la derecha
+    const yy = LAY.yb + (lq.precio - LAY.lo) / (LAY.hi - LAY.lo) * (LAY.yt - LAY.yb), tk = fmt(lq.precio, dec(lq.precio));
+    crossH.userData.set([-CW / 2, yy, 0.7, CW / 2 + LQW, yy, 0.7]); crossTag.position.set(CW / 2 + LQW + 1.55, yy, 0.8);
+    if (crossTag.userData.k !== tk) { crossTag.userData.k = tk; crossTag.userData.draw(tk); }
+    crossV.visible = false; crossH.visible = crossTag.visible = true;
+    return;
+  }
   if (!hit) { show(false); return; }
   const x = LAY.x0 + hit.i * LAY.step, yy = LAY.yb + (hit.price - LAY.lo) / (LAY.hi - LAY.lo) * (LAY.yt - LAY.yb);
   const inY = yy >= LAY.yb - 0.01 && yy <= LAY.yt + 0.01;
