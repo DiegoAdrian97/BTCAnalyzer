@@ -815,8 +815,12 @@ LIVE_DIR = os.path.join(DATA_DIR, "vivo")
 LIVE_PORT = 8765
 
 
-def run_live(every):
-    """Recalcula el analisis cada `every` segundos y lo sirve en http://127.0.0.1:8765 hasta Ctrl+C."""
+def run_live(every, public=False):
+    """Recalcula el analisis cada `every` segundos y lo sirve hasta Ctrl+C.
+
+    Local: en http://127.0.0.1:8765. Publico (--servidor, para Render): en todas las interfaces y en el puerto
+    de la variable PORT, y siempre con la contrasena de la variable VIVO_CLAVE.
+    """
     import functools
     import http.server
     import importlib
@@ -830,15 +834,56 @@ def run_live(every):
     code_stamp = [os.path.getmtime(f) for f in code_files]
     page_stamp = None
 
+    password = os.environ.get("VIVO_CLAVE", "")
+    if public and len(password) < 8:
+        raise SystemExit("Para publicar el dashboard hace falta la variable VIVO_CLAVE con al menos 8 caracteres.")
+
     class Quiet(http.server.SimpleHTTPRequestHandler):
         def log_message(self, *args):
             pass
 
+        def do_GET(self):
+            if self.path == "/salud":            # para que Render sepa que el servicio anda; no muestra datos
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(b"ok")
+                return
+            if password and not self.authorized():
+                self.send_response(401)
+                self.send_header("WWW-Authenticate", 'Basic realm="Analista BTC", charset="UTF-8"')
+                self.end_headers()
+                return
+            super().do_GET()
+
+        def do_HEAD(self):
+            if password and not self.authorized():
+                self.send_response(401)
+                self.end_headers()
+                return
+            super().do_HEAD()
+
+        def authorized(self):
+            """Usuario cualquiera; vale la contrasena. Se compara en tiempo constante."""
+            import base64
+            import hmac
+            auth = self.headers.get("Authorization", "")
+            if not auth.startswith("Basic "):
+                return False
+            try:
+                given = base64.b64decode(auth[6:]).decode("utf-8").split(":", 1)[1]
+            except Exception:
+                return False
+            return hmac.compare_digest(given.encode(), password.encode())
+
     os.makedirs(LIVE_DIR, exist_ok=True)
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", LIVE_PORT), functools.partial(Quiet, directory=LIVE_DIR))
+    host, port = ("0.0.0.0", int(os.environ.get("PORT", LIVE_PORT))) if public else ("127.0.0.1", LIVE_PORT)
+    os.makedirs(LIVE_DIR, exist_ok=True)
+    server = http.server.ThreadingHTTPServer((host, port), functools.partial(Quiet, directory=LIVE_DIR))
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    url = f"http://127.0.0.1:{LIVE_PORT}/"
-    print(f"Modo en vivo: {url} (recalcula cada {every} s, Ctrl+C para salir)")
+    url = f"http://127.0.0.1:{port}/"
+    print(f"Modo en vivo: {'publicado en el puerto ' + str(port) if public else url} (recalcula cada {every} s, Ctrl+C para salir)",
+          flush=True)
     first = True
     try:
         while True:
@@ -862,11 +907,12 @@ def run_live(every):
                     if page_stamp is not None:
                         print("Diseño del dashboard actualizado: la página se recarga sola.")
                     page_stamp = data["pagina"]
-                if first:
+                if first and not public:
                     webbrowser.open(url)
-                    first = False
+                first = False
                 head = next(r for r in data["rows"] if r["tabla"] == "resumen")
-                print(f"{time.strftime('%H:%M:%S')}  BTC {ar(head['precio'], 1)}  ({time.time() - started:.1f} s)  {head['lectura']}")
+                print(f"{time.strftime('%H:%M:%S')}  BTC {ar(head['precio'], 1)}  ({time.time() - started:.1f} s)  {head['lectura']}",
+                      flush=True)
             except Exception as e:  # un corte de red no tiene que frenar el modo en vivo
                 print(f"(no se pudo actualizar: {type(e).__name__}: {e})")
             time.sleep(max(1, every - (time.time() - started)))
@@ -882,10 +928,12 @@ def main():
     ap.add_argument("--abrir", action="store_true", help="abrir el dashboard local en el navegador al terminar")
     ap.add_argument("--vivo", nargs="?", const=5, type=int, metavar="SEGUNDOS",
                     help="modo en vivo: precio por WebSocket y analisis completo recalculado cada SEGUNDOS (5, sin pausa)")
+    ap.add_argument("--servidor", action="store_true",
+                    help="con --vivo: publicar en internet (Render), con la contrasena de la variable VIVO_CLAVE")
     args = ap.parse_args()
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")   # la consola de Windows no siempre es UTF-8
     if args.vivo:
-        run_live(max(5, args.vivo))
+        run_live(max(5, args.vivo), public=args.servidor)
         return
     if args.nota:
         with open(OUT_FILE, encoding="utf-8") as f:
