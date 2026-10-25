@@ -478,49 +478,112 @@ def zigzag(bars, atr_mult=2.5):
     return pivots
 
 
-def elliott(pivots):
-    """Busca un conteo de Elliott que cumpla las reglas sobre los ultimos pivotes.
+SIGUE = {"1": "2", "2": "3", "3": "4", "4": "5", "5": "A", "A": "B", "B": "C", "C": "1"}
+SIN_ELLIOTT = "Sin conteo de Elliott claro: los últimos giros no cumplen las reglas"
 
-    Reglas de impulso: la onda 2 no pasa el inicio de la 1, la 3 no es la mas corta de 1/3/5 y la 4 no
-    se superpone con la 1. Correccion ABC: B no supera el inicio de A. El ultimo pivote es el tramo en
-    curso. Devuelve (etiquetas por pivote, descripcion, objetivo o None).
+
+def elliott(pivots, bars):
+    """Conteo de Elliott sobre los ultimos giros: un ciclo es un impulso de 5 ondas (1-5) y una correccion de 3 (A-B-C).
+
+    Reglas que se exigen siempre: la onda 2 no pasa el inicio de la 1 (y retrocede al menos 15%), la 3 supera el
+    final de la 1 y no es la mas corta de 1, 3 y 5, la 4 no se superpone con la 1, la 5 supera el final de la 3.
+    Correccion: B retrocede entre 20% y 100% de A, y C va en la direccion de A y pasa su final.
+    El ultimo giro es el tramo en curso: si el precio ya se alejo de el mas de un ATR, arranco la onda siguiente.
+    Devuelve (etiquetas de los ultimos giros, descripcion, objetivo o None, onda en curso o None, descripcion corta).
     """
+    if len(pivots) < 3:
+        return [], SIN_ELLIOTT, None, None, ""
     p = [x[2] for x in pivots]
+    c = [b[4] for b in bars]
+    atr_last = dmi([b[2] for b in bars], [b[3] for b in bars], c)[3][-1] or 0.0
+    started = pivots[-1][1] < len(bars) - 1 and abs(c[-1] - p[-1]) >= atr_last
 
-    def impulse(pts, up):
-        s = 1 if up else -1
+    def impulso(pts):
+        s = 1 if pts[1] > pts[0] else -1
         w = [s * (pts[k + 1] - pts[k]) for k in range(len(pts) - 1)]
         if any(x <= 0 for x in w[0::2]) or any(x >= 0 for x in w[1::2]):
             return False
-        if len(pts) > 2 and s * (pts[2] - pts[0]) <= 0:
-            return False                                   # onda 2 pasa el inicio de la 1
-        if len(pts) > 4 and s * (pts[4] - pts[1]) <= 0:
-            return False                                   # onda 4 se superpone con la 1
-        if len(w) >= 5 and w[2] < min(w[0], w[4]):
-            return False                                   # onda 3 la mas corta
+        w = [abs(x) for x in w]
+        if len(w) >= 2 and not 0.15 <= w[1] / w[0] < 1:
+            return False                                   # onda 2: retrocede algo, sin pasar el inicio de la 1
+        if len(w) >= 3 and s * (pts[3] - pts[1]) <= 0:
+            return False                                   # la 3 supera el final de la 1
+        if len(w) >= 4 and (s * (pts[4] - pts[1]) <= 0 or w[3] < 0.1 * w[2]):
+            return False                                   # la 4 no se superpone con la 1
+        if len(w) >= 5 and (s * (pts[5] - pts[3]) <= 0 or w[2] < min(w[0], w[4])):
+            return False                                   # la 5 supera la 3 y la 3 no es la mas corta
         return True
 
-    for n, names in ((6, ["0", "1", "2", "3", "4", "5"]), (5, ["0", "1", "2", "3", "4"])):
-        if len(p) >= n:
-            pts = p[-n:]
-            for up in (True, False):
-                if impulse(pts, up):
-                    sentido = "alcista" if up else "bajista"
-                    if n == 6:
-                        return names, f"Impulso {sentido} de 5 ondas posiblemente completo: suele seguir una corrección ABC", None
-                    target = pts[4] + (pts[1] - pts[0])           # onda 5 = onda 1, la proporcion mas comun
-                    return names, f"Posible onda 5 {sentido} en curso", target
-    for n, names in ((4, ["0", "A", "B", "C"]), (3, ["0", "A", "B"])):
-        if len(p) >= n:
-            pts = p[-n:]
-            a = pts[1] - pts[0]
-            if a and (pts[2] - pts[1]) * a < 0 and abs(pts[2] - pts[1]) < abs(a):
-                sentido = "bajista" if a < 0 else "alcista"
-                if n == 4 and (pts[3] - pts[2]) * a > 0:
-                    return names, f"Corrección ABC {sentido} posiblemente completa", None
-                if n == 3:
-                    return names, f"Posible onda C {sentido} en curso", pts[2] + a     # C = A
-    return [], "Sin conteo de Elliott claro: el precio no cumple las reglas en los últimos giros", None
+    def correccion(pts):
+        a = pts[1] - pts[0]
+        if a == 0:
+            return False
+        if len(pts) >= 3:
+            b = pts[2] - pts[1]
+            if b * a >= 0 or not 0.2 <= abs(b) / abs(a) <= 1.0:
+                return False
+        if len(pts) >= 4:
+            cc = pts[3] - pts[2]
+            if cc * a <= 0 or (pts[3] - pts[1]) * a <= 0 or not 0.5 * abs(a) <= abs(cc) <= 2.618 * abs(a):
+                return False
+        return True
+
+    imp = ["0", "1", "2", "3", "4", "5"]
+    cands = [imp + ["A", "B", "C"], imp + ["A", "B"], imp + ["A"], imp, imp[:5], imp[:4],
+             ["0", "A", "B", "C"], ["0", "A", "B"]]
+    for names in cands:
+        n = len(names)
+        if len(p) < n:
+            continue
+        pts = p[-n:]
+        if names[1] == "1":
+            if not impulso(pts[:6]) or (n > 6 and not correccion(pts[5:])):
+                continue
+        else:
+            if not correccion(pts):
+                continue
+            # una correccion suelta corrige un tramo mas grande que ella, y si es A-B la C ya tiene que haber arrancado
+            if len(p) < n + 1 or abs(pts[0] - p[-n - 1]) <= abs(pts[1] - pts[0]) or (n == 3 and not started):
+                continue
+        P = dict(zip(names, pts))
+        last = names[-1]
+        cur = SIGUE[last] if started else last
+        if names[1] == "1":
+            s = 1 if P["1"] > P["0"] else -1
+            sentido = "alcista" if s > 0 else "bajista"
+            done5 = "A" in P or (last == "5" and started)
+            head = f"Impulso {sentido} de 5 ondas completo" if done5 else f"Impulso {sentido} en formación"
+            if last == "C" and started:
+                head += " y corrección A-B-C completa"
+            elif "A" in P:
+                head += ", con la corrección A-B-C en marcha"
+            w1 = abs(P["1"] - P["0"])
+        else:
+            a = P["A"] - P["0"]
+            s = -1 if a > 0 else 1                         # la correccion va contra el tramo anterior
+            sentido = "alcista" if a > 0 else "bajista"
+            head = f"Corrección A-B-C {sentido}" + (" completa" if last == "C" and started else " en formación")
+        target, what = None, ""
+        if cur == "2":
+            target, what = P["1"] - s * 0.5 * w1, "onda 2 en curso: retroceso de la 1, suele llegar a la mitad"
+        elif cur == "3":
+            target, what = P["2"] + s * 1.618 * w1, "onda 3 en curso: suele ser la más larga y fuerte"
+        elif cur == "4":
+            target, what = P["3"] - s * 0.382 * abs(P["3"] - P["2"]), "onda 4 en curso: retroceso antes de la última suba" if s > 0 else "onda 4 en curso: rebote antes de la última baja"
+        elif cur == "5":
+            target, what = P["4"] + s * w1, "onda 5 en curso: la última del impulso, suele medir como la 1"
+        elif cur == "A":
+            target, what = P["5"] - s * 0.382 * abs(P["5"] - P["0"]), "empieza la corrección (onda A)"
+        elif cur == "B":
+            base = P.get("5", P.get("0"))
+            target, what = P["A"] - 0.5 * (P["A"] - base), "onda B en curso: rebote dentro de la corrección"
+        elif cur == "C":
+            base = P.get("5", P.get("0"))
+            target, what = P["B"] + (P["A"] - base), "onda C en curso: la última de la corrección, suele medir como la A"
+        elif cur == "1":
+            what = "la corrección terminó: puede empezar un impulso nuevo"
+        return names, f"{head}; {what}", target, cur, what
+    return [], SIN_ELLIOTT, None, None, ""
 
 
 def mapa_liquidaciones(price_by_hour, oi_hist, ls_hist, after_extremes, lev_weights=None, band=0.12, step=0.0025):
@@ -666,6 +729,10 @@ def patron_grafico(bars, pivots, atr_last):
                     else f"Tres mínimos, el del medio más bajo. Si BTC cierra arriba del cuello ({_ar(n_now)}), "
                          f"se confirma y el objetivo es {_ar(target)}.")
             return result("Hombro-cabeza-hombro invertido", "alcista", [neck], shoulders, target, desc, broke)
+    # triangulos, cunas, canales y rangos: piden mas toques que un doble techo o piso, asi que van primero
+    lines_fig = figura_lineas(bars, P, atr_last)
+    if lines_fig:
+        return lines_fig
     # doble techo / doble piso: dos extremos parecidos (hasta ~1%) sin uno mas extremo en el medio, aunque haya
     # giros menores entre ellos; el cuello es el giro opuesto mas extremo entre los dos
     # hasta 1% de diferencia, pero nunca mas de dos velas normales: en temporalidades cortas 1% es mucho
@@ -719,54 +786,98 @@ def patron_grafico(bars, pivots, atr_last):
             if desc:
                 return result("Doble piso", "alcista", [flat_line(nk, "Cuello")],
                               [point(a, "Piso 1"), point(b, "Piso 2")], target, desc, broke)
-    # triangulos, cunas y canales con los dos ultimos maximos y minimos
-    if len(highs) >= 2 and len(lows) >= 2:
-        h1, h2, l1, l2 = highs[-2], highs[-1], lows[-2], lows[-1]
-        up_l, lo_l = line(h1, h2, "Techo"), line(l1, l2, "Piso")
-        bar_ms = bars[-1][0] - bars[-2][0]
-        su, sl = up_l[2] * bar_ms * 20 / px, lo_l[2] * bar_ms * 20 / px     # pendiente en 20 velas, en fraccion del precio
-        flat = 0.003
-        u_now, l_now = at_now(up_l), at_now(lo_l)
-        start = min(h1[1], l1[1])
-        width0 = (up_l[1] + up_l[2] * (t(start) - up_l[0])) - (lo_l[1] + lo_l[2] * (t(start) - lo_l[0]))
-        width = u_now - l_now
-        if width <= 0:
-            return None
-        converging = width < width0 * 0.85
-        if abs(su) < flat and sl > flat:
+    return None
+
+
+def _envolvente(pts, top, tol, t):
+    """Recta por dos giros que deja a todos los demas del lado de adentro (o tocandola): (linea, toques) o None.
+
+    Gana la que mas giros toca; a igualdad, la mas reciente."""
+    best = None
+    for bi in range(len(pts) - 1, 0, -1):
+        for ai in range(bi - 1, -1, -1):
+            a, b = pts[ai], pts[bi]
+            m = (b[2] - a[2]) / ((t(b[1]) - t(a[1])) or 1)
+            at = lambda q: a[2] + m * (t(q[1]) - t(a[1]))
+            if any((q[2] > at(q) + tol) if top else (q[2] < at(q) - tol) for q in pts):
+                continue
+            touches = sum(1 for q in pts if abs(q[2] - at(q)) <= tol)
+            if best is None or touches > best[1]:
+                best = ((t(a[1]), a[2], m), touches)
+    return best
+
+
+def figura_lineas(bars, P, atr_last):
+    """Triangulos, cunas, canales y rangos: solo si el precio de verdad respeto las dos lineas.
+
+    Cada linea toca al menos dos giros y entre las dos suman cinco toques o mas; las velas cerraron adentro desde
+    el primer giro hasta el ultimo; la figura dura al menos 15 velas y, si ya rompio, la ruptura es reciente.
+    """
+    i_last, px = len(bars) - 1, bars[-1][4]
+    t = lambda k: bars[k][0]
+    tol = 0.8 * atr_last
+    val = lambda ln, k: ln[1] + ln[2] * (t(k) - ln[0])
+    for n in (8, 7, 6, 5):                  # mas giros = figura mas confiable
+        if len(P) < n:
+            continue
+        W = P[-n:]
+        hs, ls_ = [q for q in W if q[0] == "alto"], [q for q in W if q[0] == "bajo"]
+        if len(hs) < 2 or len(ls_) < 2:
+            continue
+        eu, el = _envolvente(hs, True, tol, t), _envolvente(ls_, False, tol, t)
+        if eu is None or el is None or eu[1] < 2 or el[1] < 2 or eu[1] + el[1] < 5:
+            continue
+        up_l, lo_l = eu[0] + ("Techo",), el[0] + ("Piso",)
+        s0, s1 = W[0][1], W[-1][1]
+        if i_last - s0 < 15 or s1 - s0 < 10:
+            continue
+        if any(bars[k][4] > val(up_l, k) + tol or bars[k][4] < val(lo_l, k) - tol for k in range(s0, s1 + 1)):
+            continue                        # el precio no respeto las lineas: no es una figura
+        w0, w1 = val(up_l, s0) - val(lo_l, s0), val(up_l, i_last) - val(lo_l, i_last)
+        if w0 <= 2 * tol or w1 <= tol:
+            continue                        # muy angosta, o las lineas ya se cruzaron
+        span = t(i_last) - t(s0)
+        ru, rl = up_l[2] * span, lo_l[2] * span          # cuanto subio o bajo cada linea en toda la figura
+        flat = max(tol, 0.15 * w0)
+        fu, fl = abs(ru) < flat, abs(rl) < flat
+        conv, par = w1 < 0.8 * w0, abs(w1 - w0) <= 0.25 * w0
+        if fu and fl and par:
+            name, bias = "Rango lateral", "neutral"
+        elif fu and not fl and rl > 0 and conv:
             name, bias = "Triángulo ascendente", "alcista"
-        elif abs(sl) < flat and su < -flat:
+        elif fl and not fu and ru < 0 and conv:
             name, bias = "Triángulo descendente", "bajista"
-        elif su < -flat and sl > flat:
+        elif not fu and not fl and ru < 0 < rl and conv:
             name, bias = "Triángulo simétrico", "neutral"
-        elif su > flat and sl > flat and converging:
+        elif not fu and not fl and ru > 0 and rl > 0 and conv:
             name, bias = "Cuña ascendente", "bajista"
-        elif su < -flat and sl < -flat and converging:
+        elif not fu and not fl and ru < 0 and rl < 0 and conv:
             name, bias = "Cuña descendente", "alcista"
-        elif su > flat and sl > flat:
+        elif not fu and not fl and ru > 0 and rl > 0 and par:
             name, bias = "Canal alcista", "alcista"
-        elif su < -flat and sl < -flat:
+        elif not fu and not fl and ru < 0 and rl < 0 and par:
             name, bias = "Canal bajista", "bajista"
         else:
-            name, bias = "Rango lateral", "neutral"
-        height = max(width0, width)
+            continue                        # lineas que no forman ninguna figura clasica
+        u_now, l_now = val(up_l, i_last), val(lo_l, i_last)
+        height = max(w0, w1) if name.startswith("Canal") or name == "Rango lateral" else w0
         art = "una" if name.startswith("Cuña") else "un"
-        val = lambda ln, j: ln[1] + ln[2] * (t(j) - ln[0])
-        recent = range(max(0, i_last - 20), i_last)
+        touches = f" ({eu[1]} toques arriba y {el[1]} abajo)"
+        recent = range(max(s1, i_last - 20), i_last)
         if px > u_now + tol:
-            if not any(bars[j][4] <= val(up_l, j) for j in recent):
-                return None             # la ruptura fue hace mucho: la figura ya no esta vigente
+            if not any(bars[k][4] <= val(up_l, k) for k in recent):
+                return None                 # la ruptura fue hace mucho: la figura ya no esta vigente
             target = u_now + height
-            return result(f"Ruptura alcista de {name.lower()}", "alcista", [up_l, lo_l], [], target,
-                          f"BTC rompió hacia arriba el techo de {art} {name.lower()} en {_ar(u_now)}: "
-                          f"el objetivo de la ruptura es {_ar(target)}.", True)
+            return _figura(f"Ruptura alcista de {name.lower()}", "alcista", [up_l, lo_l], [], target,
+                           f"BTC rompió hacia arriba el techo de {art} {name.lower()}{touches} en {_ar(u_now)}: "
+                           f"el objetivo de la ruptura es {_ar(target)}.", True)
         if px < l_now - tol:
-            if not any(bars[j][4] >= val(lo_l, j) for j in recent):
+            if not any(bars[k][4] >= val(lo_l, k) for k in recent):
                 return None
             target = l_now - height
-            return result(f"Ruptura bajista de {name.lower()}", "bajista", [up_l, lo_l], [], target,
-                          f"BTC rompió hacia abajo el piso de {art} {name.lower()} en {_ar(l_now)}: "
-                          f"el objetivo de la ruptura es {_ar(target)}.", True)
+            return _figura(f"Ruptura bajista de {name.lower()}", "bajista", [up_l, lo_l], [], target,
+                           f"BTC rompió hacia abajo el piso de {art} {name.lower()}{touches} en {_ar(l_now)}: "
+                           f"el objetivo de la ruptura es {_ar(target)}.", True)
         target = u_now + height if bias == "alcista" else l_now - height if bias == "bajista" else None
         if bias == "alcista":
             side = f"suele romper hacia arriba; si supera {_ar(u_now)}, el objetivo es {_ar(target)}"
@@ -774,8 +885,96 @@ def patron_grafico(bars, pivots, atr_last):
             side = f"suele romper hacia abajo; si pierde {_ar(l_now)}, el objetivo es {_ar(target)}"
         else:
             side = "puede romper para cualquier lado: la dirección la da la ruptura"
-        return result(name, bias, [up_l, lo_l], [], target,
-                      f"BTC se mueve entre un piso en {_ar(l_now)} y un techo en {_ar(u_now)}; {side}.", False)
+        return _figura(name, bias, [up_l, lo_l], [], target,
+                       f"BTC se mueve entre un piso en {_ar(l_now)} y un techo en {_ar(u_now)}{touches}; {side}.", False)
+    return None
+
+
+def _figura(name, bias, lines, points, target, desc, broke):
+    return {"nombre": name, "sesgo": bias, "estado": "confirmado" if broke else "en formación",
+            "objetivo": None if target is None else round(target, 1), "descripcion": desc,
+            "lineas": lines, "puntos": points}
+
+
+def wyckoff(bars, pivots, atr_last):
+    """Acumulacion o distribucion de Wyckoff, solo con sus eventos principales a la vista. Un dict o None.
+
+    Acumulacion: una caida que termina en un climax de venta (SC, con volumen alto), el rebote automatico (AR)
+    marca el techo del rango, una prueba del piso (ST) y un spring: perfora el piso y vuelve adentro enseguida.
+    Si despues cierra arriba del techo, es la senal de fuerza (SOS). Distribucion: lo mismo al reves (BC, AR, ST,
+    UTAD y SOW). Sin climax, prueba y spring/UTAD no se marca nada.
+    """
+    P = pivots[:-1]
+    n_bars, i_last, px = len(bars), len(bars) - 1, bars[-1][4]
+    tol = 0.8 * atr_last
+    t = lambda k: bars[k][0]
+    vol = [b[5] for b in bars]
+    for m in range(min(10, len(P)), 3, -1):
+        W = P[-m:]
+        acc = W[0][0] == "bajo"             # empieza en un minimo: acumulacion; en un maximo: distribucion
+        sc, ar_ = W[0], W[1]
+        k0 = sc[1]
+        if i_last - k0 < 20 or i_last - k0 > 400 or k0 < 60:
+            continue
+        lo, hi = (sc[2], ar_[2]) if acc else (ar_[2], sc[2])
+        height = hi - lo
+        if height < 3 * atr_last:
+            continue
+        # venia de una tendencia: el precio cayo (o subio) bastante hasta el climax
+        prev = bars[k0 - 60:k0]
+        if acc and max(b[2] for b in prev) < hi + 0.5 * height:
+            continue
+        if not acc and min(b[3] for b in prev) > lo - 0.5 * height:
+            continue
+        # climax con volumen: la vela del giro o una vecina con 1,5 veces el volumen promedio de antes
+        avg = sum(vol[k0 - 50:k0]) / 50
+        if max(vol[max(0, k0 - 1):k0 + 2]) < 1.5 * avg:
+            continue
+        edge = lo if acc else hi                 # el lado que se prueba (piso en acumulacion, techo en distribucion)
+        other = hi if acc else lo
+        sign = 1 if acc else -1
+        # el rango termina cuando una vela cierra del otro lado (la salida); lo de despues ya no es el rango
+        brk = next((k for k in range(ar_[1] + 1, n_bars) if sign * (bars[k][4] - other) > 0), None)
+        rest = [q for q in W[2:] if brk is None or q[1] < brk]
+        same = [q for q in rest if q[0] == W[0][0]]
+        opp = [q for q in rest if q[0] != W[0][0]]
+        # el rango se respeta: los giros del otro lado no se escapan y los del mismo lado no se van lejos
+        if any((q[2] > other + tol) if acc else (q[2] < other - tol) for q in opp):
+            continue
+        if any((q[2] < edge - 0.35 * height) if acc else (q[2] > edge + 0.35 * height) for q in same):
+            continue
+        st = next((q for q in same if abs(q[2] - edge) <= max(tol, 0.25 * height)), None)
+        spring = None
+        for q in same:
+            if sign * (edge - q[2]) > 0.1 * tol and (st is None or q[1] > st[1] or q is st):
+                back = range(q[1] + 1, min(n_bars, q[1] + 4))
+                if any(sign * (bars[k][4] - edge) > 0 for k in back):    # perforo y volvio adentro enseguida
+                    spring = q
+        if st is None or spring is None or (spring is st and len(same) < 2):
+            continue
+        if sign * (edge - px) > 0.35 * height + tol:
+            return None                          # perdio el spring (o el UTAD): el esquema fallo
+        sos = brk
+        target = other + sign * height
+        if sos is not None and any(sign * ((bars[k][2] if acc else bars[k][3]) - target) >= 0 for k in range(sos, n_bars)):
+            return None                          # ya llego al objetivo: el esquema termino
+        nm = ("SC", "AR", "ST", "Spring", "SOS") if acc else ("BC", "AR", "ST", "UTAD", "SOW")
+        points = [(t(sc[1]), sc[2], nm[0]), (t(ar_[1]), ar_[2], nm[1])]
+        if st is not spring:
+            points.append((t(st[1]), st[2], nm[2]))
+        points.append((t(spring[1]), spring[2], nm[3]))
+        lines = [(t(k0), lo, 0.0, "Piso del rango"), (t(k0), hi, 0.0, "Techo del rango")]
+        name = "Acumulación de Wyckoff" if acc else "Distribución de Wyckoff"
+        if sos is not None:
+            points.append((t(sos), bars[sos][4], nm[4]))
+            desc = (f"Rango después de una {'caída' if acc else 'suba'} con clímax de {'venta' if acc else 'compra'}, "
+                    f"prueba y {nm[3].lower() if acc else nm[3]}; BTC ya {'superó el techo' if acc else 'perdió el piso'} "
+                    f"({_ar(other)}): fase de {'suba' if acc else 'baja'}, objetivo {_ar(target)}.")
+            return _figura(name, "alcista" if acc else "bajista", lines, points, target, desc, True)
+        desc = (f"Rango entre {_ar(lo)} y {_ar(hi)} después de una {'caída' if acc else 'suba'} con clímax de "
+                f"{'venta' if acc else 'compra'}. Ya hubo prueba y {nm[3].lower() if acc else nm[3]}: "
+                f"{'si cierra arriba de ' if acc else 'si cierra debajo de '}{_ar(other)}, se confirma y el objetivo es {_ar(target)}.")
+        return _figura(name, "alcista" if acc else "bajista", lines, points, target, desc, False)
     return None
 
 

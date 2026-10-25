@@ -5,6 +5,7 @@
 (function (root) {
   'use strict';
   const Ind = root.Ind || (typeof require !== 'undefined' ? require('./indicadores.js') : null);
+  const Apr = root.Apr || (typeof require !== 'undefined' ? require('./aprendizaje.js') : null);
   const { ar, rnd, roundEven } = Ind;
 
   const MIN_SAMPLES = 40;
@@ -46,15 +47,7 @@
   }
 
   // ---------- situaciones parecidas ----------
-  function states(closes, rsi, e50, e200, lookback) {
-    return closes.map((c, i) => {
-      const r = rsi[i];
-      if (r === null || i < lookback) return null;
-      const move = c / closes[i - lookback] - 1;
-      return [c > e50[i], c > e200[i], r < 35 ? 0 : r < 50 ? 1 : r < 65 ? 2 : 3, move < -0.02 ? 0 : move <= 0.02 ? 1 : 2];
-    });
-  }
-
+  // la situacion de cada vela (que rasgos se comparan) la elige el aprendizaje: ver aprendizaje.js
   function similar(st, last, warmup) {
     const now = st[st.length - 1];
     let idxs = [], keep = 0;
@@ -116,7 +109,7 @@
   }
 
   /** Probabilidad de TOCAR precios redondos antes de 'when', y precio mas probable a esa hora. */
-  function targets(bars, idxs, price, h, when) {
+  function targets(bars, idxs, price, h, when, f = 1) {
     const usable = idxs.filter((j) => j + h < bars.length);
     if (usable.length < 10) return [[], null];
     const c = bars.map((b) => b[4]);
@@ -153,28 +146,68 @@
       obj_arriba: upLvl, obj_abajo: dnLvl, distancia: unit,
       toca_arriba: rnd((highs.filter((x) => x >= rel).length / usable.length) * 100, 1),
       toca_abajo: rnd((lows.filter((x) => x <= -rel).length / usable.length) * 100, 1),
-      primero_arriba: pf === null ? null : rnd(pf * 100, 1),
-      margen_primero: pf === null ? null : rnd(196 * Math.sqrt((pf * (1 - pf)) / first.length), 1),
+      // con la confianza aprendida (la cruda queda aparte)
+      primero_arriba: pf === null ? null : rnd(Apr.ajustar(pf, f) * 100, 1),
+      primero_crudo: pf === null ? null : rnd(pf * 100, 1),
+      margen_primero: pf === null ? null : rnd(196 * Math.sqrt((pf * (1 - pf)) / first.length) * f, 1),
       ninguno: rnd((1 - first.length / usable.length) * 100, 1),
     };
     return [rows, close];
   }
 
   const NO_CLOSE = { mediana: null, p25: null, p75: null, obj_arriba: null, obj_abajo: null, distancia: null, toca_arriba: null,
-    toca_abajo: null, primero_arriba: null, margen_primero: null, ninguno: null };
+    toca_abajo: null, primero_arriba: null, primero_crudo: null, margen_primero: null, ninguno: null };
 
-  /** Todo lo que se puede decir de las proximas h velas a partir de las situaciones parecidas. */
-  function horizonStats(tf, s, h, price) {
-    const o = outcomes(s.closes, s.sample, h), b = outcomes(s.closes, s.base, h);
-    const edge = o.up - b.up;
+  /** Lo aprendido para predecir h velas de esta temporalidad, y los casos parecidos segun la receta aprendida. */
+  function tune(tf, s, h) {
+    if (s.fit.has(h)) return s.fit.get(h);
+    const learn = Apr.aprendido(`${tf}|${h}`, s.closed, s.combo, h, s.warmup);
+    const r = learn ? learn.receta : 0;
+    if (!s.similar.has(r)) s.similar.set(r, similar(Apr.estados(s.feats, r), s.last, s.warmup));
+    const [idxs, keep] = s.similar.get(r);
+    const fit = { learn, receta: r, factor: learn ? learn.factor : 1, idxs, keep, sample: idxs.length ? idxs : s.base };
+    s.fit.set(h, fit);
+    return fit;
+  }
+
+  /** Que aprendio el analista para un plazo y como le fue, con la curva de aciertos a lo largo del repaso. */
+  function learningRows(name, tf, h, fit) {
+    const L = fit.learn || {};
+    const g = (k, d) => (L[k] === undefined ? d : L[k]);
+    const r2 = (k, d) => (L[k] === undefined || L[k] === null ? null : rnd(L[k], d));
+    const rows = [{ tabla: 'aprendizaje', plazo: name, tf, velas: h, receta: fit.receta, receta_txt: Apr.recetaTxt(fit.receta), factor: fit.factor,
+      confianza: Apr.confianzaTxt(fit.factor), repasadas: g('repasadas', 0), desde: g('desde', null), hasta: g('hasta', null), cambios: g('cambios', 0),
+      distancia: g('distancia', null), medidas: g('medidas', 0),
+      brier_aprendido: r2('brier_aprendido', 4), brier_original: r2('brier_original', 4),
+      aciertos_aprendido: r2('aciertos_aprendido', 1), aciertos_original: r2('aciertos_original', 1),
+      decisivas_aprendido: g('decisivas_aprendido', 0), decisivas_original: g('decisivas_original', 0), ranking: g('ranking', []).join(',') }];
+    g('curva', []).forEach(([k, a, o]) => rows.push({ tabla: 'aprendizaje_curva', plazo: name, paso: k,
+      aprendido: a === null ? null : rnd(a, 1), original: o === null ? null : rnd(o, 1) }));
+    return rows;
+  }
+
+  /** Cambio % contra el precio de hace exactamente `hours` horas (cierre de la vela de 5m de ese momento). */
+  function changeSince(closed5m, nowMs, price, hours) {
+    const ref = nowMs - hours * HOUR_MS;
+    for (let k = closed5m.length - 1; k >= 0; k--) if (closed5m[k][0] + 300000 <= ref) return pct(price, closed5m[k][4]);
+    return null;
+  }
+
+  /** Todo lo que se puede decir de las proximas h velas a partir de las situaciones parecidas (ya con lo aprendido). */
+  function horizonStats(tf, s, h, price, fit) {
+    const sample = fit.sample, f = fit.factor;
+    const o = outcomes(s.closes, sample, h), b = outcomes(s.closes, s.base, h);
+    const up = f === 1 ? o.up : Apr.ajustar(o.up / 100, f) * 100;
+    const edge = up - b.up;
     // margen de error del 95%: con pocos casos, una diferencia chica contra la tasa normal es ruido
-    const margin = 196 * Math.sqrt(((o.up / 100) * (1 - o.up / 100)) / o.n);
+    const margin = 196 * Math.sqrt(((o.up / 100) * (1 - o.up / 100)) / o.n) * f;
     const verdict = Math.abs(edge) < Math.max(3, margin) ? 'Casi moneda' : edge > 0 ? 'Sesgo alcista' : 'Sesgo bajista';
     const whenMs = s.bars[s.bars.length - 1][0] + (h + 1) * s.tfMs;
     const when = fmtLocal(whenMs);
-    const [tg, close] = targets(s.bars, s.sample, price, h, when);
+    const [tg, close] = targets(s.bars, sample, price, h, when, f);
     return [{
-      tf, horizonte: label(h * s.tfMin), velas: h, sube: rnd(o.up, 1), baja: rnd(100 - o.up, 1), base: rnd(b.up, 1),
+      tf, horizonte: label(h * s.tfMin), velas: h, sube: rnd(up, 1), baja: rnd(100 - up, 1), base: rnd(b.up, 1),
+      sube_crudo: rnd(o.up, 1), receta: fit.receta, factor: f,
       veredicto: verdict, n: o.n, dias: s.days, hora: when, t_hasta: whenMs, margen: rnd(margin, 1), pocos_casos: o.n < 100,
       min: rnd(price * (1 + o.p10 / 100), 1), max: rnd(price * (1 + o.p90 / 100), 1), ...(close || NO_CLOSE),
     }, tg];
@@ -259,7 +292,7 @@
   }
 
   const NO_LINES = { l1_t: null, l1_p: null, l1_m: null, l1_nombre: null, l2_t: null, l2_p: null, l2_m: null, l2_nombre: null };
-  [1, 2, 3].forEach((k) => ['t', 'p', 'nombre'].forEach((f) => { NO_LINES[`pt${k}_${f}`] = null; }));
+  [1, 2, 3, 4, 5].forEach((k) => ['t', 'p', 'nombre'].forEach((f) => { NO_LINES[`pt${k}_${f}`] = null; }));
 
   /** Patron de velas en las ultimas dos velas (con su historial de aciertos) y figura del grafico vigente. */
   function patterns(tf, bars, pivots, e20, horizon, tfMin, partial) {
@@ -283,14 +316,15 @@
         plazo: label(horizon * tfMin), descripcion: desc, ...NO_LINES });
       break;
     }
-    const g = Ind.patronGrafico(bars, pivots, atr[i]);
-    if (g) {
+    // una figura clasica y, aparte, un esquema de Wyckoff si lo hay
+    [Ind.patronGrafico(bars, pivots, atr[i]), Ind.wyckoff(bars, pivots, atr[i])].forEach((g) => {
+      if (!g) return;
       const lines = { ...NO_LINES };
       g.lineas.slice(0, 2).forEach((ln, n) => Object.assign(lines, { [`l${n + 1}_t`]: ln[0], [`l${n + 1}_p`]: rnd(ln[1], 1), [`l${n + 1}_m`]: ln[2], [`l${n + 1}_nombre`]: ln[3] }));
-      g.puntos.slice(0, 3).forEach((pt, n) => Object.assign(lines, { [`pt${n + 1}_t`]: pt[0], [`pt${n + 1}_p`]: rnd(pt[1], 1), [`pt${n + 1}_nombre`]: pt[2] }));
+      g.puntos.slice(0, 5).forEach((pt, n) => Object.assign(lines, { [`pt${n + 1}_t`]: pt[0], [`pt${n + 1}_p`]: rnd(pt[1], 1), [`pt${n + 1}_nombre`]: pt[2] }));
       rows.push({ tabla: 'patron', tf, clase: 'grafico', nombre: g.nombre, sesgo: g.sesgo, t: bars[i][0], estado: g.estado, objetivo: g.objetivo,
         exito: null, casos: null, plazo: null, descripcion: g.descripcion, ...lines });
-    }
+    });
     return rows;
   }
 
@@ -349,7 +383,7 @@
     const mLast = get('marco', { tf: sigTfs[sigTfs.length - 1] })[0];
     if (mLast.elliott_objetivo) {
       signals.push([7, mLast.elliott_objetivo > price ? 'alcista' : 'bajista',
-        `Elliott ${TF_TXT[sigTfs[sigTfs.length - 1]]}: ${lc1(mLast.elliott).replace(' en curso', '')} → ${ar(mLast.elliott_objetivo)}`]);
+        `Elliott ${TF_TXT[sigTfs[sigTfs.length - 1]]}: ${mLast.elliott_corto.split(':')[0]} → ${ar(mLast.elliott_objetivo)}`]);
     }
     const sma = get('nivel').find((n) => n.nombre === 'Media 200 días');
     if (sma && name === '1 día') {
@@ -393,7 +427,17 @@
     else if (bias === 'bajista' && res) inval = `Si una vela de ${candle} cierra arriba de ${ar(res.precio)}, la idea deja de valer.`;
     else inval = `La dirección la marca la primera vela de ${candle} que cierre fuera de ${ar(dn)} a ${ar(up)}.`;
     out.push(row(k + 2, 'invalida', bias, inval));
+    out.push(row(k + 3, 'aprendizaje', bias, learningText(get('aprendizaje', { plazo: name })[0])));
     return out;
+  }
+
+  /** En una o dos frases: que aprendio para este plazo y si le esta sirviendo. */
+  function learningText(a) {
+    if (!a.repasadas) return 'Todavía junta experiencia para este plazo: por ahora usa el método original.';
+    let txt = `Repasó sus últimas ${ar(a.repasadas)} predicciones: ahora busca casos parecidos por ${a.receta_txt}. ${a.confianza}.`;
+    const ap = a.aciertos_aprendido, og = a.aciertos_original;
+    if (ap !== null && og !== null) txt += ` Con lo aprendido acertó ${ar(ap)}% de las veces qué tocaba primero; el método original, ${ar(og)}%.`;
+    return txt;
   }
 
   /** Suma las predicciones nuevas al registro y mide cuantas acertaron (solo con velas cerradas). */
@@ -440,22 +484,26 @@
       const rsi = Ind.rsi(closes);
       const [ml, ms, mh] = Ind.macd(closes);
       const warmup = Math.min(200, Math.floor(bars.length / 3));
-      const st = states(closes, rsi, e50, e200, Math.max(1, Math.floor(1440 / tfMin)));
-      const [idxs, keep] = similar(st, bars.length - 1 - Math.max(...horizons, SCENARIO_STEPS), warmup);
+      const feats = Apr.rasgos(bars, tfMin, e50, e200, rsi, mh);
       const base = [];
       for (let j = warmup; j < bars.length - 1 - Math.max(...horizons); j++) base.push(j);
+      series[tf] = { bars, closes, base, tfMs, tfMin, days, closed: candles[tf], feats, combo: Apr.combos(feats), warmup,
+        last: bars.length - 1 - Math.max(...horizons, SCENARIO_STEPS), similar: new Map(), fit: new Map() };
+      const mainFit = tune(tf, series[tf], horizons[0]);
+      const idxs = mainFit.idxs, keep = mainFit.keep;
       const i = bars.length - 1;
       const trend = trendWord(closes[i], e20[i], e50[i], e200[i]);
       byTf[tf] = { summary, trend };
       const pivots = Ind.zigzag(bars);
-      const [waveLabels, waveDesc, waveTarget] = Ind.elliott(pivots);
+      const [waveLabels, waveDesc, waveTarget, waveNow, waveShort] = Ind.elliott(pivots, bars);
       // cruce del MACD con su senal en la ultima o la anteultima vela
       const cross = [i, i - 1].map((k) => (mh[k] > 0 && mh[k - 1] <= 0 ? 'alcista' : mh[k] < 0 && mh[k - 1] >= 0 ? 'bajista' : null)).find((x) => x) || null;
       rows.push({ tabla: 'marco', tf, tendencia: trend, ...summary, ema50: rnd(e50[i], 1), ema200: rnd(e200[i], 1), similares: idxs.length,
-        criterio: ['', 'precio vs EMA50', 'precio vs EMA50 y EMA200', 'medias y RSI', 'medias, RSI y movimiento del ultimo dia'][keep],
-        elliott: waveDesc, elliott_objetivo: waveTarget === null ? null : rnd(waveTarget, 1), macd_cruce: cross });
+        criterio: keep ? Apr.recetaTxt(mainFit.receta, keep) : '',
+        elliott: waveDesc, elliott_objetivo: waveTarget === null ? null : rnd(waveTarget, 1), elliott_curso: waveNow, elliott_corto: waveShort,
+        macd_cruce: cross });
       indRows.forEach((r) => rows.push({ tabla: 'indicador', tf, ...r }));
-      const tail = pivots.slice(-8);
+      const tail = pivots.slice(-10);
       const offset = tail.length - waveLabels.length;
       tail.forEach(([kind, k, p], n) => rows.push({ tabla: 'giro', tf, t: bars[k][0], precio: rnd(p, 1), tipo: kind,
         onda: n >= offset ? waveLabels[n - offset] : '', en_curso: n === tail.length - 1 }));
@@ -463,9 +511,8 @@
       patterns(tf, bars, pivots, e20, horizons[0], tfMin, partial).forEach((r) => rows.push(r));
       Ind.divergencias(bars, pivots).forEach((d) => rows.push({ tabla: 'divergencia', tf, ...d, p1: rnd(d.p1, 1), p2: rnd(d.p2, 1) }));
 
-      series[tf] = { bars, closes, sample: idxs.length ? idxs : base, base, tfMs, tfMin, days };
       horizons.forEach((h) => {
-        const [prob, tg] = horizonStats(tf, series[tf], h, price);
+        const [prob, tg] = horizonStats(tf, series[tf], h, price, tune(tf, series[tf], h));
         rows.push({ tabla: 'probabilidad', ...prob });
         tg.forEach((t) => rows.push({ tabla: 'objetivo', tf, horizonte: prob.horizonte, hora: prob.hora, ...t }));
         entries.push([bars[i][0] + tfMs, tf, h, closes[i], prob.sube]);
@@ -483,8 +530,10 @@
 
     // una prediccion por plazo, cada una con la temporalidad que mas casos tiene para ese plazo
     PLAZOS.forEach(([name, tf, h]) => {
-      const [prob, tg] = horizonStats(tf, series[tf], h, price);
+      const fit = tune(tf, series[tf], h);
+      const [prob, tg] = horizonStats(tf, series[tf], h, price, fit);
       rows.push({ tabla: 'plazo', plazo: name, ...prob });
+      learningRows(name, tf, h, fit).forEach((r) => rows.push(r));
       tg.forEach((t) => rows.push({ tabla: 'objetivo_plazo', plazo: name, ...t }));
       if (!entries.some((e) => e[1] === tf && e[2] === h)) {
         const s = series[tf];
@@ -555,13 +604,13 @@
     explanation.forEach((e) => rows.push(e));
     const takeaway = explanation.find((e) => e.plazo === '1 hora' && e.tipo === 'titular').texto;
     rows.unshift({ tabla: 'resumen', fecha: isoLocal(now), hora_local: fmtLocal(now), precio: rnd(price, 1),
-      cambio_24h: rnd(pct(price, h1[h1.length - 24][4]), 2), cambio_7d: rnd(pct(price, h1[h1.length - 168][4]), 2),
+      cambio_24h: rnd(changeSince(candles['5m'], now, price, 24), 2), cambio_7d: rnd(changeSince(candles['5m'], now, price, 168), 2),
       sma200d: rnd(sma200d, 1), sma200d_dist: rnd(pct(price, sma200d), 2), funding: funding === null ? null : rnd(funding * 100, 4),
       rating_1h: byTf['1h'].summary.rating, rating_1d: byTf['1d'].summary.rating, lectura: takeaway, nota_claude: '' });
     return { rows, log };
   }
 
-  const Analisis = { analizar, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, states, similar, outcomes, horizonStats, scenarios, targets };
+  const Analisis = { analizar, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, similar, outcomes, horizonStats, scenarios, targets };
   root.Analisis = Analisis;
   if (typeof module !== 'undefined' && module.exports) module.exports = Analisis;
 })(typeof self !== 'undefined' ? self : globalThis);

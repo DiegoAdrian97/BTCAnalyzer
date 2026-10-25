@@ -509,40 +509,94 @@
     return pivots;
   }
 
-  /** Conteo de Elliott que cumple las reglas sobre los ultimos pivotes: [etiquetas, descripcion, objetivo]. */
-  function elliott(pivots) {
+  const SIGUE = { 1: '2', 2: '3', 3: '4', 4: '5', 5: 'A', A: 'B', B: 'C', C: '1' };
+  const SIN_ELLIOTT = 'Sin conteo de Elliott claro: los últimos giros no cumplen las reglas';
+
+  /**
+   * Conteo de Elliott sobre los ultimos giros (como elliott() de Python): un ciclo es un impulso de 5 ondas (1-5)
+   * y una correccion de 3 (A-B-C). Devuelve [etiquetas, descripcion, objetivo o null, onda en curso o null, corta].
+   */
+  function elliott(pivots, bars) {
+    if (pivots.length < 3) return [[], SIN_ELLIOTT, null, null, ''];
     const p = pivots.map((x) => x[2]);
-    const impulse = (pts, up) => {
-      const s = up ? 1 : -1;
-      const w = [];
+    const c = col(bars, 4);
+    const atrLast = dmi(col(bars, 2), col(bars, 3), c)[3][bars.length - 1] || 0;
+    const started = pivots[pivots.length - 1][1] < bars.length - 1 && Math.abs(c[c.length - 1] - p[p.length - 1]) >= atrLast;
+
+    const impulso = (pts) => {
+      const s = pts[1] > pts[0] ? 1 : -1;
+      let w = [];
       for (let k = 0; k < pts.length - 1; k++) w.push(s * (pts[k + 1] - pts[k]));
       if (w.some((x, k) => (k % 2 === 0 ? x <= 0 : x >= 0))) return false;
-      if (pts.length > 2 && s * (pts[2] - pts[0]) <= 0) return false;      // onda 2 pasa el inicio de la 1
-      if (pts.length > 4 && s * (pts[4] - pts[1]) <= 0) return false;      // onda 4 se superpone con la 1
-      if (w.length >= 5 && w[2] < Math.min(w[0], w[4])) return false;      // onda 3 la mas corta
+      w = w.map(Math.abs);
+      if (w.length >= 2 && !(w[1] / w[0] >= 0.15 && w[1] / w[0] < 1)) return false;          // onda 2
+      if (w.length >= 3 && s * (pts[3] - pts[1]) <= 0) return false;                          // la 3 supera la 1
+      if (w.length >= 4 && (s * (pts[4] - pts[1]) <= 0 || w[3] < 0.1 * w[2])) return false;   // la 4 no pisa la 1
+      if (w.length >= 5 && (s * (pts[5] - pts[3]) <= 0 || w[2] < Math.min(w[0], w[4]))) return false;  // 5 y 3
       return true;
     };
-    for (const [n, names] of [[6, ['0', '1', '2', '3', '4', '5']], [5, ['0', '1', '2', '3', '4']]]) {
-      if (p.length < n) continue;
-      const pts = p.slice(-n);
-      for (const up of [true, false]) {
-        if (!impulse(pts, up)) continue;
-        const sentido = up ? 'alcista' : 'bajista';
-        if (n === 6) return [names, `Impulso ${sentido} de 5 ondas posiblemente completo: suele seguir una corrección ABC`, null];
-        return [names, `Posible onda 5 ${sentido} en curso`, pts[4] + (pts[1] - pts[0])];   // onda 5 = onda 1
-      }
-    }
-    for (const [n, names] of [[4, ['0', 'A', 'B', 'C']], [3, ['0', 'A', 'B']]]) {
-      if (p.length < n) continue;
-      const pts = p.slice(-n);
+    const correccion = (pts) => {
       const a = pts[1] - pts[0];
-      if (a && (pts[2] - pts[1]) * a < 0 && Math.abs(pts[2] - pts[1]) < Math.abs(a)) {
-        const sentido = a < 0 ? 'bajista' : 'alcista';
-        if (n === 4 && (pts[3] - pts[2]) * a > 0) return [names, `Corrección ABC ${sentido} posiblemente completa`, null];
-        if (n === 3) return [names, `Posible onda C ${sentido} en curso`, pts[2] + a];     // C = A
+      if (a === 0) return false;
+      if (pts.length >= 3) {
+        const b = pts[2] - pts[1];
+        if (b * a >= 0 || !(Math.abs(b) / Math.abs(a) >= 0.2 && Math.abs(b) / Math.abs(a) <= 1)) return false;
       }
+      if (pts.length >= 4) {
+        const cc = pts[3] - pts[2];
+        if (cc * a <= 0 || (pts[3] - pts[1]) * a <= 0 || !(Math.abs(cc) >= 0.5 * Math.abs(a) && Math.abs(cc) <= 2.618 * Math.abs(a))) return false;
+      }
+      return true;
+    };
+
+    const imp = ['0', '1', '2', '3', '4', '5'];
+    const cands = [imp.concat(['A', 'B', 'C']), imp.concat(['A', 'B']), imp.concat(['A']), imp, imp.slice(0, 5), imp.slice(0, 4),
+      ['0', 'A', 'B', 'C'], ['0', 'A', 'B']];
+    for (const names of cands) {
+      const n = names.length;
+      if (p.length < n) continue;
+      const pts = p.slice(-n);
+      if (names[1] === '1') {
+        if (!impulso(pts.slice(0, 6)) || (n > 6 && !correccion(pts.slice(5)))) continue;
+      } else {
+        if (!correccion(pts)) continue;
+        // una correccion suelta corrige un tramo mas grande que ella, y si es A-B la C ya tiene que haber arrancado
+        if (p.length < n + 1 || Math.abs(pts[0] - p[p.length - n - 1]) <= Math.abs(pts[1] - pts[0]) || (n === 3 && !started)) continue;
+      }
+      const P = {};
+      names.forEach((k, i) => { P[k] = pts[i]; });
+      const last = names[n - 1];
+      const cur = started ? SIGUE[last] : last;
+      let s, sentido, head, w1 = 0;
+      if (names[1] === '1') {
+        s = P['1'] > P['0'] ? 1 : -1;
+        sentido = s > 0 ? 'alcista' : 'bajista';
+        const done5 = 'A' in P || (last === '5' && started);
+        head = done5 ? `Impulso ${sentido} de 5 ondas completo` : `Impulso ${sentido} en formación`;
+        if (last === 'C' && started) head += ' y corrección A-B-C completa';
+        else if ('A' in P) head += ', con la corrección A-B-C en marcha';
+        w1 = Math.abs(P['1'] - P['0']);
+      } else {
+        const a = P.A - P['0'];
+        s = a > 0 ? -1 : 1;
+        sentido = a > 0 ? 'alcista' : 'bajista';
+        head = `Corrección A-B-C ${sentido}` + (last === 'C' && started ? ' completa' : ' en formación');
+      }
+      let target = null, what = '';
+      const base = '5' in P ? P['5'] : P['0'];
+      if (cur === '2') { target = P['1'] - s * 0.5 * w1; what = 'onda 2 en curso: retroceso de la 1, suele llegar a la mitad'; }
+      else if (cur === '3') { target = P['2'] + s * 1.618 * w1; what = 'onda 3 en curso: suele ser la más larga y fuerte'; }
+      else if (cur === '4') {
+        target = P['3'] - s * 0.382 * Math.abs(P['3'] - P['2']);
+        what = s > 0 ? 'onda 4 en curso: retroceso antes de la última suba' : 'onda 4 en curso: rebote antes de la última baja';
+      } else if (cur === '5') { target = P['4'] + s * w1; what = 'onda 5 en curso: la última del impulso, suele medir como la 1'; }
+      else if (cur === 'A') { target = P['5'] - s * 0.382 * Math.abs(P['5'] - P['0']); what = 'empieza la corrección (onda A)'; }
+      else if (cur === 'B') { target = P.A - 0.5 * (P.A - base); what = 'onda B en curso: rebote dentro de la corrección'; }
+      else if (cur === 'C') { target = P.B + (P.A - base); what = 'onda C en curso: la última de la corrección, suele medir como la A'; }
+      else if (cur === '1') what = 'la corrección terminó: puede empezar un impulso nuevo';
+      return [names, `${head}; ${what}`, target, cur, what];
     }
-    return [[], 'Sin conteo de Elliott claro: el precio no cumple las reglas en los últimos giros', null];
+    return [[], SIN_ELLIOTT, null, null, ''];
   }
 
   /**
@@ -681,6 +735,9 @@
         return result('Hombro-cabeza-hombro invertido', 'alcista', [neck], shoulders, target, desc, broke);
       }
     }
+    // triangulos, cunas, canales y rangos: piden mas toques que un doble techo o piso, asi que van primero
+    const linesFig = figuraLineas(bars, P, atrLast);
+    if (linesFig) return linesFig;
     // doble techo / doble piso: dos extremos parecidos (hasta ~1%, como mucho dos velas normales) sin uno
     // mas extremo en el medio, aunque haya giros menores entre ellos; el cuello es el giro opuesto mas extremo
     const tol2 = Math.max(tol, Math.min(0.01 * px, 2 * atrLast));
@@ -728,49 +785,147 @@
         }
       }
     }
-    // triangulos, cunas y canales con los dos ultimos maximos y minimos
-    if (highs.length >= 2 && lows.length >= 2) {
-      const h1 = highs[highs.length - 2], h2 = highs[highs.length - 1], l1 = lows[lows.length - 2], l2 = lows[lows.length - 1];
-      const upL = line(h1, h2, 'Techo'), loL = line(l1, l2, 'Piso');
-      const barMs = bars[iLast][0] - bars[iLast - 1][0];
-      const su = (upL[2] * barMs * 20) / px, sl = (loL[2] * barMs * 20) / px;   // pendiente en 20 velas, fraccion del precio
-      const flat = 0.003;
-      const uNow = atNow(upL), lNow = atNow(loL);
-      const start = Math.min(h1[1], l1[1]);
-      const width0 = upL[1] + upL[2] * (t(start) - upL[0]) - (loL[1] + loL[2] * (t(start) - loL[0]));
-      const width = uNow - lNow;
-      if (width <= 0) return null;
-      const converging = width < width0 * 0.85;
+    return null;
+  }
+
+  /** Recta por dos giros que deja a todos los demas del lado de adentro (o tocandola): [linea, toques] o null. */
+  function envolvente(pts, top, tol, t) {
+    let best = null;
+    for (let bi = pts.length - 1; bi > 0; bi--) {
+      for (let ai = bi - 1; ai >= 0; ai--) {
+        const a = pts[ai], b = pts[bi];
+        const m = (b[2] - a[2]) / (t(b[1]) - t(a[1]) || 1);
+        const at = (q) => a[2] + m * (t(q[1]) - t(a[1]));
+        if (pts.some((q) => (top ? q[2] > at(q) + tol : q[2] < at(q) - tol))) continue;
+        const touches = pts.filter((q) => Math.abs(q[2] - at(q)) <= tol).length;
+        if (best === null || touches > best[1]) best = [[t(a[1]), a[2], m], touches];
+      }
+    }
+    return best;
+  }
+
+  const figura = (name, bias, lines, points, target, desc, broke) => ({
+    nombre: name, sesgo: bias, estado: broke ? 'confirmado' : 'en formación',
+    objetivo: target === null ? null : rnd(target, 1), descripcion: desc, lineas: lines, puntos: points,
+  });
+
+  /** Triangulos, cunas, canales y rangos (como figura_lineas de Python): solo si el precio respeto las dos lineas. */
+  function figuraLineas(bars, P, atrLast) {
+    const iLast = bars.length - 1, px = bars[iLast][4];
+    const t = (k) => bars[k][0];
+    const tol = 0.8 * atrLast;
+    const val = (ln, k) => ln[1] + ln[2] * (t(k) - ln[0]);
+    for (const n of [8, 7, 6, 5]) {
+      if (P.length < n) continue;
+      const W = P.slice(-n);
+      const hs = W.filter((q) => q[0] === 'alto'), ls = W.filter((q) => q[0] === 'bajo');
+      if (hs.length < 2 || ls.length < 2) continue;
+      const eu = envolvente(hs, true, tol, t), el = envolvente(ls, false, tol, t);
+      if (eu === null || el === null || eu[1] < 2 || el[1] < 2 || eu[1] + el[1] < 5) continue;
+      const upL = eu[0].concat(['Techo']), loL = el[0].concat(['Piso']);
+      const s0 = W[0][1], s1 = W[W.length - 1][1];
+      if (iLast - s0 < 15 || s1 - s0 < 10) continue;
+      let out = false;
+      for (let k = s0; k <= s1; k++) if (bars[k][4] > val(upL, k) + tol || bars[k][4] < val(loL, k) - tol) { out = true; break; }
+      if (out) continue;                              // el precio no respeto las lineas: no es una figura
+      const w0 = val(upL, s0) - val(loL, s0), w1 = val(upL, iLast) - val(loL, iLast);
+      if (w0 <= 2 * tol || w1 <= tol) continue;
+      const span = t(iLast) - t(s0);
+      const ru = upL[2] * span, rl = loL[2] * span;
+      const flat = Math.max(tol, 0.15 * w0);
+      const fu = Math.abs(ru) < flat, fl = Math.abs(rl) < flat;
+      const conv = w1 < 0.8 * w0, par = Math.abs(w1 - w0) <= 0.25 * w0;
       let name, bias;
-      if (Math.abs(su) < flat && sl > flat) [name, bias] = ['Triángulo ascendente', 'alcista'];
-      else if (Math.abs(sl) < flat && su < -flat) [name, bias] = ['Triángulo descendente', 'bajista'];
-      else if (su < -flat && sl > flat) [name, bias] = ['Triángulo simétrico', 'neutral'];
-      else if (su > flat && sl > flat && converging) [name, bias] = ['Cuña ascendente', 'bajista'];
-      else if (su < -flat && sl < -flat && converging) [name, bias] = ['Cuña descendente', 'alcista'];
-      else if (su > flat && sl > flat) [name, bias] = ['Canal alcista', 'alcista'];
-      else if (su < -flat && sl < -flat) [name, bias] = ['Canal bajista', 'bajista'];
-      else [name, bias] = ['Rango lateral', 'neutral'];
-      const height = Math.max(width0, width);
+      if (fu && fl && par) [name, bias] = ['Rango lateral', 'neutral'];
+      else if (fu && !fl && rl > 0 && conv) [name, bias] = ['Triángulo ascendente', 'alcista'];
+      else if (fl && !fu && ru < 0 && conv) [name, bias] = ['Triángulo descendente', 'bajista'];
+      else if (!fu && !fl && ru < 0 && rl > 0 && conv) [name, bias] = ['Triángulo simétrico', 'neutral'];
+      else if (!fu && !fl && ru > 0 && rl > 0 && conv) [name, bias] = ['Cuña ascendente', 'bajista'];
+      else if (!fu && !fl && ru < 0 && rl < 0 && conv) [name, bias] = ['Cuña descendente', 'alcista'];
+      else if (!fu && !fl && ru > 0 && rl > 0 && par) [name, bias] = ['Canal alcista', 'alcista'];
+      else if (!fu && !fl && ru < 0 && rl < 0 && par) [name, bias] = ['Canal bajista', 'bajista'];
+      else continue;                                  // lineas que no forman ninguna figura clasica
+      const uNow = val(upL, iLast), lNow = val(loL, iLast);
+      const height = name.startsWith('Canal') || name === 'Rango lateral' ? Math.max(w0, w1) : w0;
       const art = name.startsWith('Cuña') ? 'una' : 'un';
-      const val = (ln, j) => ln[1] + ln[2] * (t(j) - ln[0]);
-      const recent = range(Math.max(0, iLast - 20), iLast);
+      const touches = ` (${eu[1]} toques arriba y ${el[1]} abajo)`;
+      const recent = [];
+      for (let k = Math.max(s1, iLast - 20); k < iLast; k++) recent.push(k);
       if (px > uNow + tol) {
-        if (!recent.some((j) => bars[j][4] <= val(upL, j))) return null;   // la ruptura fue hace mucho
+        if (!recent.some((k) => bars[k][4] <= val(upL, k))) return null;   // la ruptura fue hace mucho
         const target = uNow + height;
-        return result(`Ruptura alcista de ${name.toLowerCase()}`, 'alcista', [upL, loL], [], target,
-          `BTC rompió hacia arriba el techo de ${art} ${name.toLowerCase()} en ${ar(uNow)}: el objetivo de la ruptura es ${ar(target)}.`, true);
+        return figura(`Ruptura alcista de ${name.toLowerCase()}`, 'alcista', [upL, loL], [], target,
+          `BTC rompió hacia arriba el techo de ${art} ${name.toLowerCase()}${touches} en ${ar(uNow)}: el objetivo de la ruptura es ${ar(target)}.`, true);
       }
       if (px < lNow - tol) {
-        if (!recent.some((j) => bars[j][4] >= val(loL, j))) return null;
+        if (!recent.some((k) => bars[k][4] >= val(loL, k))) return null;
         const target = lNow - height;
-        return result(`Ruptura bajista de ${name.toLowerCase()}`, 'bajista', [upL, loL], [], target,
-          `BTC rompió hacia abajo el piso de ${art} ${name.toLowerCase()} en ${ar(lNow)}: el objetivo de la ruptura es ${ar(target)}.`, true);
+        return figura(`Ruptura bajista de ${name.toLowerCase()}`, 'bajista', [upL, loL], [], target,
+          `BTC rompió hacia abajo el piso de ${art} ${name.toLowerCase()}${touches} en ${ar(lNow)}: el objetivo de la ruptura es ${ar(target)}.`, true);
       }
       const target = bias === 'alcista' ? uNow + height : bias === 'bajista' ? lNow - height : null;
       const side = bias === 'alcista' ? `suele romper hacia arriba; si supera ${ar(uNow)}, el objetivo es ${ar(target)}`
         : bias === 'bajista' ? `suele romper hacia abajo; si pierde ${ar(lNow)}, el objetivo es ${ar(target)}`
           : 'puede romper para cualquier lado: la dirección la da la ruptura';
-      return result(name, bias, [upL, loL], [], target, `BTC se mueve entre un piso en ${ar(lNow)} y un techo en ${ar(uNow)}; ${side}.`, false);
+      return figura(name, bias, [upL, loL], [], target, `BTC se mueve entre un piso en ${ar(lNow)} y un techo en ${ar(uNow)}${touches}; ${side}.`, false);
+    }
+    return null;
+  }
+
+  /** Acumulacion o distribucion de Wyckoff (como wyckoff() de Python), solo con sus eventos principales. */
+  function wyckoff(bars, pivots, atrLast) {
+    const P = pivots.slice(0, -1);
+    const nBars = bars.length, iLast = nBars - 1, px = bars[iLast][4];
+    const tol = 0.8 * atrLast;
+    const t = (k) => bars[k][0];
+    const vol = col(bars, 5);
+    for (let m = Math.min(10, P.length); m > 3; m--) {
+      const W = P.slice(-m);
+      const acc = W[0][0] === 'bajo';
+      const sc = W[0], arr = W[1], k0 = sc[1];
+      if (iLast - k0 < 20 || iLast - k0 > 400 || k0 < 60) continue;
+      const lo = acc ? sc[2] : arr[2], hi = acc ? arr[2] : sc[2];
+      const height = hi - lo;
+      if (height < 3 * atrLast) continue;
+      const prev = bars.slice(k0 - 60, k0);
+      if (acc && Math.max(...prev.map((b) => b[2])) < hi + 0.5 * height) continue;
+      if (!acc && Math.min(...prev.map((b) => b[3])) > lo - 0.5 * height) continue;
+      const avg = sum(vol.slice(k0 - 50, k0)) / 50;
+      if (Math.max(...vol.slice(Math.max(0, k0 - 1), k0 + 2)) < 1.5 * avg) continue;
+      const edge = acc ? lo : hi, other = acc ? hi : lo, sign = acc ? 1 : -1;
+      let brk = null;
+      for (let k = arr[1] + 1; k < nBars; k++) if (sign * (bars[k][4] - other) > 0) { brk = k; break; }
+      const rest = W.slice(2).filter((q) => brk === null || q[1] < brk);
+      const same = rest.filter((q) => q[0] === W[0][0]), opp = rest.filter((q) => q[0] !== W[0][0]);
+      if (opp.some((q) => (acc ? q[2] > other + tol : q[2] < other - tol))) continue;
+      if (same.some((q) => (acc ? q[2] < edge - 0.35 * height : q[2] > edge + 0.35 * height))) continue;
+      const st = same.find((q) => Math.abs(q[2] - edge) <= Math.max(tol, 0.25 * height)) || null;
+      let spring = null;
+      same.forEach((q) => {
+        if (sign * (edge - q[2]) > 0.1 * tol && (st === null || q[1] > st[1] || q === st)) {
+          for (let k = q[1] + 1; k < Math.min(nBars, q[1] + 4); k++) if (sign * (bars[k][4] - edge) > 0) { spring = q; break; }
+        }
+      });
+      if (st === null || spring === null || (spring === st && same.length < 2)) continue;
+      if (sign * (edge - px) > 0.35 * height + tol) return null;     // perdio el spring (o el UTAD)
+      const sos = brk, target = other + sign * height;
+      if (sos !== null) {
+        for (let k = sos; k < nBars; k++) if (sign * ((acc ? bars[k][2] : bars[k][3]) - target) >= 0) return null;   // ya llego
+      }
+      const nm = acc ? ['SC', 'AR', 'ST', 'Spring', 'SOS'] : ['BC', 'AR', 'ST', 'UTAD', 'SOW'];
+      const points = [[t(sc[1]), sc[2], nm[0]], [t(arr[1]), arr[2], nm[1]]];
+      if (st !== spring) points.push([t(st[1]), st[2], nm[2]]);
+      points.push([t(spring[1]), spring[2], nm[3]]);
+      const lines = [[t(k0), lo, 0, 'Piso del rango'], [t(k0), hi, 0, 'Techo del rango']];
+      const name = acc ? 'Acumulación de Wyckoff' : 'Distribución de Wyckoff';
+      const ev = acc ? nm[3].toLowerCase() : nm[3];
+      if (sos !== null) {
+        points.push([t(sos), bars[sos][4], nm[4]]);
+        return figura(name, acc ? 'alcista' : 'bajista', lines, points, target,
+          `Rango después de una ${acc ? 'caída' : 'suba'} con clímax de ${acc ? 'venta' : 'compra'}, prueba y ${ev}; BTC ya ${acc ? 'superó el techo' : 'perdió el piso'} (${ar(other)}): fase de ${acc ? 'suba' : 'baja'}, objetivo ${ar(target)}.`, true);
+      }
+      return figura(name, acc ? 'alcista' : 'bajista', lines, points, target,
+        `Rango entre ${ar(lo)} y ${ar(hi)} después de una ${acc ? 'caída' : 'suba'} con clímax de ${acc ? 'venta' : 'compra'}. Ya hubo prueba y ${ev}: ${acc ? 'si cierra arriba de ' : 'si cierra debajo de '}${ar(other)}, se confirma y el objetivo es ${ar(target)}.`, false);
     }
     return null;
   }
@@ -812,7 +967,7 @@
     ar, rnd, roundEven, sma, ema, rma, wma, hma, vwma, rsi, stoch, stochRsi, cci, williamsR, momentum, macd,
     awesome, bullBearPower, ultimate, dmi, mfi, cmf, obv, bollinger, keltner, psar, supertrend, ichimoku,
     vwapSession, calificar, ratingTxt, divergencia, fvg, zigzag, elliott, mapaLiquidaciones, patronesVelas,
-    estadisticaVelas, patronGrafico, divergencias, pivotes,
+    estadisticaVelas, patronGrafico, figuraLineas, wyckoff, divergencias, pivotes,
   };
   root.Ind = Ind;
   if (typeof module !== 'undefined' && module.exports) module.exports = Ind;
