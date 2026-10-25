@@ -1,296 +1,407 @@
 <style>
-  /* Layout: cabecera con lectura y precio, selector de temporalidad, grafico protagonista con el futuro animado,
-     y debajo tarjetas en grilla (probabilidades, calificacion, ondas, contexto, niveles, indicadores). */
-  .ab-page { --ab-up: var(--color-ok); --ab-down: var(--color-bad); --ab-warn: var(--color-warn);
-    font-family: var(--font-anthropic-sans); color: var(--color-fg); display: grid; gap: var(--cds-gap-lg);
-    max-width: 78rem; margin-inline: auto; }
-  .ab-head { display: grid; gap: var(--cds-gap-xs); }
-  .ab-eyebrow { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); letter-spacing: .04em; text-transform: uppercase; }
-  .ab-title { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; text-wrap: balance; }
-  .ab-takeaway { margin: 0; max-width: 68ch; font-size: var(--cds-font-size-body); line-height: 1.5; }
-  .ab-hero { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--cds-gap-lg) var(--cds-gap-xl); }
-  .ab-price { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: clamp(2.4rem, 6vw, 3.6rem); line-height: 1; font-variant-numeric: tabular-nums; }
-  .ab-stat { display: grid; gap: 2px; }
-  .ab-stat-label { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
-  .ab-stat-value { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); font-variant-numeric: tabular-nums; }
-  .ab-pos { color: var(--ab-up); } .ab-neg { color: var(--ab-down); }
-  .ab-tabs { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs); }
-  .ab-tab { font: inherit; font-size: var(--cds-font-size-body); padding: var(--cds-pad-xs) var(--cds-pad-md); border-radius: 999px;
-    border: 1px solid var(--color-border-line); background: var(--color-panel); color: var(--color-fg); cursor: pointer; }
-  .ab-tab[aria-pressed="true"] { background: var(--color-fg); color: var(--color-bg); border-color: var(--color-fg); }
-  .ab-tab:focus-visible, .ab-chip-btn:focus-visible, .ab-toggle input:focus-visible + span { outline: 2px solid var(--color-fg); outline-offset: 2px; }
-  .ab-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius);
-    padding: var(--cds-pad-lg); display: grid; gap: var(--cds-gap-md); min-width: 0; align-content: start; }
-  .ab-card h2 { margin: 0; font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); }
-  .ab-note { margin: 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.45; }
-  .ab-grid { display: grid; gap: var(--cds-gap-md); grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); }
-  .ab-chart-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--cds-gap-sm); align-items: center; }
-  .ab-controls { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs); align-items: center; }
-  .ab-chip-btn { font: inherit; font-size: var(--cds-font-size-caption); padding: 4px 10px; border-radius: 999px; cursor: pointer;
-    border: 1px solid var(--color-border-line); background: transparent; color: var(--color-fg); }
-  .ab-chip-btn[aria-pressed="true"] { border-color: var(--color-fg); background: var(--color-bg); font-weight: var(--cds-font-weight-medium); }
-  .ab-toggle { display: inline-flex; align-items: center; gap: 4px; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); cursor: pointer; }
-  .ab-chart-box { position: relative; min-height: 380px; }
-  .ab-chart-box svg { display: block; overflow: visible; }
-  .ab-axis text { fill: var(--color-fg-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-  .ab-grid-line { stroke: var(--cds-chart-grid); stroke-width: 1; }
-  .ab-wick { stroke-width: 1; }
-  .ab-up .ab-body, .ab-up .ab-wick { fill: var(--ab-up); stroke: var(--ab-up); }
-  .ab-down .ab-body, .ab-down .ab-wick { fill: var(--ab-down); stroke: var(--ab-down); }
-  .ab-ghost .ab-body { fill-opacity: .18; stroke-dasharray: 3 2; stroke-width: 1.2; }
-  .ab-ghost { opacity: 0; transform: translateY(8px); transform-box: fill-box; transition: opacity .35s var(--cds-ease-out), transform .35s var(--cds-ease-out); }
-  .ab-ghost.is-on { opacity: .95; transform: none; }
-  .ab-future-bg { fill: var(--color-fg); fill-opacity: .035; }
-  .ab-future-label { fill: var(--color-fg-muted); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
-  .ab-cone { fill: var(--color-fg); fill-opacity: .08; }
-  .ab-median { fill: none; stroke: var(--color-fg-muted); stroke-dasharray: 4 3; stroke-width: 1.2; }
-  .ab-ema20 { fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-  .ab-ema50 { fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-  .ab-bb { fill: var(--color-fg); fill-opacity: .045; stroke: var(--color-fg-muted); stroke-opacity: .35; stroke-width: 1; }
-  .ab-fvg-up { fill: var(--ab-up); fill-opacity: .13; }
-  .ab-fvg-down { fill: var(--ab-down); fill-opacity: .13; }
-  .ab-zig { fill: none; stroke: var(--color-fg); stroke-opacity: .55; stroke-width: 1.2; stroke-dasharray: 2 3; }
-  .ab-wave circle { fill: var(--color-bg); stroke: var(--color-fg); stroke-width: 1; }
-  .ab-wave text { fill: var(--color-fg); font-size: 10px; font-weight: 600; text-anchor: middle; dominant-baseline: central; }
-  .ab-liq-long { fill: var(--ab-down); fill-opacity: .5; }
-  .ab-liq-short { fill: var(--ab-up); fill-opacity: .5; }
-  .ab-price-line { stroke: var(--color-fg); stroke-width: 1; stroke-dasharray: 5 4; }
-  .ab-here rect { fill: var(--color-fg); }
-  .ab-here text { fill: var(--color-bg); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .ab-dot { fill: var(--color-fg); }
-  .ab-pulse { fill: var(--color-fg); fill-opacity: .25; transform-box: fill-box; transform-origin: center; }
-  .ab-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border);
-    border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm);
-    font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; white-space: nowrap; z-index: 2; }
-  .ab-tip-date { color: var(--cds-text-secondary); }
-  .ab-legend { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs) var(--cds-gap-md); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
-  .ab-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
-  .ab-prob { display: grid; gap: var(--cds-gap-xs); }
-  .ab-prob-head { display: flex; justify-content: space-between; gap: var(--cds-gap-sm); font-size: var(--cds-font-size-body); }
-  .ab-prob-head b { font-weight: var(--cds-font-weight-medium); }
-  .ab-bar { position: relative; display: flex; height: 26px; border-radius: 6px; overflow: hidden; background: var(--color-bg); }
-  .ab-bar-up { background: var(--ab-up); transition: flex-basis .9s var(--cds-ease-out); }
-  .ab-bar-down { background: var(--ab-down); transition: flex-basis .9s var(--cds-ease-out); }
-  .ab-bar span { position: absolute; top: 50%; transform: translateY(-50%); font-size: var(--cds-font-size-caption); font-weight: 600; color: var(--color-bg); font-variant-numeric: tabular-nums; }
-  .ab-bar .ab-l { left: 8px; } .ab-bar .ab-r { right: 8px; }
-  .ab-base { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--color-fg); transition: left .9s var(--cds-ease-out); }
-  .ab-goal { margin: 0; font-size: var(--cds-font-size-body); line-height: 1.45; }
-  .ab-goal b { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-heading); font-variant-numeric: tabular-nums; }
-  .ab-targets { display: grid; gap: 4px; }
-  .ab-target { display: grid; grid-template-columns: 5.6rem minmax(0, 1fr) 2.6rem; gap: var(--cds-gap-sm); align-items: center;
-    font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
-  .ab-target-track { height: 8px; border-radius: 4px; background: var(--color-bg); overflow: hidden; }
-  .ab-target-track i { display: block; height: 100%; border-radius: 4px; transition: width .9s var(--cds-ease-out); }
-  .ab-t-up .ab-target-track i { background: var(--color-ok); } .ab-t-dn .ab-target-track i { background: var(--color-bad); }
-  .ab-t-up span:first-child { color: var(--color-ok); } .ab-t-dn span:first-child { color: var(--color-bad); }
-  .ab-target-val { text-align: right; font-weight: 600; }
-  .ab-books { display: grid; gap: 4px; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
-  .ab-book { display: grid; grid-template-columns: 4.2rem minmax(0, 1fr) 3rem; gap: var(--cds-gap-sm); align-items: center; }
-  .ab-book-track { position: relative; height: 8px; border-radius: 4px; background: var(--color-bg); overflow: hidden; }
-  .ab-book-track i { position: absolute; top: 0; bottom: 0; transition: left .8s var(--cds-ease-out), width .8s var(--cds-ease-out); }
-  .ab-book-track::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--color-fg-muted); }
-  .ab-chip { display: inline-block; font-size: var(--cds-font-size-caption); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--color-border-line); white-space: nowrap; }
-  .ab-chip.ab-compra, .ab-chip.ab-alcista { color: var(--ab-up); border-color: currentColor; }
-  .ab-chip.ab-venta, .ab-chip.ab-bajista { color: var(--ab-down); border-color: currentColor; }
-  .ab-chip.ab-neutral { color: var(--color-fg-muted); }
-  .ab-gauge-wrap { display: grid; justify-items: center; gap: var(--cds-gap-xs); }
-  .ab-needle { transition: transform 1.1s var(--cds-ease-out); transform-origin: 100px 100px; }
-  .ab-gauge-txt { font-family: var(--font-anthropic-serif); font-size: var(--cds-font-size-title); }
-  .ab-mini { display: grid; grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr)); gap: var(--cds-gap-xs); }
-  .ab-mini button { font: inherit; text-align: left; display: grid; gap: 4px; padding: var(--cds-pad-xs) var(--cds-pad-sm);
-    border-radius: var(--cds-radius); border: 1px solid var(--color-border-line); background: var(--color-bg); color: var(--color-fg); cursor: pointer; }
-  .ab-mini button[aria-pressed="true"] { border-color: var(--color-fg); }
-  .ab-mini small { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
-  .ab-mini-bar { height: 4px; border-radius: 2px; background: var(--color-border-line); position: relative; overflow: hidden; }
-  .ab-mini-bar i { position: absolute; top: 0; bottom: 0; transition: left .8s var(--cds-ease-out), width .8s var(--cds-ease-out); }
-  .ab-list { display: grid; gap: var(--cds-gap-sm); margin: 0; padding: 0; list-style: none; }
-  .ab-list li { display: grid; grid-template-columns: 10px 1fr; gap: 2px var(--cds-gap-sm); align-items: baseline; }
-  .ab-list .ab-dotc { width: 8px; height: 8px; border-radius: 50%; align-self: center; background: var(--color-fg-muted); }
-  .ab-list .ab-dotc.ab-alcista { background: var(--ab-up); } .ab-list .ab-dotc.ab-bajista { background: var(--ab-down); }
-  .ab-list .ab-t { font-size: var(--cds-font-size-body); }
-  .ab-list .ab-t b { font-weight: var(--cds-font-weight-medium); font-variant-numeric: tabular-nums; }
-  .ab-list .ab-d { grid-column: 2; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
-  .ab-ladder { display: grid; gap: 2px; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
-  .ab-rung { display: grid; grid-template-columns: minmax(0, 1fr) auto 4.2rem; gap: var(--cds-gap-sm); align-items: center; padding: 3px 6px; border-radius: 4px; }
-  .ab-rung.ab-res { color: var(--ab-up); } .ab-rung.ab-sup { color: var(--ab-down); }
-  .ab-rung span:first-child { color: var(--color-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ab-rung.ab-now { background: var(--color-fg); color: var(--color-bg); font-weight: 600; }
-  .ab-rung.ab-now span:first-child { color: var(--color-bg); }
-  .ab-table-box { overflow: auto; max-height: 34rem; }
-  .ab-table { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
-  .ab-table th { position: sticky; top: 0; background: var(--color-panel); text-align: left; color: var(--color-fg-muted); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--color-border-line); }
-  .ab-table td { padding: 6px 8px; border-bottom: 1px solid var(--color-border-line); vertical-align: top; }
-  .ab-table td.ab-num { text-align: right; }
-  .ab-table tr.ab-group td { font-weight: var(--cds-font-weight-medium); color: var(--color-fg); background: var(--color-bg); }
-  .ab-wave-desc { font-size: var(--cds-font-size-body); line-height: 1.5; margin: 0; }
-  .ab-claude { white-space: pre-line; font-size: var(--cds-font-size-body); line-height: 1.55; margin: 0; max-width: 72ch; }
-  .ab-disclaimer { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: 0; max-width: 80ch; }
-  .ab-state { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 380px; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
-  .ab-state i { width: .375rem; height: .375rem; border-radius: 50%; background: var(--color-bad); }
+  /* Layout: franja superior (precio · prediccion protagonista · sesgo), selector de temporalidad,
+     grafico grande con panel de probabilidades al costado, y debajo senales, niveles, ondas, indicadores. */
+  #dash-root { --dash-gutter: clamp(12px, 3vw, 32px); }
+  .ab { --up: var(--color-ok); --down: var(--color-bad); --mute: var(--color-fg-muted); --line: var(--color-border-line);
+    --panel: var(--color-panel); --ink: var(--color-fg); --paper: var(--color-bg);
+    --serif: var(--font-anthropic-serif); --sans: var(--font-anthropic-sans);
+    font-family: var(--sans); color: var(--ink); max-width: 84rem; margin-inline: auto; display: grid; gap: var(--cds-gap-lg); }
+  .ab * { box-sizing: border-box; }
+  .ab-row { display: grid; gap: var(--cds-gap-md); grid-template-columns: repeat(12, minmax(0, 1fr)); }
+  .ab-s3 { grid-column: span 3; } .ab-s4 { grid-column: span 4; } .ab-s5 { grid-column: span 5; } .ab-s8 { grid-column: span 8; } .ab-s12 { grid-column: span 12; }
+  @media (max-width: 1100px) { .ab-s3, .ab-s4, .ab-s5 { grid-column: span 6; } .ab-s5 { grid-column: span 12; order: -1; } .ab-s8 { grid-column: span 12; } }
+  @media (max-width: 700px) { .ab-row > * { grid-column: span 12 !important; } }
+
+  .ab-card { background: var(--panel); border: 1px solid var(--line); border-radius: calc(var(--cds-radius) * 1.5);
+    padding: var(--cds-pad-lg); display: grid; gap: var(--cds-gap-md); align-content: start; min-width: 0; position: relative; }
+  .ab-card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: var(--cds-gap-xs) var(--cds-gap-md); }
+  .ab-card h2 { margin: 0; font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); text-wrap: balance; }
+  .ab-kicker { font-size: var(--cds-font-size-caption); color: var(--mute); letter-spacing: .06em; text-transform: uppercase; }
+  .ab-note { margin: 0; font-size: var(--cds-font-size-caption); color: var(--mute); line-height: 1.5; }
+  .ab-num { font-variant-numeric: tabular-nums; }
+  .ab-up-t { color: var(--up); } .ab-down-t { color: var(--down); }
+
+  /* cabecera */
+  .ab-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: var(--cds-gap-md); }
+  .ab-head-l { display: grid; gap: var(--cds-gap-xs); min-width: 0; }
+  .ab-title { margin: 0; font-family: var(--serif); font-weight: 400; font-size: clamp(2rem, 4.5vw, 3rem); line-height: 1.05; letter-spacing: -.01em; }
+  .ab-live { display: inline-flex; align-items: center; gap: 8px; font-size: var(--cds-font-size-caption); color: var(--mute); }
+  .ab-live i { width: 8px; height: 8px; border-radius: 50%; background: var(--up); box-shadow: 0 0 0 0 color-mix(in srgb, var(--up) 60%, transparent); }
+  .ab-takeaway { margin: 0; max-width: 70ch; font-size: var(--cds-font-size-body); line-height: 1.55; color: var(--ink); }
+
+  /* precio */
+  .ab-price { font-family: var(--serif); font-weight: 400; font-size: clamp(2.6rem, 5vw, 3.4rem); line-height: 1; letter-spacing: -.02em; }
+  .ab-price small { font-family: var(--sans); font-size: var(--cds-font-size-body); color: var(--mute); margin-left: 4px; letter-spacing: 0; }
+  .ab-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ab-pill { display: inline-flex; gap: 6px; align-items: baseline; padding: 4px 10px; border-radius: 999px; background: var(--paper);
+    border: 1px solid var(--line); font-size: var(--cds-font-size-caption); white-space: nowrap; }
+  .ab-pill b { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ab-spark { width: 100%; height: 64px; display: block; overflow: visible; }
+
+  /* prediccion */
+  .ab-pred { background: linear-gradient(160deg, color-mix(in srgb, var(--ink) 5%, var(--panel)), var(--panel) 60%); }
+  .ab-pred-when { font-family: var(--serif); font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 400; line-height: 1.1; margin: 0; }
+  .ab-rings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--cds-gap-md); }
+  .ab-ring { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--cds-gap-sm); align-items: center; }
+  .ab-ring svg { width: 84px; height: 84px; display: block; }
+  .ab-ring-track { fill: none; stroke: var(--paper); stroke-width: 9; }
+  .ab-ring-val { fill: none; stroke-width: 9; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset 1.2s var(--cds-ease-out); }
+  .ab-ring text { font-family: var(--serif); font-size: 22px; fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
+  .ab-ring-label { font-size: var(--cds-font-size-caption); color: var(--mute); line-height: 1.35; }
+  .ab-ring-label b { display: block; font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); color: var(--ink); font-variant-numeric: tabular-nums; }
+  .ab-likely { display: grid; gap: 6px; }
+  .ab-likely-top { display: flex; justify-content: space-between; align-items: baseline; gap: var(--cds-gap-sm); font-size: var(--cds-font-size-caption); color: var(--mute); }
+  .ab-likely-top b { font-family: var(--serif); font-weight: 400; font-size: var(--cds-font-size-title); color: var(--ink); font-variant-numeric: tabular-nums; }
+  .ab-range { position: relative; height: 10px; border-radius: 5px; background: var(--paper); }
+  .ab-range-iqr { position: absolute; top: 0; bottom: 0; border-radius: 5px; background: color-mix(in srgb, var(--ink) 22%, transparent); transition: left 1s var(--cds-ease-out), width 1s var(--cds-ease-out); }
+  .ab-range-mark { position: absolute; top: -4px; bottom: -4px; width: 3px; border-radius: 2px; background: var(--ink); transition: left 1s var(--cds-ease-out); }
+  .ab-range-now { position: absolute; top: -6px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid var(--mute); transform: translateX(-5px); transition: left 1s var(--cds-ease-out); }
+  .ab-range-ends { display: flex; justify-content: space-between; font-size: var(--cds-font-size-caption); color: var(--mute); font-variant-numeric: tabular-nums; }
+
+  /* sesgo */
+  .ab-gauge { width: 100%; max-width: 260px; justify-self: center; display: block; overflow: visible; }
+  .ab-needle { transition: transform 1.2s cubic-bezier(.2, 1.4, .4, 1); transform-origin: 110px 104px; }
+  .ab-gauge-txt { text-align: center; display: grid; gap: 2px; }
+  .ab-gauge-txt b { font-family: var(--serif); font-weight: 400; font-size: var(--cds-font-size-title); }
+  .ab-strip { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+  .ab-strip button { font: inherit; display: grid; gap: 4px; justify-items: center; padding: 6px 2px; border-radius: 8px; border: 1px solid transparent;
+    background: var(--paper); color: var(--ink); cursor: pointer; font-size: 11px; }
+  .ab-strip button[aria-pressed="true"] { border-color: var(--ink); }
+  .ab-strip i { width: 100%; max-width: 34px; height: 6px; border-radius: 3px; }
+
+  /* selector de temporalidad */
+  .ab-seg { position: relative; display: inline-grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); padding: 4px; gap: 0;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 999px; max-width: 100%; overflow-x: auto; }
+  .ab-seg button { position: relative; z-index: 1; font: inherit; font-size: var(--cds-font-size-body); padding: 8px 16px; border: 0; border-radius: 999px;
+    background: transparent; color: var(--mute); cursor: pointer; white-space: nowrap; transition: color .25s; }
+  .ab-seg button[aria-pressed="true"] { color: var(--paper); }
+  .ab-seg-thumb { position: absolute; z-index: 0; top: 4px; bottom: 4px; border-radius: 999px; background: var(--ink); transition: left .35s var(--cds-ease-out), width .35s var(--cds-ease-out); }
+  .ab-seg.ab-small button { font-size: var(--cds-font-size-caption); padding: 5px 12px; }
+  .ab-bar-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--cds-gap-sm); align-items: center; }
+  .ab button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  /* grafico */
+  .ab-tools { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm); align-items: center; justify-content: space-between; }
+  .ab-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ab-chipbtn { font: inherit; font-size: var(--cds-font-size-caption); padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line);
+    background: transparent; color: var(--mute); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .ab-chipbtn i { width: 8px; height: 8px; border-radius: 2px; opacity: .35; }
+  .ab-chipbtn[aria-pressed="true"] { color: var(--ink); border-color: color-mix(in srgb, var(--ink) 40%, transparent); }
+  .ab-chipbtn[aria-pressed="true"] i { opacity: 1; }
+  .ab-iconbtn { font: inherit; font-size: var(--cds-font-size-caption); padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line);
+    background: var(--paper); color: var(--ink); cursor: pointer; }
+  .ab-chart { position: relative; min-height: 440px; }
+  .ab-chart svg { display: block; overflow: visible; touch-action: pan-y; }
+  .ab-ax text { fill: var(--mute); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .ab-gl { stroke: var(--cds-chart-grid); stroke-width: 1; }
+  .ab-c-up line, .ab-c-up rect { stroke: var(--up); fill: var(--up); }
+  .ab-c-dn line, .ab-c-dn rect { stroke: var(--down); fill: var(--down); }
+  .ab-vol-up { fill: var(--up); fill-opacity: .28; } .ab-vol-dn { fill: var(--down); fill-opacity: .28; }
+  .ab-ghost rect { fill-opacity: .14; stroke-width: 1.3; stroke-dasharray: 3 2; }
+  .ab-ghost { opacity: 0; transform: translateY(10px) scaleY(.6); transform-box: fill-box; transform-origin: center; transition: opacity .4s var(--cds-ease-out), transform .45s var(--cds-ease-out); }
+  .ab-ghost.on { opacity: 1; transform: none; }
+  .ab-scan { stroke: var(--ink); stroke-opacity: .35; stroke-width: 1; transition: transform .38s linear; }
+  .ab-future-lbl { fill: var(--mute); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
+  .ab-median { fill: none; stroke: var(--ink); stroke-opacity: .55; stroke-width: 1.4; stroke-dasharray: 5 4; }
+  .ab-ema { fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .ab-bb { stroke: var(--mute); stroke-opacity: .4; stroke-width: 1; }
+  .ab-fvg-u { fill: var(--up); fill-opacity: .12; } .ab-fvg-d { fill: var(--down); fill-opacity: .12; }
+  .ab-fvg-edge-u { stroke: var(--up); stroke-opacity: .6; } .ab-fvg-edge-d { stroke: var(--down); stroke-opacity: .6; }
+  .ab-zig { fill: none; stroke: var(--ink); stroke-opacity: .5; stroke-width: 1.2; stroke-dasharray: 1 4; stroke-linecap: round; }
+  .ab-wave circle { fill: var(--panel); stroke: var(--ink); stroke-width: 1.2; }
+  .ab-wave text { fill: var(--ink); font-size: 10px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+  .ab-liq-l { fill: var(--down); } .ab-liq-s { fill: var(--up); }
+  .ab-now-line { stroke: var(--ink); stroke-width: 1; stroke-dasharray: 2 3; }
+  .ab-tag rect { fill: var(--ink); } .ab-tag text { fill: var(--paper); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ab-here text { fill: var(--ink); font-size: 11px; font-weight: 600; }
+  .ab-here rect { fill: var(--panel); stroke: var(--ink); stroke-width: 1; }
+  .ab-dot { fill: var(--ink); } .ab-pulse { fill: var(--ink); transform-box: fill-box; transform-origin: center; }
+  .ab-cross line { stroke: var(--mute); stroke-width: 1; stroke-dasharray: 3 3; }
+  .ab-cross rect { fill: var(--mute); } .ab-cross text { fill: var(--paper); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .ab-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius);
+    box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; z-index: 3; display: grid; gap: 2px; }
+  .ab-tip-d { color: var(--cds-text-secondary); }
+  .ab-tip-g { display: grid; grid-template-columns: auto auto; gap: 0 10px; }
+  .ab-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: var(--cds-font-size-caption); color: var(--mute); }
+  .ab-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .ab-legend i { width: 14px; height: 8px; border-radius: 2px; display: inline-block; }
+
+  /* probabilidades */
+  .ab-split { position: relative; display: flex; height: 34px; border-radius: 10px; overflow: hidden; background: var(--paper); }
+  .ab-split div { display: flex; align-items: center; padding-inline: 10px; font-size: var(--cds-font-size-caption); font-weight: 600; color: var(--paper);
+    white-space: nowrap; transition: flex-basis 1s var(--cds-ease-out); min-width: 0; overflow: hidden; }
+  .ab-split .ab-sp-u { background: var(--up); } .ab-split .ab-sp-d { background: var(--down); justify-content: flex-end; }
+  .ab-split .ab-sp-base { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--ink); padding: 0; transition: left 1s var(--cds-ease-out); }
+  .ab-ladder svg { display: block; width: 100%; overflow: visible; }
+  .ab-ladder text { font-size: 11.5px; font-variant-numeric: tabular-nums; fill: var(--ink); }
+  .ab-ladder .ab-lv-mute { fill: var(--mute); }
+  .ab-ladder .ab-lv-bar { transition: width 1s var(--cds-ease-out); }
+  .ab-verdict { display: inline-flex; align-items: center; gap: 6px; font-size: var(--cds-font-size-caption); padding: 3px 10px; border-radius: 999px; border: 1px solid currentColor; }
+
+  /* senales */
+  .ab-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12.5rem), 1fr)); gap: var(--cds-gap-sm); }
+  .ab-tile { background: var(--paper); border-radius: var(--cds-radius); padding: var(--cds-pad-md); display: grid; gap: 4px; align-content: start; }
+  .ab-tile-t { display: flex; align-items: center; gap: 6px; font-size: var(--cds-font-size-caption); color: var(--mute); }
+  .ab-tile-t i { width: 8px; height: 8px; border-radius: 50%; background: var(--mute); flex: none; }
+  .ab-tile-v { font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); font-variant-numeric: tabular-nums; }
+  .ab-tile-d { font-size: var(--cds-font-size-caption); color: var(--mute); line-height: 1.4; }
+  .ab-sig-alcista i { background: var(--up); } .ab-sig-bajista i { background: var(--down); }
+  .ab-sig-alcista .ab-tile-v { color: var(--up); } .ab-sig-bajista .ab-tile-v { color: var(--down); }
+  .ab-books { display: grid; gap: 6px; }
+  .ab-book { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) 3rem; gap: var(--cds-gap-sm); align-items: center; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+  .ab-book-tr { position: relative; height: 10px; border-radius: 5px; background: var(--paper); overflow: hidden; }
+  .ab-book-tr::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--mute); }
+  .ab-book-tr i { position: absolute; top: 0; bottom: 0; transition: left .9s var(--cds-ease-out), width .9s var(--cds-ease-out); }
+  .ab-book.ab-off { color: var(--mute); }
+
+  /* niveles */
+  .ab-levels svg { display: block; width: 100%; overflow: visible; }
+  .ab-levels text { font-size: 11.5px; font-variant-numeric: tabular-nums; }
+
+  /* ondas */
+  .ab-wave-big { margin: 0; font-family: var(--serif); font-weight: 400; font-size: var(--cds-font-size-title); line-height: 1.25; text-wrap: balance; }
+  .ab-target { display: inline-flex; gap: 8px; align-items: baseline; font-size: var(--cds-font-size-caption); color: var(--mute); }
+  .ab-target b { font-size: var(--cds-font-size-heading); color: var(--ink); font-weight: var(--cds-font-weight-medium); font-variant-numeric: tabular-nums; }
+  .ab-fvgs { display: grid; gap: 6px; }
+  .ab-fvg { display: grid; grid-template-columns: 1.4rem minmax(0, 1fr) auto; gap: var(--cds-gap-sm); align-items: center; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+  .ab-fvg i { height: 14px; border-radius: 3px; }
+  .ab-fvg span:last-child { color: var(--mute); }
+
+  /* indicadores */
+  .ab-votes { display: grid; gap: var(--cds-gap-sm); grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); }
+  .ab-vote { display: grid; gap: 6px; }
+  .ab-vote-top { display: flex; justify-content: space-between; font-size: var(--cds-font-size-caption); color: var(--mute); }
+  .ab-vote-bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--paper); }
+  .ab-vote-bar i { transition: flex-basis .9s var(--cds-ease-out); flex-basis: 0; }
+  .ab-tbl-box { overflow: auto; max-height: 36rem; border-radius: var(--cds-radius); }
+  .ab-tbl { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+  .ab-tbl th { position: sticky; top: 0; z-index: 1; background: var(--panel); text-align: left; color: var(--mute); font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  .ab-tbl td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .ab-tbl td.r, .ab-tbl th.r { text-align: right; }
+  .ab-tbl tr.ab-g td { background: var(--paper); font-weight: var(--cds-font-weight-medium); color: var(--ink); padding-block: 6px; }
+  .ab-tbl tbody tr:not(.ab-g):hover td { background: color-mix(in srgb, var(--ink) 4%, transparent); }
+  .ab-sigchip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--paper); color: var(--mute); }
+  .ab-sigchip.ab-compra { color: var(--up); background: color-mix(in srgb, var(--up) 12%, transparent); }
+  .ab-sigchip.ab-venta { color: var(--down); background: color-mix(in srgb, var(--down) 12%, transparent); }
+  .ab-novote { color: var(--mute); font-size: 10.5px; }
+
+  .ab-claude { margin: 0; white-space: pre-line; font-size: var(--cds-font-size-body); line-height: 1.6; max-width: 74ch; }
+  .ab-foot { margin: 0; font-size: var(--cds-font-size-caption); color: var(--mute); max-width: 90ch; line-height: 1.5; }
+  .ab-fail { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 440px; color: var(--mute); font-size: var(--cds-font-size-caption); }
+  .ab-fail i { width: .375rem; height: .375rem; border-radius: 50%; background: var(--color-bad); }
   [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
   [data-dash-source-state=empty] { color: transparent; }
+
   @media (prefers-reduced-motion: no-preference) {
-    .ab-pulse { animation: ab-pulse 1.8s var(--cds-ease-out) infinite; }
-    .ab-page.is-first .ab-candle { animation: ab-rise .5s var(--cds-ease-out) both; }
+    .ab-first .ab-card { animation: ab-in .6s var(--cds-ease-out) both; }
+    .ab-first .ab-row > :nth-child(2) { animation-delay: 70ms; } .ab-first .ab-row > :nth-child(3) { animation-delay: 140ms; }
+    .ab-first .ab-candle { animation: ab-rise .45s var(--cds-ease-out) both; }
+    .ab-first .ab-spark-line { animation: ab-draw 1.4s var(--cds-ease-out) both; }
+    .ab-pulse { animation: ab-pulse 2s ease-out infinite; }
+    .ab-live i { animation: ab-live 2s ease-out infinite; }
   }
-  @keyframes ab-pulse { from { transform: scale(.6); fill-opacity: .45; } to { transform: scale(2.6); fill-opacity: 0; } }
-  @keyframes ab-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-  @media (prefers-reduced-motion: reduce) { .ab-ghost, .ab-bar-up, .ab-bar-down, .ab-base, .ab-needle { transition: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .ab-ghost, .ab-ring-val, .ab-needle, .ab-split div, .ab-range-iqr, .ab-range-mark, .ab-range-now, .ab-lv-bar, .ab-book-tr i, .ab-vote-bar i, .ab-seg-thumb { transition: none !important; }
+  }
+  @keyframes ab-in { from { opacity: .001; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @keyframes ab-rise { from { opacity: .001; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes ab-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+  @keyframes ab-pulse { from { transform: scale(.7); opacity: .5; } to { transform: scale(3); opacity: 0; } }
+  @keyframes ab-live { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-ok) 55%, transparent); } 100% { box-shadow: 0 0 0 8px transparent; } }
 </style>
 
-<div class="ab-page is-first" id="analista" data-source="analisis">
+<div class="ab ab-first" id="analista" data-source="analisis">
   <header class="ab-head" id="resumen">
-    <div class="ab-eyebrow">BTC/USDT perpetuo · actualizado <span data-source="analisis" data-field="hora_local" data-where="tabla=resumen">—</span> (hora Argentina)</div>
-    <h1 class="ab-title">Analista BTC</h1>
-    <p class="ab-takeaway dash-skeleton" id="lectura" data-source="analisis" data-field="lectura" data-where="tabla=resumen">—</p>
+    <div class="ab-head-l">
+      <span class="ab-live"><i></i><span>BTC/USDT perpetuo · actualizado <span data-source="analisis" data-field="hora_local" data-where="tabla=resumen">—</span> · <span id="next-run">—</span></span></span>
+      <h1 class="ab-title">Analista BTC</h1>
+      <p class="ab-takeaway dash-skeleton" id="lectura" data-source="analisis" data-field="lectura" data-where="tabla=resumen">—</p>
+    </div>
   </header>
 
-  <section class="ab-hero" id="precio" aria-label="Precio">
-    <div class="ab-stat"><span class="ab-stat-label">Precio en BingX</span>
-      <span class="ab-price" data-source="analisis" data-field="precio" data-where="tabla=resumen">—</span></div>
-    <div class="ab-stat"><span class="ab-stat-label">24 horas</span>
-      <span class="ab-stat-value" id="c24" data-source="analisis" data-field="cambio_24h" data-where="tabla=resumen">—</span></div>
-    <div class="ab-stat"><span class="ab-stat-label">7 días</span>
-      <span class="ab-stat-value" id="c7" data-source="analisis" data-field="cambio_7d" data-where="tabla=resumen">—</span></div>
-    <div class="ab-stat"><span class="ab-stat-label">Contra la media de 200 días</span>
-      <span class="ab-stat-value" id="c200" data-source="analisis" data-field="sma200d_dist" data-where="tabla=resumen">—</span></div>
-    <div class="ab-stat"><span class="ab-stat-label">Funding cada 8 h</span>
-      <span class="ab-stat-value" id="fund" data-source="analisis" data-field="funding" data-where="tabla=resumen">—</span></div>
-  </section>
-
-  <nav class="ab-tabs" id="temporalidades" aria-label="Temporalidad">
-    <button class="ab-tab" type="button" data-tf="5m" aria-pressed="false">5 min</button>
-    <button class="ab-tab" type="button" data-tf="15m" aria-pressed="false">15 min</button>
-    <button class="ab-tab" type="button" data-tf="30m" aria-pressed="false">30 min</button>
-    <button class="ab-tab" type="button" data-tf="1h" aria-pressed="true">1 hora</button>
-    <button class="ab-tab" type="button" data-tf="4h" aria-pressed="false">4 horas</button>
-    <button class="ab-tab" type="button" data-tf="1d" aria-pressed="false">Diario</button>
-  </nav>
-
-  <section class="ab-card" id="grafico" aria-labelledby="grafico-t">
-    <div class="ab-chart-top">
-      <h2 id="grafico-t">Dónde está BTC y hacia dónde suele ir desde acá</h2>
-      <div class="ab-controls" role="group" aria-label="Escenario">
-        <button class="ab-chip-btn" type="button" data-scen="tipico" aria-pressed="true">Típico</button>
-        <button class="ab-chip-btn" type="button" data-scen="alcista" aria-pressed="false">Alcista</button>
-        <button class="ab-chip-btn" type="button" data-scen="bajista" aria-pressed="false">Bajista</button>
-        <button class="ab-chip-btn" type="button" id="replay">Repetir animación</button>
+  <div class="ab-row">
+    <section class="ab-card ab-s4" id="precio" aria-labelledby="precio-t">
+      <div class="ab-card-head"><span class="ab-kicker" id="precio-t">Precio en BingX</span><span class="ab-kicker">Últimas 48 h</span></div>
+      <div class="ab-price ab-num" data-source="analisis" data-field="precio" data-where="tabla=resumen">—</div>
+      <svg class="ab-spark" id="spark" data-source="analisis" preserveAspectRatio="none"></svg>
+      <div class="ab-pills">
+        <span class="ab-pill">24 h <b id="c24" data-source="analisis" data-field="cambio_24h" data-where="tabla=resumen">—</b></span>
+        <span class="ab-pill">7 días <b id="c7" data-source="analisis" data-field="cambio_7d" data-where="tabla=resumen">—</b></span>
+        <span class="ab-pill">vs media 200 d <b id="c200" data-source="analisis" data-field="sma200d_dist" data-where="tabla=resumen">—</b></span>
+        <span class="ab-pill">Funding <b id="fund" data-source="analisis" data-field="funding" data-where="tabla=resumen">—</b></span>
       </div>
-    </div>
-    <div class="ab-controls" role="group" aria-label="Capas del gráfico">
-      <label class="ab-toggle"><input type="checkbox" id="lay-ema" checked><span>EMA 20 / 50</span></label>
-      <label class="ab-toggle"><input type="checkbox" id="lay-bb" checked><span>Bollinger</span></label>
-      <label class="ab-toggle"><input type="checkbox" id="lay-fvg" checked><span>Zonas FVG</span></label>
-      <label class="ab-toggle"><input type="checkbox" id="lay-ondas" checked><span>Giros y ondas</span></label>
-      <label class="ab-toggle"><input type="checkbox" id="lay-liq" checked><span>Liquidaciones</span></label>
-    </div>
-    <div class="ab-chart-box dash-skeleton" id="chart" data-source="analisis"></div>
-    <div class="ab-legend" id="legend"></div>
-    <p class="ab-note" id="scen-note"></p>
-  </section>
-
-  <div class="ab-grid">
-    <section class="ab-card" id="probabilidades" aria-labelledby="prob-t">
-      <h2 id="prob-t">Probabilidades</h2>
-      <p class="ab-note">De las velas recientes en una situación técnica parecida a la de ahora, cuántas terminaron más arriba. La línea vertical es la tasa normal del período: si la barra queda cerca, la situación actual casi no aporta.</p>
-      <div id="prob-list" class="ab-prob-list" data-source="analisis" style="display:grid;gap:var(--cds-gap-md)"></div>
     </section>
 
-    <section class="ab-card" id="calificacion" aria-labelledby="cal-t">
-      <h2 id="cal-t">Calificación técnica</h2>
-      <div class="ab-gauge-wrap" data-source="analisis">
-        <svg id="gauge" viewBox="0 0 200 118" width="100%" style="max-width:320px" role="img" aria-label="Calificación"></svg>
-        <div class="ab-gauge-txt" id="gauge-txt" data-source="analisis" data-field="rating_txt">—</div>
-        <div class="ab-note" id="gauge-votes"></div>
+    <section class="ab-card ab-pred ab-s5" id="prediccion" aria-labelledby="pred-when" data-source="analisis">
+      <div class="ab-card-head"><span class="ab-kicker">Predicción · velas de 1 hora</span><span class="ab-kicker" id="pred-n"></span></div>
+      <p class="ab-pred-when" id="pred-when">—</p>
+      <div class="ab-rings">
+        <div class="ab-ring"><svg viewBox="0 0 84 84" aria-hidden="true"><circle class="ab-ring-track" cx="42" cy="42" r="34"></circle>
+          <circle class="ab-ring-val" id="ring-up" cx="42" cy="42" r="34" style="stroke: var(--color-ok)"></circle><text x="42" y="43" id="ring-up-t">—</text></svg>
+          <div class="ab-ring-label">de que toque<b id="ring-up-p">—</b>subiendo</div></div>
+        <div class="ab-ring"><svg viewBox="0 0 84 84" aria-hidden="true"><circle class="ab-ring-track" cx="42" cy="42" r="34"></circle>
+          <circle class="ab-ring-val" id="ring-dn" cx="42" cy="42" r="34" style="stroke: var(--color-bad)"></circle><text x="42" y="43" id="ring-dn-t">—</text></svg>
+          <div class="ab-ring-label">de que toque<b id="ring-dn-p">—</b>bajando</div></div>
       </div>
-      <div class="ab-mini" id="mini" data-source="analisis"></div>
-      <p class="ab-note">Votan 17 medias móviles y 11 osciladores con las reglas de TradingView. Tocá una temporalidad para verla en el gráfico.</p>
+      <div class="ab-likely">
+        <div class="ab-likely-top"><span>Precio más probable a esa hora</span><b id="likely">—</b></div>
+        <div class="ab-range"><div class="ab-range-iqr" id="iqr"></div><div class="ab-range-now" id="rnow"></div><div class="ab-range-mark" id="rmed"></div></div>
+        <div class="ab-range-ends"><span id="r-lo">—</span><span>la franja oscura es la mitad central de los casos · ▼ precio actual</span><span id="r-hi">—</span></div>
+      </div>
+    </section>
+
+    <section class="ab-card ab-s3" id="sesgo" aria-labelledby="sesgo-t" data-source="analisis">
+      <div class="ab-card-head"><h2 id="sesgo-t">Sesgo técnico</h2><span class="ab-kicker" id="sesgo-tf">1 hora</span></div>
+      <svg class="ab-gauge" id="gauge" viewBox="0 0 220 128" role="img" aria-label="Calificación técnica"></svg>
+      <div class="ab-gauge-txt"><b id="gauge-txt" data-source="analisis" data-field="rating_txt">—</b><span class="ab-note" id="gauge-votes"></span></div>
+      <div class="ab-strip" id="strip"></div>
     </section>
   </div>
 
-  <div class="ab-grid">
-    <section class="ab-card" id="ondas" aria-labelledby="ondas-t">
-      <h2 id="ondas-t">Ondas de Elliott y zonas FVG</h2>
-      <p class="ab-wave-desc" id="wave-desc" data-source="analisis" data-field="elliott">—</p>
-      <ul class="ab-list" id="fvg-list" data-source="analisis"></ul>
-      <p class="ab-note">El conteo se hace solo sobre los giros del precio y verifica las tres reglas de Elliott; es un posible conteo, no el único. Una zona FVG es un hueco que el precio dejó sin operar y al que suele volver.</p>
+  <div class="ab-bar-row">
+    <nav class="ab-seg" id="tfs" aria-label="Temporalidad">
+      <span class="ab-seg-thumb"></span>
+      <button type="button" data-tf="5m" aria-pressed="false">5 min</button>
+      <button type="button" data-tf="15m" aria-pressed="false">15 min</button>
+      <button type="button" data-tf="30m" aria-pressed="false">30 min</button>
+      <button type="button" data-tf="1h" aria-pressed="true">1 hora</button>
+      <button type="button" data-tf="4h" aria-pressed="false">4 horas</button>
+      <button type="button" data-tf="1d" aria-pressed="false">Diario</button>
+    </nav>
+    <span class="ab-note">Todo lo de abajo cambia con la temporalidad.</span>
+  </div>
+
+  <div class="ab-row">
+    <section class="ab-card ab-s8" id="grafico" aria-labelledby="graf-t">
+      <div class="ab-card-head"><h2 id="graf-t">Dónde está BTC y hacia dónde suele ir desde acá</h2></div>
+      <div class="ab-tools">
+        <nav class="ab-seg ab-small" id="scens" aria-label="Escenario">
+          <span class="ab-seg-thumb"></span>
+          <button type="button" data-scen="tipico" aria-pressed="true">Típico</button>
+          <button type="button" data-scen="alcista" aria-pressed="false">Alcista</button>
+          <button type="button" data-scen="bajista" aria-pressed="false">Bajista</button>
+        </nav>
+        <div class="ab-chips" id="layers">
+          <button type="button" class="ab-chipbtn" data-layer="ema" aria-pressed="true"><i style="background: var(--ab-c0)"></i>EMA 20 / 50</button>
+          <button type="button" class="ab-chipbtn" data-layer="bb" aria-pressed="true"><i style="background: var(--color-fg-muted)"></i>Bollinger</button>
+          <button type="button" class="ab-chipbtn" data-layer="fvg" aria-pressed="true"><i style="background: var(--color-ok)"></i>FVG</button>
+          <button type="button" class="ab-chipbtn" data-layer="ondas" aria-pressed="true"><i style="background: var(--color-fg)"></i>Ondas</button>
+          <button type="button" class="ab-chipbtn" data-layer="liq" aria-pressed="true"><i style="background: var(--color-bad)"></i>Liquidaciones</button>
+          <button type="button" class="ab-iconbtn" id="replay">↻ Repetir</button>
+        </div>
+      </div>
+      <div class="ab-chart dash-skeleton" id="chart" data-source="analisis"></div>
+      <div class="ab-legend" id="legend"></div>
+      <p class="ab-note" id="scen-note"></p>
     </section>
 
-    <section class="ab-card" id="contexto" aria-labelledby="ctx-t">
-      <h2 id="ctx-t">Qué está pasando ahora</h2>
-      <ul class="ab-list" id="ctx-list" data-source="analisis"></ul>
-      <div class="ab-books" id="books" data-source="analisis"></div>
-      <p class="ab-note">Libros de órdenes a ±0.1% del precio: hacia la derecha, más compras esperando. BingX no entra en el total porque publica mucho más volumen que el resto.</p>
+    <section class="ab-card ab-s4" id="probabilidades" aria-labelledby="prob-t" data-source="analisis">
+      <div class="ab-card-head"><h2 id="prob-t">Probabilidades</h2><span class="ab-kicker" id="prob-tf">1 hora</span></div>
+      <nav class="ab-seg ab-small" id="horiz" aria-label="Plazo"><span class="ab-seg-thumb"></span></nav>
+      <p class="ab-pred-when" id="prob-when" style="font-size: var(--cds-font-size-title)">—</p>
+      <div class="ab-split" id="split"></div>
+      <div class="ab-bar-row"><span class="ab-verdict" id="verdict">—</span><span class="ab-note" id="prob-base"></span></div>
+      <div class="ab-ladder" id="ladder"></div>
+      <p class="ab-note" id="prob-foot"></p>
     </section>
   </div>
 
-  <div class="ab-grid">
-    <section class="ab-card" id="niveles" aria-labelledby="niv-t">
-      <h2 id="niv-t">Niveles clave</h2>
-      <div class="ab-ladder" id="ladder" data-source="analisis"></div>
-      <p class="ab-note">Mínimos y máximos, pivotes del día, Fibonacci del último mes, medias de 200 días y las mayores zonas de liquidación estimadas.</p>
+  <div class="ab-row">
+    <section class="ab-card ab-s5" id="senales" aria-labelledby="sen-t" data-source="analisis">
+      <div class="ab-card-head"><h2 id="sen-t">Qué está pasando ahora</h2><span class="ab-kicker">Flujo y posicionamiento</span></div>
+      <div class="ab-tiles" id="tiles"></div>
+      <div class="ab-card-head"><span class="ab-kicker">Libros de órdenes ±0,1%</span><span class="ab-kicker">← ventas · compras →</span></div>
+      <div class="ab-books" id="books"></div>
+      <p class="ab-note">Son órdenes esperando, no posiciones: pueden retirarse. BingX no entra en el total porque publica mucho más volumen que el resto.</p>
     </section>
 
-    <section class="ab-card" id="lectura-claude" aria-labelledby="cl-t">
-      <h2 id="cl-t">Noticias y lectura de Claude</h2>
-      <p class="ab-claude" id="nota" data-source="analisis" data-field="nota_claude" data-where="tabla=resumen">—</p>
-      <p class="ab-note">Se escribe en cada análisis programado a partir de las noticias del día. Es criterio, no un cálculo: su acierto se mide aparte.</p>
+    <section class="ab-card ab-s4" id="niveles" aria-labelledby="niv-t" data-source="analisis">
+      <div class="ab-card-head"><h2 id="niv-t">Niveles clave</h2><span class="ab-kicker">a escala</span></div>
+      <div class="ab-levels" id="levels"></div>
+      <p class="ab-note">Arriba, resistencias; abajo, soportes. Pivotes del día, Fibonacci del mes, medias de 200 días, muros en los libros y zonas de liquidación estimadas.</p>
+    </section>
+
+    <section class="ab-card ab-s3" id="ondas" aria-labelledby="ond-t" data-source="analisis">
+      <div class="ab-card-head"><h2 id="ond-t">Ondas y FVG</h2><span class="ab-kicker" id="ond-tf">1 hora</span></div>
+      <p class="ab-wave-big" id="wave" data-source="analisis" data-field="elliott">—</p>
+      <span class="ab-target" id="wave-target"></span>
+      <div class="ab-fvgs" id="fvgs"></div>
+      <p class="ab-note">Conteo automático sobre los giros del precio que cumple las reglas de Elliott: es un conteo posible, no el único. Un FVG es un hueco que el precio dejó sin operar y al que suele volver.</p>
     </section>
   </div>
 
-  <section class="ab-card" id="indicadores" aria-labelledby="ind-t">
-    <h2 id="ind-t">Todos los indicadores</h2>
-    <div class="ab-table-box">
-      <table class="ab-table" id="ind-table" data-source="analisis" data-row-key="tf,indicador">
-        <thead><tr><th data-field="indicador">Indicador</th><th data-field="valor" style="text-align:right">Valor</th><th data-field="senal">Señal</th><th data-field="detalle">Detalle</th></tr></thead>
+  <section class="ab-card" id="indicadores" aria-labelledby="ind-t" data-source="analisis">
+    <div class="ab-card-head"><h2 id="ind-t">Todos los indicadores</h2><span class="ab-kicker" id="ind-tf">1 hora</span></div>
+    <div class="ab-votes" id="votes"></div>
+    <div class="ab-tbl-box">
+      <table class="ab-tbl" id="ind-table" data-source="analisis" data-row-key="tf,indicador">
+        <thead><tr><th data-field="indicador">Indicador</th><th data-field="valor" class="r">Valor</th><th data-field="senal">Señal</th><th data-field="detalle">Detalle</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
   </section>
 
-  <section class="ab-card" id="aciertos" aria-labelledby="ac-t">
-    <h2 id="ac-t">¿Vienen acertando los pronósticos?</h2>
-    <div id="hits" data-source="analisis"></div>
-  </section>
+  <div class="ab-row">
+    <section class="ab-card ab-s8" id="noticias" aria-labelledby="not-t">
+      <div class="ab-card-head"><h2 id="not-t">Noticias y lectura de Claude</h2><span class="ab-kicker">criterio, no cálculo</span></div>
+      <p class="ab-claude" id="nota" data-source="analisis" data-field="nota_claude" data-where="tabla=resumen">—</p>
+    </section>
+    <section class="ab-card ab-s4" id="aciertos" aria-labelledby="ac-t" data-source="analisis">
+      <div class="ab-card-head"><h2 id="ac-t">¿Viene acertando?</h2></div>
+      <div id="hits"></div>
+    </section>
+  </div>
 
-  <p class="ab-disclaimer">Datos de Binance Futures y BingX. Las probabilidades y escenarios describen lo que pasó en situaciones parecidas del pasado reciente; el mercado puede hacer otra cosa. No es una recomendación de inversión.</p>
+  <p class="ab-foot">Datos públicos de Binance Futures, Bybit, OKX, Bitget y BingX. Las probabilidades y los escenarios cuentan lo que pasó en situaciones parecidas del pasado reciente; el mercado puede hacer otra cosa. No es una recomendación de inversión.</p>
 </div>
 
 <script>
 (function () {
   const root = document.getElementById('analista');
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const TF_TXT = { '5m': '5 min', '15m': '15 min', '30m': '30 min', '1h': '1 hora', '4h': '4 horas', '1d': 'Diario' };
-  const state = { tf: '1h', scen: 'tipico', layers: { ema: true, bb: true, fvg: true, ondas: true, liq: true } };
-  const f0 = d3.format(',.0f'), f1 = d3.format(',.1f'), f2 = d3.format('.2f');
-  const signed = (v, d = 2) => (v > 0 ? '+' : '') + d3.format(`.${d}f`)(v) + '%';
-  const tz = { timeZone: 'America/Argentina/Buenos_Aires' };
-  const fmtDate = (t, tf) => new Date(Number(t)).toLocaleString('es-AR', tf === '1d'
-    ? { ...tz, day: '2-digit', month: '2-digit', year: '2-digit' }
-    : { ...tz, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  const ar = d3.formatLocale({ decimal: ',', thousands: '.', grouping: [3], currency: ['$', ''] });
+  const f0 = ar.format(',.0f'), f1 = ar.format(',.1f'), f2 = ar.format(',.2f');
+  const sg = (v, d = 2) => (v > 0 ? '+' : '') + ar.format(`,.${d}f`)(v) + '%';
   const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
+  const TF_TXT = { '5m': '5 min', '15m': '15 min', '30m': '30 min', '1h': '1 hora', '4h': '4 horas', '1d': 'Diario' };
+  const SCEN_TXT = { tipico: 'típico', alcista: 'alcista', bajista: 'bajista' };
+  const tz = { timeZone: 'America/Argentina/Buenos_Aires' };
+  const fmtT = (t, tf) => new Date(Number(t)).toLocaleString('es-AR', tf === '1d' ? { ...tz, day: '2-digit', month: '2-digit' }
+    : { ...tz, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   const pick = (rows, t, tf) => rows.filter((r) => r.tabla === t && (tf === undefined || r.tf === tf));
-  const signClass = (s) => (s === 'compra' || s === 'alcista' ? 'ab-alcista' : s === 'venta' || s === 'bajista' ? 'ab-bajista' : 'ab-neutral');
-  const where = (el, w) => { el.setAttribute('data-where', w); };
-  let ghostTimer = null, firstDraw = true, lastRows = null;
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  const later = (fn) => (reduce ? fn() : requestAnimationFrame(() => requestAnimationFrame(fn)));
+  const S = { tf: '1h', scen: 'tipico', hz: null, layers: { ema: true, bb: true, fvg: true, ondas: true, liq: true } };
+  let ghostTimer = null, first = true;
 
   // ---------- controles ----------
-  document.querySelectorAll('.ab-tab').forEach((b) => b.addEventListener('click', () => setTf(b.dataset.tf)));
-  document.querySelectorAll('[data-scen]').forEach((b) => b.addEventListener('click', () => {
-    state.scen = b.dataset.scen;
-    document.querySelectorAll('[data-scen]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-    redraw();
-  }));
-  document.getElementById('replay').addEventListener('click', () => redraw());
-  ['ema', 'bb', 'fvg', 'ondas', 'liq'].forEach((k) => document.getElementById('lay-' + k).addEventListener('change', (e) => {
-    state.layers[k] = e.target.checked; redraw();
-  }));
-  function setTf(tf) {
-    state.tf = tf;
-    document.querySelectorAll('.ab-tab').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.tf === tf)));
-    redraw();
+  function seg(nav, attr, onPick) {
+    const thumb = nav.querySelector('.ab-seg-thumb');
+    const place = () => {
+      const on = nav.querySelector('button[aria-pressed="true"]');
+      if (!on || !thumb) return;
+      thumb.style.left = on.offsetLeft + 'px'; thumb.style.width = on.offsetWidth + 'px';
+    };
+    nav.addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      nav.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      place(); onPick(b.getAttribute(attr));
+    });
+    return place;
   }
-  const redraw = () => draw();
+  const placeTf = seg(document.getElementById('tfs'), 'data-tf', (v) => { S.tf = v; S.hz = null; draw(); });
+  const placeSc = seg(document.getElementById('scens'), 'data-scen', (v) => { S.scen = v; draw(); });
+  const placeHz = seg(document.getElementById('horiz'), 'data-hz', (v) => { S.hz = v; draw(); });
+  document.getElementById('layers').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-layer]'); if (!b) return;
+    const k = b.dataset.layer; S.layers[k] = !S.layers[k]; b.setAttribute('aria-pressed', String(S.layers[k])); draw();
+  });
+  document.getElementById('replay').addEventListener('click', () => draw());
+  function setTf(tf) {
+    S.tf = tf; S.hz = null;
+    document.querySelectorAll('#tfs button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.tf === tf)));
+    placeTf(); draw();
+  }
 
   dash.onData(draw);
 
@@ -300,447 +411,463 @@
     if (ghostTimer) { clearInterval(ghostTimer); ghostTimer = null; }
     if (res.status !== 'ok') {
       chart.replaceChildren();
-      if (res.status === 'error') {
-        chart.classList.remove('dash-skeleton');
-        const s = document.createElement('div'); s.className = 'ab-state';
-        s.append(document.createElement('i'), 'Failed to load'); chart.append(s);
-      }
+      if (res.status === 'error') { chart.classList.remove('dash-skeleton'); const f = el('div', 'ab-fail'); f.append(el('i'), 'Failed to load'); chart.append(f); }
       return;
     }
-    document.querySelectorAll('.dash-skeleton').forEach((e) => e.classList.remove('dash-skeleton'));
+    document.querySelectorAll('#analista .dash-skeleton').forEach((e) => e.classList.remove('dash-skeleton'));
     const rows = res.data;
-    lastRows = rows;
     const sum = pick(rows, 'resumen')[0];
-    drawHeader(sum);
+    root.style.setProperty('--ab-c0', dash.colors[0]);
+    drawHeader(rows, sum);
+    drawPrediction(rows, sum);
+    drawGauge(rows);
     drawChart(rows, sum);
-    drawProbs(rows);
-    drawRating(rows);
+    drawProbs(rows, sum);
+    drawSignals(rows);
+    drawLevels(rows, sum);
     drawWaves(rows);
-    drawContext(rows);
-    drawLadder(rows, sum);
-    drawNote(sum);
     drawIndicators(rows);
+    drawNote(sum);
     drawHits(rows);
-    if (firstDraw) { firstDraw = false; setTimeout(() => root.classList.remove('is-first'), 1600); }
+    placeTf(); placeSc(); placeHz();
+    if (first) { first = false; setTimeout(() => root.classList.remove('ab-first'), 1800); }
   }
 
-  // ---------- cabecera ----------
-  function drawHeader(s) {
-    document.querySelector('[data-field="hora_local"]').textContent = s.hora_local;
+  // ---------- cabecera y precio ----------
+  function drawHeader(rows, s) {
+    root.querySelector('[data-field="hora_local"]').textContent = s.hora_local + ' h';
+    const hour = Number(String(s.hora_local).slice(-5, -3));
+    const next = [0, 8, 12, 16, 20].find((h) => h > hour);
+    document.getElementById('next-run').textContent = `próximo análisis ${String(next === undefined ? 0 : next).padStart(2, '0')}:00 h`;
     document.getElementById('lectura').textContent = s.lectura;
-    document.querySelector('.ab-price').textContent = f1(num(s.precio));
-    const put = (id, v, digits) => {
-      const el = document.getElementById(id);
-      if (v === null) { el.textContent = '—'; return; }
-      el.textContent = signed(v, digits);
-      el.classList.toggle('ab-pos', v > 0); el.classList.toggle('ab-neg', v < 0);
-    };
+    root.querySelector('.ab-price').replaceChildren(f0(num(s.precio)), el('small', '', 'USDT'));
+    const put = (id, v, d) => { const e = document.getElementById(id); e.textContent = v === null ? '—' : sg(v, d);
+      e.classList.toggle('ab-up-t', v > 0); e.classList.toggle('ab-down-t', v < 0); };
     put('c24', num(s.cambio_24h), 2); put('c7', num(s.cambio_7d), 2); put('c200', num(s.sma200d_dist), 1);
-    const fu = num(s.funding);
-    document.getElementById('fund').textContent = fu === null ? '—' : (fu > 0 ? '+' : '') + d3.format('.4f')(fu) + '%';
+    const fu = num(s.funding); document.getElementById('fund').textContent = fu === null ? '—' : (fu > 0 ? '+' : '') + ar.format(',.4f')(fu) + '%';
+
+    const bars = pick(rows, 'vela', '1h').map((r) => ({ t: num(r.t), c: num(r.c) })).sort((a, b) => a.t - b.t).slice(-48);
+    const svg = d3.select('#spark'); svg.selectAll('*').remove();
+    const box = document.getElementById('spark'); const W = Math.max(200, box.clientWidth), H = 64;
+    svg.attr('viewBox', `0 0 ${W} ${H}`);
+    if (bars.length < 2) return;
+    const x = d3.scaleLinear([0, bars.length - 1], [0, W]);
+    const y = d3.scaleLinear(d3.extent(bars, (b) => b.c), [H - 4, 6]);
+    const upDay = bars[bars.length - 1].c >= bars[0].c;
+    const col = upDay ? 'var(--color-ok)' : 'var(--color-bad)';
+    const gid = 'ab-spark-g';
+    const g = svg.append('defs').append('linearGradient').attr('id', gid).attr('x1', 0).attr('x2', 0).attr('y1', 0).attr('y2', 1);
+    [[0, .28], [.5, .08], [1, 0]].forEach(([o, a]) => g.append('stop').attr('offset', o).style('stop-color', col).style('stop-opacity', a));
+    svg.append('path').attr('d', d3.area().x((b, i) => x(i)).y0(H).y1((b) => y(b.c))(bars)).style('fill', `url(#${gid})`);
+    svg.append('path').attr('class', 'ab-spark-line').attr('pathLength', 1).style('stroke-dasharray', 1)
+      .attr('d', d3.line().x((b, i) => x(i)).y((b) => y(b.c))(bars)).style('fill', 'none').style('stroke', col).style('stroke-width', 2).style('stroke-linecap', 'round');
+    svg.append('circle').attr('cx', x(bars.length - 1)).attr('cy', y(bars[bars.length - 1].c)).attr('r', 3.5).style('fill', col);
   }
 
-  // ---------- grafico principal ----------
-  function drawChart(rows, sum) {
-    const box = document.getElementById('chart');
-    box.replaceChildren();
-    const tf = state.tf, price = num(sum.precio);
-    const bars = pick(rows, 'vela', tf).map((r) => ({ t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c),
-      ema20: num(r.ema20), ema50: num(r.ema50), up: num(r.bb_up), lo: num(r.bb_lo) })).sort((a, b) => a.t - b.t);
-    const ghosts = pick(rows, 'escenario', tf).filter((r) => r.escenario === state.scen)
-      .map((r) => ({ paso: num(r.paso), t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), desde: r.desde }))
-      .sort((a, b) => a.paso - b.paso);
-    const cone = pick(rows, 'cono', tf).map((r) => ({ paso: num(r.paso), lo: num(r.p10), mid: num(r.p50), hi: num(r.p90) }))
-      .sort((a, b) => a.paso - b.paso);
-    const fvgs = pick(rows, 'fvg', tf).map((r) => ({ tipo: r.tipo, t: num(r.t), lo: num(r.bajo), hi: num(r.alto) }));
-    const giros = pick(rows, 'giro', tf).map((r) => ({ t: num(r.t), p: num(r.precio), onda: r.onda, alto: r.tipo === 'alto' }));
-    const liq = pick(rows, 'liquidacion').map((r) => ({ p: num(r.precio), longs: num(r.longs), shorts: num(r.shorts) }));
-    if (!bars.length) return;
-
-    const W = Math.max(320, box.clientWidth), H = W < 560 ? 320 : 400;
-    const steps = Math.max(ghosts.length, cone.length);
-    const n = bars.length + steps;
-    const heatW = state.layers.liq ? Math.min(70, W * 0.1) : 0;
-    const axisW = 62, m = { top: 22, bottom: 26, left: 4 };
-    const plotR = W - axisW - heatW;
-    const x = d3.scaleBand().domain(d3.range(n)).range([m.left, plotR]).paddingInner(0.28);
-    const vals = [price];
-    bars.forEach((b) => { vals.push(b.h, b.l); if (state.layers.bb && b.up) vals.push(b.up, b.lo); });
-    ghosts.forEach((g) => vals.push(g.h, g.l));
-    cone.forEach((c) => vals.push(c.lo, c.hi));
-    let [lo, hi] = d3.extent(vals);
-    const pad = (hi - lo) * 0.06; lo -= pad; hi += pad;
-    const y = d3.scaleLinear().domain([lo, hi]).range([H - m.bottom, m.top]);
-
-    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
-      .attr('aria-label', `Velas de ${TF_TXT[tf]} con el escenario ${state.scen}`);
-    const ticks = y.ticks(6);
-    svg.append('g').selectAll('line').data(ticks).join('line').attr('class', 'ab-grid-line')
-      .attr('x1', m.left).attr('x2', plotR + heatW).attr('y1', y).attr('y2', y);
-    svg.append('g').attr('class', 'ab-axis').selectAll('text').data(ticks).join('text')
-      .attr('x', W - 2).attr('y', y).attr('dy', '0.32em').attr('text-anchor', 'end').text((d) => f0(d));
-
-    // zona futura
-    const fx0 = x(bars.length) - x.step() * x.paddingInner() / 2;
-    svg.append('rect').attr('class', 'ab-future-bg').attr('x', fx0).attr('y', m.top - 14).attr('width', plotR - fx0).attr('height', H - m.bottom - m.top + 14);
-    svg.append('text').attr('class', 'ab-future-label').attr('x', fx0 + 6).attr('y', m.top - 4).text('Futuro posible');
-
-    // tiempo: tres marcas
-    const tIdx = [0, Math.floor(bars.length / 2), bars.length - 1];
-    svg.append('g').attr('class', 'ab-axis').selectAll('text').data(tIdx).join('text')
-      .attr('x', (i) => x(i) + x.bandwidth() / 2).attr('y', H - 8).attr('text-anchor', (d, k) => (k === 0 ? 'start' : 'middle'))
-      .text((i) => fmtDate(bars[i].t, tf));
-
-    // Bollinger
-    if (state.layers.bb) {
-      const bb = bars.map((b, i) => ({ i, up: b.up, lo: b.lo })).filter((b) => b.up !== null);
-      svg.append('path').attr('class', 'ab-bb').attr('d', d3.area().x((d) => x(d.i) + x.bandwidth() / 2).y0((d) => y(d.lo)).y1((d) => y(d.up))(bb));
-    }
-    // FVG
-    if (state.layers.fvg) {
-      fvgs.forEach((z) => {
-        let i0 = bars.findIndex((b) => b.t >= z.t); if (i0 < 0) return;
-        const yt = y(Math.min(z.hi, hi)), yb = y(Math.max(z.lo, lo));
-        if (yb <= m.top || yt >= H - m.bottom) return;
-        svg.append('rect').attr('class', z.tipo === 'alcista' ? 'ab-fvg-up' : 'ab-fvg-down').attr('x', x(i0)).attr('y', yt)
-          .attr('width', plotR - x(i0)).attr('height', Math.max(2, yb - yt));
-      });
-    }
-    // cono de escenarios (80% de los casos)
-    if (cone.length) {
-      const lastI = bars.length - 1;
-      const pts = [{ i: lastI, lo: bars[lastI].c, hi: bars[lastI].c, mid: bars[lastI].c }].concat(cone.map((c) => ({ i: lastI + c.paso, ...c })));
-      const cx = (d) => x(d.i) + x.bandwidth() / 2;
-      svg.append('path').attr('class', 'ab-cone').attr('d', d3.area().x(cx).y0((d) => y(d.lo)).y1((d) => y(d.hi))(pts));
-      svg.append('path').attr('class', 'ab-median').attr('d', d3.line().x(cx).y((d) => y(d.mid))(pts));
-    }
-    // EMAs
-    const colors = dash.colors;
-    if (state.layers.ema) {
-      [['ema20', colors[0]], ['ema50', colors[1]]].forEach(([k, col]) => {
-        svg.append('path').attr('class', 'ab-' + k).style('stroke', col)
-          .attr('d', d3.line().defined((b) => b[k] !== null).x((b, i) => x(i) + x.bandwidth() / 2).y((b) => y(b[k]))(bars));
-      });
-    }
-    // velas reales
-    const bw = x.bandwidth();
-    const cg = svg.append('g').selectAll('g').data(bars).join('g')
-      .attr('class', (b) => 'ab-candle ' + (b.c >= b.o ? 'ab-up' : 'ab-down'))
-      .style('animation-delay', (b, i) => `${i * 12}ms`);
-    cg.append('line').attr('class', 'ab-wick').attr('x1', (b, i) => x(i) + bw / 2).attr('x2', (b, i) => x(i) + bw / 2).attr('y1', (b) => y(b.h)).attr('y2', (b) => y(b.l));
-    cg.append('rect').attr('class', 'ab-body').attr('rx', Math.min(2, bw / 4)).attr('x', (b, i) => x(i)).attr('width', bw)
-      .attr('y', (b) => y(Math.max(b.o, b.c))).attr('height', (b) => Math.max(1, Math.abs(y(b.o) - y(b.c))));
-
-    // giros y ondas de Elliott
-    if (state.layers.ondas) {
-      const gp = giros.map((g) => ({ ...g, i: bars.findIndex((b) => b.t === g.t) })).filter((g) => g.i >= 0);
-      if (gp.length > 1) svg.append('path').attr('class', 'ab-zig').attr('d', d3.line().x((g) => x(g.i) + bw / 2).y((g) => y(g.p))(gp));
-      const wv = svg.append('g').selectAll('g').data(gp.filter((g) => g.onda)).join('g').attr('class', 'ab-wave')
-        .attr('transform', (g) => `translate(${x(g.i) + bw / 2},${y(g.p) + (g.alto ? -12 : 12)})`);
-      wv.append('circle').attr('r', 8);
-      wv.append('text').text((g) => g.onda);
-    }
-
-    // velas fantasma del escenario
-    const gg = svg.append('g').selectAll('g').data(ghosts).join('g')
-      .attr('class', (g) => 'ab-ghost ' + (g.c >= g.o ? 'ab-up' : 'ab-down'));
-    const gx = (g) => x(bars.length - 1 + g.paso);
-    gg.append('line').attr('class', 'ab-wick').attr('x1', (g) => gx(g) + bw / 2).attr('x2', (g) => gx(g) + bw / 2).attr('y1', (g) => y(g.h)).attr('y2', (g) => y(g.l));
-    gg.append('rect').attr('class', 'ab-body').attr('rx', Math.min(2, bw / 4)).attr('x', gx).attr('width', bw)
-      .attr('y', (g) => y(Math.max(g.o, g.c))).attr('height', (g) => Math.max(1, Math.abs(y(g.o) - y(g.c))));
-
-    // mapa de liquidaciones, a la derecha
-    if (state.layers.liq && liq.length) {
-      const inRange = liq.filter((r) => r.p > lo && r.p < hi);
-      const maxv = d3.max(inRange, (r) => Math.max(r.longs, r.shorts)) || 1;
-      const hx = d3.scaleLinear().domain([0, maxv]).range([0, heatW - 6]);
-      const bh = Math.max(2, Math.abs(y(inRange[0] ? inRange[0].p : lo) - y((inRange[0] ? inRange[0].p : lo) * 1.0025)) - 1);
-      const hg = svg.append('g');
-      hg.selectAll('rect.l').data(inRange.filter((r) => r.longs > 0)).join('rect').attr('class', 'ab-liq-long')
-        .attr('x', plotR + 3).attr('y', (r) => y(r.p) - bh / 2).attr('height', bh).attr('width', (r) => hx(r.longs)).attr('rx', 1);
-      hg.selectAll('rect.s').data(inRange.filter((r) => r.shorts > 0)).join('rect').attr('class', 'ab-liq-short')
-        .attr('x', plotR + 3).attr('y', (r) => y(r.p) - bh / 2).attr('height', bh).attr('width', (r) => hx(r.shorts)).attr('rx', 1);
-      svg.append('text').attr('class', 'ab-future-label').attr('x', plotR + 3).attr('y', m.top - 4).text('Liq.');
-    }
-
-    // BTC esta aqui
-    const py = y(price);
-    svg.append('line').attr('class', 'ab-price-line').attr('x1', m.left).attr('x2', plotR).attr('y1', py).attr('y2', py);
-    const hx0 = x(bars.length - 1) + bw / 2;
-    svg.append('circle').attr('class', 'ab-pulse').attr('cx', hx0).attr('cy', py).attr('r', 6);
-    svg.append('circle').attr('class', 'ab-dot').attr('cx', hx0).attr('cy', py).attr('r', 4);
-    const here = svg.append('g').attr('class', 'ab-here');
-    const label = here.append('text').text(`BTC está aquí · ${f0(price)}`);
-    const lw = label.node().getComputedTextLength() + 14;
-    let lx = hx0 - lw - 10; if (lx < m.left) lx = hx0 + 10;
-    const ly = Math.min(Math.max(py - 26, m.top), H - m.bottom - 20);
-    here.insert('rect', 'text').attr('x', lx).attr('y', ly).attr('width', lw).attr('height', 18).attr('rx', 9);
-    label.attr('x', lx + 7).attr('y', ly + 13);
-
-    // tooltip
-    const tip = document.createElement('div'); tip.className = 'ab-tip'; tip.hidden = true; box.append(tip);
-    svg.append('rect').attr('x', m.left).attr('y', m.top).attr('width', plotR - m.left).attr('height', H - m.top - m.bottom)
-      .attr('fill', 'transparent')
-      .on('mousemove', (ev) => {
-        const [mx] = d3.pointer(ev);
-        const i = Math.max(0, Math.min(n - 1, Math.floor((mx - m.left) / x.step())));
-        const b = i < bars.length ? bars[i] : ghosts[i - bars.length];
-        if (!b) { tip.hidden = true; return; }
-        const future = i >= bars.length;
-        tip.replaceChildren();
-        const d = document.createElement('div'); d.className = 'ab-tip-date';
-        d.textContent = future ? `Escenario ${state.scen}, vela ${b.paso}` : fmtDate(b.t, tf);
-        const v = document.createElement('div');
-        v.textContent = `A ${f0(b.o)}  M ${f0(b.h)}  m ${f0(b.l)}  C ${f0(b.c)}`;
-        tip.append(d, v);
-        tip.hidden = false;
-        const px = (x(i) / W) * box.clientWidth;
-        tip.style.left = Math.min(box.clientWidth - tip.offsetWidth - 4, Math.max(4, px + 12)) + 'px';
-        tip.style.top = '8px';
-      })
-      .on('mouseleave', () => { tip.hidden = true; });
-
-    // leyenda y nota
-    const leg = document.getElementById('legend'); leg.replaceChildren();
-    const item = (color, txt, dashed) => { const s = document.createElement('span'); const i = document.createElement('i');
-      i.style.background = color; if (dashed) { i.style.background = 'transparent'; i.style.border = `1px dashed ${color}`; }
-      s.append(i, txt); leg.append(s); };
-    if (state.layers.ema) { item(colors[0], 'EMA 20'); item(colors[1], 'EMA 50'); }
-    item('var(--color-fg-muted)', 'Velas del escenario', true);
-    item('color-mix(in srgb, var(--color-fg) 18%, transparent)', 'Rango del 80% de los casos');
-    if (state.layers.fvg) { item('color-mix(in srgb, var(--color-ok) 35%, transparent)', 'FVG alcista'); item('color-mix(in srgb, var(--color-bad) 35%, transparent)', 'FVG bajista'); }
-    if (state.layers.liq) { item('color-mix(in srgb, var(--color-bad) 60%, transparent)', 'Liquidaciones de longs'); item('color-mix(in srgb, var(--color-ok) 60%, transparent)', 'Liquidaciones de shorts'); }
-    const note = document.getElementById('scen-note');
-    note.textContent = ghosts.length
-      ? `Las velas punteadas son un camino real del ${ghosts[0].desde.split('-').reverse().join('/')}, cuando BTC estaba en una situación parecida, llevado al precio de hoy (escenario ${state.scen}). La zona sombreada es donde terminó el 80% de esos casos. El mapa de liquidaciones es una estimación con open interest y ratio long/short.`
-      : 'No hay suficientes situaciones parecidas para armar escenarios en esta temporalidad.';
-
-    animateGhosts(gg, ghosts.length);
-  }
-
-  function animateGhosts(sel, count) {
-    if (!count) return;
-    if (reduce) { sel.classed('is-on', true); return; }
-    let k = 0;
-    const tick = () => {
-      k = k > count + 7 ? 0 : k + 1;
-      sel.classed('is-on', (g) => g.paso <= k);
+  // ---------- prediccion principal (1 h, primer plazo) ----------
+  function drawPrediction(rows, s) {
+    const p = pick(rows, 'probabilidad', '1h').sort((a, b) => num(a.velas) - num(b.velas))[0];
+    if (!p) return;
+    const goals = pick(rows, 'objetivo', '1h').filter((t) => t.horizonte === p.horizonte);
+    const price = num(s.precio);
+    const up = goals.filter((t) => t.lado === 'arriba').sort((a, b) => num(a.precio) - num(b.precio))[0];
+    const dn = goals.filter((t) => t.lado === 'abajo').sort((a, b) => num(b.precio) - num(a.precio))[0];
+    document.getElementById('pred-when').textContent = `Hasta las ${p.hora.slice(-5)} h del ${p.hora.slice(0, 5)}`;
+    document.getElementById('pred-n').textContent = `${f0(num(p.n))} casos parecidos`;
+    const ring = (id, t) => {
+      const c = document.getElementById(id), C = 2 * Math.PI * 34;
+      c.style.strokeDasharray = C; c.style.strokeDashoffset = C;
+      document.getElementById(id + '-t').textContent = t ? `${f0(num(t.prob))}%` : '—';
+      document.getElementById(id + '-p').textContent = t ? f0(num(t.precio)) : '—';
+      if (t) later(() => { c.style.strokeDashoffset = C * (1 - num(t.prob) / 100); });
     };
-    tick();
-    ghostTimer = setInterval(tick, 380);
-  }
-
-  // ---------- probabilidades ----------
-  function drawProbs(rows) {
-    const list = document.getElementById('prob-list'); list.replaceChildren();
-    pick(rows, 'probabilidad', state.tf).forEach((p) => {
-      const up = num(p.sube), base = num(p.base);
-      const wrap = document.createElement('div'); wrap.className = 'ab-prob';
-      const head = document.createElement('div'); head.className = 'ab-prob-head';
-      const left = document.createElement('span'); const b = document.createElement('b'); b.textContent = `Hasta las ${p.hora.slice(-5)} · ${p.horizonte}`;
-      left.append(b);
-      const chip = document.createElement('span'); chip.className = 'ab-chip ' + (p.veredicto === 'Sesgo alcista' ? 'ab-alcista' : p.veredicto === 'Sesgo bajista' ? 'ab-bajista' : 'ab-neutral');
-      chip.textContent = p.veredicto;
-      head.append(left, chip);
-      const bar = document.createElement('div'); bar.className = 'ab-bar';
-      const bu = document.createElement('div'); bu.className = 'ab-bar-up'; bu.style.flexBasis = '50%';
-      const bd = document.createElement('div'); bd.className = 'ab-bar-down'; bd.style.flexBasis = '50%';
-      const l = document.createElement('span'); l.className = 'ab-l'; l.textContent = `Sube ${f1(up)}%`;
-      const r = document.createElement('span'); r.className = 'ab-r'; r.textContent = `Baja ${f1(100 - up)}%`;
-      const bt = document.createElement('div'); bt.className = 'ab-base'; bt.style.left = '50%'; bt.title = `Tasa normal ${f1(base)}%`;
-      bar.append(bu, bd, l, r, bt);
-      const goal = document.createElement('p'); goal.className = 'ab-goal';
-      if (p.mediana !== null) {
-        const big = document.createElement('b'); big.textContent = f0(num(p.mediana));
-        goal.append(`Precio más probable a las ${p.hora.slice(-5)} (${p.hora.slice(0, 5)}): `, big,
-          ` · la mitad de los casos terminó entre ${f0(num(p.p25))} y ${f0(num(p.p75))}`);
-      }
-      const ladder = document.createElement('div'); ladder.className = 'ab-targets';
-      pick(rows, 'objetivo', state.tf).filter((t) => t.horizonte === p.horizonte)
-        .sort((a, b) => num(b.precio) - num(a.precio)).forEach((t) => {
-          const row = document.createElement('div'); row.className = 'ab-target ' + (t.lado === 'arriba' ? 'ab-t-up' : 'ab-t-dn');
-          const lab = document.createElement('span'); lab.textContent = `${t.lado === 'arriba' ? '▲' : '▼'} ${f0(num(t.precio))}`;
-          const track = document.createElement('span'); track.className = 'ab-target-track';
-          const fill = document.createElement('i'); fill.style.width = '0'; track.append(fill);
-          const val = document.createElement('span'); val.className = 'ab-target-val'; val.textContent = `${f0(num(t.prob))}%`;
-          row.append(lab, track, val); ladder.append(row);
-          requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = num(t.prob) + '%'; }));
-        });
-      const cap = document.createElement('div'); cap.className = 'ab-note';
-      cap.textContent = `Probabilidad de que BTC toque cada precio antes de las ${p.hora.slice(-5)} del ${p.hora.slice(0, 5)}.`;
-      const note = document.createElement('div'); note.className = 'ab-note';
-      note.textContent = `Tasa normal ${f1(base)}% · ${f0(num(p.n))} casos de los últimos ${num(p.dias)} días · el 80% terminó entre ${f0(num(p.min))} y ${f0(num(p.max))}`;
-      wrap.append(head, bar, goal, cap, ladder, note);
-      list.append(wrap);
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        bu.style.flexBasis = up + '%'; bd.style.flexBasis = (100 - up) + '%'; bt.style.left = `calc(${base}% - 1px)`;
-      }));
+    ring('ring-up', up); ring('ring-dn', dn);
+    const lo = num(p.min), hi = num(p.max), span = hi - lo || 1;
+    const at = (v) => Math.max(0, Math.min(100, (v - lo) / span * 100));
+    document.getElementById('likely').textContent = p.mediana === null ? '—' : f0(num(p.mediana));
+    document.getElementById('r-lo').textContent = f0(lo); document.getElementById('r-hi').textContent = f0(hi);
+    const iqr = document.getElementById('iqr'), med = document.getElementById('rmed'), now = document.getElementById('rnow');
+    iqr.style.left = '50%'; iqr.style.width = '0'; med.style.left = '50%'; now.style.left = '50%';
+    later(() => {
+      if (p.p25 !== null) { iqr.style.left = at(num(p.p25)) + '%'; iqr.style.width = (at(num(p.p75)) - at(num(p.p25))) + '%'; }
+      if (p.mediana !== null) med.style.left = `calc(${at(num(p.mediana))}% - 1.5px)`;
+      now.style.left = at(price) + '%';
     });
   }
 
-  // ---------- calificacion ----------
-  function drawRating(rows) {
+  // ---------- sesgo ----------
+  function drawGauge(rows) {
     const marcos = pick(rows, 'marco');
-    const cur = marcos.find((m) => m.tf === state.tf);
+    const cur = marcos.find((m) => m.tf === S.tf);
+    document.getElementById('sesgo-tf').textContent = TF_TXT[S.tf];
     const svg = d3.select('#gauge'); svg.selectAll('*').remove();
-    const segs = [['Venta fuerte', 'var(--color-bad)', .9], ['Venta', 'var(--color-bad)', .45], ['Neutral', 'var(--color-fg-muted)', .35],
-      ['Compra', 'var(--color-ok)', .45], ['Compra fuerte', 'var(--color-ok)', .9]];
-    const arc = d3.arc().innerRadius(70).outerRadius(86);
+    const cx = 110, cy = 104, arc = d3.arc().innerRadius(74).outerRadius(92).cornerRadius(3);
+    const segs = [['var(--color-bad)', 1], ['var(--color-bad)', .5], ['var(--color-fg-muted)', .35], ['var(--color-ok)', .5], ['var(--color-ok)', 1]];
     const a0 = -Math.PI / 2, step = Math.PI / 5;
-    segs.forEach(([, col, op], k) => svg.append('path').attr('transform', 'translate(100,100)')
-      .attr('d', arc({ startAngle: a0 + k * step + 0.02, endAngle: a0 + (k + 1) * step - 0.02 })).style('fill', col).style('fill-opacity', op));
-    svg.append('text').attr('x', 8).attr('y', 114).style('fill', 'var(--color-fg-muted)').style('font-size', '10px').text('Venta');
-    svg.append('text').attr('x', 192).attr('y', 114).attr('text-anchor', 'end').style('fill', 'var(--color-fg-muted)').style('font-size', '10px').text('Compra');
-    const needle = svg.append('g').attr('class', 'ab-needle').style('transform', 'rotate(-90deg)');
-    needle.append('line').attr('x1', 100).attr('y1', 100).attr('x2', 100).attr('y2', 34).style('stroke', 'var(--color-fg)').style('stroke-width', 2.5).style('stroke-linecap', 'round');
-    svg.append('circle').attr('cx', 100).attr('cy', 100).attr('r', 6).style('fill', 'var(--color-fg)');
+    segs.forEach(([c, o], k) => svg.append('path').attr('transform', `translate(${cx},${cy})`)
+      .attr('d', arc({ startAngle: a0 + k * step + .025, endAngle: a0 + (k + 1) * step - .025 })).style('fill', c).style('fill-opacity', o));
+    [['Venta', 12, 'start'], ['Neutral', cx, 'middle'], ['Compra', 208, 'end']].forEach(([t, x0, anc], k) =>
+      svg.append('text').attr('x', x0).attr('y', k === 1 ? 6 : 124).attr('text-anchor', anc).style('fill', 'var(--color-fg-muted)').style('font-size', '10px').text(t));
+    const nd = svg.append('g').attr('class', 'ab-needle').style('transform', 'rotate(-90deg)');
+    nd.append('path').attr('d', `M${cx - 4},${cy} L${cx},${cy - 66} L${cx + 4},${cy} Z`).style('fill', 'var(--color-fg)');
+    svg.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 8).style('fill', 'var(--color-fg)');
+    svg.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 3).style('fill', 'var(--color-panel)');
     if (cur) {
-      const r = num(cur.rating);
-      requestAnimationFrame(() => requestAnimationFrame(() => needle.style('transform', `rotate(${r * 90}deg)`)));
-      const txt = document.getElementById('gauge-txt'); txt.textContent = cur.rating_txt; where(txt, `tabla=marco&tf=${state.tf}`);
-      document.getElementById('gauge-votes').textContent =
-        `${TF_TXT[state.tf]} · medias ${cur.ma_compra} compra / ${cur.ma_venta} venta · osciladores ${cur.osc_compra} compra / ${cur.osc_venta} venta · tendencia ${cur.tendencia.toLowerCase()}`;
+      later(() => nd.style('transform', `rotate(${num(cur.rating) * 90}deg)`));
+      const t = document.getElementById('gauge-txt'); t.textContent = cur.rating_txt; t.setAttribute('data-where', `tabla=marco&tf=${S.tf}`);
+      document.getElementById('gauge-votes').textContent = `Medias ${cur.ma_compra}↑ ${cur.ma_venta}↓ · osciladores ${cur.osc_compra}↑ ${cur.osc_venta}↓ · ${cur.tendencia.toLowerCase()}`;
     }
-    const mini = document.getElementById('mini'); mini.replaceChildren();
-    marcos.forEach((mk) => {
-      const b = document.createElement('button'); b.type = 'button'; b.setAttribute('aria-pressed', String(mk.tf === state.tf));
-      const s = document.createElement('small'); s.textContent = TF_TXT[mk.tf];
-      const c = document.createElement('span'); c.className = 'ab-chip ' + signClass(num(mk.rating) > 0.1 ? 'compra' : num(mk.rating) < -0.1 ? 'venta' : 'neutral');
-      c.textContent = mk.rating_txt;
-      const bar = document.createElement('div'); bar.className = 'ab-mini-bar'; const i = document.createElement('i');
-      const r = num(mk.rating);
-      i.style.background = r >= 0 ? 'var(--color-ok)' : 'var(--color-bad)';
-      i.style.left = '50%'; i.style.width = '0';
-      bar.append(i);
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        i.style.left = (r >= 0 ? 50 : 50 + r * 50) + '%'; i.style.width = Math.abs(r) * 50 + '%';
-      }));
-      b.append(s, c, bar);
-      b.addEventListener('click', () => setTf(mk.tf));
-      mini.append(b);
+    const strip = document.getElementById('strip'); strip.replaceChildren();
+    marcos.forEach((m) => {
+      const r = num(m.rating);
+      const b = el('button'); b.type = 'button'; b.setAttribute('aria-pressed', String(m.tf === S.tf)); b.title = `${TF_TXT[m.tf]}: ${m.rating_txt}`;
+      const i = el('i'); i.style.background = r > .1 ? 'var(--color-ok)' : r < -.1 ? 'var(--color-bad)' : 'var(--color-fg-muted)';
+      i.style.opacity = String(.35 + Math.min(1, Math.abs(r) * 1.6) * .65);
+      b.append(el('span', '', m.tf), i); b.addEventListener('click', () => setTf(m.tf)); strip.append(b);
+    });
+  }
+
+  // ---------- grafico ----------
+  function drawChart(rows, sum) {
+    const box = document.getElementById('chart'); box.replaceChildren();
+    const tf = S.tf, price = num(sum.precio), L = S.layers;
+    const bars = pick(rows, 'vela', tf).map((r) => ({ t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), v: num(r.v),
+      e20: num(r.ema20), e50: num(r.ema50), bu: num(r.bb_up), bl: num(r.bb_lo) })).sort((a, b) => a.t - b.t);
+    if (!bars.length) return;
+    const ghosts = pick(rows, 'escenario', tf).filter((r) => r.escenario === S.scen)
+      .map((r) => ({ k: num(r.paso), t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), desde: r.desde })).sort((a, b) => a.k - b.k);
+    const cone = pick(rows, 'cono', tf).map((r) => ({ k: num(r.paso), lo: num(r.p10), mid: num(r.p50), hi: num(r.p90) })).sort((a, b) => a.k - b.k);
+    const fvgs = pick(rows, 'fvg', tf).map((r) => ({ up: r.tipo === 'alcista', t: num(r.t), lo: num(r.bajo), hi: num(r.alto) }));
+    const giros = pick(rows, 'giro', tf).map((r) => ({ t: num(r.t), p: num(r.precio), w: r.onda, alto: r.tipo === 'alto' }));
+    const liq = pick(rows, 'liquidacion').map((r) => ({ p: num(r.precio), l: num(r.longs), s: num(r.shorts) }));
+
+    const W = Math.max(320, box.clientWidth), H = W < 600 ? 360 : 440;
+    const steps = Math.max(ghosts.length, cone.length), n = bars.length + steps;
+    const heatW = L.liq ? Math.min(78, W * .11) : 0, axW = 66;
+    const m = { t: 24, b: 24, l: 2 };
+    const plotR = W - axW - heatW;
+    const volH = Math.round(H * .14), priceB = H - m.b - volH - 8;
+    const x = d3.scaleBand(d3.range(n), [m.l, plotR]).paddingInner(.3);
+    const bw = x.bandwidth(), cxi = (i) => x(i) + bw / 2;
+    const vals = [price];
+    bars.forEach((b) => { vals.push(b.h, b.l); if (L.bb && b.bu !== null) vals.push(b.bu, b.bl); });
+    ghosts.forEach((g) => vals.push(g.h, g.l)); cone.forEach((c) => vals.push(c.lo, c.hi));
+    let [lo, hi] = d3.extent(vals); const pad = (hi - lo) * .06; lo -= pad; hi += pad;
+    const y = d3.scaleLinear([lo, hi], [priceB, m.t]);
+    const yv = d3.scaleLinear([0, d3.max(bars, (b) => b.v) || 1], [H - m.b, H - m.b - volH]);
+
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
+      .attr('aria-label', `Velas de ${TF_TXT[tf]} con escenario ${SCEN_TXT[S.scen]}`);
+    const defs = svg.append('defs');
+    const hatch = defs.append('pattern').attr('id', 'ab-hatch').attr('width', 7).attr('height', 7).attr('patternUnits', 'userSpaceOnUse').attr('patternTransform', 'rotate(45)');
+    hatch.append('line').attr('x1', 0).attr('y1', 0).attr('x2', 0).attr('y2', 7).style('stroke', 'var(--color-fg)').style('stroke-opacity', .06).style('stroke-width', 3);
+    const cg = defs.append('linearGradient').attr('id', 'ab-cone-g').attr('x1', 0).attr('x2', 1);
+    [[0, .2], [1, .07]].forEach(([o, a]) => cg.append('stop').attr('offset', o).style('stop-color', 'var(--color-fg)').style('stop-opacity', a));
+
+    const ticks = y.ticks(6);
+    svg.append('g').selectAll('line').data(ticks).join('line').attr('class', 'ab-gl').attr('x1', m.l).attr('x2', plotR + heatW).attr('y1', y).attr('y2', y);
+    svg.append('g').attr('class', 'ab-ax').selectAll('text').data(ticks).join('text').attr('x', W - 4).attr('y', y).attr('dy', '.32em').attr('text-anchor', 'end').text(f0);
+    const ti = [0, Math.floor(bars.length / 3), Math.floor(2 * bars.length / 3), bars.length - 1];
+    svg.append('g').attr('class', 'ab-ax').selectAll('text').data(ti).join('text').attr('x', cxi).attr('y', H - 6)
+      .attr('text-anchor', (d, k) => (k === 0 ? 'start' : 'middle')).text((i) => fmtT(bars[i].t, tf));
+
+    // futuro
+    const fx = x(bars.length) - x.step() * .15;
+    svg.append('rect').attr('x', fx).attr('y', m.t - 16).attr('width', plotR - fx).attr('height', H - m.b - m.t + 16).style('fill', 'url(#ab-hatch)');
+    svg.append('text').attr('class', 'ab-future-lbl').attr('x', fx + 6).attr('y', m.t - 5).text(`Futuro posible · ${SCEN_TXT[S.scen]}`);
+
+    if (L.bb) {
+      const bb = bars.map((b, i) => ({ i, u: b.bu, l: b.bl })).filter((b) => b.u !== null);
+      svg.append('path').attr('d', d3.area().x((d) => cxi(d.i)).y0((d) => y(d.l)).y1((d) => y(d.u))(bb)).style('fill', 'var(--color-fg)').style('fill-opacity', .04);
+      ['u', 'l'].forEach((k) => svg.append('path').attr('class', 'ab-bb').style('fill', 'none').attr('d', d3.line().x((d) => cxi(d.i)).y((d) => y(d[k]))(bb)));
+    }
+    if (L.fvg) fvgs.forEach((z) => {
+      const i0 = bars.findIndex((b) => b.t >= z.t); if (i0 < 0) return;
+      const yt = y(Math.min(z.hi, hi)), yb = y(Math.max(z.lo, lo)); if (yb <= m.t || yt >= priceB) return;
+      svg.append('rect').attr('class', z.up ? 'ab-fvg-u' : 'ab-fvg-d').attr('x', x(i0)).attr('y', yt).attr('width', plotR - x(i0)).attr('height', Math.max(2, yb - yt));
+      svg.append('line').attr('class', z.up ? 'ab-fvg-edge-u' : 'ab-fvg-edge-d').attr('x1', x(i0)).attr('x2', x(i0)).attr('y1', yt).attr('y2', Math.max(yt + 2, yb));
+    });
+    if (cone.length) {
+      const li = bars.length - 1, c0 = bars[li].c;
+      const pts = [{ i: li, lo: c0, hi: c0, mid: c0 }].concat(cone.map((c) => ({ i: li + c.k, ...c })));
+      svg.append('path').attr('d', d3.area().curve(d3.curveMonotoneX).x((d) => cxi(d.i)).y0((d) => y(d.lo)).y1((d) => y(d.hi))(pts)).style('fill', 'url(#ab-cone-g)');
+      svg.append('path').attr('class', 'ab-median').attr('d', d3.line().curve(d3.curveMonotoneX).x((d) => cxi(d.i)).y((d) => y(d.mid))(pts));
+    }
+    // volumen
+    svg.append('g').selectAll('rect').data(bars).join('rect').attr('class', (b) => (b.c >= b.o ? 'ab-vol-up' : 'ab-vol-dn'))
+      .attr('x', (b, i) => x(i)).attr('width', bw).attr('y', (b) => yv(b.v)).attr('height', (b) => H - m.b - yv(b.v)).attr('rx', Math.min(1.5, bw / 4));
+    svg.append('text').attr('class', 'ab-future-lbl').attr('x', m.l + 2).attr('y', H - m.b - volH - 2).text('Volumen');
+    if (L.ema) [['e20', dash.colors[0]], ['e50', dash.colors[1]]].forEach(([k, c]) =>
+      svg.append('path').attr('class', 'ab-ema').style('stroke', c).attr('d', d3.line().defined((b) => b[k] !== null).x((b, i) => cxi(i)).y((b) => y(b[k]))(bars)));
+    // velas
+    const cs = svg.append('g').selectAll('g').data(bars).join('g').attr('class', (b) => 'ab-candle ' + (b.c >= b.o ? 'ab-c-up' : 'ab-c-dn'))
+      .style('animation-delay', (b, i) => `${i * 10}ms`);
+    cs.append('line').attr('x1', (b, i) => cxi(i)).attr('x2', (b, i) => cxi(i)).attr('y1', (b) => y(b.h)).attr('y2', (b) => y(b.l)).style('stroke-width', 1);
+    cs.append('rect').attr('x', (b, i) => x(i)).attr('width', bw).attr('rx', Math.min(1.5, bw / 4))
+      .attr('y', (b) => y(Math.max(b.o, b.c))).attr('height', (b) => Math.max(1, Math.abs(y(b.o) - y(b.c))));
+    // ondas
+    if (L.ondas) {
+      const gp = giros.map((g) => ({ ...g, i: bars.findIndex((b) => b.t === g.t) })).filter((g) => g.i >= 0);
+      if (gp.length > 1) svg.append('path').attr('class', 'ab-zig').attr('d', d3.line().x((g) => cxi(g.i)).y((g) => y(g.p))(gp));
+      const wv = svg.append('g').selectAll('g').data(gp.filter((g) => g.w)).join('g').attr('class', 'ab-wave')
+        .attr('transform', (g) => `translate(${cxi(g.i)},${Math.max(m.t, Math.min(priceB, y(g.p) + (g.alto ? -13 : 13)))})`);
+      wv.append('circle').attr('r', 8.5); wv.append('text').text((g) => g.w);
+    }
+    // escenario
+    const gx = (g) => x(bars.length - 1 + g.k);
+    const gg = svg.append('g').selectAll('g').data(ghosts).join('g').attr('class', (g) => 'ab-ghost ' + (g.c >= g.o ? 'ab-c-up' : 'ab-c-dn'));
+    gg.append('line').attr('x1', (g) => gx(g) + bw / 2).attr('x2', (g) => gx(g) + bw / 2).attr('y1', (g) => y(g.h)).attr('y2', (g) => y(g.l)).style('stroke-width', 1.2);
+    gg.append('rect').attr('x', gx).attr('width', bw).attr('rx', Math.min(1.5, bw / 4)).attr('y', (g) => y(Math.max(g.o, g.c))).attr('height', (g) => Math.max(1, Math.abs(y(g.o) - y(g.c))));
+    const scan = svg.append('line').attr('class', 'ab-scan').attr('x1', 0).attr('x2', 0).attr('y1', m.t - 12).attr('y2', priceB).style('opacity', ghosts.length && !reduce ? 1 : 0);
+    // liquidaciones
+    if (L.liq && liq.length) {
+      const inR = liq.filter((r) => r.p > lo && r.p < hi);
+      const mx = d3.max(inR, (r) => Math.max(r.l, r.s)) || 1;
+      const hx = d3.scaleSqrt([0, mx], [0, heatW - 8]);
+      const bh = Math.max(2, Math.abs(y(price) - y(price * 1.0025)) - 1);
+      const op = d3.scaleLinear([0, mx], [.18, .8]);
+      svg.append('g').selectAll('rect').data(inR.flatMap((r) => [r.l > 0 ? { p: r.p, v: r.l, side: 'l' } : null, r.s > 0 ? { p: r.p, v: r.s, side: 's' } : null]).filter(Boolean))
+        .join('rect').attr('class', (d) => (d.side === 'l' ? 'ab-liq-l' : 'ab-liq-s')).attr('x', plotR + 4).attr('y', (d) => y(d.p) - bh / 2)
+        .attr('height', bh).attr('width', (d) => hx(d.v)).attr('rx', 1).style('fill-opacity', (d) => op(d.v));
+      svg.append('text').attr('class', 'ab-future-lbl').attr('x', plotR + 4).attr('y', priceB + 14).text('Liquid.');
+    }
+    // precio actual
+    const py = y(price), hx0 = cxi(bars.length - 1);
+    svg.append('line').attr('class', 'ab-now-line').attr('x1', m.l).attr('x2', plotR + heatW).attr('y1', py).attr('y2', py);
+    const tag = svg.append('g').attr('class', 'ab-tag');
+    tag.append('rect').attr('x', W - axW + 2).attr('y', py - 10).attr('width', axW - 2).attr('height', 20).attr('rx', 4);
+    tag.append('text').attr('x', W - 4).attr('y', py).attr('dy', '.34em').attr('text-anchor', 'end').text(f0(price));
+    svg.append('circle').attr('class', 'ab-pulse').attr('cx', hx0).attr('cy', py).attr('r', 5);
+    svg.append('circle').attr('class', 'ab-dot').attr('cx', hx0).attr('cy', py).attr('r', 4);
+    const here = svg.append('g').attr('class', 'ab-here');
+    const ht = here.append('text').text('BTC está aquí');
+    const hw = ht.node().getComputedTextLength() + 16;
+    const above = py - m.t > 40;
+    let hlx = Math.max(m.l, Math.min(hx0 - hw / 2, plotR - hw)), hly = above ? py - 34 : py + 14;
+    here.insert('rect', 'text').attr('x', hlx).attr('y', hly).attr('width', hw).attr('height', 20).attr('rx', 10);
+    ht.attr('x', hlx + 8).attr('y', hly + 14);
+    here.append('line').attr('x1', hx0).attr('x2', hx0).attr('y1', above ? hly + 20 : hly).attr('y2', above ? py - 6 : py + 6).style('stroke', 'var(--color-fg)');
+
+    // mira y tooltip
+    const cross = svg.append('g').attr('class', 'ab-cross').style('display', 'none');
+    const vx = cross.append('line').attr('y1', m.t).attr('y2', H - m.b);
+    const hy = cross.append('line').attr('x1', m.l).attr('x2', plotR + heatW);
+    const crect = cross.append('rect').attr('x', W - axW + 2).attr('width', axW - 2).attr('height', 18).attr('rx', 4);
+    const ctext = cross.append('text').attr('x', W - 4).attr('text-anchor', 'end');
+    const tip = el('div', 'ab-tip'); tip.hidden = true; box.append(tip);
+    svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', plotR - m.l).attr('height', H - m.t - m.b).attr('fill', 'transparent')
+      .on('pointermove', (ev) => {
+        const [mx2, my] = d3.pointer(ev);
+        const i = Math.max(0, Math.min(n - 1, Math.floor((mx2 - m.l) / x.step())));
+        const fut = i >= bars.length, b = fut ? ghosts[i - bars.length] : bars[i];
+        if (!b) { tip.hidden = true; cross.style('display', 'none'); return; }
+        cross.style('display', null); vx.attr('x1', cxi(i)).attr('x2', cxi(i));
+        const yy = Math.min(my, priceB); hy.attr('y1', yy).attr('y2', yy);
+        crect.attr('y', yy - 9); ctext.attr('y', yy).attr('dy', '.34em').text(f0(y.invert(yy)));
+        tip.replaceChildren(el('div', 'ab-tip-d', fut ? `Escenario ${SCEN_TXT[S.scen]} · vela ${b.k}` : fmtT(b.t, tf)));
+        const g = el('div', 'ab-tip-g');
+        [['Apertura', b.o], ['Máximo', b.h], ['Mínimo', b.l], ['Cierre', b.c]].forEach(([k, v]) => g.append(el('span', 'ab-tip-d', k), el('span', '', f0(v))));
+        if (!fut) g.append(el('span', 'ab-tip-d', 'Volumen'), el('span', '', `${f1(b.v)} BTC`));
+        tip.append(g); tip.hidden = false;
+        const px = cxi(i) / W * box.clientWidth;
+        tip.style.left = (px > box.clientWidth / 2 ? px - tip.offsetWidth - 14 : px + 14) + 'px'; tip.style.top = '10px';
+      })
+      .on('pointerleave', () => { tip.hidden = true; cross.style('display', 'none'); });
+
+    // leyenda y nota
+    const leg = document.getElementById('legend'); leg.replaceChildren();
+    const item = (bg, txt, border) => { const s = el('span'); const i = el('i'); i.style.background = bg; if (border) i.style.border = border; s.append(i, txt); leg.append(s); };
+    if (L.ema) { item(dash.colors[0], 'EMA 20'); item(dash.colors[1], 'EMA 50'); }
+    item('transparent', 'Velas del escenario', '1px dashed var(--color-fg-muted)');
+    item('color-mix(in srgb, var(--color-fg) 16%, transparent)', 'Donde terminó el 80% de los casos');
+    if (L.fvg) item('color-mix(in srgb, var(--color-ok) 30%, transparent)', 'FVG alcista / bajista');
+    if (L.liq) item('linear-gradient(90deg, var(--color-bad), var(--color-ok))', 'Liquidaciones de longs / shorts');
+    document.getElementById('scen-note').textContent = ghosts.length
+      ? `Las velas punteadas son un camino real del ${ghosts[0].desde.split('-').reverse().join('/')}, cuando BTC estaba en una situación parecida, llevado al precio de hoy. Las liquidaciones son una estimación con open interest y ratio long/short.`
+      : 'No hay suficientes situaciones parecidas para armar escenarios en esta temporalidad.';
+
+    if (!ghosts.length) return;
+    if (reduce) { gg.classed('on', true); return; }
+    let k = 0;
+    const tick = () => {
+      k = k > ghosts.length + 6 ? 0 : k + 1;
+      gg.classed('on', (g) => g.k <= k);
+      const last = Math.min(k, ghosts.length);
+      scan.style('transform', `translateX(${last ? gx(ghosts[last - 1]) + bw + 3 : fx}px)`).style('opacity', k > ghosts.length ? 0 : 1);
+    };
+    scan.style('transform', `translateX(${fx}px)`);
+    tick(); ghostTimer = setInterval(tick, 380);
+  }
+
+  // ---------- probabilidades ----------
+  function drawProbs(rows, sum) {
+    const ps = pick(rows, 'probabilidad', S.tf).sort((a, b) => num(a.velas) - num(b.velas));
+    document.getElementById('prob-tf').textContent = TF_TXT[S.tf];
+    const nav = document.getElementById('horiz');
+    if (!S.hz || !ps.some((p) => p.horizonte === S.hz)) S.hz = ps.length ? ps[0].horizonte : null;
+    nav.querySelectorAll('button').forEach((b) => b.remove());
+    ps.forEach((p) => { const b = el('button', '', p.horizonte); b.type = 'button'; b.dataset.hz = p.horizonte; b.setAttribute('aria-pressed', String(p.horizonte === S.hz)); nav.append(b); });
+    const p = ps.find((x) => x.horizonte === S.hz);
+    if (!p) return;
+    const up = num(p.sube), base = num(p.base), price = num(sum.precio);
+    document.getElementById('prob-when').textContent = `Hasta las ${p.hora.slice(-5)} h del ${p.hora.slice(0, 5)}`;
+    const split = document.getElementById('split'); split.replaceChildren();
+    const u = el('div', 'ab-sp-u', `▲ Sube ${f1(up)}%`), d = el('div', 'ab-sp-d', `Baja ${f1(100 - up)}% ▼`), bm = el('div', 'ab-sp-base');
+    u.style.flexBasis = '50%'; d.style.flexBasis = '50%'; bm.style.left = '50%'; split.append(u, d, bm);
+    later(() => { u.style.flexBasis = up + '%'; d.style.flexBasis = (100 - up) + '%'; bm.style.left = `calc(${base}% - 1px)`; });
+    const v = document.getElementById('verdict'); v.textContent = p.veredicto;
+    v.style.color = p.veredicto === 'Sesgo alcista' ? 'var(--color-ok)' : p.veredicto === 'Sesgo bajista' ? 'var(--color-bad)' : 'var(--color-fg-muted)';
+    document.getElementById('prob-base').textContent = `línea = tasa normal ${f1(base)}%`;
+
+    const goals = pick(rows, 'objetivo', S.tf).filter((t) => t.horizonte === p.horizonte).map((t) => ({ p: num(t.precio), prob: num(t.prob), up: t.lado === 'arriba' }));
+    const items = goals.concat([{ p: price, now: true }]).sort((a, b) => b.p - a.p);
+    const box = document.getElementById('ladder'); box.replaceChildren();
+    const W = Math.max(240, box.clientWidth), rh = 26, H = items.length * rh + 6;
+    const svg = d3.select(box).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Probabilidad de tocar cada precio');
+    const lx = 74, rx = W - 40, bx = d3.scaleLinear([0, 100], [0, rx - lx - 8]);
+    const med = p.mediana === null ? null : num(p.mediana);
+    items.forEach((it, k) => {
+      const yy = k * rh + 4;
+      const g = svg.append('g');
+      if (it.now) {
+        g.append('rect').attr('x', 0).attr('y', yy).attr('width', W).attr('height', rh - 4).attr('rx', 6).style('fill', 'var(--color-fg)');
+        g.append('text').attr('x', 8).attr('y', yy + 15).style('fill', 'var(--color-bg)').style('font-weight', 600).text(f0(it.p));
+        g.append('text').attr('x', lx).attr('y', yy + 15).style('fill', 'var(--color-bg)').text('BTC ahora');
+        return;
+      }
+      const col = it.up ? 'var(--color-ok)' : 'var(--color-bad)';
+      g.append('text').attr('x', 8).attr('y', yy + 15).style('fill', col).text(`${it.up ? '▲' : '▼'} ${f0(it.p)}`);
+      g.append('rect').attr('x', lx).attr('y', yy + 5).attr('width', rx - lx - 8).attr('height', 10).attr('rx', 5).style('fill', 'var(--color-bg)');
+      const bar = g.append('rect').attr('class', 'ab-lv-bar').attr('x', lx).attr('y', yy + 5).attr('height', 10).attr('rx', 5).style('fill', col)
+        .style('fill-opacity', .35 + it.prob / 160).attr('width', 0).style('width', '0px');
+      later(() => bar.style('width', bx(it.prob) + 'px'));
+      g.append('text').attr('x', W - 4).attr('y', yy + 15).attr('text-anchor', 'end').style('font-weight', 600).text(`${f0(it.prob)}%`);
+    });
+    document.getElementById('prob-foot').textContent = `Probabilidad de que BTC toque cada precio antes de esa hora, según ${f0(num(p.n))} casos parecidos de los últimos ${num(p.dias)} días.`
+      + (med === null ? '' : ` Precio más probable al cierre: ${f0(med)}.`) + ` El 80% terminó entre ${f0(num(p.min))} y ${f0(num(p.max))}.`;
+  }
+
+  // ---------- senales ----------
+  function drawSignals(rows) {
+    const tiles = document.getElementById('tiles'); tiles.replaceChildren();
+    pick(rows, 'contexto').forEach((c) => {
+      const t = el('div', 'ab-tile ab-sig-' + c.senal);
+      const h = el('div', 'ab-tile-t'); h.append(el('i'), c.titulo);
+      t.append(h, el('div', 'ab-tile-v', c.valor), el('div', 'ab-tile-d', c.detalle)); tiles.append(t);
+    });
+    const books = document.getElementById('books'); books.replaceChildren();
+    pick(rows, 'libro').forEach((b) => {
+      const imb = num(b.desequilibrio), w = Math.min(50, Math.abs(imb) / 1.2);
+      const row = el('div', 'ab-book' + (b.en_total ? '' : ' ab-off'));
+      const tr = el('span', 'ab-book-tr'); const i = el('i'); i.style.background = imb >= 0 ? 'var(--color-ok)' : 'var(--color-bad)';
+      i.style.left = '50%'; i.style.width = '0'; tr.append(i);
+      row.append(el('span', '', b.exchange + (b.en_total ? '' : '*')), tr, el('span', '', sg(imb, 0))); row.lastChild.style.textAlign = 'right';
+      books.append(row);
+      later(() => { i.style.left = (imb >= 0 ? 50 : 50 - w) + '%'; i.style.width = w + '%'; });
+    });
+  }
+
+  // ---------- niveles a escala ----------
+  function drawLevels(rows, sum) {
+    const box = document.getElementById('levels'); box.replaceChildren();
+    const price = num(sum.precio);
+    const lv = pick(rows, 'nivel').map((r) => ({ name: r.nombre, p: num(r.precio), d: num(r.distancia) })).filter((r) => Math.abs(r.d) <= 8);
+    if (!lv.length) return;
+    const W = Math.max(260, box.clientWidth), H = Math.max(360, lv.length * 19 + 40);
+    const ext = d3.extent(lv.map((r) => r.p).concat([price]));
+    const y = d3.scaleLinear(ext, [H - 14, 14]);
+    const svg = d3.select(box).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Niveles clave a escala');
+    const axisX = Math.round(W * .52);
+    svg.append('line').attr('x1', axisX).attr('x2', axisX).attr('y1', 8).attr('y2', H - 8).style('stroke', 'var(--color-border-line)').style('stroke-width', 2);
+    svg.append('rect').attr('x', axisX - 3).attr('y', y(ext[1])).attr('width', 6).attr('height', Math.max(0, y(price) - y(ext[1]))).attr('rx', 3)
+      .style('fill', 'var(--color-ok)').style('fill-opacity', .25);
+    svg.append('rect').attr('x', axisX - 3).attr('y', y(price)).attr('width', 6).attr('height', Math.max(0, y(ext[0]) - y(price))).attr('rx', 3)
+      .style('fill', 'var(--color-bad)').style('fill-opacity', .25);
+    // separar etiquetas que se pisan (el precio actual ocupa su propio renglon, mas alto)
+    const items = lv.concat([{ name: 'BTC ahora', p: price, d: 0, now: true }]).sort((a, b) => b.p - a.p)
+      .map((r) => ({ ...r, y: y(r.p), ly: y(r.p), gap: r.now ? 26 : 17 }));
+    const gapOf = (a, b) => (a.now || b.now ? 22 : 17);
+    for (let k = 1; k < items.length; k++) if (items[k].ly - items[k - 1].ly < gapOf(items[k], items[k - 1])) items[k].ly = items[k - 1].ly + gapOf(items[k], items[k - 1]);
+    const over = items.length ? items[items.length - 1].ly - (H - 10) : 0;
+    if (over > 0) items.forEach((it) => { it.ly -= over; });
+    for (let k = items.length - 2; k >= 0; k--) if (items[k + 1].ly - items[k].ly < gapOf(items[k], items[k + 1])) items[k].ly = items[k + 1].ly - gapOf(items[k], items[k + 1]);
+    items.forEach((it) => {
+      if (it.now) {
+        const tg = svg.append('g');
+        tg.append('path').attr('d', `M${axisX},${it.y} L${axisX},${it.ly}`).style('stroke', 'var(--color-fg)');
+        tg.append('rect').attr('x', axisX - 50).attr('y', it.ly - 11).attr('width', 100).attr('height', 22).attr('rx', 11).style('fill', 'var(--color-fg)');
+        tg.append('text').attr('x', axisX).attr('y', it.ly).attr('dy', '.34em').attr('text-anchor', 'middle').style('fill', 'var(--color-bg)').style('font-weight', 600).text(`Ahora ${f0(price)}`);
+        return;
+      }
+      const col = it.p > price ? 'var(--color-ok)' : 'var(--color-bad)';
+      const g = svg.append('g');
+      g.append('circle').attr('cx', axisX).attr('cy', it.y).attr('r', 3.5).style('fill', col);
+      g.append('path').attr('d', `M${axisX - 6},${it.y} L${axisX - 16},${it.ly} L${axisX - 22},${it.ly}`).style('fill', 'none').style('stroke', 'var(--color-border-line)');
+      g.append('text').attr('x', axisX - 26).attr('y', it.ly).attr('dy', '.34em').attr('text-anchor', 'end').style('fill', 'var(--color-fg)').text(it.name.replace(/ \(estimada\)/, ''))
+        .each(function () { const max = axisX - 30; let s = this.textContent; while (this.getComputedTextLength() > max && s.length > 4) { s = s.slice(0, -2); this.textContent = s + '…'; } });
+      g.append('text').attr('x', axisX + 12).attr('y', it.ly).attr('dy', '.34em').style('fill', col).style('font-weight', 600).text(f0(it.p));
+      g.append('text').attr('x', W - 2).attr('y', it.ly).attr('dy', '.34em').attr('text-anchor', 'end').style('fill', 'var(--color-fg-muted)').text(sg(it.d, 1));
     });
   }
 
   // ---------- ondas y FVG ----------
   function drawWaves(rows) {
-    const cur = pick(rows, 'marco', state.tf)[0];
-    const desc = document.getElementById('wave-desc');
-    where(desc, `tabla=marco&tf=${state.tf}`);
-    const target = cur ? num(cur.elliott_objetivo) : null;
-    desc.textContent = cur ? `${TF_TXT[state.tf]}: ${cur.elliott}${target ? `. Objetivo de la onda: ${f0(target)}` : ''}.` : '—';
-    const ul = document.getElementById('fvg-list'); ul.replaceChildren();
-    const zones = pick(rows, 'fvg', state.tf);
-    if (!zones.length) { const li = document.createElement('li'); li.append(document.createElement('span'));
-      const t = document.createElement('span'); t.className = 'ab-t'; t.textContent = 'Sin zonas FVG abiertas cerca del precio.'; li.append(t); ul.append(li); }
+    const cur = pick(rows, 'marco', S.tf)[0];
+    document.getElementById('ond-tf').textContent = TF_TXT[S.tf];
+    const w = document.getElementById('wave'); w.setAttribute('data-where', `tabla=marco&tf=${S.tf}`);
+    w.textContent = cur ? cur.elliott : '—';
+    const tg = document.getElementById('wave-target'); tg.replaceChildren();
+    if (cur && cur.elliott_objetivo !== null) tg.append('Objetivo de la onda', el('b', '', f0(num(cur.elliott_objetivo))));
+    const box = document.getElementById('fvgs'); box.replaceChildren();
+    const zones = pick(rows, 'fvg', S.tf);
+    if (!zones.length) { box.append(el('p', 'ab-note', 'Sin zonas FVG abiertas cerca del precio.')); return; }
     zones.forEach((z) => {
-      const li = document.createElement('li');
-      const dot = document.createElement('span'); dot.className = 'ab-dotc ' + signClass(z.tipo);
-      const t = document.createElement('span'); t.className = 'ab-t';
-      const b = document.createElement('b'); b.textContent = `${f0(num(z.bajo))} – ${f0(num(z.alto))}`;
-      t.append(`FVG ${z.tipo} `, b);
-      const d = document.createElement('span'); d.className = 'ab-d'; d.textContent = `Formada el ${fmtDate(z.t, state.tf)}, todavía sin llenar`;
-      li.append(dot, t, d); ul.append(li);
+      const r = el('div', 'ab-fvg'); const i = el('i');
+      i.style.background = z.tipo === 'alcista' ? 'color-mix(in srgb, var(--color-ok) 45%, transparent)' : 'color-mix(in srgb, var(--color-bad) 45%, transparent)';
+      r.append(i, el('span', '', `${f0(num(z.bajo))} – ${f0(num(z.alto))}`), el('span', '', z.tipo)); box.append(r);
     });
-  }
-
-  // ---------- contexto ----------
-  function drawContext(rows) {
-    const ul = document.getElementById('ctx-list'); ul.replaceChildren();
-    pick(rows, 'contexto').forEach((c) => {
-      const li = document.createElement('li');
-      const dot = document.createElement('span'); dot.className = 'ab-dotc ' + signClass(c.senal);
-      const t = document.createElement('span'); t.className = 'ab-t';
-      const b = document.createElement('b'); b.textContent = c.valor;
-      t.append(`${c.titulo}: `, b);
-      const d = document.createElement('span'); d.className = 'ab-d'; d.textContent = c.detalle;
-      li.append(dot, t, d); ul.append(li);
-    });
-    const books = document.getElementById('books'); books.replaceChildren();
-    pick(rows, 'libro').forEach((b) => {
-      const imb = num(b.desequilibrio);
-      const row = document.createElement('div'); row.className = 'ab-book';
-      const n = document.createElement('span'); n.textContent = b.exchange;
-      const track = document.createElement('span'); track.className = 'ab-book-track';
-      const i = document.createElement('i'); i.style.background = imb >= 0 ? 'var(--color-ok)' : 'var(--color-bad)';
-      i.style.left = '50%'; i.style.width = '0'; track.append(i);
-      const v = document.createElement('span'); v.style.textAlign = 'right'; v.textContent = signed(imb, 0);
-      row.append(n, track, v); books.append(row);
-      const w = Math.min(50, Math.abs(imb) / 2);
-      requestAnimationFrame(() => requestAnimationFrame(() => { i.style.left = (imb >= 0 ? 50 : 50 - w) + '%'; i.style.width = w + '%'; }));
-    });
-  }
-
-  // ---------- niveles ----------
-  function drawLadder(rows, sum) {
-    const box = document.getElementById('ladder'); box.replaceChildren();
-    const price = num(sum.precio);
-    const lv = pick(rows, 'nivel').map((r) => ({ ...r, precio: num(r.precio), distancia: num(r.distancia) }))
-      .filter((r) => Math.abs(r.distancia) <= 15);
-    lv.push({ nombre: 'BTC ahora', precio: price, distancia: 0, now: true });
-    lv.sort((a, b) => b.precio - a.precio);
-    lv.forEach((r) => {
-      const row = document.createElement('div');
-      row.className = 'ab-rung ' + (r.now ? 'ab-now' : r.precio > price ? 'ab-res' : 'ab-sup');
-      const a = document.createElement('span'); a.textContent = r.nombre;
-      const b = document.createElement('span'); b.textContent = f0(r.precio);
-      const c = document.createElement('span'); c.style.textAlign = 'right'; c.textContent = r.now ? '' : signed(r.distancia, 1);
-      row.append(a, b, c); box.append(row);
-    });
-  }
-
-  // ---------- nota de Claude ----------
-  function drawNote(sum) {
-    const el = document.getElementById('nota');
-    el.textContent = sum.nota_claude ? sum.nota_claude : 'Todavía no hay lectura de noticias en este análisis. Se agrega en cada corrida programada (8, 12, 16, 20 y 0 h).';
   }
 
   // ---------- indicadores ----------
   function drawIndicators(rows) {
+    document.getElementById('ind-tf').textContent = TF_TXT[S.tf];
+    const cur = pick(rows, 'marco', S.tf)[0];
+    const votes = document.getElementById('votes'); votes.replaceChildren();
+    if (cur) [['Medias móviles', cur.ma_compra, cur.ma_neutral, cur.ma_venta], ['Osciladores', cur.osc_compra, cur.osc_neutral, cur.osc_venta]].forEach(([name, b, nn, s]) => {
+      const v = el('div', 'ab-vote'); const top = el('div', 'ab-vote-top');
+      top.append(el('span', '', name), el('span', '', `${b} compra · ${nn} neutral · ${s} venta`));
+      const bar = el('div', 'ab-vote-bar'); const tot = b + nn + s || 1;
+      const parts = [[b, 'var(--color-ok)'], [nn, 'var(--color-fg-muted)'], [s, 'var(--color-bad)']].map(([k, c]) => { const i = el('i'); i.style.background = c; if (c.includes('muted')) i.style.opacity = '.35'; bar.append(i); return [i, k]; });
+      v.append(top, bar); votes.append(v);
+      later(() => parts.forEach(([i, k]) => { i.style.flexBasis = (k / tot * 100) + '%'; }));
+    });
     const tb = document.querySelector('#ind-table tbody'); tb.replaceChildren();
     let group = null;
-    pick(rows, 'indicador', state.tf).forEach((r) => {
-      if (r.grupo !== group) {
-        group = r.grupo;
-        const g = document.createElement('tr'); g.className = 'ab-group';
-        const td = document.createElement('td'); td.colSpan = 4; td.textContent = group; g.append(td); tb.append(g);
-      }
-      const tr = document.createElement('tr');
-      tr.dataset.key = `${encodeURIComponent(r.tf)},${encodeURIComponent(r.indicador)}`;
-      const name = document.createElement('td'); name.textContent = r.indicador;
-      const val = document.createElement('td'); val.className = 'ab-num'; val.textContent = r.valor === null ? '' : f2(num(r.valor));
-      const sig = document.createElement('td'); const chip = document.createElement('span');
-      chip.className = 'ab-chip ' + signClass(r.senal); chip.textContent = r.senal.charAt(0).toUpperCase() + r.senal.slice(1); sig.append(chip);
-      const det = document.createElement('td'); det.textContent = r.detalle + (r.vota ? '' : (r.detalle ? ' · ' : '') + 'no vota');
-      tr.append(name, val, sig, det); tb.append(tr);
+    pick(rows, 'indicador', S.tf).forEach((r) => {
+      if (r.grupo !== group) { group = r.grupo; const g = el('tr', 'ab-g'); const td = el('td', '', group); td.colSpan = 4; g.append(td); tb.append(g); }
+      const tr = el('tr'); tr.dataset.key = `${encodeURIComponent(r.tf)},${encodeURIComponent(r.indicador)}`;
+      const sig = el('td'); const chip = el('span', 'ab-sigchip ab-' + r.senal, r.senal === 'compra' ? '▲ Compra' : r.senal === 'venta' ? '▼ Venta' : '• Neutral'); sig.append(chip);
+      const det = el('td', '', r.detalle); if (!r.vota) det.append(el('span', 'ab-novote', (r.detalle ? ' · ' : '') + 'no vota'));
+      tr.append(el('td', '', r.indicador), el('td', 'r', r.valor === null ? '' : f2(num(r.valor))), sig, det); tb.append(tr);
     });
   }
 
-  // ---------- aciertos ----------
+  function drawNote(s) {
+    document.getElementById('nota').textContent = s.nota_claude ||
+      'Todavía no hay lectura de noticias en este análisis. La rutina programada la agrega en cada corrida (8, 12, 16, 20 y 0 h): qué pasó, qué eventos vienen con horario y si refuerzan o contradicen el análisis técnico.';
+  }
+
   function drawHits(rows) {
     const box = document.getElementById('hits'); box.replaceChildren();
     const hits = pick(rows, 'acierto');
-    if (!hits.length) {
-      const p = document.createElement('p'); p.className = 'ab-note';
-      p.textContent = 'Cada pronóstico queda registrado. Los aciertos aparecen cuando se cumple el plazo de cada uno, a partir de las próximas corridas.';
-      box.append(p); return;
-    }
-    const tbl = document.createElement('table'); tbl.className = 'ab-table';
-    tbl.setAttribute('data-source', 'analisis'); tbl.setAttribute('data-row-key', 'tf,horizonte');
-    const head = document.createElement('tr');
-    [['tf', 'Temporalidad'], ['horizonte', 'Plazo'], ['pronosticos', 'Pronósticos'], ['aciertos', 'Aciertos'], ['brier', 'Brier']].forEach(([f, t]) => {
-      const th = document.createElement('th'); th.setAttribute('data-field', f); th.textContent = t; head.append(th); });
-    const thead = document.createElement('thead'); thead.append(head);
-    const tbody = document.createElement('tbody');
-    hits.forEach((h) => {
-      const tr = document.createElement('tr'); tr.dataset.key = `${encodeURIComponent(h.tf)},${encodeURIComponent(h.horizonte)}`;
-      [h.tf, h.horizonte, h.pronosticos, `${f1(num(h.aciertos))}%`, d3.format('.3f')(num(h.brier))].forEach((v) => {
-        const td = document.createElement('td'); td.textContent = v; tr.append(td); });
-      tbody.append(tr);
-    });
-    tbl.append(thead, tbody); box.append(tbl);
-    const p = document.createElement('p'); p.className = 'ab-note';
-    p.textContent = 'Brier mide qué tan buenas son las probabilidades: 0.250 es lo mismo que tirar una moneda, menos es mejor.';
-    box.append(p);
+    if (!hits.length) { box.append(el('p', 'ab-note', 'Cada predicción queda registrada. Los aciertos aparecen cuando se cumple el plazo de cada una, desde las próximas corridas.')); return; }
+    const tbl = el('table', 'ab-tbl'); tbl.setAttribute('data-source', 'analisis'); tbl.setAttribute('data-row-key', 'tf,horizonte');
+    const hr = el('tr');
+    [['tf', 'Velas'], ['horizonte', 'Plazo'], ['pronosticos', 'Casos'], ['aciertos', 'Aciertos'], ['brier', 'Brier']].forEach(([f, t]) => { const th = el('th', '', t); th.setAttribute('data-field', f); hr.append(th); });
+    const th = el('thead'); th.append(hr); const tb = el('tbody');
+    hits.forEach((h) => { const tr = el('tr'); tr.dataset.key = `${encodeURIComponent(h.tf)},${encodeURIComponent(h.horizonte)}`;
+      [h.tf, h.horizonte, h.pronosticos, `${f1(num(h.aciertos))}%`, ar.format('.3f')(num(h.brier))].forEach((v) => tr.append(el('td', '', String(v)))); tb.append(tr); });
+    tbl.append(th, tb); box.append(tbl, el('p', 'ab-note', 'Brier mide la calidad de las probabilidades: 0,250 es tirar una moneda; menos es mejor.'));
   }
 })();
 </script>

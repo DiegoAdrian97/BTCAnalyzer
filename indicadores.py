@@ -11,6 +11,11 @@ oscilador vota compra / venta / neutral con las reglas de TradingView, y se suma
 import math
 
 
+def _ar(x, d=0):
+    """Numero con formato argentino: 80.757,25"""
+    return f"{x:,.{d}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
 # ---------- medias ----------
 def sma(v, n):
     out, acc = [None] * len(v), 0.0
@@ -298,22 +303,22 @@ def calificar(bars):
     for kind, fn in (("EMA", ema), ("SMA", sma)):
         for n in (10, 20, 30, 50, 100, 200):
             m = fn(c, n)[i]
-            add("Medias moviles", f"{kind} {n}", m, NEUTRAL if m is None else COMPRA if px > m else VENTA)
+            add("Medias móviles", f"{kind} {n}", m, NEUTRAL if m is None else COMPRA if px > m else VENTA)
     t, k, sa, sb = ichimoku(h, l)
     base = k[i]
-    add("Medias moviles", "Ichimoku linea base (26)", base,
+    add("Medias móviles", "Ichimoku línea base (26)", base,
         NEUTRAL if base is None else COMPRA if px > base and t[i] > base else VENTA if px < base and t[i] < base else NEUTRAL)
     vw = vwma(c, vol, 20)[i]
-    add("Medias moviles", "VWMA 20", vw, COMPRA if px > vw else VENTA)
+    add("Medias móviles", "VWMA 20", vw, COMPRA if px > vw else VENTA)
     hm = hma(c, 9)[i]
-    add("Medias moviles", "Hull MA 9", hm, NEUTRAL if hm is None else COMPRA if px > hm else VENTA)
+    add("Medias móviles", "Hull MA 9", hm, NEUTRAL if hm is None else COMPRA if px > hm else VENTA)
 
     # osciladores, con las reglas de TradingView
     r = rsi(c)
     add("Osciladores", "RSI 14", r[i], COMPRA if r[i] < 30 and _rising(r, i) else VENTA if r[i] > 70 and not _rising(r, i) else NEUTRAL,
         "sobreventa" if r[i] < 30 else "sobrecompra" if r[i] > 70 else "zona media")
     sk, sd = stoch(h, l, c)
-    add("Osciladores", "Estocastico %K (14,3,3)", sk[i],
+    add("Osciladores", "Estocástico %K (14,3,3)", sk[i],
         COMPRA if sk[i] < 20 and sk[i] > sd[i] else VENTA if sk[i] > 80 and sk[i] < sd[i] else NEUTRAL)
     cc = cci(h, l, c)
     add("Osciladores", "CCI 20", cc[i], COMPRA if cc[i] < -100 and _rising(cc, i) else VENTA if cc[i] > 100 and not _rising(cc, i) else NEUTRAL)
@@ -342,14 +347,14 @@ def calificar(bars):
     mid, up, lo = bollinger(c)
     pb = (px - lo[i]) / (up[i] - lo[i]) * 100 if up[i] != lo[i] else 50
     add("Volatilidad", "Bandas de Bollinger %B", pb, VENTA if pb > 100 else COMPRA if pb < 0 else NEUTRAL,
-        f"ancho {(up[i] - lo[i]) / mid[i] * 100:.2f}% del precio", rated=False)
+        f"ancho {_ar((up[i] - lo[i]) / mid[i] * 100, 2)}% del precio", rated=False)
     km, ku, kl = keltner(h, l, c)
     add("Volatilidad", "Canal de Keltner", km[i], COMPRA if px > ku[i] else VENTA if px < kl[i] else NEUTRAL,
         "fuera del canal" if px > ku[i] or px < kl[i] else "dentro del canal", rated=False)
-    add("Volatilidad", "ATR 14", atr_[i], NEUTRAL, f"{atr_[i] / px * 100:.2f}% del precio por vela", rated=False)
+    add("Volatilidad", "ATR 14", atr_[i], NEUTRAL, f"{_ar(atr_[i] / px * 100, 2)}% del precio por vela", rated=False)
     dh, dl = max(h[i - 19:i + 1]), min(l[i - 19:i + 1])
     add("Volatilidad", "Donchian 20", (dh + dl) / 2, COMPRA if px >= dh else VENTA if px <= dl else NEUTRAL,
-        f"{dl:,.0f} - {dh:,.0f}", rated=False)
+        f"{_ar(dl)} - {_ar(dh)}", rated=False)
     sar = psar(h, l)
     add("Tendencia", "Parabolic SAR", sar[i], COMPRA if px > sar[i] else VENTA, "puntos debajo del precio" if px > sar[i] else "puntos encima del precio", rated=False)
     st, sdir = supertrend(h, l, c)
@@ -359,7 +364,7 @@ def calificar(bars):
         COMPRA if px > cloud_top else VENTA if px < cloud_bot else NEUTRAL,
         "precio encima de la nube" if px > cloud_top else "precio debajo de la nube" if px < cloud_bot else "precio dentro de la nube", rated=False)
     vw_s = vwap_session(ts, h, l, c, vol)[i]
-    add("Volumen", "VWAP del dia", vw_s, COMPRA if px > vw_s else VENTA, "precio sobre el promedio ponderado del dia" if px > vw_s else "precio bajo el promedio ponderado del dia", rated=False)
+    add("Volumen", "VWAP del dia", vw_s, COMPRA if px > vw_s else VENTA, "precio sobre el promedio ponderado del día" if px > vw_s else "precio bajo el promedio ponderado del día", rated=False)
     ob = obv(c, vol)
     ob_ema = ema(ob, 20)
     add("Volumen", "OBV", ob[i], COMPRA if ob[i] > ob_ema[i] else VENTA, "volumen acompaña" if (ob[i] > ob_ema[i]) == (px > c[i - 20]) else "volumen no acompaña", rated=False)
@@ -369,10 +374,10 @@ def calificar(bars):
     add("Volumen", "Chaikin Money Flow 20", cm[i], COMPRA if cm[i] > 0.05 else VENTA if cm[i] < -0.05 else NEUTRAL,
         "entra dinero" if cm[i] > 0 else "sale dinero", rated=False)
     vrel = vol[i] / (sum(vol[i - 20:i]) / 20 or 1)
-    add("Volumen", "Volumen relativo", vrel, NEUTRAL, f"x{vrel:.1f} del promedio de 20 velas", rated=False)
+    add("Volumen", "Volumen relativo", vrel, NEUTRAL, f"x{_ar(vrel, 1)} del promedio de 20 velas", rated=False)
     div = divergencia(c, r, i)
     if div:
-        add("Osciladores", "Divergencia RSI", None, COMPRA if div == "alcista" else VENTA, f"divergencia {div} en las ultimas 30 velas", rated=False)
+        add("Osciladores", "Divergencia RSI", None, COMPRA if div == "alcista" else VENTA, f"divergencia {div} en las últimas 30 velas", rated=False)
 
     def score(group):
         g = [x for x in rows if x["grupo"] == group and x["vota"]]
@@ -380,7 +385,7 @@ def calificar(bars):
         s = sum(x["senal"] == VENTA for x in g)
         return (b - s) / len(g), b, s, len(g) - b - s
 
-    ma, osc = score("Medias moviles"), score("Osciladores")
+    ma, osc = score("Medias móviles"), score("Osciladores")
     total = (ma[0] + osc[0]) / 2
     resumen = {"rating": round(total, 3), "rating_txt": rating_txt(total),
                "ma_rating": round(ma[0], 3), "ma_compra": ma[1], "ma_venta": ma[2], "ma_neutral": ma[3],
@@ -501,7 +506,7 @@ def elliott(pivots):
                 if impulse(pts, up):
                     sentido = "alcista" if up else "bajista"
                     if n == 6:
-                        return names, f"Impulso {sentido} de 5 ondas posiblemente completo: suele seguir una correccion ABC", None
+                        return names, f"Impulso {sentido} de 5 ondas posiblemente completo: suele seguir una corrección ABC", None
                     target = pts[4] + (pts[1] - pts[0])           # onda 5 = onda 1, la proporcion mas comun
                     return names, f"Posible onda 5 {sentido} en curso", target
     for n, names in ((4, ["0", "A", "B", "C"]), (3, ["0", "A", "B"])):
@@ -511,10 +516,10 @@ def elliott(pivots):
             if a and (pts[2] - pts[1]) * a < 0 and abs(pts[2] - pts[1]) < abs(a):
                 sentido = "bajista" if a < 0 else "alcista"
                 if n == 4 and (pts[3] - pts[2]) * a > 0:
-                    return names, f"Correccion ABC {sentido} posiblemente completa", None
+                    return names, f"Corrección ABC {sentido} posiblemente completa", None
                 if n == 3:
                     return names, f"Posible onda C {sentido} en curso", pts[2] + a     # C = A
-    return [], "Sin conteo de Elliott claro: el precio no cumple las reglas en los ultimos giros", None
+    return [], "Sin conteo de Elliott claro: el precio no cumple las reglas en los últimos giros", None
 
 
 def mapa_liquidaciones(price_by_hour, oi_hist, ls_hist, after_extremes, lev_weights=None, band=0.12, step=0.0025):

@@ -3,6 +3,7 @@ Analisis de mercado de BTC/USDT perpetuo, de 5 minutos a diario (APIs publicas, 
 
 Uso:
     .venv\\Scripts\\python.exe analisis_btc.py                 # analiza, imprime y guarda data/analisis_btc.json
+    .venv\\Scripts\\python.exe analisis_btc.py --abrir         # ademas abre el dashboard local (reporte_btc.html)
     .venv\\Scripts\\python.exe analisis_btc.py --nota nota.txt # agrega la lectura de noticias al ultimo analisis
 
 Fuentes:
@@ -70,6 +71,15 @@ def update_candles(ex, tf, days):
     with open(path, "w", newline="") as f:
         csv.writer(f).writerows(candles)
     return candles
+
+
+def ar(x, d=0):
+    """Numero con formato argentino: 80.757,25"""
+    return f"{x:,.{d}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def arp(x, d=1):
+    return ("+" if x > 0 else "") + ar(x, d) + "%"
 
 
 def pct(a, b):
@@ -205,13 +215,13 @@ def context(bnc, bgx, closes_1h):
         else:
             why, sig = (("Entran shorts nuevos: baja con fuerza", "bajista") if d_oi > 0 else
                         ("Cierran o liquidan longs: baja por descarga", "neutral"))
-        add(f"oi_{hrs}h", f"Open interest {hrs} h", f"{d_oi:+.1f}% con precio {d_px:+.1f}%", sig, why)
+        add(f"oi_{hrs}h", f"Open interest {hrs} h", f"{arp(d_oi)} con precio {arp(d_px)}", sig, why)
 
     taker = bg._retry(bnc.fapiDataGetTakerlongshortRatio, {"symbol": "BTCUSDT", "period": "1h", "limit": 4})
     buy, sell = sum(float(x["buyVol"]) for x in taker), sum(float(x["sellVol"]) for x in taker)
     for name, r in (("1 h", float(taker[-1]["buySellRatio"])), ("4 h", buy / sell)):
         sig = "alcista" if r > 1.1 else "bajista" if r < 0.9 else "neutral"
-        add(f"flujo_{name}", f"Compras vs ventas a mercado {name}", f"{r:.2f}", sig,
+        add(f"flujo_{name}", f"Compras vs ventas a mercado {name}", ar(r, 2), sig,
             "Dominan los compradores agresivos" if sig == "alcista" else
             "Dominan los vendedores agresivos" if sig == "bajista" else "Flujo equilibrado")
 
@@ -219,16 +229,16 @@ def context(bnc, bgx, closes_1h):
     now_ls, prev_ls = ls[-1]["longShortRatio"], ls[0]["longShortRatio"]
     top = float(bg._retry(bnc.fapiDataGetTopLongShortPositionRatio, {"symbol": "BTCUSDT", "period": "1h", "limit": 1})[-1]["longShortRatio"])
     if now_ls > 2:
-        crowd, sig = "Mayoria long: si cae, puede haber cascada de liquidaciones", "bajista"
+        crowd, sig = "Mayoría long: si cae, puede haber cascada de liquidaciones", "bajista"
     elif now_ls < 0.9:
-        crowd, sig = "Mayoria short: si sube, puede haber squeeze", "alcista"
+        crowd, sig = "Mayoría short: si sube, puede haber squeeze", "alcista"
     else:
         crowd, sig = "Posicionamiento parejo", "neutral"
-    add("long_short", "Cuentas long / short", f"{now_ls:.2f} (24 h antes {prev_ls:.2f}, top traders {top:.2f})", sig, crowd)
+    add("long_short", "Cuentas long / short", f"{ar(now_ls, 2)} (24 h antes {ar(prev_ls, 2)}, top traders {ar(top, 2)})", sig, crowd)
 
     fr = bg._retry(bgx.fetch_funding_rate, SYMBOL).get("fundingRate") or 0.0
     sig = "bajista" if fr > 0.0003 else "alcista" if fr < 0 else "neutral"
-    add("funding", "Funding BingX", f"{fr * 100:+.4f}% cada 8 h", sig,
+    add("funding", "Funding BingX", arp(fr * 100, 4) + " cada 8 h", sig,
         "Longs pagando caro: euforia" if fr > 0.0003 else "Shorts pagan: miedo" if fr < 0 else "Normal")
 
     return rows, fr
@@ -384,14 +394,14 @@ def analyze():
     # niveles clave
     h1, d1 = candles["1h"], candles["1d"]
     levels = []
-    for name, n in (("24 h", 24), ("7 dias", 168), ("30 dias", 720)):
-        levels += [(f"Minimo {name}", min(b[3] for b in h1[-n:])), (f"Maximo {name}", max(b[2] for b in h1[-n:]))]
+    for name, n in (("24 h", 24), ("7 días", 168), ("30 días", 720)):
+        levels += [(f"Mínimo {name}", min(b[3] for b in h1[-n:])), (f"Máximo {name}", max(b[2] for b in h1[-n:]))]
     levels += [(f"Pivote {k}", v) for k, v in ind.pivotes(d1[-1]).items()]
     lo30, hi30 = min(b[3] for b in h1[-720:]), max(b[2] for b in h1[-720:])
-    levels += [(f"Fibonacci {f * 100:.1f}% (30 d)", hi30 - (hi30 - lo30) * f) for f in (0.236, 0.382, 0.5, 0.618, 0.786)]
+    levels += [(f"Fibonacci {ar(f * 100, 1)}% (30 d)", hi30 - (hi30 - lo30) * f) for f in (0.236, 0.382, 0.5, 0.618, 0.786)]
     closes_d = [b[4] for b in d1]
     sma200d = sum(closes_d[-200:]) / 200
-    levels += [("Media 200 dias", sma200d), ("EMA 200 diaria", ind.ema(closes_d, 200)[-1])]
+    levels += [("Media 200 días", sma200d), ("EMA 200 diaria", ind.ema(closes_d, 200)[-1])]
     for name, v in levels:
         rows.append({"tabla": "nivel", "nombre": name, "precio": round(v, 1),
                      "tipo": "resistencia" if v > price else "soporte", "distancia": round(pct(v, price), 2)})
@@ -409,15 +419,15 @@ def analyze():
         b, a = sum(x[0] for x in per), sum(x[1] for x in per)
         imb = (b - a) / (b + a) * 100 if b + a else 0.0
         sig = "alcista" if imb > 15 else "bajista" if imb < -15 else "neutral"
-        rows.append({"tabla": "contexto", "clave": "libros", "titulo": f"Libros de {len(per)} exchanges +/-0.1%",
-                     "valor": f"{b:,.0f} BTC en compras vs {a:,.0f} en ventas ({imb:+.0f}%)", "senal": sig,
-                     "detalle": ("Mas compras esperando debajo" if sig == "alcista" else "Mas ventas esperando arriba"
-                                 if sig == "bajista" else "Parejo") + ". Son ordenes, no posiciones: pueden retirarse."})
+        rows.append({"tabla": "contexto", "clave": "libros", "titulo": f"Libros de {len(per)} exchanges ±0,1%",
+                     "valor": f"{ar(b)} BTC en compras vs {ar(a)} en ventas ({arp(imb, 0)})", "senal": sig,
+                     "detalle": ("Más compras esperando debajo" if sig == "alcista" else "Más ventas esperando arriba"
+                                 if sig == "bajista" else "Parejo") + ". Son órdenes, no posiciones: pueden retirarse."})
         for side, book, kind in (("compra", mb, "soporte"), ("venta", ma, "resistencia")):
             away = {p: q for p, q in book.items() if abs(p / price - 1) > 0.0005}  # lo pegado al precio no es un muro
             if away:
                 p, q = max(away.items(), key=lambda x: x[1])
-                rows.append({"tabla": "nivel", "nombre": f"Muro de {side} ({q:,.0f} BTC en libros)", "precio": p,
+                rows.append({"tabla": "nivel", "nombre": f"Muro de {side} ({ar(q)} BTC en libros)", "precio": p,
                              "tipo": kind, "distancia": round(pct(p, price), 2)})
     try:
         heat = liquidation_map(bnc, h1)
@@ -426,7 +436,7 @@ def analyze():
             near = [x for x in heat if (x["precio"] < price) == (side == "longs") and x[side] > 0]
             if near:
                 top = max(near, key=lambda x: x[side])
-                rows.append({"tabla": "nivel", "nombre": f"Mayor zona de liquidacion de {side} (estimada)",
+                rows.append({"tabla": "nivel", "nombre": f"Liquidaciones de {side} (est.)",
                              "precio": top["precio"], "tipo": kind, "distancia": round(pct(top["precio"], price), 2)})
     except Exception as e:
         print(f"(mapa de liquidaciones no disponible: {type(e).__name__})")
@@ -443,10 +453,10 @@ def analyze():
     up, dn = goal("arriba"), goal("abajo")
     short = by_tf["1h"]["summary"]["rating_txt"].lower()
     daily = by_tf["1d"]["summary"]["rating_txt"].lower()
-    takeaway = (f"Para las {p4['hora'][-5:]}: {up['prob']:.0f}% de probabilidad de que BTC toque {up['precio']:,.0f} USD y "
-                f"{dn['prob']:.0f}% de que toque {dn['precio']:,.0f} USD; precio mas probable {p4['mediana']:,.0f}. "
-                f"Calificacion de 1 h en {short}, diario en {daily}." if up and dn and p4["mediana"] else
-                f"Calificacion de 1 h en {short}, diario en {daily}.")
+    takeaway = (f"Para las {p4['hora'][-5:]} h: {ar(up['prob'])}% de probabilidad de que BTC toque {ar(up['precio'])} USD y "
+                f"{ar(dn['prob'])}% de que toque {ar(dn['precio'])} USD; precio más probable {ar(p4['mediana'])}. "
+                f"Calificación de 1 h en {short}, diario en {daily}." if up and dn and p4["mediana"] else
+                f"Calificación de 1 h en {short}, diario en {daily}.")
     local = datetime.fromtimestamp(now_ms / 1000, LOCAL_TZ)
     rows.insert(0, {"tabla": "resumen", "fecha": local.strftime("%Y-%m-%dT%H:%M:%S-03:00"),
                     "hora_local": local.strftime("%d/%m %H:%M"), "precio": round(price, 1),
@@ -491,9 +501,62 @@ def print_console(rows):
         print("\nACIERTOS  " + "  ".join(f"{a['tf']} a {a['horizonte']}: {a['aciertos']:.0f}% ({a['pronosticos']})" for a in hits))
 
 
+PAGE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dashboard", "index.html")
+LOCAL_HTML = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reporte_btc.html")
+# lo que el dashboard de claude.ai le da a la pagina: colores y medidas del tema, y el objeto `dash` con los datos
+LOCAL_SHELL = """<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Analista BTC (local)</title>
+<style>
+:root { --color-fg: #1d2129; --color-fg-muted: #6a7180; --color-bg: #f3f4f6; --color-panel: #ffffff;
+  --color-border-line: #e2e5ea; --color-ok: #138a5b; --color-warn: #b7791f; --color-bad: #c8423a;
+  --font-anthropic-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-anthropic-serif: Georgia, "Times New Roman", serif;
+  --cds-font-size-caption: .78rem; --cds-font-size-body: .95rem; --cds-font-size-heading: 1.08rem; --cds-font-size-title: 1.6rem;
+  --cds-font-weight-medium: 600; --cds-gap-xs: 4px; --cds-gap-sm: 8px; --cds-gap-md: 14px; --cds-gap-lg: 22px; --cds-gap-xl: 32px;
+  --cds-pad-xs: 4px; --cds-pad-sm: 8px; --cds-pad-md: 12px; --cds-pad-lg: 18px; --cds-pad-xl: 28px; --cds-radius: 8px;
+  --cds-chart-grid: #eceef2; --cds-surface-popover: #ffffff; --cds-border: #dde1e7; --cds-shadow-popover: 0 6px 24px rgba(20,24,32,.12);
+  --cds-text-secondary: #6a7180; --cds-ease-out: cubic-bezier(.2,.8,.2,1); --cds-dur-slow: .4s; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root { --color-fg: #e8eaee; --color-fg-muted: #949bab; --color-bg: #121418; --color-panel: #1b1e24;
+  --color-border-line: #2b3038; --color-ok: #3cc58a; --color-warn: #e0a64a; --color-bad: #f0645a; --cds-chart-grid: #252a31;
+  --cds-surface-popover: #22262d; --cds-border: #343a43; --cds-shadow-popover: 0 6px 24px rgba(0,0,0,.45); --cds-text-secondary: #949bab; color-scheme: dark; } }
+body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14px var(--font-anthropic-sans); }
+#dash-root { padding-block: 24px 40px; padding-left: max(16px, var(--dash-gutter, 24px)); padding-right: max(16px, var(--dash-gutter, 24px)); }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+(function () {
+  var rows = __DATA__, fns = [];
+  var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  window.dash = {
+    colors: dark ? ['#7aa7ff', '#e0a64a', '#c78bff', '#4fd1c5', '#f08bb4', '#a3e635', '#fb923c', '#94a3b8']
+                 : ['#2f6fde', '#b7791f', '#8b4fd6', '#0f9488', '#d1477e', '#4d7c0f', '#c2410c', '#64748b'],
+    data: function () { return { status: 'ok', data: rows, columns: [], meta: [], refreshing: false }; },
+    onData: function (fn) { fns.push(fn); fn(); },
+    params: function () { return {}; }, setParams: function () {}, resetParams: function () {}, setLink: function () {}, refresh: function () {}
+  };
+  var t; window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(function () { fns.forEach(function (f) { f(); }); }, 150); });
+})();
+</script>
+</head><body><div id="dash-root">
+__PAGE__
+</div></body></html>
+"""
+
+
+def write_local_html(data):
+    """La misma pagina del dashboard, con los datos de este analisis adentro, para abrir sin internet de por medio."""
+    with open(PAGE_FILE, encoding="utf-8") as f:
+        page = f.read()
+    rows = json.dumps(data["rows"], ensure_ascii=False).replace("</", "<\\/")
+    with open(LOCAL_HTML, "w", encoding="utf-8") as f:
+        f.write(LOCAL_SHELL.replace("__DATA__", rows).replace("__PAGE__", page))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--nota", help="archivo de texto con la lectura de noticias para agregar al ultimo analisis")
+    ap.add_argument("--abrir", action="store_true", help="abrir el dashboard local en el navegador al terminar")
     args = ap.parse_args()
     if args.nota:
         with open(OUT_FILE, encoding="utf-8") as f:
@@ -507,6 +570,12 @@ def main():
     with open(OUT_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
     print(f"\nGuardado {OUT_FILE} ({os.path.getsize(OUT_FILE) / 1024:.0f} KB)")
+    if os.path.exists(PAGE_FILE):
+        write_local_html(data)
+        print(f"Dashboard local: {LOCAL_HTML}")
+        if args.abrir:
+            import webbrowser
+            webbrowser.open("file:///" + LOCAL_HTML.replace("\\", "/"))
 
 
 if __name__ == "__main__":
