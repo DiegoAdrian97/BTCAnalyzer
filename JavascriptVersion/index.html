@@ -226,20 +226,25 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   .ab-iconbtn { font: inherit; font-size: var(--cds-font-size-caption); padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line);
     background: var(--paper); color: var(--ink); cursor: pointer; }
   .ab-chart { position: relative; height: 460px; min-height: 280px; overflow: hidden; }
-  .ab-sep { stroke: var(--line); stroke-width: 1; }
-  .ab-grip { fill: var(--panel); stroke: var(--mute); stroke-width: 1; }
-  .ab-grip-l { stroke: var(--mute); stroke-width: 1.2; stroke-linecap: round; }
-  .ab-sep-g.is-hot .ab-sep, .ab-sep-g.is-on .ab-sep { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 6 4; }
-  .ab-sep-g.is-hot .ab-grip, .ab-sep-g.is-on .ab-grip { fill: var(--ink); stroke: var(--ink); }
-  .ab-sep-g.is-hot .ab-grip-l, .ab-sep-g.is-on .ab-grip-l { stroke: var(--panel); }
-  .ab-grip-bg { fill: var(--ink); } .ab-grip-t { fill: var(--panel); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  /* limites de cada panel: siempre visibles; al pasar el mouse o arrastrar se encienden en color */
+  .ab-sep { stroke: color-mix(in srgb, var(--color-fg) 32%, transparent); stroke-width: 1.5; }
+  .ab-sep-pane { fill: var(--ab-c0); fill-opacity: 0; transition: fill-opacity .15s; pointer-events: none; }
+  .ab-grip { fill: var(--panel); stroke: color-mix(in srgb, var(--color-fg) 55%, transparent); stroke-width: 1.2; }
+  .ab-grip-l { stroke: color-mix(in srgb, var(--color-fg) 70%, transparent); stroke-width: 1.4; stroke-linecap: round; }
+  .ab-sep-g.is-hot .ab-sep { stroke: var(--ab-c0); stroke-width: 2.5; }
+  .ab-sep-g.is-hot .ab-sep-pane { fill-opacity: .05; }
+  .ab-sep-g.is-on .ab-sep { stroke: var(--ab-c0); stroke-width: 3.5; filter: drop-shadow(0 0 4px var(--ab-c0)); }
+  .ab-sep-g.is-on .ab-sep-pane { fill-opacity: .1; }
+  .ab-sep-g.is-hot .ab-grip, .ab-sep-g.is-on .ab-grip { fill: var(--ab-c0); stroke: var(--ab-c0); }
+  .ab-sep-g.is-hot .ab-grip-l, .ab-sep-g.is-on .ab-grip-l { stroke: var(--color-bg); }
+  .ab-grip-bg { fill: var(--ab-c0); } .ab-grip-t { fill: var(--color-bg); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .ab-chart.ab-with-osc { height: 640px; }
   @media (max-width: 600px) { .ab-chart { height: 380px; } .ab-chart.ab-with-osc { height: 560px; } }
   .ab-osc-bg { fill: var(--color-fg); fill-opacity: .035; }
   .ab-osc-ref { stroke: var(--mute); stroke-opacity: .55; stroke-dasharray: 3 3; }
   .ab-osc-line { fill: none; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
   .ab-osc-lbl, .ab-ax-t { fill: var(--mute); font-size: 10.5px; font-variant-numeric: tabular-nums; }
-  .ab-osc-lbl { font-weight: 600; }
+  .ab-osc-lbl { font-weight: 600; paint-order: stroke; stroke: var(--panel); stroke-width: 3px; stroke-linejoin: round; }
   /* leyenda de la vela arriba a la izquierda, como en TradingView */
   .ab-ohlc { position: absolute; top: 7px; left: 6px; z-index: 2; pointer-events: none; display: flex; gap: 10px; align-items: baseline;
     overflow: hidden; white-space: nowrap; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; color: var(--mute); }
@@ -666,7 +671,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     function zone(e) {
       const g = S.geom, p = at(e);
       // con el dedo la manija se agarra mas facil
-      const tol = e.pointerType === 'touch' ? 12 : 6;
+      const tol = e.pointerType === 'touch' ? 14 : 8;
       const dv = g.divs.map((d) => ({ ...d, dd: Math.abs(p.y - d.y) })).filter((d) => d.dd <= tol).sort((a, b) => a.dd - b.dd)[0];
       if (dv) return { mode: 'div', pane: dv.k };
       if (p.y >= g.timeT) return { mode: 't' };
@@ -1249,7 +1254,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       const t = g.append('text').attr('class', 'ab-osc-lbl').attr('x', m.l + 2).attr('y', yy);
       return (parts) => { t.selectAll('tspan').remove(); parts.forEach(([txt, col]) => t.append('tspan').style('fill', col || null).text(txt)); };
     };
-    const setVol = oscLbl(svg, volB - volH - 2);
+    const setVol = oscLbl(svg, volB - volH + 12);   // los titulos van adentro de cada panel, debajo de su borde
     // RSI y MACD, con sus divergencias marcadas tambien en cada panel
     const divGroups = {};
     pick(rows, 'divergencia', tf).forEach((d) => { (divGroups[`${d.t1}-${d.t2}-${d.tipo}`] = divGroups[`${d.t1}-${d.t2}-${d.tipo}`] || []).push(d); });
@@ -1277,7 +1282,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
         .attr('d', d3.line().defined((b) => b.rsi !== null).x((b, i) => cxi(i)).y((b) => yr(b.rsi))(bars));
       oscDivs('RSI', yr, svg.append('g').attr('clip-path', clip('ab-clip-rsi2', rsiT - 4, rsiB + 4)));
       if (lastOsc) axTag(yr(lastOsc.rsi), f1(lastOsc.rsi), dash.colors[2], rsiT, rsiB);
-      const rl = oscLbl(og, rsiT - 4);
+      const rl = oscLbl(og, rsiT + 12);
       setRsi = (b) => { const rv = b ? b.rsi : null;
         rl([['RSI 14 '], [rv === null ? '—' : f1(rv), dash.colors[2]], [rv === null ? '' : rv >= 70 ? ' · sobrecompra' : rv <= 30 ? ' · sobreventa' : '']]); };
 
@@ -1303,7 +1308,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
         const ya = axTag(a[0], a[1], a[2], macdT, macdB - 16);
         axTag(Math.max(b[0], ya + 16), b[1], b[2], macdT, macdB);
       }
-      const ml = oscLbl(og, macdT - 4);
+      const ml = oscLbl(og, macdT + 12);
       setMacd = (b, isLast) => ml(b && b.macd !== null ? [['MACD '], [fM(b.macd), dash.colors[0]], [' señal '], [fM(b.sig), dash.colors[1]],
         [' hist. '], [fM(b.hist), b.hist >= 0 ? 'var(--color-ok)' : 'var(--color-bad)'], [isLast ? cruce : '']] : [['MACD —']]);
     }
@@ -1400,9 +1405,14 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     const PANE_TXT = { price: 'Precio', vol: 'Volumen', rsi: 'RSI', macd: 'MACD' };
     const sep = svg.append('g').attr('class', 'ab-seps');
     const gw = narrow ? 64 : 48, gh = narrow ? 10 : 8, gcx = plotR - gw / 2 - 8;   // a la derecha: a la izquierda estan los titulos
-    [{ k: 'price', y: priceB + 4 }, { k: 'vol', y: L.osc ? volB + gapP / 2 : volB + 3 }].concat(L.osc ? [{ k: 'rsi', y: rsiB + gapP / 2 }, { k: 'macd', y: macdB + 3 }] : []).forEach((d) => {
+    // el eje de la derecha tambien queda separado por una linea, como en TradingView
+    sep.append('line').attr('class', 'ab-sep').attr('x1', W - axW).attr('x2', W - axW).attr('y1', m.t - 16).attr('y2', H - m.b + 3);
+    [{ k: 'price', t: m.t - 16, y: priceB + 4 }, { k: 'vol', t: priceB + 4, y: L.osc ? volB + gapP / 2 : volB + 3 }]
+      .concat(L.osc ? [{ k: 'rsi', t: volB + gapP / 2, y: rsiB + gapP / 2 }, { k: 'macd', t: rsiB + gapP / 2, y: macdB + 3 }] : []).forEach((d) => {
       const on = S.dragDiv === d.k;
       const g0 = sep.append('g').attr('class', 'ab-sep-g' + (on ? ' is-on' : '')).attr('data-k', d.k);
+      // el panel que se esta cambiando se tine, para ver bien que se agranda o se achica
+      g0.append('rect').attr('class', 'ab-sep-pane').attr('x', m.l).attr('y', d.t).attr('width', W - m.l).attr('height', Math.max(0, d.y - d.t));
       g0.append('line').attr('class', 'ab-sep').attr('x1', m.l).attr('x2', W).attr('y1', d.y).attr('y2', d.y);
       g0.append('rect').attr('class', 'ab-grip').attr('x', gcx - gw / 2).attr('y', d.y - gh / 2).attr('width', gw).attr('height', gh).attr('rx', gh / 2);
       [-1, 1].forEach((k) => g0.append('line').attr('class', 'ab-grip-l').attr('x1', gcx - gw / 4).attr('x2', gcx + gw / 4).attr('y1', d.y + k * 1.5).attr('y2', d.y + k * 1.5));
