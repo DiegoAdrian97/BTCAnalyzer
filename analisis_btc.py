@@ -192,8 +192,20 @@ def targets(bars, idxs, price, h, when):
             rel = level / price - 1
             hits = sum(x >= rel for x in highs) if side == "arriba" else sum(x <= rel for x in lows)
             rows.append({"precio": level, "lado": side, "prob": round(hits / len(usable) * 100, 1)})
+    # cual de los dos niveles mas cercanos se toco PRIMERO (si en la misma vela se tocaron ambos, cuenta medio)
+    up_rel, dn_rel = first_up / price - 1, first_dn / price - 1
+    first = []
+    for j in usable:
+        for k in range(1, h + 1):
+            a, b = bars[j + k][2] / c[j] - 1 >= up_rel, bars[j + k][3] / c[j] - 1 <= dn_rel
+            if a or b:
+                first.append(0.5 if a and b else 1.0 if a else 0.0)
+                break
     close = {"mediana": round(price * (1 + q(0.5)), 1), "p25": round(price * (1 + q(0.25)), 1),
-             "p75": round(price * (1 + q(0.75)), 1), "hora": when}
+             "p75": round(price * (1 + q(0.75)), 1), "hora": when,
+             "obj_arriba": first_up, "obj_abajo": first_dn,
+             "primero_arriba": round(sum(first) / len(first) * 100, 1) if first else None,
+             "ninguno": round((1 - len(first) / len(usable)) * 100, 1)}
     return rows, close
 
 
@@ -302,6 +314,140 @@ def liquidation_map(bnc, h1, hours=168):
     return ind.mapa_liquidaciones(price_by_hour, oi, ls, after)
 
 
+TF_TXT = {"5m": "5 min", "15m": "15 min", "30m": "30 min", "1h": "1 hora", "4h": "4 horas", "1d": "diario"}
+NO_LINES = {"l1_t": None, "l1_p": None, "l1_m": None, "l2_t": None, "l2_p": None, "l2_m": None}
+
+
+def patterns(tf, bars, pivots, e20, horizon, tf_min):
+    """Patron de velas en las ultimas dos velas (con su historial de aciertos) y figura del grafico vigente."""
+    o, h, l, c = ([b[k] for b in bars] for k in (1, 2, 3, 4))
+    atr_ = ind.dmi(h, l, c)[3]
+    i = len(bars) - 1
+    rows = []
+    for k in (i, i - 1):
+        found = ind.patrones_velas(o, h, l, c, atr_, e20, k)
+        if not found:
+            continue
+        name, bias = found[0]
+        n, ok = ind.estadistica_velas(o, h, l, c, atr_, e20, horizon).get(name, (0, 0))
+        rate = round(ok / n * 100, 1) if n else None
+        if bias == "neutral":
+            desc = "Indecisión: compradores y vendedores quedaron parejos en esa vela."
+        elif rate is None:
+            desc = "Sin casos anteriores para medir si funciona en esta temporalidad."
+        else:
+            desc = (f"Después de este patrón, BTC fue hacia {'arriba' if bias == 'alcista' else 'abajo'} en "
+                    f"{ar(rate)}% de {n} casos ({label(horizon * tf_min)} después)"
+                    + (": funcionó más de lo que falló." if rate >= 55 else ": casi como tirar una moneda." if rate >= 45
+                       else ": falló más de lo que funcionó."))
+        rows.append({"tabla": "patron", "tf": tf, "clase": "vela", "nombre": name, "sesgo": bias, "t": bars[k][0],
+                     "estado": "última vela" if k == i else "vela anterior", "objetivo": None, "exito": rate, "casos": n,
+                     "plazo": label(horizon * tf_min), "descripcion": desc, **NO_LINES})
+        break
+    g = ind.patron_grafico(bars, pivots, atr_[i])
+    if g:
+        lines = dict(NO_LINES)
+        for n_, ln in enumerate(g["lineas"][:2], start=1):
+            lines.update({f"l{n_}_t": ln[0], f"l{n_}_p": round(ln[1], 1), f"l{n_}_m": ln[2]})
+        rows.append({"tabla": "patron", "tf": tf, "clase": "grafico", "nombre": g["nombre"], "sesgo": g["sesgo"],
+                     "t": bars[i][0], "estado": g["estado"], "objetivo": g["objetivo"], "exito": None, "casos": None,
+                     "plazo": None, "descripcion": g["descripcion"], **lines})
+    return rows
+
+
+def lc1(s):
+    """Primera letra en minuscula, sin tocar siglas como R1 u onda C."""
+    return s[:1].lower() + s[1:]
+
+
+def explain(rows, price):
+    """La conclusion en palabras: escenario principal, senales a favor y en contra, niveles e invalidacion."""
+    get = lambda t, **kw: [r for r in rows if r["tabla"] == t and all(r.get(k) == v for k, v in kw.items())]
+    probs = sorted(get("probabilidad", tf="1h"), key=lambda r: r["velas"])
+    main, after = probs[0], probs[-1]
+    hh = main["hora"][-5:]
+    signals = []      # (sesgo, texto)
+    for tf in ("15m", "1h", "4h", "1d"):
+        m = get("marco", tf=tf)[0]
+        if abs(m["rating"]) > 0.1:
+            signals.append(("alcista" if m["rating"] > 0 else "bajista",
+                            f"Calificación técnica de {TF_TXT[tf]}: {m['rating_txt'].lower()} ({m['tendencia'].lower()})"))
+    sma = next((n for n in get("nivel") if n["nombre"] == "Media 200 días"), None)
+    if sma:
+        signals.append(("alcista", "Precio arriba de la media de 200 días: la tendencia de fondo es alcista") if price > sma["precio"]
+                       else ("bajista", "Precio debajo de la media de 200 días: la tendencia de fondo es bajista"))
+    for c in get("contexto"):
+        if c["senal"] in ("alcista", "bajista") and c["clave"] != "error":
+            signals.append((c["senal"], f"{c['titulo']}: {c['valor']}. {c['detalle']}"))
+    if main["veredicto"] != "Casi moneda":
+        signals.append(("alcista" if main["veredicto"] == "Sesgo alcista" else "bajista",
+                        f"En situaciones parecidas, subió {ar(main['sube'])}% de las veces contra {ar(main['base'])}% normal"))
+    for p in get("patron"):
+        if p["tf"] not in ("15m", "1h", "4h") or p["sesgo"] == "neutral":
+            continue
+        if p["clase"] == "vela" and p["exito"] is not None and p["exito"] >= 52 and p["casos"] >= 20:
+            signals.append((p["sesgo"], f"{p['nombre']} en velas de {TF_TXT[p['tf']]}: funcionó {ar(p['exito'])}% de {p['casos']} veces"))
+        elif p["clase"] == "grafico":
+            target = f", objetivo {ar(p['objetivo'])}" if p["objetivo"] else ""
+            signals.append((p["sesgo"], f"{p['nombre']} en {TF_TXT[p['tf']]} ({p['estado']}{target})"))
+    m1 = get("marco", tf="1h")[0]
+    if m1["elliott_objetivo"]:
+        signals.append(("alcista" if m1["elliott_objetivo"] > price else "bajista",
+                        f"Elliott en 1 hora: {lc1(m1['elliott'])}, objetivo {ar(m1['elliott_objetivo'])}"))
+
+    up, dn, pu = main["obj_arriba"], main["obj_abajo"], main["primero_arriba"]
+    n_up = sum(s == "alcista" for s, _ in signals)
+    n_dn = len(signals) - n_up
+    if pu is not None and pu >= 55:
+        bias = "alcista"
+        head = (f"Lo más probable hasta las {hh} h es que BTC suba a tocar {ar(up)} antes que bajar a {ar(dn)}: "
+                f"pasó primero en {ar(pu)}% de los casos parecidos.")
+    elif pu is not None and pu <= 45:
+        bias = "bajista"
+        head = (f"Lo más probable hasta las {hh} h es que BTC baje a tocar {ar(dn)} antes que subir a {ar(up)}: "
+                f"pasó primero en {ar(100 - pu)}% de los casos parecidos.")
+    else:
+        bias = "neutral"
+        head = (f"Sin dirección clara hasta las {hh} h: en los casos parecidos tocó primero {ar(up)} o {ar(dn)} casi por igual"
+                + (f" ({ar(pu)}% contra {ar(100 - pu)}%)" if pu is not None else "") + f". Lo esperable es que se mueva entre {ar(dn)} y {ar(up)}.")
+    if bias != "neutral" and n_up == n_dn:
+        head += f" Las señales del momento están divididas ({n_up} alcistas y {n_dn} bajistas): convicción moderada."
+    elif bias != "neutral" and (n_up > n_dn) != (bias == "alcista"):
+        head += (f" Ojo: la mayoría de las señales del momento empujan para el otro lado ({n_up} alcistas contra {n_dn} bajistas),"
+                 " así que la convicción es baja.")
+    elif bias != "neutral":
+        head += f" Las señales del momento acompañan ({n_up} alcistas contra {n_dn} bajistas)."
+
+    out = [{"tabla": "explicacion", "orden": 0, "tipo": "titular", "sesgo": bias, "texto": head}]
+    for k, (s, txt) in enumerate(signals, start=1):
+        out.append({"tabla": "explicacion", "orden": k, "tipo": "senal", "sesgo": s, "texto": txt})
+    levels = sorted(get("nivel"), key=lambda n: n["precio"])
+    res = [n for n in levels if n["precio"] > price * 1.0015]
+    sup = [n for n in reversed(levels) if n["precio"] < price * 0.9985]
+    k = len(out)
+    if res:
+        nxt = f" Si lo supera, el siguiente es {lc1(res[1]['nombre'])} en {ar(res[1]['precio'])}." if len(res) > 1 else ""
+        out.append({"tabla": "explicacion", "orden": k, "tipo": "vigilar", "sesgo": "alcista",
+                    "texto": f"Arriba: {lc1(res[0]['nombre'])} en {ar(res[0]['precio'])} ({arp(res[0]['distancia'])}).{nxt}"})
+    if sup:
+        nxt = f" Si lo pierde, el siguiente es {lc1(sup[1]['nombre'])} en {ar(sup[1]['precio'])}." if len(sup) > 1 else ""
+        out.append({"tabla": "explicacion", "orden": k + 1, "tipo": "vigilar", "sesgo": "bajista",
+                    "texto": f"Abajo: {lc1(sup[0]['nombre'])} en {ar(sup[0]['precio'])} ({arp(sup[0]['distancia'])}).{nxt}"})
+    if bias == "alcista" and sup:
+        inval = f"La idea pierde validez si una vela de 1 hora cierra debajo de {ar(sup[0]['precio'])}."
+    elif bias == "bajista" and res:
+        inval = f"La idea pierde validez si una vela de 1 hora cierra arriba de {ar(res[0]['precio'])}."
+    else:
+        inval = f"La dirección la va a marcar la primera vela de 1 hora que cierre fuera del rango {ar(dn)} a {ar(up)}."
+    out.append({"tabla": "explicacion", "orden": k + 2, "tipo": "invalida", "sesgo": bias, "texto": inval})
+    if after["mediana"]:
+        out.append({"tabla": "explicacion", "orden": k + 3, "tipo": "despues", "sesgo": "neutral",
+                    "texto": f"Para el {after['hora'][:5]} a las {after['hora'][-5:]} h: precio más probable {ar(after['mediana'])}. "
+                             f"Terminó más arriba en {ar(after['sube'])}% de los casos y el 80% quedó entre "
+                             f"{ar(after['min'])} y {ar(after['max'])}."})
+    return head, out
+
+
 def log_and_score(entries, closes_by_tf):
     rows = []
     if os.path.exists(LOG_FILE):
@@ -364,6 +510,7 @@ def analyze():
                          "onda": wave_labels[n - offset] if n >= offset else "", "en_curso": n == len(tail) - 1})
         rows += [{"tabla": "fvg", "tf": tf, "tipo": z["tipo"], "t": z["t"], "bajo": round(z["bajo"], 1),
                   "alto": round(z["alto"], 1)} for z in ind.fvg(bars)]
+        rows += patterns(tf, bars, pivots, e20, horizons[0], tf_min)
 
         for h in horizons:
             o, b = outcomes(closes, idxs or list(base), h), outcomes(closes, base, h)
@@ -376,7 +523,8 @@ def analyze():
                          "sube": round(o["up"], 1), "baja": round(100 - o["up"], 1), "base": round(b["up"], 1),
                          "veredicto": verdict, "n": o["n"], "dias": days, "hora": when, "t_hasta": when_ms,
                          "min": round(price * (1 + o["p10"] / 100), 1), "max": round(price * (1 + o["p90"] / 100), 1),
-                         **(close or {"mediana": None, "p25": None, "p75": None})})
+                         **(close or {"mediana": None, "p25": None, "p75": None, "obj_arriba": None, "obj_abajo": None,
+                                      "primero_arriba": None, "ninguno": None})})
             rows += [{"tabla": "objetivo", "tf": tf, "horizonte": label(h * tf_min), "hora": when, **t} for t in tg]
             entries.append((bars[-1][0] + tf_ms, tf, h, closes[-1], o["up"]))
 
@@ -447,16 +595,8 @@ def analyze():
         rows.append({"tabla": "acierto", "tf": tf, "horizonte": label(h * tf_min), "pronosticos": n,
                      "aciertos": round(hits / n * 100, 1), "brier": round(brier / n, 3)})
 
-    p4 = next(r for r in rows if r["tabla"] == "probabilidad" and r["tf"] == "1h" and r["velas"] == 4)
-    goal = lambda side: next((t for t in rows if t["tabla"] == "objetivo" and t["tf"] == "1h" and t["horizonte"] == p4["horizonte"]
-                              and t["lado"] == side), None)
-    up, dn = goal("arriba"), goal("abajo")
-    short = by_tf["1h"]["summary"]["rating_txt"].lower()
-    daily = by_tf["1d"]["summary"]["rating_txt"].lower()
-    takeaway = (f"Para las {p4['hora'][-5:]} h: {ar(up['prob'])}% de probabilidad de que BTC toque {ar(up['precio'])} USD y "
-                f"{ar(dn['prob'])}% de que toque {ar(dn['precio'])} USD; precio más probable {ar(p4['mediana'])}. "
-                f"Calificación de 1 h en {short}, diario en {daily}." if up and dn and p4["mediana"] else
-                f"Calificación de 1 h en {short}, diario en {daily}.")
+    takeaway, explanation = explain(rows, price)
+    rows += explanation
     local = datetime.fromtimestamp(now_ms / 1000, LOCAL_TZ)
     rows.insert(0, {"tabla": "resumen", "fecha": local.strftime("%Y-%m-%dT%H:%M:%S-03:00"),
                     "hora_local": local.strftime("%d/%m %H:%M"), "precio": round(price, 1),
@@ -474,6 +614,13 @@ def print_console(rows):
     print(f"=== BTC {s['precio']:,.1f} | {s['hora_local']} (UTC-3) | 24h {s['cambio_24h']:+.2f}% | 7d {s['cambio_7d']:+.2f}%"
           f" | media 200d {s['sma200d']:,.0f} ({s['sma200d_dist']:+.1f}%) ===")
     print(s["lectura"])
+    for e in get("explicacion"):
+        if e["tipo"] in ("vigilar", "invalida", "despues"):
+            print(f"  - {e['texto']}")
+    for p in get("patron"):
+        if p["tf"] in ("15m", "1h", "4h"):
+            extra = f", objetivo {ar(p['objetivo'])}" if p["objetivo"] else f", funcionó {ar(p['exito'])}% de {p['casos']}" if p["exito"] else ""
+            print(f"  Patrón {p['tf']}: {p['nombre']} ({p['estado']}{extra})")
     print("\nTEMPORALIDAD  tendencia            calificacion    medias c/v   osc c/v   RSI   ADX")
     for m in get("marco"):
         print(f"  {m['tf']:<5} {m['tendencia']:<20} {m['rating_txt']:<14} {m['ma_compra']:>3}/{m['ma_venta']:<3}"
