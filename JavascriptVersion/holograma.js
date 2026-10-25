@@ -90,9 +90,13 @@ async function refreshTickers() {
  */
 async function load(sym, tf, announce = true, turn = null) {
   const id = ++D.loadId;
+  // el cubo empieza a girar ya, sin esperar la descarga: si las velas tardan, espera de canto hasta que lleguen
+  const spinning = !!(turn && D.bars.length && !document.hidden);
+  if (spinning) startTurn(turn, null);
   status(`Cargando ${nameOf(sym)}/USDT · ${TF_LBL[tf]}…`);
   let got;
   try { got = await loadBars(sym, tf); } catch (e) {
+    if (spinning && TURN && !TURN.apply) finishTurn();
     if (id === D.loadId) status('No se pudieron bajar las velas: ' + e.message + '. Se reintenta solo.', true);
     setTimeout(() => { if (id === D.loadId) load(sym, tf, false); }, 5000);
     return;
@@ -106,7 +110,7 @@ async function load(sym, tf, announce = true, turn = null) {
     if (announce) flash(`${nameOf(sym)}/USDT · ${TF_LBL[tf]}`);
     connectLive(); predWorker();
   };
-  if (turn && D.bars.length && !document.hidden) startTurn(turn, apply); else apply();
+  if (spinning && TURN && !TURN.swapped && !TURN.apply) TURN.apply = apply; else apply();
 }
 function setAsset(sym, announce = true, turn = null) { return load(sym, CFG.tf, announce, turn); }
 function setTf(tf, turn = null) { return load(CFG.asset, tf, true, turn); }
@@ -370,9 +374,10 @@ const DEPTH = { y: CW + 1, x: CH + 1 };                     // profundidad del c
 const boxes = { y: glassBox(CW + 1, CH + 1, DEPTH.y), x: glassBox(CW + 1, CH + 1, DEPTH.x) };
 spin.add(boxes.y, boxes.x);
 let TURN = null;
+const HEADX = 0;                                            // donde queda la cabecera (se corre un poco al girar)
 let PIN = null;                                            // la cruz fija que deja el clic: { t, price }
 function startTurn(turn, apply) {
-  if (TURN) { TURN.apply(); finishTurn(); }
+  if (TURN) { if (TURN.apply && !TURN.swapped) TURN.apply(); finishTurn(); }
   const d = DEPTH[turn.axis];
   spin.position.z = -d / 2; chart.position.z = d / 2;      // el centro de giro queda en el medio del cubo
   boxes[turn.axis].visible = true;
@@ -382,11 +387,13 @@ function finishTurn() {
   if (!TURN) return;
   spin.rotation.set(0, 0, 0); spin.position.z = 0; chart.position.set(0, 0, 0); chart.rotation.set(0, 0, 0);
   boxes.x.visible = boxes.y.visible = false;
+  header.material.opacity = stats.material.opacity = 1; header.position.x = HEADX;
   TURN = null; dirty = true;
 }
 function animTurn(now) {
   if (!TURN) return;
   if (TURN.hold != null) TURN.start = now - TURN.hold * 800;     // para las pruebas: congelar el giro
+  if (!TURN.apply && now - TURN.start > 400) TURN.start = now - 400;   // de canto hasta que lleguen las velas
   const k = clamp((now - TURN.start) / 800, 0, 1), e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
   const ang = e * (Math.PI / 2) * TURN.sgn, half = TURN.d / 2;
   if (TURN.axis === 'y') spin.rotation.set(0, ang, 0); else spin.rotation.set(ang, 0, 0);
@@ -396,6 +403,10 @@ function animTurn(now) {
     if (TURN.axis === 'y') { chart.position.set(-TURN.sgn * half, chart.position.y, 0); chart.rotation.set(0, -TURN.sgn * Math.PI / 2, 0); }
     else { chart.position.set(0, TURN.sgn * half, 0); chart.rotation.set(-TURN.sgn * Math.PI / 2, 0, 0); }
   }
+  // la cabecera y los datos se desvanecen hasta el cambio y vuelven con la cripto nueva
+  const fade = Math.abs(Math.cos(Math.min(k, 1) * Math.PI)) ** 0.7;
+  header.material.opacity = stats.material.opacity = fade;
+  header.position.x = HEADX + (1 - fade) * 0.6 * (TURN.swapped ? -1 : 1) * (TURN.axis === 'y' ? TURN.sgn : 0);
   const m = boxes[TURN.axis].children;
   m[1].material.opacity = 0.55 * Math.sin(k * Math.PI); m[0].material.opacity = 0.06 * Math.sin(k * Math.PI);
   if (k >= 1) finishTurn();
@@ -1012,6 +1023,8 @@ function frameLoop(now) {
   root.scale.setScalar(base * V.scale);
   if (!TURN || TURN.axis === 'y') chart.position.y = TURN && TURN.swapped ? chart.position.y : Math.sin(t * 0.8) * 0.06;
   animTurn(now);
+  // la cripto elegida se adelanta un poco, con transicion (no de golpe)
+  tiles.forEach((m) => { const g = m.userData.sym === CFG.asset ? 1.07 : 1; m.scale.setScalar(m.scale.x + (g - m.scale.x) * Math.min(1, dt * 7)); });
   scanBar.visible = CFG.brillo > 0; halo.visible = halo.visible && CFG.brillo > 0;
   scanBar.position.y = -CH / 2 + ((t * 0.25) % 1) * CH;
   scanBar.material.opacity = 0.35 + 0.25 * Math.sin(t * 3);
