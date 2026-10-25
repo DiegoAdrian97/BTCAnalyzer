@@ -397,8 +397,9 @@ def calificar(bars):
 
 
 def rating_txt(x):
-    return ("Venta fuerte" if x <= -0.5 else "Venta" if x < -0.1 else "Neutral" if x <= 0.1
-            else "Compra" if x < 0.5 else "Compra fuerte")
+    # TradingView dice "compra/venta"; aca "alcista/bajista" para que no se lea como una orden
+    return ("Bajista fuerte" if x <= -0.5 else "Bajista" if x < -0.1 else "Neutral" if x <= 0.1
+            else "Alcista" if x < 0.5 else "Alcista fuerte")
 
 
 def divergencia(c, r, i, n=30):
