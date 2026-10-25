@@ -288,8 +288,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   .ab-tip-d { color: var(--cds-text-secondary); }
   .ab-tip-g { display: grid; grid-template-columns: auto auto; gap: 0 10px; }
   .ab-explain { display: grid; gap: 4px; }
-  .ab-ex-link { border-radius: 6px; padding: 3px 6px; margin-inline: -6px; transition: background .15s; }
-  .ab-ex-link:hover, .ab-ex-link.is-on { background: color-mix(in srgb, var(--color-fg) 9%, transparent); }
+  /* mantener apretado no selecciona el texto ni abre el menu de copiar */
+  .ab-ex-link { border-radius: 6px; padding: 3px 6px; margin-inline: -6px; transition: background .15s;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; cursor: default; }
+  .ab-ex-link.is-on { background: color-mix(in srgb, var(--color-fg) 9%, transparent); }
+  @media (hover: hover) { .ab-ex-link:hover { background: color-mix(in srgb, var(--color-fg) 9%, transparent); } }
   .ab-chart svg [data-ex], .ab-chart svg .ab-candle, .ab-chart svg .ab-vol-up, .ab-chart svg .ab-vol-dn { transition: opacity .2s ease; }
   .ab-chart svg.is-focus [data-ex]:not(.ex-on), .ab-chart svg.is-focus .ab-candle,
   .ab-chart svg.is-focus .ab-vol-up, .ab-chart svg.is-focus .ab-vol-dn { opacity: .12; }
@@ -893,6 +896,26 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   }
 
   // ---------- resaltar en el grafico lo que se senala en "que estas viendo" ----------
+  // con el dedo: mantener apretado sin mover lo muestra mientras se sostiene; un toque corto lo deja marcado
+  // hasta volver a tocarlo. Si el dedo se mueve (o el navegador toma el gesto para desplazar la pagina) no pasa nada
+  let hold = null;
+  function exHold(key, e) {
+    hold = { key, x: e.clientX, y: e.clientY, t: Date.now(), on: false };
+    hold.timer = setTimeout(() => { if (hold) { hold.on = true; focusEx(key); } }, 220);
+  }
+  const endHold = (tap) => {
+    if (!hold) return;
+    clearTimeout(hold.timer);
+    if (hold.on) focusEx(S.sticky || null);                    // se solto despues de mantener: vuelve a como estaba
+    else if (tap && Date.now() - hold.t < 400) { S.sticky = S.sticky === hold.key ? null : hold.key; focusEx(S.sticky); }
+    hold = null;
+  };
+  document.addEventListener('pointermove', (e) => {
+    if (hold && !hold.on && Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > 10) { clearTimeout(hold.timer); hold = null; }
+  }, { passive: true });
+  document.addEventListener('pointerup', () => endHold(true));
+  document.addEventListener('pointercancel', () => endHold(false));
+
   function focusEx(key) {
     S.focus = key;
     const svg = document.querySelector('#chart svg'); if (!svg) return;
@@ -1490,8 +1513,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       const r = el('div', 'ab-ex-item ab-ex-link'), i = el('i'); Object.assign(i.style, sw);
       const t = el('span'); t.append(el('b', '', title), ' ', text); r.append(i, t); leg.append(r);
       r.dataset.ex = key;
-      r.addEventListener('pointerenter', () => focusEx(key));
-      r.addEventListener('pointerleave', () => focusEx(null));
+      // mouse: al pasar por encima. Dedo: ver exHold (mantener apretado o toque corto; deslizar no activa nada)
+      r.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') focusEx(key); });
+      r.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') focusEx(S.sticky || null); });
+      r.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') exHold(key, e); });
+      r.addEventListener('contextmenu', (e) => e.preventDefault());
     };
     const C = (c) => ({ background: c }), D = (c) => ({ background: 'transparent', border: `1.5px dashed ${c}` });
     pick(rows, 'patron', tf).filter((p) => L.patrones && p.clase === 'grafico').forEach((p) => {
