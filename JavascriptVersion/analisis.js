@@ -109,7 +109,7 @@
   }
 
   /** Probabilidad de TOCAR precios redondos antes de 'when', y precio mas probable a esa hora. */
-  function targets(bars, idxs, price, h, when, f = 1) {
+  function targets(bars, idxs, price, h, when, f = 1, unitIn = null, pfAp = null) {
     const usable = idxs.filter((j) => j + h < bars.length);
     if (usable.length < 10) return [[], null];
     const c = bars.map((b) => b[4]);
@@ -118,7 +118,8 @@
     const ends = usable.map((j) => c[j + h] / c[j] - 1).sort((a, b) => a - b);
     const q = (p) => quantile(ends, p);
     const spread = (q(0.9) - q(0.1)) * price;
-    const unit = NICE_STEPS.reduce((best, s) => (Math.abs(s - spread / 4) < Math.abs(best - spread / 4) ? s : best));
+    // la distancia la fija el aprendizaje (es la que viene midiendo); si no hay, la de los casos parecidos
+    const unit = unitIn || NICE_STEPS.reduce((best, s) => (Math.abs(s - spread / 4) < Math.abs(best - spread / 4) ? s : best));
     const rows = [];
     // el primer nivel de cada lado queda al menos a medio escalon: uno pegado al precio se toca siempre
     const firstUp = (Math.floor((price + unit / 2) / unit) + 1) * unit;
@@ -146,8 +147,8 @@
       obj_arriba: upLvl, obj_abajo: dnLvl, distancia: unit,
       toca_arriba: rnd((highs.filter((x) => x >= rel).length / usable.length) * 100, 1),
       toca_abajo: rnd((lows.filter((x) => x <= -rel).length / usable.length) * 100, 1),
-      // con la confianza aprendida (la cruda queda aparte)
-      primero_arriba: pf === null ? null : rnd(Apr.ajustar(pf, f) * 100, 1),
+      // lo que dice el equipo que aprende (o la cruda con la confianza aprendida); la cruda queda aparte
+      primero_arriba: pfAp !== null ? rnd(pfAp * 100, 1) : pf === null ? null : rnd(Apr.ajustar(pf, f) * 100, 1),
       primero_crudo: pf === null ? null : rnd(pf * 100, 1),
       margen_primero: pf === null ? null : rnd(196 * Math.sqrt((pf * (1 - pf)) / first.length) * f, 1),
       ninguno: rnd((1 - first.length / usable.length) * 100, 1),
@@ -161,11 +162,12 @@
   /** Lo aprendido para predecir h velas de esta temporalidad, y los casos parecidos segun la receta aprendida. */
   function tune(tf, s, h) {
     if (s.fit.has(h)) return s.fit.get(h);
-    const learn = Apr.aprendido(`${tf}|${h}`, s.closed, s.combo, h, s.warmup);
+    const learn = Apr.aprendido(`${tf}|${h}`, s.closed, s.combo, h, s.warmup, s.X);
+    const [pSube, pPrim] = Apr.prediccion(learn, s.combo[s.combo.length - 1], s.X[s.X.length - 1]);
     const r = learn ? learn.receta : 0;
     if (!s.similar.has(r)) s.similar.set(r, similar(Apr.estados(s.feats, r), s.last, s.warmup));
     const [idxs, keep] = s.similar.get(r);
-    const fit = { learn, receta: r, factor: learn ? learn.factor : 1, idxs, keep, sample: idxs.length ? idxs : s.base };
+    const fit = { learn, receta: r, factor: learn ? learn.factor : 1, idxs, keep, sample: idxs.length ? idxs : s.base, p_sube: pSube, p_primero: pPrim };
     s.fit.set(h, fit);
     return fit;
   }
@@ -180,9 +182,16 @@
       distancia: g('distancia', null), medidas: g('medidas', 0),
       brier_aprendido: r2('brier_aprendido', 4), brier_original: r2('brier_original', 4),
       aciertos_aprendido: r2('aciertos_aprendido', 1), aciertos_original: r2('aciertos_original', 1),
-      decisivas_aprendido: g('decisivas_aprendido', 0), decisivas_original: g('decisivas_original', 0), ranking: g('ranking', []).join(',') }];
+      decisivas_aprendido: g('decisivas_aprendido', 0), decisivas_original: g('decisivas_original', 0),
+      habilidad: r2('habilidad', 2), habilidad_original: r2('habilidad_original', 2),
+      ic_bajo: r2('ic_bajo', 1), ic_alto: r2('ic_alto', 1), independientes: g('independientes', 0),
+      aciertos_seguro: r2('aciertos_seguro', 1), decisivas_seguro: g('decisivas_seguro', 0),
+      sep_arriba: r2('sep_arriba', 1), sep_abajo: r2('sep_abajo', 1), margen_sep: r2('margen_sep', 1),
+      peso_modelo: L.pesos ? rnd(L.pesos[Apr.MODELO] * 100, 1) : null, peso_base: L.pesos ? rnd(L.pesos[Apr.BASE] * 100, 1) : null,
+      lider: L.ranking ? Apr.expertoTxt(L.ranking[0]) : '',
+      ranking: g('ranking', []).join(',') }];
     g('curva', []).forEach(([k, a, o]) => rows.push({ tabla: 'aprendizaje_curva', plazo: name, paso: k,
-      aprendido: a === null ? null : rnd(a, 1), original: o === null ? null : rnd(o, 1) }));
+      aprendido: a === null ? null : rnd(a, 2), original: o === null ? null : rnd(o, 2) }));
     return rows;
   }
 
@@ -197,14 +206,17 @@
   function horizonStats(tf, s, h, price, fit) {
     const sample = fit.sample, f = fit.factor;
     const o = outcomes(s.closes, sample, h), b = outcomes(s.closes, s.base, h);
-    const up = f === 1 ? o.up : Apr.ajustar(o.up / 100, f) * 100;
-    const edge = up - b.up;
+    // la probabilidad de subir la da el equipo que aprende; sin historia suficiente, los casos parecidos
+    const up = fit.p_sube !== null && fit.p_sube !== undefined ? fit.p_sube * 100 : f === 1 ? o.up : Apr.ajustar(o.up / 100, f) * 100;
+    // contra la tasa normal moderada igual que la prediccion: si aprendio que no hay ventaja (confianza 0), es moneda
+    const edge = up - (fit.p_sube !== null && fit.p_sube !== undefined ? Apr.ajustar(b.up / 100, f) * 100 : b.up);
     // margen de error del 95%: con pocos casos, una diferencia chica contra la tasa normal es ruido
     const margin = 196 * Math.sqrt(((o.up / 100) * (1 - o.up / 100)) / o.n) * f;
     const verdict = Math.abs(edge) < Math.max(3, margin) ? 'Casi moneda' : edge > 0 ? 'Sesgo alcista' : 'Sesgo bajista';
     const whenMs = s.bars[s.bars.length - 1][0] + (h + 1) * s.tfMs;
     const when = fmtLocal(whenMs);
-    const [tg, close] = targets(s.bars, sample, price, h, when, f);
+    const L = fit.learn || {};
+    const [tg, close] = targets(s.bars, sample, price, h, when, f, L.distancia === undefined ? null : L.distancia, fit.p_primero === undefined ? null : fit.p_primero);
     return [{
       tf, horizonte: label(h * s.tfMin), velas: h, sube: rnd(up, 1), baja: rnd(100 - up, 1), base: rnd(b.up, 1),
       sube_crudo: rnd(o.up, 1), receta: fit.receta, factor: f,
@@ -434,9 +446,15 @@
   /** En una o dos frases: que aprendio para este plazo y si le esta sirviendo. */
   function learningText(a) {
     if (!a.repasadas) return 'Todavía junta experiencia para este plazo: por ahora usa el método original.';
-    let txt = `Repasó sus últimas ${ar(a.repasadas)} predicciones: ahora busca casos parecidos por ${a.receta_txt}. ${a.confianza}.`;
-    const ap = a.aciertos_aprendido, og = a.aciertos_original;
-    if (ap !== null && og !== null) txt += ` Con lo aprendido acertó ${ar(ap)}% de las veces qué tocaba primero; el método original, ${ar(og)}%.`;
+    let txt = `Repasó sus últimas ${ar(a.repasadas)} predicciones con un equipo de expertos; hoy pesa más ${a.lider}. ${a.confianza}.`;
+    const hab = a.habilidad;
+    if (hab !== null) {
+      if (hab >= 0.5) txt += ` Le gana a la tasa base: ${ar(hab, 1)}% menos error que decir siempre lo normal.`;
+      else if (hab > -0.5) txt += ` Todavía no le gana a la tasa base en forma clara (${ar(hab, 1)}%): sus probabilidades quedan cerca de lo normal.`;
+      else txt += ` Viene peor que la tasa base (${ar(hab, 1)}%): por eso modera sus probabilidades.`;
+    }
+    const ap = a.aciertos_aprendido, lo = a.ic_bajo, hi = a.ic_alto;
+    if (ap !== null && lo !== null) txt += ` Acertó ${ar(ap)}% qué tocaba primero (con el margen de error, entre ${ar(lo)}% y ${ar(hi)}%).`;
     return txt;
   }
 
@@ -485,9 +503,10 @@
       const [ml, ms, mh] = Ind.macd(closes);
       const warmup = Math.min(200, Math.floor(bars.length / 3));
       const feats = Apr.rasgos(bars, tfMin, e50, e200, rsi, mh);
+      const X = Apr.continuos(bars, tfMin, e50, e200, rsi, mh, partial);
       const base = [];
       for (let j = warmup; j < bars.length - 1 - Math.max(...horizons); j++) base.push(j);
-      series[tf] = { bars, closes, base, tfMs, tfMin, days, closed: candles[tf], feats, combo: Apr.combos(feats), warmup,
+      series[tf] = { bars, closes, base, tfMs, tfMin, days, closed: candles[tf], feats, combo: Apr.combos(feats), X, warmup,
         last: bars.length - 1 - Math.max(...horizons, SCENARIO_STEPS), similar: new Map(), fit: new Map() };
       const mainFit = tune(tf, series[tf], horizons[0]);
       const idxs = mainFit.idxs, keep = mainFit.keep;
