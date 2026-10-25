@@ -249,12 +249,12 @@
 
   <section class="ab-card ab-story" id="que-espero" aria-labelledby="story-t" data-source="analisis">
     <div class="ab-card-head"><span class="ab-kicker" id="story-t">Qué creo que va a pasar</span><span class="ab-kicker" id="story-chip"></span></div>
-    <p class="ab-story-head dash-skeleton" id="lectura" data-source="analisis" data-field="lectura" data-where="tabla=resumen">—</p>
+    <p class="ab-story-head dash-skeleton" id="titular" data-source="analisis">—</p>
+    <p class="ab-note" id="porque"></p>
     <div class="ab-story-grid">
       <div class="ab-story-col"><h3 id="favor-t">A favor</h3><ul class="ab-sig-list" id="favor"></ul></div>
       <div class="ab-story-col"><h3 id="contra-t">En contra</h3><ul class="ab-sig-list" id="contra"></ul></div>
-      <div class="ab-story-col"><h3>Qué vigilar</h3><ul class="ab-sig-list" id="vigilar"></ul>
-        <p class="ab-inval" id="inval"></p><p class="ab-note" id="despues"></p></div>
+      <div class="ab-story-col"><h3>Niveles</h3><ul class="ab-sig-list" id="vigilar"></ul><p class="ab-inval" id="inval"></p></div>
     </div>
   </section>
 
@@ -277,10 +277,14 @@
       <div class="ab-rings">
         <div class="ab-ring"><svg viewBox="0 0 84 84" aria-hidden="true"><circle class="ab-ring-track" cx="42" cy="42" r="34"></circle>
           <circle class="ab-ring-val" id="ring-up" cx="42" cy="42" r="34" style="stroke: var(--color-ok)"></circle><text x="42" y="43" id="ring-up-t">—</text></svg>
-          <div class="ab-ring-label">de que toque<b id="ring-up-p">—</b>subiendo</div></div>
+          <div class="ab-ring-label">de que llegue a<b id="ring-up-p">—</b><span id="ring-up-d"></span></div></div>
         <div class="ab-ring"><svg viewBox="0 0 84 84" aria-hidden="true"><circle class="ab-ring-track" cx="42" cy="42" r="34"></circle>
           <circle class="ab-ring-val" id="ring-dn" cx="42" cy="42" r="34" style="stroke: var(--color-bad)"></circle><text x="42" y="43" id="ring-dn-t">—</text></svg>
-          <div class="ab-ring-label">de que toque<b id="ring-dn-p">—</b>bajando</div></div>
+          <div class="ab-ring-label">de que llegue a<b id="ring-dn-p">—</b><span id="ring-dn-d"></span></div></div>
+      </div>
+      <div class="ab-likely">
+        <div class="ab-likely-top"><span>¿Cuál toca primero?</span><span id="first-mg"></span></div>
+        <div class="ab-split" id="first-split"></div>
       </div>
       <div class="ab-likely">
         <div class="ab-likely-top"><span>Precio más probable a esa hora</span><b id="likely">—</b></div>
@@ -486,7 +490,6 @@
     const hour = Number(String(s.hora_local).slice(-5, -3));
     const next = [0, 8, 12, 16, 20].find((h) => h > hour);
     document.getElementById('next-run').textContent = `próximo análisis ${String(next === undefined ? 0 : next).padStart(2, '0')}:00 h`;
-    document.getElementById('lectura').textContent = s.lectura;
     root.querySelector('.ab-price').replaceChildren(f0(num(s.precio)), el('small', '', 'USDT'));
     const put = (id, v, d) => { const e = document.getElementById(id); e.textContent = v === null ? '—' : sg(v, d);
       e.classList.toggle('ab-up-t', v > 0); e.classList.toggle('ab-down-t', v < 0); };
@@ -528,36 +531,44 @@
       if (!items.length) { ul.append(el('li', 'ab-empty', 'Ninguna por ahora.')); return; }
       items.forEach((e) => ul.append(el('li', 'ab-' + e.sesgo, e.texto)));
     };
+    document.getElementById('titular').textContent = head ? head.texto : '—';
+    const why = ex.find((e) => e.tipo === 'porque');
+    document.getElementById('porque').textContent = why ? why.texto : '';
+    // vienen ordenadas por importancia: alcanza con las 4 primeras de cada lado
     const sigs = ex.filter((e) => e.tipo === 'senal');
     const favorSide = neutral ? 'alcista' : bias;
-    fill('favor', sigs.filter((e) => e.sesgo === favorSide));
-    fill('contra', sigs.filter((e) => e.sesgo !== favorSide));
+    fill('favor', sigs.filter((e) => e.sesgo === favorSide).slice(0, 4));
+    fill('contra', sigs.filter((e) => e.sesgo !== favorSide).slice(0, 4));
     fill('vigilar', ex.filter((e) => e.tipo === 'vigilar'));
     const inv = ex.find((e) => e.tipo === 'invalida');
-    const ip = document.getElementById('inval'); ip.replaceChildren();
-    if (inv) ip.append(el('b', '', 'Qué la invalida: '), inv.texto);
-    const later2 = ex.find((e) => e.tipo === 'despues');
-    document.getElementById('despues').textContent = later2 ? later2.texto : '';
+    document.getElementById('inval').textContent = inv ? inv.texto : '';
   }
 
   // ---------- prediccion principal (1 h, primer plazo) ----------
   function drawPrediction(rows, s) {
     const p = pick(rows, 'probabilidad', '1h').sort((a, b) => num(a.velas) - num(b.velas))[0];
     if (!p) return;
-    const goals = pick(rows, 'objetivo', '1h').filter((t) => t.horizonte === p.horizonte);
-    const price = num(s.precio);
-    const up = goals.filter((t) => t.lado === 'arriba').sort((a, b) => num(a.precio) - num(b.precio))[0];
-    const dn = goals.filter((t) => t.lado === 'abajo').sort((a, b) => num(b.precio) - num(a.precio))[0];
+    const price = num(s.precio), dist = num(p.distancia);
     document.getElementById('pred-when').textContent = `Hasta las ${p.hora.slice(-5)} h del ${p.hora.slice(0, 5)}`;
     document.getElementById('pred-n').textContent = `${f0(num(p.n))} casos parecidos`;
-    const ring = (id, t) => {
+    const ring = (id, level, prob, dir) => {
       const c = document.getElementById(id), C = 2 * Math.PI * 34;
       c.style.strokeDasharray = C; c.style.strokeDashoffset = C;
-      document.getElementById(id + '-t').textContent = t ? `${f0(num(t.prob))}%` : '—';
-      document.getElementById(id + '-p').textContent = t ? f0(num(t.precio)) : '—';
-      if (t) later(() => { c.style.strokeDashoffset = C * (1 - num(t.prob) / 100); });
+      document.getElementById(id + '-t').textContent = prob === null ? '—' : `${f0(prob)}%`;
+      document.getElementById(id + '-p').textContent = level === null ? '—' : f0(level);
+      document.getElementById(id + '-d').textContent = dist ? `${dir} ${f0(dist)} USD` : '';
+      if (prob !== null) later(() => { c.style.strokeDashoffset = C * (1 - prob / 100); });
     };
-    ring('ring-up', up); ring('ring-dn', dn);
+    ring('ring-up', num(p.obj_arriba), num(p.toca_arriba), 'sube');
+    ring('ring-dn', num(p.obj_abajo), num(p.toca_abajo), 'baja');
+    // los dos niveles estan a la misma distancia: esta barra es la prediccion principal
+    const pu = num(p.primero_arriba), split = document.getElementById('first-split'); split.replaceChildren();
+    if (pu !== null) {
+      const u = el('div', 'ab-sp-u', `▲ ${f0(num(p.obj_arriba))} · ${f0(pu)}%`), d = el('div', 'ab-sp-d', `${f0(100 - pu)}% · ${f0(num(p.obj_abajo))} ▼`), mid = el('div', 'ab-sp-base');
+      u.style.flexBasis = '50%'; d.style.flexBasis = '50%'; mid.style.left = 'calc(50% - 1px)'; split.append(u, d, mid);
+      later(() => { u.style.flexBasis = pu + '%'; d.style.flexBasis = (100 - pu) + '%'; });
+      document.getElementById('first-mg').textContent = `margen ±${f0(num(p.margen_primero))} pts`;
+    }
     const lo = num(p.min), hi = num(p.max), span = hi - lo || 1;
     const at = (v) => Math.max(0, Math.min(100, (v - lo) / span * 100));
     document.getElementById('likely').textContent = p.mediana === null ? '—' : f0(num(p.mediana));
@@ -660,6 +671,13 @@
     const fx = x(bars.length) - x.step() * .15;
     svg.append('rect').attr('x', fx).attr('y', m.t - 16).attr('width', plotR - fx).attr('height', H - m.b - m.t + 16).style('fill', 'url(#ab-hatch)');
     svg.append('text').attr('class', 'ab-future-lbl').attr('x', fx + 6).attr('y', m.t - 5).text(`Futuro posible · ${SCEN_TXT[S.scen]}`);
+    // la hora exacta de cada prediccion, para leer el grafico y los numeros juntos
+    pick(rows, 'probabilidad', tf).forEach((p) => {
+      const h = num(p.velas); if (h > steps) return;
+      const xx = cxi(bars.length - 1 + h);
+      svg.append('line').attr('x1', xx).attr('x2', xx).attr('y1', m.t + 6).attr('y2', priceB).style('stroke', 'var(--color-fg)').style('stroke-opacity', .35).style('stroke-dasharray', '2 3');
+      svg.append('text').attr('class', 'ab-future-lbl').attr('x', xx).attr('y', priceB + 12).attr('text-anchor', 'middle').text(`${p.hora.slice(-5)} h`);
+    });
 
     if (L.bb) {
       const bb = bars.map((b, i) => ({ i, u: b.bu, l: b.bl })).filter((b) => b.u !== null);
@@ -839,12 +857,13 @@
     const up = num(p.sube), base = num(p.base), price = num(sum.precio);
     document.getElementById('prob-when').textContent = `Hasta las ${p.hora.slice(-5)} h del ${p.hora.slice(0, 5)}`;
     const split = document.getElementById('split'); split.replaceChildren();
-    const u = el('div', 'ab-sp-u', `▲ Sube ${f1(up)}%`), d = el('div', 'ab-sp-d', `Baja ${f1(100 - up)}% ▼`), bm = el('div', 'ab-sp-base');
+    const u = el('div', 'ab-sp-u', `▲ Cierra arriba ${f0(up)}%`), d = el('div', 'ab-sp-d', `${f0(100 - up)}% abajo ▼`), bm = el('div', 'ab-sp-base');
     u.style.flexBasis = '50%'; d.style.flexBasis = '50%'; bm.style.left = '50%'; split.append(u, d, bm);
     later(() => { u.style.flexBasis = up + '%'; d.style.flexBasis = (100 - up) + '%'; bm.style.left = `calc(${base}% - 1px)`; });
     const v = document.getElementById('verdict'); v.textContent = `Al cierre: ${p.veredicto.toLowerCase()}`;
     v.style.color = p.veredicto === 'Sesgo alcista' ? 'var(--color-ok)' : p.veredicto === 'Sesgo bajista' ? 'var(--color-bad)' : 'var(--color-fg-muted)';
-    document.getElementById('prob-base').textContent = `línea = tasa normal ${f1(base)}%`;
+    document.getElementById('prob-base').textContent = (p.pocos_casos ? 'Pocos casos: poco confiable · ' : '')
+      + `margen ±${f0(num(p.margen))} pts · línea = normal ${f0(base)}%`;
 
     const goals = pick(rows, 'objetivo', S.tf).filter((t) => t.horizonte === p.horizonte).map((t) => ({ p: num(t.precio), prob: num(t.prob), up: t.lado === 'arriba' }));
     const items = goals.concat([{ p: price, now: true }]).sort((a, b) => b.p - a.p);
