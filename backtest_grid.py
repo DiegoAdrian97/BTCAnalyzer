@@ -78,7 +78,9 @@ def _retry(fn, *args, **kwargs):
     for attempt in range(5):
         try:
             return fn(*args, **kwargs)
-        except (ccxt.NetworkError, ccxt.OperationFailed) as e:  # limite de pedidos / cortes temporales
+        except (ccxt.DDoSProtection, ccxt.RateLimitExceeded):
+            raise                   # bloqueo por exceso de pedidos: reintentar solo alarga la sancion
+        except (ccxt.NetworkError, ccxt.OperationFailed) as e:  # cortes temporales
             if attempt == 4:
                 raise
             print(f"  BingX: {e}; reintento en {2 ** attempt * 2}s")
