@@ -92,16 +92,17 @@ async function load(sym, tf, announce = true, turn = null) {
   const id = ++D.loadId;
   // el cubo empieza a girar ya, sin esperar la descarga: si las velas tardan, espera de canto hasta que lleguen
   const spinning = !!(turn && D.bars.length && !document.hidden);
-  if (spinning) startTurn(turn, null);
+  if (spinning) startTurn({ ...turn, owner: id }, null);
+  const drop = () => { if (TURN && TURN.owner === id && !TURN.apply) finishTurn(); };   // esta carga ya no sigue
   status(`Cargando ${nameOf(sym)}/USDT · ${TF_LBL[tf]}…`);
   let got;
   try { got = await loadBars(sym, tf); } catch (e) {
-    if (spinning && TURN && !TURN.apply) finishTurn();
+    drop();
     if (id === D.loadId) status('No se pudieron bajar las velas: ' + e.message + '. Se reintenta solo.', true);
     setTimeout(() => { if (id === D.loadId) load(sym, tf, false); }, 5000);
     return;
   }
-  if (id !== D.loadId) return;
+  if (id !== D.loadId) { drop(); return; }
   status('');
   const apply = () => {
     CFG.asset = sym; CFG.tf = tf; save(); syncButtons();
@@ -110,7 +111,7 @@ async function load(sym, tf, announce = true, turn = null) {
     if (announce) flash(`${nameOf(sym)}/USDT · ${TF_LBL[tf]}`);
     connectLive(); predWorker();
   };
-  if (spinning && TURN && !TURN.swapped && !TURN.apply) TURN.apply = apply; else apply();
+  if (spinning && TURN && TURN.owner === id && !TURN.swapped && !TURN.apply) TURN.apply = apply; else { drop(); apply(); }
 }
 function setAsset(sym, announce = true, turn = null) { return load(sym, CFG.tf, announce, turn); }
 function setTf(tf, turn = null) { return load(CFG.asset, tf, true, turn); }
@@ -317,32 +318,6 @@ glass.position.z = -0.4; chart.add(glass); glass.visible = false;   // no se ve:
 // el panel de vidrio donde esta dibujado el grafico
 const chartGlass = textPlane(CW + 1.0, CH + 1.0, (ctx, w, h) => glassRect(ctx, 3, 3, w - 6, h - 6, h * 0.03, 'rgba(150, 205, 255, .5)', 0.55));
 chartGlass.position.z = -0.6; chartGlass.renderOrder = -10; chart.add(chartGlass);
-// capas de vidrio mas atras, con el panorama largo y el volumen: dan profundidad cuando el grafico gira
-const backA = textPlane(CW * 0.78, CH * 0.62, (ctx, w, h) => {
-  glassRect(ctx, 3, 3, w - 6, h - 6, h * 0.05, 'rgba(150, 205, 255, .3)', 0.42);
-  const cl = D.bars.map((b) => b[4]); if (cl.length < 2) return;
-  const lo = Math.min(...cl), hi = Math.max(...cl), px = (i) => w * 0.06 + (i / (cl.length - 1)) * w * 0.88, py = (v) => h * 0.85 - ((v - lo) / (hi - lo || 1)) * h * 0.62;
-  ctx.strokeStyle = 'rgba(150, 205, 255, .12)'; ctx.lineWidth = 1;
-  for (let k = 1; k < 5; k++) { ctx.beginPath(); ctx.moveTo(w * 0.06, h * 0.18 + k * h * 0.14); ctx.lineTo(w * 0.94, h * 0.18 + k * h * 0.14); ctx.stroke(); }
-  ctx.strokeStyle = T().acc; ctx.globalAlpha = 0.7; ctx.lineWidth = Math.max(2, h / 140); ctx.beginPath();
-  cl.forEach((v, i) => (i ? ctx.lineTo(px(i), py(v)) : ctx.moveTo(px(i), py(v)))); ctx.stroke(); ctx.globalAlpha = 1;
-  glowText(ctx, `${nameOf(CFG.asset)}/USDT · últimas ${cl.length} velas de ${TF_LBL[CFG.tf]}`, w * 0.06, h * 0.11, h * 0.06, 'rgba(190, 225, 255, .75)', 600, 'left', 0);
-});
-backA.position.set(-CW * 0.2, CH * 0.36, -3.2); root.add(backA);
-const backB = textPlane(6.2, 3.2, (ctx, w, h) => {
-  glassRect(ctx, 3, 3, w - 6, h - 6, h * 0.08, 'rgba(150, 205, 255, .3)', 0.45);
-  const bs = D.bars.slice(-48); if (!bs.length) return;
-  const vm = Math.max(...bs.map((b) => b[5])) || 1, bw = (w * 0.86) / bs.length;
-  bs.forEach((b, i) => {
-    const bh = (b[5] / vm) * h * 0.55;
-    ctx.fillStyle = b[4] >= b[1] ? T().up : T().dn; ctx.globalAlpha = 0.55;
-    ctx.fillRect(w * 0.07 + i * bw, h * 0.88 - bh, bw * 0.7, bh);
-  });
-  ctx.globalAlpha = 1;
-  glowText(ctx, 'Volumen', w * 0.07, h * 0.16, h * 0.11, 'rgba(190, 225, 255, .75)', 600, 'left', 0);
-});
-backB.position.set(CW * 0.36, -CH * 0.22, -2.2); root.add(backB);
-[backA, backB].forEach((m) => { m.renderOrder = -20; });
 const frame = line(T().acc, 1.2, { opacity: 0.55 }); chart.add(frame);
 function frameShape() {
   // marco redondeado alrededor del grafico
@@ -381,7 +356,7 @@ function startTurn(turn, apply) {
   const d = DEPTH[turn.axis];
   spin.position.z = -d / 2; chart.position.z = d / 2;      // el centro de giro queda en el medio del cubo
   boxes[turn.axis].visible = true;
-  TURN = { axis: turn.axis, sgn: (turn.axis === 'y' ? 1 : -1) * Math.sign(turn.dir || 1), start: performance.now(), apply, swapped: false, d };
+  TURN = { axis: turn.axis, sgn: (turn.axis === 'y' ? 1 : -1) * Math.sign(turn.dir || 1), start: performance.now(), born: performance.now(), apply, swapped: false, d, owner: turn.owner };
 }
 function finishTurn() {
   if (!TURN) return;
@@ -393,13 +368,18 @@ function finishTurn() {
 function animTurn(now) {
   if (!TURN) return;
   if (TURN.hold != null) TURN.start = now - TURN.hold * 800;     // para las pruebas: congelar el giro
-  if (!TURN.apply && now - TURN.start > 400) TURN.start = now - 400;   // de canto hasta que lleguen las velas
+  if (!TURN.apply) {
+    // de canto (antes del cambio) hasta que lleguen las velas; si no llegan, vuelve a quedar de frente
+    if (now - TURN.born > 8000) { finishTurn(); return; }
+    if (now - TURN.start > 340) TURN.start = now - 340;
+  }
   const k = clamp((now - TURN.start) / 800, 0, 1), e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
   const ang = e * (Math.PI / 2) * TURN.sgn, half = TURN.d / 2;
   if (TURN.axis === 'y') spin.rotation.set(0, ang, 0); else spin.rotation.set(ang, 0, 0);
-  if (!TURN.swapped && e >= 0.5) {
+  if (!TURN.swapped && e >= 0.5 && TURN.apply) {
     // a mitad de giro: los datos nuevos, en la cara que entra
-    TURN.swapped = true; TURN.apply();
+    TURN.swapped = true;
+    try { TURN.apply(); } catch (err) { console.error(err); }
     if (TURN.axis === 'y') { chart.position.set(-TURN.sgn * half, chart.position.y, 0); chart.rotation.set(0, -TURN.sgn * Math.PI / 2, 0); }
     else { chart.position.set(0, TURN.sgn * half, 0); chart.rotation.set(-TURN.sgn * Math.PI / 2, 0, 0); }
   }
@@ -1011,7 +991,7 @@ function frameLoop(now) {
   if (dirty || rangeMoving()) { dirty = false; rebuild(dt); }
   if ((panelsDirty || priceDirty) && now - panelT > 250) {
     panelT = now; header.userData.draw(); headDirty = false;
-    if (panelsDirty) { tiles.forEach((m) => m.userData.draw()); stats.userData.draw(); backA.userData.draw(); backB.userData.draw(); chartGlass.userData.draw(); }
+    if (panelsDirty) { tiles.forEach((m) => m.userData.draw()); stats.userData.draw(); chartGlass.userData.draw(); }
     else tiles.forEach((m) => { if (m.userData.sym === CFG.asset) m.userData.draw(); });   // el precio de la cripto elegida, al tick
     panelsDirty = priceDirty = false;
   }
