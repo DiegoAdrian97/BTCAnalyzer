@@ -71,7 +71,8 @@ def update_candles(ex, tf, days):
     candles = []
     if os.path.exists(path):
         with open(path) as f:
-            candles = [[int(r[0])] + [float(x) for x in r[1:]] for r in csv.reader(f)]
+            # una fila incompleta (un corte justo al guardar) se descarta: la vuelve a bajar el siguiente pedido
+            candles = [[int(r[0])] + [float(x) for x in r[1:]] for r in csv.reader(f) if len(r) == 6]
     now = ex.milliseconds()
     since = candles[-1][0] + tf_ms if candles else now - days * 86_400_000
     while since + tf_ms <= now:
@@ -83,8 +84,9 @@ def update_candles(ex, tf, days):
         since = candles[-1][0] + tf_ms
     candles = [c for c in candles if c[0] >= now - days * 86_400_000]
     os.makedirs(DATA_DIR, exist_ok=True)
-    with open(path, "w", newline="") as f:
+    with open(path + ".tmp", "w", newline="") as f:   # se reemplaza de una vez: un corte no deja el archivo a medias
         csv.writer(f).writerows(candles)
+    os.replace(path + ".tmp", path)
     return candles
 
 
@@ -336,6 +338,15 @@ def order_books():
     return rows, per, merged_bids, merged_asks
 
 
+def current_candle(ex, tf, last_closed_t):
+    """La vela que se esta formando ahora, como la muestra TradingView, o None."""
+    tf_ms = ex.parse_timeframe(tf) * 1000
+    now = ex.milliseconds()
+    rows = bg._retry(ex.fetch_ohlcv, SYMBOL, tf, limit=2)
+    live = [c for c in rows if c[0] > last_closed_t and c[0] + tf_ms > now]
+    return live[-1] if live else None
+
+
 # ---------- registro de pronosticos ----------
 
 
@@ -356,10 +367,11 @@ def liquidation_map(bnc, h1, hours=168):
 
 
 TF_TXT = {"5m": "5 min", "15m": "15 min", "30m": "30 min", "1h": "1 hora", "4h": "4 horas", "1d": "diario"}
-NO_LINES = {"l1_t": None, "l1_p": None, "l1_m": None, "l2_t": None, "l2_p": None, "l2_m": None}
+NO_LINES = {"l1_t": None, "l1_p": None, "l1_m": None, "l1_nombre": None, "l2_t": None, "l2_p": None, "l2_m": None,
+            "l2_nombre": None, **{f"pt{k}_{f}": None for k in (1, 2, 3) for f in ("t", "p", "nombre")}}
 
 
-def patterns(tf, bars, pivots, e20, horizon, tf_min):
+def patterns(tf, bars, pivots, e20, horizon, tf_min, partial=False):
     """Patron de velas en las ultimas dos velas (con su historial de aciertos) y figura del grafico vigente."""
     o, h, l, c = ([b[k] for b in bars] for k in (1, 2, 3, 4))
     atr_ = ind.dmi(h, l, c)[3]
@@ -382,14 +394,16 @@ def patterns(tf, bars, pivots, e20, horizon, tf_min):
                     + (": funcionó más de lo que falló." if rate >= 55 else ": casi como tirar una moneda." if rate >= 45
                        else ": falló más de lo que funcionó."))
         rows.append({"tabla": "patron", "tf": tf, "clase": "vela", "nombre": name, "sesgo": bias, "t": bars[k][0],
-                     "estado": "última vela" if k == i else "vela anterior", "objetivo": None, "exito": rate, "casos": n,
+                     "estado": ("vela en curso" if partial else "última vela") if k == i else "vela anterior", "objetivo": None, "exito": rate, "casos": n,
                      "plazo": label(horizon * tf_min), "descripcion": desc, **NO_LINES})
         break
     g = ind.patron_grafico(bars, pivots, atr_[i])
     if g:
         lines = dict(NO_LINES)
         for n_, ln in enumerate(g["lineas"][:2], start=1):
-            lines.update({f"l{n_}_t": ln[0], f"l{n_}_p": round(ln[1], 1), f"l{n_}_m": ln[2]})
+            lines.update({f"l{n_}_t": ln[0], f"l{n_}_p": round(ln[1], 1), f"l{n_}_m": ln[2], f"l{n_}_nombre": ln[3]})
+        for n_, pt in enumerate(g["puntos"][:3], start=1):
+            lines.update({f"pt{n_}_t": pt[0], f"pt{n_}_p": round(pt[1], 1), f"pt{n_}_nombre": pt[2]})
         rows.append({"tabla": "patron", "tf": tf, "clase": "grafico", "nombre": g["nombre"], "sesgo": g["sesgo"],
                      "t": bars[i][0], "estado": g["estado"], "objetivo": g["objetivo"], "exito": None, "casos": None,
                      "plazo": None, "descripcion": g["descripcion"], **lines})
@@ -434,6 +448,12 @@ def explain(rows, price, spec):
             signals.append((1 if p["estado"] == "confirmado" else 4, p["sesgo"], f"{p['nombre']} en {TF_TXT[p['tf']]}{target}"))
         elif p["exito"] is not None and p["exito"] >= 55 and p["casos"] >= 20:
             signals.append((5, p["sesgo"], f"{p['nombre']} en {TF_TXT[p['tf']]} (funcionó {ar(p['exito'])}%)"))
+    divs = {}
+    for d in get("divergencia"):
+        if d["tf"] in sig_tfs:
+            divs.setdefault((d["tf"], d["tipo"]), []).append(d["indicador"])
+    for (tf, tipo), names in divs.items():
+        signals.append((3, tipo, f"Divergencia {tipo} en {' y '.join(names)} ({TF_TXT[tf]})"))
     for c in get("contexto"):
         if c["senal"] in ("alcista", "bajista") and c["clave"] in ctx_keys:
             signals.append((3, c["senal"], f"{SHORT_CTX[c['clave']]}: {lc1(c['detalle'].split('.')[0].split(':')[0])}"))
@@ -530,12 +550,23 @@ def analyze():
     books_job = pool.submit(order_books)
     jobs = {tf: pool.submit(update_candles, bnc, tf, days) for tf, (days, _) in TIMEFRAMES.items()}
     candles = {tf: job.result() for tf, job in jobs.items()}
+    # el analisis incluye la vela en curso de cada temporalidad (como TradingView): los indicadores, patrones y
+    # escenarios se mueven con el precio. El cache y el registro de aciertos siguen usando solo velas cerradas.
+    forming = {tf: pool.submit(current_candle, bnc, tf, candles[tf][-1][0]) for tf in TIMEFRAMES}
+    full = {}
+    for tf, job in forming.items():
+        try:
+            bar = job.result()
+        except Exception:   # sin la vela en curso, el analisis igual sirve con las cerradas
+            bar = None
+        full[tf] = candles[tf] + [bar] if bar else candles[tf]
     price = float(bg._retry(bgx.fetch_ticker, SYMBOL)["last"])
     now_ms = bnc.milliseconds()
     rows, entries, by_tf, series = [], [], {}, {}
 
     for tf, (days, horizons) in TIMEFRAMES.items():
-        bars = candles[tf]
+        bars = full[tf]
+        partial = len(bars) > len(candles[tf])
         tf_ms = ccxt.Exchange.parse_timeframe(tf) * 1000
         tf_min = tf_ms // 60_000
         closes = [b[4] for b in bars]
@@ -564,7 +595,9 @@ def analyze():
                          "onda": wave_labels[n - offset] if n >= offset else "", "en_curso": n == len(tail) - 1})
         rows += [{"tabla": "fvg", "tf": tf, "tipo": z["tipo"], "t": z["t"], "bajo": round(z["bajo"], 1),
                   "alto": round(z["alto"], 1)} for z in ind.fvg(bars)]
-        rows += patterns(tf, bars, pivots, e20, horizons[0], tf_min)
+        rows += patterns(tf, bars, pivots, e20, horizons[0], tf_min, partial)
+        rows += [{"tabla": "divergencia", "tf": tf, **d, "p1": round(d["p1"], 1), "p2": round(d["p2"], 1)}
+                 for d in ind.divergencias(bars, pivots)]
 
         series[tf] = {"bars": bars, "closes": closes, "sample": idxs or list(base), "base": list(base),
                       "tf_ms": tf_ms, "tf_min": tf_min, "days": days}
@@ -581,6 +614,7 @@ def analyze():
         for k in range(max(0, i - CHART_BARS + 1), i + 1):
             t, o_, h_, l_, c_, v_ = bars[k]
             rows.append({"tabla": "vela", "tf": tf, "t": t, "o": o_, "h": h_, "l": l_, "c": c_, "v": round(v_, 2),
+                         "en_curso": partial and k == i,
                          "ema20": round(overlays["ema20"][k], 1), "ema50": round(overlays["ema50"][k], 1),
                          "bb_up": None if overlays["bb_up"][k] is None else round(overlays["bb_up"][k], 1),
                          "bb_lo": None if overlays["bb_lo"][k] is None else round(overlays["bb_lo"][k], 1)})
