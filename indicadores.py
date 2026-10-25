@@ -666,31 +666,59 @@ def patron_grafico(bars, pivots, atr_last):
                     else f"Tres mínimos, el del medio más bajo. Si BTC cierra arriba del cuello ({_ar(n_now)}), "
                          f"se confirma y el objetivo es {_ar(target)}.")
             return result("Hombro-cabeza-hombro invertido", "alcista", [neck], shoulders, target, desc, broke)
-    # doble techo / doble piso: dos extremos parecidos y el cuello en el giro del medio
-    if len(highs) >= 2 and highs[-1][1] > highs[-2][1]:
-        a, b = highs[-2], highs[-1]
-        mid = [p for p in lows if a[1] < p[1] < b[1]]
-        if (mid and abs(a[2] - b[2]) < tol and min(a[2], b[2]) - mid[0][2] > 2 * tol and P[-1][1] >= b[1]
-                and still_valid(b, "bajista", max(a[2], b[2]), lambda j: mid[0][2])):
-            neck, top = mid[0][2], (a[2] + b[2]) / 2
+    # doble techo / doble piso: dos extremos parecidos (hasta ~1%) sin uno mas extremo en el medio, aunque haya
+    # giros menores entre ellos; el cuello es el giro opuesto mas extremo entre los dos
+    # hasta 1% de diferencia, pero nunca mas de dos velas normales: en temporalidades cortas 1% es mucho
+    tol2 = max(tol, min(0.01 * px, 2 * atr_last))
+
+    def find_double(pts, opp, tops):
+        beyond = (lambda x, y: x > y) if tops else (lambda x, y: x < y)    # "mas extremo que"
+        for bi in range(len(pts) - 1, max(-1, len(pts) - 4), -1):
+            b = pts[bi]
+            if b[1] < i_last - 60 or any(beyond(p[2], b[2]) for p in pts[bi + 1:]):
+                continue                                    # despues hubo un extremo mayor: b no es el techo/piso
+            for ai in range(bi - 1, max(-1, bi - 5), -1):
+                a = pts[ai]
+                edge = min(a[2], b[2]) if tops else max(a[2], b[2])        # el menos extremo de los dos
+                if abs(a[2] - b[2]) > tol2 or any(beyond(p[2], edge) for p in pts[ai + 1:bi]):
+                    continue
+                mids = [p for p in opp if a[1] < p[1] < b[1]]
+                if not mids:
+                    continue
+                neck = min(mids, key=lambda p: p[2]) if tops else max(mids, key=lambda p: p[2])
+                if abs(edge - neck[2]) <= 2 * tol:
+                    continue                                    # muy poco profundo: no es una figura
+                return a, b, neck
+        return None
+
+    found = find_double(highs, lows, True)
+    if found:
+        a, b, nk = found
+        if still_valid(b, "bajista", max(a[2], b[2]), lambda j: nk[2]):
+            neck, top = nk[2], (a[2] + b[2]) / 2
             target, broke = neck - (top - neck), px < neck
-            desc = (f"Dos máximos parecidos cerca de {_ar(top)}. BTC perdió el cuello en {_ar(neck)}: objetivo {_ar(target)}." if broke
-                    else f"Dos máximos parecidos cerca de {_ar(top)}. Si BTC cierra debajo del cuello ({_ar(neck)}), "
-                         f"se confirma y el objetivo es {_ar(target)}.")
-            return result("Doble techo", "bajista", [flat_line(mid[0], "Cuello")],
-                          [point(a, "Techo 1"), point(b, "Techo 2")], target, desc, broke)
-    if len(lows) >= 2 and lows[-1][1] > lows[-2][1]:
-        a, b = lows[-2], lows[-1]
-        mid = [p for p in highs if a[1] < p[1] < b[1]]
-        if (mid and abs(a[2] - b[2]) < tol and mid[0][2] - max(a[2], b[2]) > 2 * tol and P[-1][1] >= b[1]
-                and still_valid(b, "alcista", min(a[2], b[2]), lambda j: mid[0][2])):
-            neck, bot = mid[0][2], (a[2] + b[2]) / 2
+            done = any(bars[j][3] <= target for j in range(b[1] + 1, len(bars)))   # ya llego al objetivo: terminada
+            desc = None if done else (f"Dos máximos que rechazaron la misma zona ({_ar(a[2])} y {_ar(b[2])}). BTC perdió el cuello en {_ar(neck)}: "
+                    f"objetivo {_ar(target)}." if broke
+                    else f"Dos máximos que rechazaron la misma zona ({_ar(a[2])} y {_ar(b[2])}). Si BTC cierra debajo del cuello "
+                         f"({_ar(neck)}), se confirma y el objetivo es {_ar(target)}.")
+            if desc:
+                return result("Doble techo", "bajista", [flat_line(nk, "Cuello")],
+                              [point(a, "Techo 1"), point(b, "Techo 2")], target, desc, broke)
+    found = find_double(lows, highs, False)
+    if found:
+        a, b, nk = found
+        if still_valid(b, "alcista", min(a[2], b[2]), lambda j: nk[2]):
+            neck, bot = nk[2], (a[2] + b[2]) / 2
             target, broke = neck + (neck - bot), px > neck
-            desc = (f"Dos mínimos parecidos cerca de {_ar(bot)}. BTC superó el cuello en {_ar(neck)}: objetivo {_ar(target)}." if broke
-                    else f"Dos mínimos parecidos cerca de {_ar(bot)}. Si BTC cierra arriba del cuello ({_ar(neck)}), "
-                         f"se confirma y el objetivo es {_ar(target)}.")
-            return result("Doble piso", "alcista", [flat_line(mid[0], "Cuello")],
-                          [point(a, "Piso 1"), point(b, "Piso 2")], target, desc, broke)
+            done = any(bars[j][2] >= target for j in range(b[1] + 1, len(bars)))
+            desc = None if done else (f"Dos mínimos que defendieron la misma zona ({_ar(a[2])} y {_ar(b[2])}). BTC superó el cuello en {_ar(neck)}: "
+                    f"objetivo {_ar(target)}." if broke
+                    else f"Dos mínimos que defendieron la misma zona ({_ar(a[2])} y {_ar(b[2])}). Si BTC cierra arriba del cuello "
+                         f"({_ar(neck)}), se confirma y el objetivo es {_ar(target)}.")
+            if desc:
+                return result("Doble piso", "alcista", [flat_line(nk, "Cuello")],
+                              [point(a, "Piso 1"), point(b, "Piso 2")], target, desc, broke)
     # triangulos, cunas y canales con los dos ultimos maximos y minimos
     if len(highs) >= 2 and len(lows) >= 2:
         h1, h2, l1, l2 = highs[-2], highs[-1], lows[-2], lows[-1]

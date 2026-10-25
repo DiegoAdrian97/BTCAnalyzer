@@ -763,12 +763,13 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script>
 (function () {
-  var rows = __DATA__, fns = [];
+  var rows = __DATA__, fns = [], pageVersion = __PAGEV__;
   // modo en vivo (servido por analisis_btc.py --vivo): la pagina se conecta a Binance y trae cada analisis nuevo
   window.abLive = __LIVE__;
   if (window.abLive) {
     setInterval(function () {
       fetch('analisis_btc.json', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
+        if (d.pagina && d.pagina !== pageVersion) { location.reload(); return; }   // cambio el diseno: pagina nueva
         if (d.rows && d.rows[0] && d.rows[0].fecha !== rows[0].fecha) {
           rows = d.rows; window.abAnalyses = (window.abAnalyses || 1) + 1; fns.forEach(function (f) { f(); });
         }
@@ -792,12 +793,17 @@ __PAGE__
 """
 
 
+def page_version():
+    return round(os.path.getmtime(PAGE_FILE), 3)
+
+
 def write_local_html(data, path=LOCAL_HTML, live=False):
     """La misma pagina del dashboard, con los datos de este analisis adentro."""
     with open(PAGE_FILE, encoding="utf-8") as f:
         page = f.read()
     rows = json.dumps(data["rows"], ensure_ascii=False).replace("</", "<\\/")
-    html = LOCAL_SHELL.replace("__DATA__", rows).replace("__LIVE__", "true" if live else "false").replace("__PAGE__", page)
+    html = (LOCAL_SHELL.replace("__DATA__", rows).replace("__LIVE__", "true" if live else "false")
+            .replace("__PAGEV__", json.dumps(page_version())).replace("__PAGE__", page))
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         f.write(html)
@@ -813,9 +819,16 @@ def run_live(every):
     """Recalcula el analisis cada `every` segundos y lo sirve en http://127.0.0.1:8765 hasta Ctrl+C."""
     import functools
     import http.server
+    import importlib
     import threading
     import time
     import webbrowser
+
+    # el analisis corre desde el modulo (no desde este script) para poder recargarlo cuando cambia el codigo
+    import analisis_btc as live_mod
+    code_files = [live_mod.__file__, ind.__file__]
+    code_stamp = [os.path.getmtime(f) for f in code_files]
+    page_stamp = None
 
     class Quiet(http.server.SimpleHTTPRequestHandler):
         def log_message(self, *args):
@@ -831,15 +844,25 @@ def run_live(every):
         while True:
             started = time.time()
             try:
-                data = {"rows": analyze()}
+                stamp = [os.path.getmtime(f) for f in code_files]
+                if stamp != code_stamp:
+                    importlib.reload(ind)
+                    live_mod = importlib.reload(live_mod)
+                    code_stamp = stamp
+                    print("Código del análisis actualizado: se usa la versión nueva desde este análisis.")
+                data = {"rows": live_mod.analyze(), "pagina": page_version()}
                 with open(OUT_FILE, "w", encoding="utf-8") as f:
                     json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
                 live_json = os.path.join(LIVE_DIR, "analisis_btc.json")
                 with open(live_json + ".tmp", "w", encoding="utf-8") as f:
                     json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
                 os.replace(live_json + ".tmp", live_json)
-                if first:
+                if data["pagina"] != page_stamp:   # al arrancar, o si cambio el diseno: la pagina se recarga sola
                     write_local_html(data, os.path.join(LIVE_DIR, "index.html"), live=True)
+                    if page_stamp is not None:
+                        print("Diseño del dashboard actualizado: la página se recarga sola.")
+                    page_stamp = data["pagina"]
+                if first:
                     webbrowser.open(url)
                     first = False
                 head = next(r for r in data["rows"] if r["tabla"] == "resumen")
