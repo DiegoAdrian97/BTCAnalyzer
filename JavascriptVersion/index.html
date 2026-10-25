@@ -411,6 +411,13 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     .ab-only-touch { display: inline; } .ab-only-mouse { display: none; }
   }
   .ab-sigchip { white-space: nowrap; }
+  /* interruptor Web | Holograma */
+  .ab-appmode { display: inline-flex; width: max-content; padding: 3px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); }
+  .ab-appmode[hidden] { display: none; }
+  .ab-appmode button { font: inherit; font-size: var(--cds-font-size-caption); font-weight: 600; padding: 6px 14px; border: 0; border-radius: 999px; background: transparent; color: var(--mute); cursor: pointer; }
+  .ab-appmode button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+  .ab-appmode button[data-app="holo"]:hover { color: #2ad8ff; }
+
   /* aprendizaje */
   .ab-apr-line { margin: 0; display: flex; gap: 8px; align-items: baseline; font-size: var(--cds-font-size-caption); color: var(--mute); line-height: 1.45; }
   .ab-apr-line b { color: var(--ink); font-weight: 600; }
@@ -469,6 +476,10 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     <div class="ab-top-l">
       <span class="ab-live"><i></i><span>BTC/USDT perpetuo · actualizado <span data-source="analisis" data-field="hora_local" data-where="tabla=resumen">—</span> · <span id="next-run">—</span></span><span class="ab-live-state" id="live-state"></span></span>
       <h1 class="ab-title">Analista BTC</h1>
+      <!-- interruptor de la version JS (Vercel): Web | Holograma -->
+      <div class="ab-appmode" id="app-modo" role="group" aria-label="Modo de la app" hidden>
+        <button type="button" data-app="web" aria-pressed="true">Web</button><button type="button" data-app="holo" aria-pressed="false">✦ Holograma</button>
+      </div>
     </div>
     <div class="ab-top-r" id="precio">
       <div class="ab-top-price">
