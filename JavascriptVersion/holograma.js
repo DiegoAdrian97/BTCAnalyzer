@@ -90,6 +90,7 @@ async function refreshTickers() {
  */
 async function load(sym, tf, announce = true, turn = null) {
   const id = ++D.loadId;
+  D.want = { sym, tf };                  // a donde va: los cambios rapidos seguidos se suman sobre esto
   // el cubo empieza a girar ya, sin esperar la descarga: si las velas tardan, espera de canto hasta que lleguen
   const spinning = !!(turn && D.bars.length && !document.hidden);
   if (spinning) startTurn({ ...turn, owner: id }, null);
@@ -98,6 +99,7 @@ async function load(sym, tf, announce = true, turn = null) {
   let got;
   try { got = await loadBars(sym, tf); } catch (e) {
     drop();
+    if (id === D.loadId) D.want = null;
     if (id === D.loadId) status('No se pudieron bajar las velas: ' + e.message + '. Se reintenta solo.', true);
     setTimeout(() => { if (id === D.loadId) load(sym, tf, false); }, 5000);
     return;
@@ -106,6 +108,7 @@ async function load(sym, tf, announce = true, turn = null) {
   status('');
   const apply = () => {
     CFG.asset = sym; CFG.tf = tf; save(); syncButtons();
+    if (id === D.loadId) D.want = null;
     D.bars = got.bars; D.src = got.src; D.anim = 0; V.offset = 0; VS.offset = 0; V.manual = null; R.lo = R.hi = null; PIN = null;
     dirty = true; panelsDirty = true;
     if (announce) flash(`${nameOf(sym)}/USDT · ${TF_LBL[tf]}`);
@@ -113,14 +116,15 @@ async function load(sym, tf, announce = true, turn = null) {
   };
   if (spinning && TURN && TURN.owner === id && !TURN.swapped && !TURN.apply) TURN.apply = apply; else { drop(); apply(); }
 }
-function setAsset(sym, announce = true, turn = null) { return load(sym, CFG.tf, announce, turn); }
-function setTf(tf, turn = null) { return load(CFG.asset, tf, true, turn); }
+const goal = () => D.want || { sym: CFG.asset, tf: CFG.tf };   // lo elegido, aunque todavia este cargando
+function setAsset(sym, announce = true, turn = null) { return load(sym, goal().tf, announce, turn); }
+function setTf(tf, turn = null) { return load(goal().sym, tf, true, turn); }
 function stepAsset(dir) {
-  const i = ASSETS.findIndex((a) => a.sym === CFG.asset);
+  const i = ASSETS.findIndex((a) => a.sym === goal().sym);
   setAsset(ASSETS[(i + dir + ASSETS.length) % ASSETS.length].sym, true, { axis: 'y', dir });
 }
 function stepTf(dir) {
-  const i = TFS.indexOf(CFG.tf), j = clamp(i + dir, 0, TFS.length - 1);
+  const i = TFS.indexOf(goal().tf), j = clamp(i + dir, 0, TFS.length - 1);
   if (j !== i) setTf(TFS[j], { axis: 'x', dir });
 }
 
@@ -365,8 +369,9 @@ function finishTurn() {
   header.material.opacity = stats.material.opacity = 1; header.position.x = HEADX;
   TURN = null; dirty = true;
 }
-function animTurn(now) {
+function animTurn() {
   if (!TURN) return;
+  const now = performance.now();        // el mismo reloj con el que arranco el giro (en Safari el del cuadro puede ser otro)
   if (TURN.hold != null) TURN.start = now - TURN.hold * 800;     // para las pruebas: congelar el giro
   if (!TURN.apply) {
     // de canto (antes del cambio) hasta que lleguen las velas; si no llegan, vuelve a quedar de frente
@@ -576,7 +581,7 @@ function act(a, remote = false) {
   else if (a.t === 'point') { POINT = a.x === null ? null : { x: a.x, y: a.y }; return; }
   else if (a.t === 'pin') { PIN = a.pin || null; return; }
   else if (a.t === 'click') { clickAt(a.x, a.y, !remote && a.hand !== false); return; }
-  else if (a.t === 'sync') { if ((a.asset && a.asset !== CFG.asset) || (a.tf && a.tf !== CFG.tf)) load(a.asset || CFG.asset, a.tf || CFG.tf, true, a.asset !== CFG.asset ? assetTurn(a.asset) : tfTurn(a.tf)); }
+  else if (a.t === 'sync') { const g = goal(); if ((a.asset && a.asset !== g.sym) || (a.tf && a.tf !== g.tf)) load(a.asset || g.sym, a.tf || g.tf, true, a.asset && a.asset !== g.sym ? assetTurn(a.asset) : tfTurn(a.tf)); }
   dirty = true;
   if (!remote) link.send(a);
 }
@@ -729,7 +734,7 @@ function clickAt(x, y, dom) {
     if (b && !stage.contains(b)) { b.click(); if (b.matches('select, input')) b.focus(); return; }
   }
   const sym = tileAt(x, y);
-  if (sym) { if (sym !== CFG.asset) { setAsset(sym, true, assetTurn(sym)); link.send({ t: 'sync', asset: sym, tf: CFG.tf }); } return; }
+  if (sym) { if (sym !== goal().sym) { setAsset(sym, true, assetTurn(sym)); link.send({ t: 'sync', asset: sym, tf: goal().tf }); } return; }
   const lq = liqAt(x, y), hit = lq ? null : slotAt(x, y);
   PIN = lq ? { liq: lq.precio } : hit ? { t: hit.b[0], price: hit.price } : null;
   link.send({ t: 'pin', pin: PIN });
@@ -1213,10 +1218,10 @@ function flash(txt) { const f = $('#flash'); f.textContent = txt; f.classList.ad
 function seg(el, items, key, onPick) {
   el.replaceChildren(...items.map(([v, t]) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.v = v; b.textContent = t; b.addEventListener('click', () => onPick(v)); return b; }));
 }
-const assetTurn = (v) => { const d = ASSETS.findIndex((a) => a.sym === v) - ASSETS.findIndex((a) => a.sym === CFG.asset); return d ? { axis: 'y', dir: Math.sign(d) } : null; };
-const tfTurn = (v) => { const d = TFS.indexOf(v) - TFS.indexOf(CFG.tf); return d ? { axis: 'x', dir: Math.sign(d) } : null; };
-seg($('#assets'), ASSETS.map((a) => [a.sym, a.name]), 'asset', (v) => { if (v !== CFG.asset) setAsset(v, true, assetTurn(v)); link.send({ t: 'sync', asset: v, tf: CFG.tf }); });
-seg($('#tfs'), TFS.map((t) => [t, TF_LBL[t]]), 'tf', (v) => { if (v !== CFG.tf) setTf(v, tfTurn(v)); link.send({ t: 'sync', asset: CFG.asset, tf: v }); });
+const assetTurn = (v) => { const d = ASSETS.findIndex((a) => a.sym === v) - ASSETS.findIndex((a) => a.sym === goal().sym); return d ? { axis: 'y', dir: Math.sign(d) } : null; };
+const tfTurn = (v) => { const d = TFS.indexOf(v) - TFS.indexOf(goal().tf); return d ? { axis: 'x', dir: Math.sign(d) } : null; };
+seg($('#assets'), ASSETS.map((a) => [a.sym, a.name]), 'asset', (v) => { if (v !== goal().sym) setAsset(v, true, assetTurn(v)); link.send({ t: 'sync', asset: v, tf: goal().tf }); });
+seg($('#tfs'), TFS.map((t) => [t, TF_LBL[t]]), 'tf', (v) => { if (v !== goal().tf) setTf(v, tfTurn(v)); link.send({ t: 'sync', asset: goal().sym, tf: v }); });
 function syncButtons() {
   document.querySelectorAll('#assets button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === CFG.asset)));
   document.querySelectorAll('#tfs button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === CFG.tf)));
