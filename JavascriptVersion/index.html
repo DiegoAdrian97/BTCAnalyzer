@@ -233,6 +233,13 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   .ab-osc-line { fill: none; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
   .ab-osc-lbl, .ab-ax-t { fill: var(--mute); font-size: 10.5px; font-variant-numeric: tabular-nums; }
   .ab-osc-lbl { font-weight: 600; }
+  /* leyenda de la vela arriba a la izquierda, como en TradingView */
+  .ab-ohlc { position: absolute; top: 7px; left: 6px; z-index: 2; pointer-events: none; display: flex; gap: 10px; align-items: baseline;
+    overflow: hidden; white-space: nowrap; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; color: var(--mute); }
+  .ab-ohlc span { display: inline-flex; gap: 4px; } .ab-ohlc b { font-weight: 600; }
+  .ab-ohlc-t { color: var(--ink); }
+  @media (max-width: 600px) { .ab-ohlc { font-size: 11px; gap: 7px; } }
+  .ab-tag-t { fill: var(--color-bg); font-size: 10.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .ab-card:not(#grafico), .ab-more { resize: both; overflow: auto; max-width: 100%; }
   .ab-card, .ab-more { min-width: 0; }
   .ab-chart, .ab-chart svg { touch-action: none; }
@@ -995,7 +1002,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     const steps = Math.max(ghosts.length, cone.length), n = bars.length + steps;
     const narrow = W < 520;
     const heatW = L.liq ? Math.min(narrow ? 44 : 78, W * .11) : 0, axW = narrow ? 54 : 66;
-    const m = { t: 24, b: 24, l: 2 };
+    const m = { t: 36, b: 24, l: 2 };
     const plotR = W - axW - heatW;
     // de arriba a abajo: precio, volumen y, si estan prendidos, los paneles de RSI y MACD
     // las alturas de volumen, RSI y MACD se cambian arrastrando la linea que los separa
@@ -1195,7 +1202,25 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     // volumen
     svg.append('g').selectAll('rect').data(bars).join('rect').attr('class', (b) => (b.c >= b.o ? 'ab-vol-up' : 'ab-vol-dn'))
       .attr('x', (b, i) => x(i)).attr('width', bw).attr('y', (b) => yv(b.v)).attr('height', (b) => volB - yv(b.v)).attr('rx', Math.min(1.5, bw / 4));
-    svg.append('text').attr('class', 'ab-future-lbl').attr('x', m.l + 2).attr('y', volB - volH - 2).text('Volumen');
+    // referencias del eje derecho y etiqueta con el ultimo valor, en cada panel (como los precios)
+    const axG = svg.append('g').attr('class', 'ab-ax');
+    const axTxt = (yy, txt) => axG.append('text').attr('x', W - 4).attr('y', yy).attr('dy', '.32em').attr('text-anchor', 'end').text(txt);
+    const tagG = svg.append('g'), tagYs = [];
+    const axTag = (yy, txt, col, t0, b0) => {
+      const yc = Math.max(t0 + 8, Math.min(b0 - 8, yy));
+      tagYs.push(yc);
+      tagG.append('rect').attr('x', W - axW + 2).attr('y', yc - 8).attr('width', axW - 2).attr('height', 16).attr('rx', 4).style('fill', col);
+      tagG.append('text').attr('class', 'ab-tag-t').attr('x', W - 4).attr('y', yc).attr('dy', '.34em').attr('text-anchor', 'end').text(txt);
+      return yc;
+    };
+    const fV = (v) => (v >= 10000 ? `${f0(v / 1000)} mil` : v >= 1000 ? `${f1(v / 1000)} mil` : f0(v));
+    yv.ticks(2).filter((v) => v > 0 && yv(v) > volB - volH + 6).forEach((v) => axTxt(yv(v), fV(v)));
+    { const lb = bars[bars.length - 1]; axTag(yv(lb.v), fV(lb.v), lb.c >= lb.o ? 'var(--color-ok)' : 'var(--color-bad)', volB - volH, volB); }
+    const oscLbl = (g, yy) => {
+      const t = g.append('text').attr('class', 'ab-osc-lbl').attr('x', m.l + 2).attr('y', yy);
+      return (parts) => { t.selectAll('tspan').remove(); parts.forEach(([txt, col]) => t.append('tspan').style('fill', col || null).text(txt)); };
+    };
+    const setVol = oscLbl(svg, volB - volH - 2);
     // RSI y MACD, con sus divergencias marcadas tambien en cada panel
     const divGroups = {};
     pick(rows, 'divergencia', tf).forEach((d) => { (divGroups[`${d.t1}-${d.t2}-${d.tipo}`] = divGroups[`${d.t1}-${d.t2}-${d.tipo}`] || []).push(d); });
@@ -1207,11 +1232,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
         .style('stroke', col).style('stroke-width', 2.2).style('stroke-linecap', 'round');
       [[i1, d.v1], [i2, d.v2]].forEach(([i, v]) => dg.append('circle').attr('cx', cxi(i)).attr('cy', yo(num(v))).attr('r', 3).style('fill', col));
     });
-    const oscLbl = (g, yy, parts) => {
-      const t = g.append('text').attr('class', 'ab-osc-lbl').attr('x', m.l + 2).attr('y', yy);
-      parts.forEach(([txt, col]) => t.append('tspan').style('fill', col || null).text(txt));
-    };
-    let lastOsc = null;
+    let lastOsc = null, setRsi = null, setMacd = null;
     const oscY = {};
     if (L.osc) {
       lastOsc = [...bars].reverse().find((b) => b.rsi !== null && b.macd !== null) || null;
@@ -1222,13 +1243,14 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       const rg = og.append('g').attr('clip-path', clip('ab-clip-rsi', rsiT, rsiB));
       rg.append('rect').attr('class', 'ab-osc-bg').attr('x', m.l).attr('width', plotR - m.l).attr('y', yr(70)).attr('height', yr(30) - yr(70));
       [70, 50, 30].forEach((v) => rg.append('line').attr('class', v === 50 ? 'ab-gl' : 'ab-osc-ref').attr('x1', m.l).attr('x2', plotR).attr('y1', yr(v)).attr('y2', yr(v)));
-      [70, 30].filter((v) => yr(v) >= rsiT && yr(v) <= rsiB).forEach((v) => og.append('text').attr('class', 'ab-ax-t').attr('x', W - 4).attr('y', yr(v)).attr('dy', '.32em').attr('text-anchor', 'end').text(v));
+      [70, 50, 30].filter((v) => yr(v) >= rsiT + 6 && yr(v) <= rsiB - 6).forEach((v) => axTxt(yr(v), v));
       rg.append('path').attr('class', 'ab-osc-line').style('stroke', dash.colors[2])
         .attr('d', d3.line().defined((b) => b.rsi !== null).x((b, i) => cxi(i)).y((b) => yr(b.rsi))(bars));
       oscDivs('RSI', yr, svg.append('g').attr('clip-path', clip('ab-clip-rsi2', rsiT - 4, rsiB + 4)));
-      const rv = lastOsc ? lastOsc.rsi : null;
-      oscLbl(og, rsiT - 4, [['RSI 14 '], [rv === null ? '—' : f1(rv), dash.colors[2]],
-        [rv === null ? '' : rv >= 70 ? ' · sobrecompra' : rv <= 30 ? ' · sobreventa' : '']]);
+      if (lastOsc) axTag(yr(lastOsc.rsi), f1(lastOsc.rsi), dash.colors[2], rsiT, rsiB);
+      const rl = oscLbl(og, rsiT - 4);
+      setRsi = (b) => { const rv = b ? b.rsi : null;
+        rl([['RSI 14 '], [rv === null ? '—' : f1(rv), dash.colors[2]], [rv === null ? '' : rv >= 70 ? ' · sobrecompra' : rv <= 30 ? ' · sobreventa' : '']]); };
 
       const mv = bars.flatMap((b) => [b.macd, b.sig, b.hist]).filter((v) => v !== null);
       const ma = d3.max(mv, Math.abs) || 1;
@@ -1244,7 +1266,17 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       oscDivs('MACD', ym, svg.append('g').attr('clip-path', clip('ab-clip-macd2', macdT - 4, macdB + 4)));
       const mk = pick(rows, 'marco', tf)[0];
       const cruce = mk && mk.macd_cruce ? ` · cruzó ${mk.macd_cruce === 'alcista' ? 'al alza' : 'a la baja'}` : '';
-      oscLbl(og, macdT - 4, [['MACD '], [lastOsc ? f1(lastOsc.macd) : '—', dash.colors[0]], [' señal '], [lastOsc ? f1(lastOsc.sig) : '—', dash.colors[1]], [cruce]]);
+      const fM = (v) => (v === 0 ? '0' : Math.abs(v) >= 100 ? f0(v) : f1(v));
+      ym.ticks(4).filter((v) => ym(v) >= macdT + 6 && ym(v) <= macdB - 6).forEach((v) => axTxt(ym(v), fM(v)));
+      if (lastOsc) {
+        // las dos etiquetas no se pisan: la de abajo se corre lo necesario
+        const [a, b] = [[ym(lastOsc.macd), fM(lastOsc.macd), dash.colors[0]], [ym(lastOsc.sig), fM(lastOsc.sig), dash.colors[1]]].sort((p, q) => p[0] - q[0]);
+        const ya = axTag(a[0], a[1], a[2], macdT, macdB - 16);
+        axTag(Math.max(b[0], ya + 16), b[1], b[2], macdT, macdB);
+      }
+      const ml = oscLbl(og, macdT - 4);
+      setMacd = (b, isLast) => ml(b && b.macd !== null ? [['MACD '], [fM(b.macd), dash.colors[0]], [' señal '], [fM(b.sig), dash.colors[1]],
+        [' hist. '], [fM(b.hist), b.hist >= 0 ? 'var(--color-ok)' : 'var(--color-bad)'], [isLast ? cruce : '']] : [['MACD —']]);
     }
     if (L.ema) [['e20', dash.colors[0]], ['e50', dash.colors[1]]].forEach(([k, c]) =>
       pane.append('path').attr('class', 'ab-ema').style('stroke', c).attr('d', d3.line().defined((b) => b[k] !== null).x((b, i) => cxi(i)).y((b) => y(b[k]))(bars)));
@@ -1315,7 +1347,28 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       const wd = o.weekday.replace('.', '');
       return tf === '1d' ? `${wd} ${o.day}/${o.month}/${o.year}` : `${wd} ${o.day}/${o.month} ${o.hour}:${o.minute} h`;
     };
-    const hideCross = () => { tip.hidden = true; cross.style('display', 'none'); };
+    const ohlc = el('div', 'ab-ohlc'); box.append(ohlc);
+    ohlc.style.maxWidth = `${Math.max(140, (live ? fx : plotR) - m.l - 12) / W * 100}%`;
+    const lastReal = bars[bars.length - 1];
+    // la vela bajo la mira; sin mira, la ultima (como TradingView)
+    const legend = (b, fut) => {
+      const col = b.c >= b.o ? 'var(--color-ok)' : 'var(--color-bad)';
+      const kv = (k, v) => { const sp = el('span'); const bb = el('b', '', v); bb.style.color = col; sp.append(k, bb); return sp; };
+      ohlc.replaceChildren();
+      const head = fut ? `Futura ${b.k} · ${SCEN_TXT[S.scen]}` : narrow ? '' : `${fmtT(b.t, tf)} h${b.en || (liveBar && liveBar.t === b.t) ? ' · en curso' : ''}`;
+      if (head) ohlc.append(el('span', 'ab-ohlc-t', head));
+      const ch = el('b', '', sg((b.c / b.o - 1) * 100)); ch.style.color = col;
+      ohlc.append(kv('A', f0(b.o)), kv('Máx', f0(b.h)), kv('Mín', f0(b.l)), kv('C', f0(b.c)), ch);
+      const isLast = !fut && b === lastReal;
+      const ob = fut ? null : b.rsi !== null && b.rsi !== undefined ? b : isLast ? lastOsc : null;
+      setVol([['Volumen '], [fut ? '—' : `${f1(b.v)} BTC`, fut ? null : col]]);
+      if (setRsi) setRsi(ob);
+      if (setMacd) setMacd(ob, isLast);
+    };
+    legend(lastReal, false);
+    // las referencias del eje que quedan debajo de una etiqueta se sacan
+    axG.selectAll('text').filter(function () { const yy = +this.getAttribute('y'); return tagYs.some((t) => Math.abs(t - yy) < 13); }).remove();
+    const hideCross = () => { tip.hidden = true; cross.style('display', 'none'); legend(lastReal, false); };
     S.pointAt = (pt) => {
       if (!pt) { hideCross(); return; }
       const mx2 = pt.x, my = pt.y;
@@ -1339,15 +1392,10 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       ttext.text(tt);
       const tw = ttext.node().getComputedTextLength() + 12, tx = Math.max(m.l + tw / 2, Math.min(cxi(i), plotR + heatW - tw / 2));
       ttext.attr('x', tx); trect.attr('x', tx - tw / 2).attr('width', tw);
-      const g = el('div', 'ab-tip-g');
-      [['Apertura', b.o], ['Máximo', b.h], ['Mínimo', b.l], ['Cierre', b.c]].forEach(([k, v]) => g.append(el('span', 'ab-tip-d', k), el('span', '', f0(v))));
-      if (!fut) g.append(el('span', 'ab-tip-d', 'Volumen'), el('span', '', `${f1(b.v)} BTC`));
-      if (!fut && L.osc && b.rsi !== null && b.rsi !== undefined) g.append(el('span', 'ab-tip-d', 'RSI'), el('span', '', f1(b.rsi)));
-      if (!fut && L.osc && b.macd !== null && b.macd !== undefined) g.append(el('span', 'ab-tip-d', 'MACD / señal'), el('span', '', `${f1(b.macd)} / ${f1(b.sig)}`));
-      const head = fut
-        ? [el('div', '', `${fmtT(b.t, tf)} h · dentro de ${dur(b.k * TF_MIN[tf])}`), el('div', 'ab-tip-d', `Vela futura ${b.k} del escenario ${SCEN_TXT[S.scen]}`)]
-        : [el('div', 'ab-tip-d', `${fmtT(b.t, tf)} h${b.en || (liveBar && liveBar.t === b.t) ? ' · vela en curso' : ''}`)];
-      showTip([...head, g], cxi(i));
+      legend(b, fut);
+      // la hora de abajo de una vela futura dice ademas cuanto falta
+      if (fut) { ttext.text(`${tt} · en ${dur(b.k * TF_MIN[tf])}`); const w2 = ttext.node().getComputedTextLength() + 12, x2 = Math.max(m.l + w2 / 2, Math.min(cxi(i), plotR + heatW - w2 / 2));
+        ttext.attr('x', x2); trect.attr('x', x2 - w2 / 2).attr('width', w2); }
     };
     if (S.lastPt) S.pointAt(S.lastPt);   // al redibujar (en vivo o arrastrando) la mira queda donde estaba
 
