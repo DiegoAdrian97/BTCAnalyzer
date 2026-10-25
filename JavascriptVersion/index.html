@@ -497,7 +497,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
           <button type="button" class="ab-iconbtn" data-yzoom="out" aria-label="Comprimir el eje de precios">↕ más</button>
           <button type="button" class="ab-iconbtn" data-yzoom="in" aria-label="Estirar el eje de precios">↕ menos</button></span>
         <button type="button" class="ab-iconbtn" id="fit">Ajustar</button>
-        <span class="ab-note"><span class="ab-only-mouse">Arrastrá el gráfico para moverte · rueda: zoom · arrastrá el eje de precios o el de horas para estirarlos · arrastrá el borde de abajo del precio o de cada indicador para hacerlo más alto o más bajo · doble clic: ajustar</span><span class="ab-only-touch">Arrastrá con un dedo para moverte · pellizcá para zoom (de costado: velas; vertical: precios) · arrastrá los ejes para estirarlos · arrastrá la manija de abajo de cada panel para cambiar su alto · tocá una vela para ver sus datos</span></span>
+        <span class="ab-note"><span class="ab-only-mouse">Arrastrá el gráfico para moverte · rueda: zoom · arrastrá el eje de precios o el de horas para estirarlos · arrastrá el borde de abajo del precio o de cada indicador para hacerlo más alto o más bajo · doble clic en un eje: vuelve ese eje a como estaba (en el de horas, todos los paneles) · doble clic en el gráfico: ajusta todo</span><span class="ab-only-touch">Arrastrá con un dedo para moverte · pellizcá para zoom (de costado: velas; vertical: precios) · arrastrá los ejes para estirarlos · arrastrá la manija de abajo de cada panel para cambiar su alto · doble toque en un eje lo vuelve a como estaba · tocá una vela para ver sus datos</span></span>
       </div>
       <div class="ab-chart dash-skeleton" id="chart" data-source="analisis"></div>
       <span class="ab-kicker">Qué estás viendo</span>
@@ -753,8 +753,30 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     box.addEventListener('pointerup', stop);
     box.addEventListener('pointercancel', stop);
     const fit = () => { S.nbars = defBars(); S.offset = 0; S.yzoom = 1; S.ypan = 0; S.oscZ = { rsi: 1, macd: 1 }; redrawChart(); };
-    // doble clic en un borde: los paneles vuelven a su alto original; en el resto, se ajusta la vista
-    box.addEventListener('dblclick', (e) => { if (S.geom && zone(e).mode === 'div') { S.ph = null; redrawChart(); } else fit(); });
+    // doble clic (o doble toque) segun donde se haga, como en TradingView:
+    // eje de horas -> velas y desplazamiento de todos los paneles; eje de precios -> solo el rango del precio;
+    // eje de RSI o MACD -> solo ese indicador; borde de un panel -> altos originales; resto del grafico -> todo
+    function resetAt(e) {
+      if (!S.geom) return;
+      const z = zone(e);
+      if (z.mode === 'div') S.ph = null;
+      else if (z.mode === 't') { S.nbars = defBars(); S.offset = 0; }
+      else if (z.mode === 'y') { S.yzoom = 1; S.ypan = 0; }
+      else if (z.mode === 'oz') S.oscZ[z.pane] = 1;
+      else { fit(); return; }
+      redrawChart();
+    }
+    let lastTap = null, lastTouchAt = 0;
+    box.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'touch') return;
+      lastTouchAt = Date.now();
+      const tap = { t: Date.now(), x: e.clientX, y: e.clientY };
+      if (lastTap && tap.t - lastTap.t < 320 && Math.hypot(tap.x - lastTap.x, tap.y - lastTap.y) < 30) {
+        lastTap = null; drag = null; resetAt(e);
+      } else lastTap = tap;
+    });
+    // en el telefono el doble toque lo maneja lo de arriba; el dblclick del navegador se ignora para no repetir
+    box.addEventListener('dblclick', (e) => { if (Date.now() - lastTouchAt > 700) resetAt(e); });
     document.getElementById('fit').addEventListener('click', fit);
     document.querySelectorAll('[data-zoom]').forEach((b) => b.addEventListener('click', () => {
       S.nbars = clampN(S.nbars * (b.dataset.zoom === 'out' ? 1.4 : 1 / 1.4)); redrawChart(); }));
