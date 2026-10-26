@@ -40,6 +40,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 @keyframes ea { to { opacity: .25; } }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
 <script src="app.js"></script>
 </head><body><div id="dash-root">
 <style>
@@ -297,9 +298,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   .ab-osc-lbl, .ab-ax-t { fill: var(--mute); font-size: 10.5px; font-variant-numeric: tabular-nums; }
   .ab-osc-lbl { font-weight: 600; paint-order: stroke; stroke: var(--panel); stroke-width: 3px; stroke-linejoin: round; }
   /* leyenda de la vela arriba a la izquierda, como en TradingView */
-  .ab-ohlc { position: absolute; top: 7px; left: 6px; z-index: 2; pointer-events: none; display: flex; gap: 10px; align-items: baseline;
-    overflow: hidden; white-space: nowrap; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; color: var(--mute); }
-  .ab-ohlc span { display: inline-flex; gap: 4px; } .ab-ohlc b { font-weight: 600; }
+  .ab-ohlc { position: absolute; top: 6px; left: 8px; right: 80px; z-index: 3; pointer-events: none; display: grid; gap: 2px;
+    overflow: hidden; white-space: nowrap; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--mute); }
+  .ab-ohlc-r { display: flex; gap: 10px; align-items: baseline; overflow: hidden; }
+  .ab-ohlc-pane { display: flex; gap: 8px; align-items: baseline; }
+  .ab-ohlc span { display: inline-flex; gap: 4px; } .ab-ohlc b { font-weight: 500; }
+  .ab-ohlc-t { color: var(--ink); font-weight: 500; }
   /* "que estas viendo": plegable (abierto en la compu), en dos columnas cuando hay lugar */
   .ab-exbox { border-top: 1px solid var(--line); padding-top: 4px; }
   .ab-exbox summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; padding: 8px 0;
@@ -310,11 +314,10 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   .ab-exbox summary b { font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--soft2); color: var(--ink); letter-spacing: 0; }
   @media (min-width: 900px) { .ab-exbox .ab-explain { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; } }
   .ab-ohlc-t { color: var(--ink); }
-  @media (max-width: 600px) { .ab-ohlc { font-size: 11px; gap: 7px; } }
+  @media (max-width: 600px) { .ab-ohlc { font-size: 11px; right: 62px; } }
   .ab-tag-t { fill: var(--color-bg); font-size: 10.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .ab-card:not(#grafico), .ab-more { resize: both; overflow: auto; max-width: 100%; }
   .ab-card, .ab-more { min-width: 0; }
-  .ab-chart, .ab-chart svg { touch-action: none; }
   .ab-chart svg { display: block; overflow: hidden; }
   .ab-ax text { fill: var(--mute); font-size: 11px; font-variant-numeric: tabular-nums; }
   .ab-gl { stroke: var(--cds-chart-grid); stroke-width: 1; }
@@ -641,9 +644,6 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
           <span class="ab-zoom-g"><button type="button" class="ab-iconbtn ab-round" data-zoom="out" aria-label="Ver más velas">−</button>
             <span id="zoom-info" class="ab-num">— velas</span>
             <button type="button" class="ab-iconbtn ab-round" data-zoom="in" aria-label="Ver menos velas">+</button></span>
-          <span class="ab-zoom-g"><span class="ab-zoom-lbl">Precio</span>
-            <button type="button" class="ab-iconbtn ab-round" data-yzoom="out" aria-label="Comprimir el eje de precios" title="Comprimir el eje de precios">↕</button>
-            <button type="button" class="ab-iconbtn ab-round" data-yzoom="in" aria-label="Estirar el eje de precios" title="Estirar el eje de precios">⇕</button></span>
           <button type="button" class="ab-iconbtn" id="fit">Ajustar</button>
           <button type="button" class="ab-iconbtn" id="replay" title="Repetir la animación del escenario">↻</button>
         </div>
@@ -764,7 +764,6 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   // cada plazo se mira con las velas que mejor lo muestran
   const PLAZO_VIEW = { '5 min': '5m', '15 min': '15m', '1 hora': '1h', '4 horas': '4h', '1 día': '1d' };
   const S = { plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
-    ph: null, oscZ: { rsi: 1, macd: 1 },
     layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, liq: true, osc: true } };
   const defBars = () => (window.innerWidth < 600 ? 62 : 102);  // incluye las 12 del futuro posible; en el telefono, menos para que se lean
   S.nbars = defBars();
@@ -795,7 +794,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   try {
     const saved = JSON.parse(sessionStorage.getItem('ab-vista') || 'null');
     if (saved) {
-      Object.assign(S, { plazo: saved.plazo, tf: saved.tf, scen: saved.scen, nbars: saved.nbars, yzoom: saved.yzoom, ph: saved.ph || null, fs: !!saved.fs });
+      Object.assign(S, { plazo: saved.plazo, tf: saved.tf, scen: saved.scen, fs: !!saved.fs });
       Object.assign(S.layers, saved.layers || {});
       document.querySelectorAll('#scens button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.scen === S.scen)));
     }
@@ -816,7 +815,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   helpBtn.addEventListener('click', () => { help.hidden = !help.hidden; helpBtn.setAttribute('aria-expanded', String(!help.hidden)); });
   document.getElementById('ex-box').open = window.innerWidth >= 900;
   window.addEventListener('pagehide', () => {
-    try { sessionStorage.setItem('ab-vista', JSON.stringify({ plazo: S.plazo, tf: S.tf, scen: S.scen, nbars: S.nbars, yzoom: S.yzoom, layers: S.layers, ph: S.ph, fs: S.fs })); } catch (e) { /* idem */ }
+    try { sessionStorage.setItem('ab-vista', JSON.stringify({ plazo: S.plazo, tf: S.tf, scen: S.scen, layers: S.layers, fs: S.fs })); } catch (e) { /* idem */ }
   });
   const placeTf = seg(document.getElementById('tfs'), 'data-tf', (v) => { S.tf = v; S.hz = null; S.offset = 0; draw(); });
   const placeSc = seg(document.getElementById('scens'), 'data-scen', (v) => { S.scen = v; draw(); });
@@ -824,7 +823,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     const b = e.target.closest('[data-layer]'); if (!b) return;
     const k = b.dataset.layer; S.layers[k] = !S.layers[k]; syncLayers(); draw();
   });
-  document.getElementById('replay').addEventListener('click', () => { ghostK = 0; draw(); });
+  document.getElementById('replay').addEventListener('click', () => { ghostK += 1; draw(); });
   function setPlazo(name) { S.plazo = name; S.offset = 0; setTf(PLAZO_VIEW[name]); }
   function setTf(tf) {
     S.tf = tf; S.hz = null;
@@ -855,140 +854,22 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   fsBtn.addEventListener('click', () => setFs(!S.fs));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.fs) setFs(false); });
   document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && S.fs) setFs(false, false); });
-  window.addEventListener('resize', () => { if (S.fs && S.rows) requestAnimationFrame(() => drawChart(S.rows, S.sum)); });
   if (S.fs) setFs(true, false);
 
-  (function chartInteractions() {
-    // como en TradingView: arrastrar mueve el grafico en cualquier direccion; arrastrar el eje de precios lo comprime o estira;
-    // arrastrar el eje de horas (abajo) cambia cuantas velas entran; arrastrar las lineas entre paneles cambia sus alturas
-    const box = document.getElementById('chart');
-    const clampY = (v) => Math.min(10, Math.max(0.15, v)), clampN = (v) => Math.min(300, Math.max(12, v));
-    const clampZ = (v) => Math.min(8, Math.max(0.5, v));
-    const clampH = (k, v) => Math.round(Math.min(1400, Math.max(k === 'price' ? 120 : 30, v)));
-    let drag = null, pending = false;
-    const redrawChart = () => {
-      if (pending) return;
-      pending = true;
-      requestAnimationFrame(() => { pending = false; if (S.rows) drawChart(S.rows, S.sum); });
-    };
-    const scale = () => (S.geom ? S.geom.W / box.getBoundingClientRect().width : 1);
-    const at = (e) => { const r = box.getBoundingClientRect(), k = scale(); return { x: (e.clientX - r.left) * k, y: (e.clientY - r.top) * k }; };
-    // que hay debajo del puntero
-    function zone(e) {
-      const g = S.geom, p = at(e);
-      // con el dedo la manija se agarra mas facil
-      const tol = e.pointerType === 'touch' ? 14 : 8;
-      const dv = g.divs.map((d) => ({ ...d, dd: Math.abs(p.y - d.y) })).filter((d) => d.dd <= tol).sort((a, b) => a.dd - b.dd)[0];
-      if (dv) return { mode: 'div', pane: dv.k };
-      if (p.y >= g.timeT) return { mode: 't' };
-      const osc = g.panes.find((q) => p.y >= q.t - 4 && p.y <= q.b + 4);
-      const axis = p.x > g.plotR + g.heatW;
-      if (osc) return { mode: axis ? 'oz' : 'x', pane: osc.k };
-      if (axis) return p.y <= g.priceB ? { mode: 'y' } : { mode: 'x' };
-      return { mode: p.y <= g.priceB ? 'xy' : 'x' };
-    }
-    const CURSOR = { div: 'row-resize', t: 'ew-resize', y: 'ns-resize', oz: 'ns-resize', x: 'grab', xy: 'grab' };
-    box.addEventListener('wheel', (e) => {
-      if (!S.geom) return;
-      e.preventDefault();
-      const z = zone(e), f = e.deltaY > 0 ? 1.12 : 1 / 1.12;
-      if (z.mode === 'y') S.yzoom = clampY(S.yzoom * f);
-      else if (z.mode === 'oz') S.oscZ[z.pane] = clampZ(S.oscZ[z.pane] / f);
-      else S.nbars = clampN(S.nbars * (e.deltaY > 0 ? 1.15 : 1 / 1.15));
-      redrawChart();
-    }, { passive: false });
-    box.addEventListener('pointerenter', () => { S.hover = true; });
-    box.addEventListener('pointerleave', (e) => {
-      S.hover = false;
-      if (!drag) box.style.cursor = '';
-      // en el telefono el detalle queda a la vista despues de tocar; con el mouse se va al salir
-      if (e.pointerType === 'mouse' && !drag) { S.lastPt = null; if (S.pointAt) S.pointAt(null); }
-    });
-    const touches = new Map();
-    let pinch = null;
-    const spreads = () => { const [a, b] = [...touches.values()]; return { x: Math.abs(a.x - b.x), y: Math.abs(a.y - b.y) }; };
-    box.addEventListener('pointerdown', (e) => {
-      if (e.pointerType === 'touch') {
-        touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
-        if (touches.size === 2) { drag = null; pinch = { d: spreads(), n: S.nbars, yz: S.yzoom }; return; }
-      }
-      if (!S.geom || e.button !== 0) return;
-      S.lastPt = at(e); if (S.pointAt) S.pointAt(S.lastPt);   // tocar o hacer clic muestra el detalle de esa vela
-      const z = zone(e);
-      if (z.mode === 'div') { if (!S.ph) S.ph = { ...S.geom.ph }; S.dragDiv = z.pane; redrawChart(); }
-      drag = { ...z, x: e.clientX, y: e.clientY, off: S.offset, yz: S.yzoom, yp: S.ypan, n: S.nbars,
-        pv: z.mode === 'oz' ? S.oscZ[z.pane] : z.mode === 'div' ? S.ph[z.pane] : null };
-      try { box.setPointerCapture(e.pointerId); } catch (err) { /* puntero que ya se solto */ }
-      box.classList.add('is-panning');
-      box.style.cursor = drag.mode === 'x' || drag.mode === 'xy' ? 'grabbing' : CURSOR[drag.mode];
-    });
-    box.addEventListener('pointermove', (e) => {
-      if (touches.has(e.pointerId)) touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (pinch && touches.size === 2) {
-        // pellizcar de costado cambia las velas que entran; de arriba a abajo, el rango de precios
-        const d = spreads();
-        if (pinch.d.x > 30) S.nbars = clampN(pinch.n * pinch.d.x / Math.max(10, d.x));
-        if (pinch.d.y > 30) S.yzoom = clampY(pinch.yz * pinch.d.y / Math.max(10, d.y));
-        redrawChart(); return;
-      }
-      if (!S.geom) return;
-      S.lastPt = at(e);
-      if (!drag) {
-        if (e.pointerType === 'mouse') {
-          const z = zone(e);
-          box.style.cursor = CURSOR[z.mode];
-          box.querySelectorAll('.ab-sep-g').forEach((n) => n.classList.toggle('is-hot', z.mode === 'div' && n.dataset.k === z.pane));
-        }
-        if (S.pointAt) S.pointAt(S.lastPt); return;
-      }
-      const k = scale(), dx = (e.clientX - drag.x) * k, dy = (e.clientY - drag.y) * k, g = S.geom;
-      if (drag.mode === 'x' || drag.mode === 'xy') S.offset = drag.off + dx / g.step;
-      if (drag.mode === 'xy') S.ypan = drag.yp + dy / Math.max(40, g.priceB - g.priceT) * S.yzoom;
-      if (drag.mode === 'y') S.yzoom = clampY(drag.yz * Math.exp(dy * 0.006));
-      if (drag.mode === 't') S.nbars = clampN(drag.n * Math.exp(-dx * 0.006));
-      if (drag.mode === 'oz') S.oscZ[drag.pane] = clampZ(drag.pv * Math.exp(-dy * 0.01));
-      if (drag.mode === 'div') S.ph[drag.pane] = clampH(drag.pane, drag.pv + dy);
-      redrawChart();
-    });
-    const stop = (e) => {
-      touches.delete(e.pointerId); if (touches.size < 2) pinch = null;
-      const wasDiv = S.dragDiv;
-      drag = null; S.dragDiv = null; box.classList.remove('is-panning', 'is-scaling'); box.style.cursor = '';
-      if (wasDiv) redrawChart();
-    };
-    box.addEventListener('pointerup', stop);
-    box.addEventListener('pointercancel', stop);
-    const fit = () => { S.nbars = defBars(); S.offset = 0; S.yzoom = 1; S.ypan = 0; S.oscZ = { rsi: 1, macd: 1 }; redrawChart(); };
-    // doble clic (o doble toque) segun donde se haga, como en TradingView:
-    // eje de horas -> velas y desplazamiento de todos los paneles; eje de precios -> solo el rango del precio;
-    // eje de RSI o MACD -> solo ese indicador; borde de un panel -> altos originales; resto del grafico -> todo
-    function resetAt(e) {
-      if (!S.geom) return;
-      const z = zone(e);
-      if (z.mode === 'div') S.ph = null;
-      else if (z.mode === 't') { S.nbars = defBars(); S.offset = 0; }
-      else if (z.mode === 'y') { S.yzoom = 1; S.ypan = 0; }
-      else if (z.mode === 'oz') S.oscZ[z.pane] = 1;
-      else { fit(); return; }
-      redrawChart();
-    }
-    let lastTap = null, lastTouchAt = 0;
-    box.addEventListener('pointerdown', (e) => {
-      if (e.pointerType !== 'touch') return;
-      lastTouchAt = Date.now();
-      const tap = { t: Date.now(), x: e.clientX, y: e.clientY };
-      if (lastTap && tap.t - lastTap.t < 320 && Math.hypot(tap.x - lastTap.x, tap.y - lastTap.y) < 30) {
-        lastTap = null; drag = null; resetAt(e);
-      } else lastTap = tap;
-    });
-    // en el telefono el doble toque lo maneja lo de arriba; el dblclick del navegador se ignora para no repetir
-    box.addEventListener('dblclick', (e) => { if (Date.now() - lastTouchAt > 700) resetAt(e); });
-    document.getElementById('fit').addEventListener('click', fit);
-    document.querySelectorAll('[data-zoom]').forEach((b) => b.addEventListener('click', () => {
-      S.nbars = clampN(S.nbars * (b.dataset.zoom === 'out' ? 1.4 : 1 / 1.4)); redrawChart(); }));
-    document.querySelectorAll('[data-yzoom]').forEach((b) => b.addEventListener('click', () => {
-      S.yzoom = clampY(S.yzoom * (b.dataset.yzoom === 'out' ? 1.5 : 1 / 1.5)); redrawChart(); }));
-  })();
+  // botones de zoom: los gestos (arrastrar, pellizcar, estirar ejes, alto de paneles) los maneja el motor del grafico
+  const defRange = () => {
+    if (!G.chart || !G.d) return;
+    const total = G.d.all.length + G.d.futN, nb = Math.min(total, defBars());
+    G.chart.timeScale().setVisibleLogicalRange({ from: total - nb, to: total + 1 });
+    G.chart.priceScale('right').applyOptions({ autoScale: true });
+  };
+  document.querySelectorAll('[data-zoom]').forEach((b) => b.addEventListener('click', () => {
+    if (!G.chart) return;
+    const ts = G.chart.timeScale(), r = ts.getVisibleLogicalRange(); if (!r) return;
+    const len = Math.max(12, Math.min(600, (r.to - r.from) * (b.dataset.zoom === 'out' ? 1.4 : 1 / 1.4)));
+    ts.setVisibleLogicalRange({ from: r.to - len, to: r.to });
+  }));
+  document.getElementById('fit').addEventListener('click', defRange);
 
   document.querySelectorAll('.ab-more').forEach((d) => d.addEventListener('toggle', () => { if (d.open && S.rows) draw(); }));
 
@@ -1016,7 +897,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
         document.title = `${fp(liveBar.c)} · ${MON()}`;
       }
       document.getElementById('live-state').textContent = ` · ● en vivo · análisis #${f0(window.abAnalyses || 1)} · ${f0(ticks)} ticks`;
-      if (ticks % 10 === 0 && S.rows && !S.hover) drawChart(S.rows, S.sum);
+      liveTick();
     };
     sock.onclose = () => { if (ws === sock) { wsTf = null; setTimeout(connectLive, 3000); } };
   }
@@ -1031,7 +912,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       entries.forEach((e) => {
         const w = Math.round(e.contentRect.width), h = Math.round(e.contentRect.height), prev = seen.get(e.target);
         const isChart = e.target.id === 'chart';
-        if (prev && (Math.abs(prev.w - w) > 2 || (isChart && !S.ph && Math.abs(prev.h - h) > 2))) changed = true;
+        if (prev && !isChart && Math.abs(prev.w - w) > 2) changed = true;
         seen.set(e.target, { w, h });
       });
       if (changed) { clearTimeout(t); t = setTimeout(() => { if (S.rows) draw(); }, 120); }
@@ -1039,7 +920,6 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     document.querySelectorAll('#analista .ab-card, #analista .ab-more, #chart').forEach((n) => ro.observe(n));
   })();
 
-  dash.onData(draw);
 
   // la cripto que se analiza (la version JS puede elegir ZEC) y precio con los decimales que hacen falta
   function MON() { return window.abMoneda || 'BTC'; }
@@ -1158,12 +1038,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 
   function focusEx(key) {
     S.focus = key;
-    const svg = document.querySelector('#chart svg'); if (!svg) return;
-    svg.classList.toggle('is-focus', !!key);
-    svg.querySelectorAll('[data-ex]').forEach((n) => n.classList.toggle('ex-on', n.getAttribute('data-ex') === key));
-    // las velas que forman esa marca quedan encendidas
-    const set = key && S.exCandles ? S.exCandles[key] : null;
-    svg.querySelectorAll('.ab-candle').forEach((n) => n.classList.toggle('ex-c', !!set && set.has(Number(n.getAttribute('data-t')))));
+    applyFocus();          // en el grafico: lo señalado y sus velas quedan encendidos, el resto se apaga
     document.querySelectorAll('#legend [data-ex]').forEach((n) => n.classList.toggle('is-on', n.dataset.ex === key));
   }
 
@@ -1363,617 +1238,570 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     });
   }
 
-  // ---------- grafico ----------
+  // ---------- grafico: el motor de TradingView (Lightweight Charts) con todas nuestras marcas encima ----------
+  // El grafico se crea una vez y vive entre analisis: no pierde el zoom ni la posicion, y los ticks en vivo mueven
+  // la ultima vela al instante. Arrastrar, pellizcar, estirar los ejes y cambiar el alto de los paneles los hace el motor.
+  const LW = window.LightweightCharts;
+  const TZ = -3 * 3600;                                    // Argentina (sin horario de verano): el eje muestra la hora de aca
+  const T2 = (ms) => Math.round(ms / 1000) + TZ;
+  const G = { chart: null };
+  const cssv = (k) => getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+  function alpha(c, a) {
+    if (!c) return `rgba(128,128,128,${a})`;
+    if (c[0] === '#') {
+      const h = c.length === 4 ? c.slice(1).split('').map((x) => x + x).join('') : c.slice(1, 7);
+      return `rgba(${parseInt(h.slice(0, 2), 16)},${parseInt(h.slice(2, 4), 16)},${parseInt(h.slice(4, 6), 16)},${a})`;
+    }
+    const m = c.match(/[\d.]+/g);
+    return m && m.length >= 3 ? `rgba(${m[0]},${m[1]},${m[2]},${a})` : c;
+  }
+  function pal() {
+    const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return { dark, up: cssv('--color-ok'), dn: cssv('--color-bad'), warn: cssv('--color-warn'), fg: cssv('--color-fg'), mute: cssv('--color-fg-muted'),
+      panel: cssv('--color-panel'), line: cssv('--color-border-line'), grid: cssv('--cds-chart-grid'),
+      c0: dash.colors[0], c1: dash.colors[1], c2: dash.colors[2], font: cssv('--font-anthropic-sans') || 'system-ui, sans-serif',
+      lbl: dark ? '#363a45' : '#131722' };
+  }
+  const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+  const p2 = (v) => String(v).padStart(2, '0');
+  function fmtSec(s) {
+    const d = new Date(s * 1000), dd = `${p2(d.getUTCDate())}/${p2(d.getUTCMonth() + 1)}`;
+    return S.tf === '1d' ? `${DIAS[d.getUTCDay()]} ${dd}/${String(d.getUTCFullYear()).slice(2)}` : `${DIAS[d.getUTCDay()]} ${dd} ${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`;
+  }
+  // una capa de dibujo propia sobre el grafico (canvas, en pixeles de pantalla); opcionalmente con una etiqueta en el eje
+  class Capa {
+    constructor(fn, z, axis) {
+      this.fn = fn; this.z = z; this.axis = axis || null;
+      const self = this;
+      this.views = [{ zOrder: () => self.z, renderer: () => ({ draw: (target) => target.useMediaCoordinateSpace(({ context, mediaSize }) => {
+        try { self.fn(context, mediaSize.width, mediaSize.height); } catch (e) { console.warn('capa', e); }
+      }) }) }];
+    }
+    attached(p) { this.p = p; }
+    detached() { this.p = null; }
+    updateAllViews() {}
+    paneViews() { return this.views; }
+    priceAxisViews() { return this.axis ? [this.axis] : []; }
+    update() { if (this.p) this.p.requestUpdate(); }
+  }
+  // coordenadas: x de cualquier hora (tambien del futuro, donde todavia no hay velas) e y de un precio
+  const X = (t) => G.chart.timeScale().logicalToCoordinate((t - G.d.t0) / G.d.tfMs);
+  const Y = (p, s = G.c) => (p === null || p === undefined ? null : s.priceToCoordinate(p));
+  const dimA = (k) => (S.focus && S.focus !== k ? 0.12 : 1);
+  function pillC(ctx, x, y, text, col, solid, anchor, w) {
+    ctx.font = `600 10.5px ${G.P.font}`;
+    const tw = ctx.measureText(text).width + 14;
+    let x0 = anchor === 'end' ? x - tw : anchor === 'middle' ? x - tw / 2 : x;
+    x0 = Math.max(2, Math.min(x0, w - tw - 2));
+    ctx.beginPath(); ctx.roundRect(x0, y - 9, tw, 18, 9);
+    ctx.fillStyle = alpha(col, solid ? 0.22 : 0.12); ctx.fill();
+    ctx.setLineDash(solid ? [] : [3, 2]); ctx.strokeStyle = alpha(col, solid ? 0.9 : 0.6); ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = col; ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.fillText(text, x0 + 7, y + 0.5);
+  }
+  const colOf = (s) => (s === 'alcista' ? G.P.up : s === 'bajista' ? G.P.dn : G.P.warn);
+
+  // debajo de las velas: zona del futuro, hora del plazo, Bollinger, FVG y el cono de lo que suele pasar
+  function drawUnder(ctx, w, h) {
+    const d = G.d, P = G.P, L = S.layers;
+    if (!d) return;
+    const half = (X(d.lastT + d.tfMs) - X(d.lastT)) / 2 || 3;
+    if (L.bb && d.bb.length > 1) {
+      ctx.globalAlpha = dimA('bb'); ctx.beginPath();
+      d.bb.forEach((b, i) => { const x = X(b.t), y = Y(b.u); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+      for (let i = d.bb.length - 1; i >= 0; i--) ctx.lineTo(X(d.bb[i].t), Y(d.bb[i].l));
+      ctx.closePath(); ctx.fillStyle = alpha(P.fg, 0.035); ctx.fill(); ctx.globalAlpha = 1;
+    }
+    if (L.fvg) d.fvgs.forEach((z) => {
+      const x0 = X(z.t) - half, yt = Y(z.hi), yb = Y(z.lo);
+      if (x0 === null || yt === null || yb === null || x0 > w) return;
+      ctx.globalAlpha = dimA('fvg');
+      ctx.fillStyle = alpha(z.up ? P.up : P.dn, 0.09); ctx.fillRect(x0, yt, w - x0, Math.max(2, yb - yt));
+      ctx.fillStyle = alpha(z.up ? P.up : P.dn, 0.5); ctx.fillRect(x0, yt, 1.5, Math.max(2, yb - yt));
+      ctx.globalAlpha = 1;
+    });
+    if (d.futN) {
+      const xf = X(d.lastT) + half;
+      if (xf < w) {
+        ctx.globalAlpha = dimA('futuro');
+        const g = ctx.createLinearGradient(xf, 0, w, 0); g.addColorStop(0, alpha(P.fg, 0.05)); g.addColorStop(1, alpha(P.fg, 0.012));
+        ctx.fillStyle = g; ctx.fillRect(xf, 0, w - xf, h);
+        ctx.fillStyle = alpha(P.fg, 0.14); ctx.fillRect(xf, 0, 1, h);
+        ctx.font = `600 10px ${P.font}`;
+        const txt = [`Futuro posible · ${SCEN_TXT[S.scen]}`, 'Futuro posible', 'Futuro'].find((s) => xf + ctx.measureText(s).width + 22 < w);
+        if (txt) {
+          const tw = ctx.measureText(txt).width + 14;
+          // abajo, sobre el volumen: arriba esta la leyenda de la vela
+          ctx.beginPath(); ctx.roundRect(xf + 6, h - 24, tw, 18, 9); ctx.fillStyle = alpha(P.fg, 0.08); ctx.fill();
+          ctx.fillStyle = P.mute; ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.fillText(txt.toUpperCase(), xf + 13, h - 14.5);
+        }
+        if (d.pz) {
+          const xx = X(d.pz.t) - half;
+          if (xx > xf && xx < w) {
+            ctx.setLineDash([2, 4]); ctx.strokeStyle = alpha(P.fg, 0.45); ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(xx, 0); ctx.lineTo(xx, h - 30); ctx.stroke(); ctx.setLineDash([]);
+            ctx.font = `600 10px ${P.font}`; ctx.fillStyle = P.mute; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+            ctx.fillText(d.pz.txt.toUpperCase(), xx - 4, h - 32);
+          }
+        }
+        // el cono: donde termino el 80% de los casos parecidos, y la linea del medio
+        if (d.cone.length) {
+          const pts = [{ t: d.lastT, lo: d.lastC, hi: d.lastC, mid: d.lastC }].concat(d.cone);
+          const g2 = ctx.createLinearGradient(xf, 0, w, 0); g2.addColorStop(0, alpha(P.fg, 0.16)); g2.addColorStop(1, alpha(P.fg, 0.05));
+          ctx.beginPath();
+          pts.forEach((c, i) => { const x = X(c.t), y = Y(c.hi); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+          for (let i = pts.length - 1; i >= 0; i--) ctx.lineTo(X(pts[i].t), Y(pts[i].lo));
+          ctx.closePath(); ctx.fillStyle = g2; ctx.fill();
+          ctx.setLineDash([4, 4]); ctx.strokeStyle = alpha(P.fg, 0.45); ctx.lineWidth = 1.2; ctx.beginPath();
+          pts.forEach((c, i) => { const x = X(c.t), y = Y(c.mid); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+          ctx.stroke(); ctx.setLineDash([]);
+        }
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+
+  // encima de las velas: figuras, divergencias, ondas de Elliott y el mapa de liquidaciones al costado
+  function drawOver(ctx, w, h) {
+    const d = G.d, P = G.P, L = S.layers;
+    if (!d) return;
+    const narrow = w < 480;
+    if (L.patrones) {
+      d.figs.forEach((p) => {
+        const col = colOf(p.sesgo), conf = p.estado === 'confirmado', key = `pat-grafico-${p.nombre}`;
+        ctx.globalAlpha = dimA(key);
+        let label = null;
+        [1, 2].forEach((k) => {
+          const t0 = num(p[`l${k}_t`]); if (t0 === null) return;
+          const p0 = num(p[`l${k}_p`]), mm = num(p[`l${k}_m`]), val = (t) => p0 + mm * (t - t0);
+          const ta = Math.max(t0, d.firstT), te = d.endT;
+          ctx.setLineDash(conf ? [] : [6, 4]); ctx.strokeStyle = col; ctx.lineWidth = conf ? 2 : 1.4;
+          ctx.beginPath(); ctx.moveTo(X(ta), Y(val(ta))); ctx.lineTo(X(te), Y(val(te))); ctx.stroke(); ctx.setLineDash([]);
+          const name = p[`l${k}_nombre`] || '', now = val(d.lastT), yn = Y(now);
+          const when = name === 'Cuello' && !conf ? (p.sesgo === 'alcista' ? ' · se confirma si lo supera' : ' · se confirma si lo pierde') : '';
+          if (!narrow && yn !== null && yn > 10 && yn < h - 10) pillC(ctx, X(d.lastT) - 10, yn + (name === 'Piso' ? 14 : -14), `${name} ${f0(now)}${when}`, col, false, 'end', w);
+          if (!label) label = { x: X(ta) + 4, y: Y(val(ta)) + (name === 'Piso' ? 16 : -16) };
+        });
+        let first = null;
+        [1, 2, 3, 4, 5].forEach((k) => {
+          const t0 = num(p[`pt${k}_t`]); if (t0 === null) return;
+          const b = d.byT.get(t0); if (!b) return;
+          const pv = num(p[`pt${k}_p`]), below = Math.abs(pv - b.l) < Math.abs(pv - b.h), x = X(t0), y = Y(pv);
+          ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fillStyle = P.panel; ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
+          ctx.font = `600 10.5px ${P.font}`; ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(p[`pt${k}_nombre`] || '', x, y + (below ? 15 : -13));
+          if (!first) first = { x, y: y + (below ? 32 : -30) };
+        });
+        const head = first || label;
+        const pn = narrow && p.nombre.length > 22 ? `${p.nombre.slice(0, 21).trim()}…` : p.nombre;
+        if (head) pillC(ctx, head.x, Math.max(narrow ? 66 : 50, Math.min(h - 12, head.y)), conf ? `✓ ${pn}` : `Posible ${pn.slice(0, 1).toLowerCase()}${pn.slice(1)}`, col, conf, first ? 'middle' : 'start', w);
+        ctx.globalAlpha = 1;
+      });
+      d.divs.forEach((v) => {
+        const col = v.tipo === 'alcista' ? P.up : P.dn, off = v.tipo === 'bajista' ? -9 : 9;
+        const x1 = X(v.t1), y1 = Y(v.p1), x2 = X(v.t2), y2 = Y(v.p2);
+        if (y1 === null || y2 === null) return;
+        ctx.globalAlpha = dimA(v.key);
+        ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(x1, y1 + off); ctx.lineTo(x2, y2 + off); ctx.stroke();
+        [[x1, y1], [x2, y2]].forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y + off, 3, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill(); });
+        pillC(ctx, (x1 + x2) / 2, (y1 + y2) / 2 + off + (v.tipo === 'bajista' ? -14 : 14), narrow ? `Div. ${v.tipo}` : `Div. ${v.tipo} · ${v.names.join(' + ')}`, col, true, 'middle', w);
+        ctx.globalAlpha = 1;
+      });
+    }
+    if (L.ondas && d.giros.length) {
+      ctx.globalAlpha = dimA('ondas');
+      ctx.setLineDash([1, 4]); ctx.lineCap = 'round'; ctx.strokeStyle = alpha(P.fg, 0.4); ctx.lineWidth = 1.2; ctx.beginPath();
+      d.giros.forEach((g, i) => { const x = X(g.t), y = Y(g.p); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+      ctx.stroke(); ctx.setLineDash([]);
+      const circle = (x, y, txt, dashed) => {
+        ctx.beginPath(); ctx.arc(x, y, 7.5, 0, Math.PI * 2); ctx.fillStyle = P.panel; ctx.fill();
+        ctx.setLineDash(dashed ? [2.5, 2] : []); ctx.strokeStyle = alpha(P.fg, 0.6); ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
+        ctx.font = `700 9px ${P.font}`; ctx.fillStyle = P.fg; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, x, y + 0.5);
+      };
+      const lastG = d.giros[d.giros.length - 1];
+      d.giros.filter((g) => g.w).forEach((g) => circle(X(g.t), Math.max(12, Math.min(h - 12, Y(g.p) + (g.alto ? -13 : 13))), g.w, d.ondaCur && g === lastG && g.w === d.ondaCur));
+      if (d.ondaCur && lastG && lastG.w && lastG.w !== d.ondaCur && d.live) {
+        const x1 = X(d.lastT + Math.min(Math.max(d.futN, 3), 8) * d.tfMs), y1 = d.ondaObj === null ? Y(d.price) : Math.max(12, Math.min(h - 12, Y(d.ondaObj)));
+        ctx.setLineDash([4, 4]); ctx.strokeStyle = alpha(P.fg, 0.5); ctx.lineWidth = 1.2; ctx.beginPath();
+        ctx.moveTo(X(lastG.t), Y(lastG.p)); ctx.lineTo(X(d.lastT), Y(d.price)); ctx.lineTo(x1, y1); ctx.stroke(); ctx.setLineDash([]);
+        circle(x1, y1, d.ondaCur, true);
+      }
+      ctx.globalAlpha = 1;
+    }
+    // liquidaciones: barras horizontales pegadas al eje de precios (rojas: longs que se liquidan si baja; verdes: shorts si sube)
+    G.liqW = 0;
+    if (L.liq && d.liq.length) {
+      const lw = Math.min(narrow ? 46 : 80, w * 0.13), inR = d.liq.map((r) => ({ ...r, y: Y(r.p) })).filter((r) => r.y !== null && r.y > 0 && r.y < h);
+      const mx = Math.max(1, ...inR.map((r) => Math.max(r.l, r.s)));
+      const bh = Math.max(2, Math.abs(Y(d.price) - Y(d.price * 1.0025)) - 1);
+      G.liqW = lw;
+      ctx.globalAlpha = dimA('liq');
+      inR.forEach((r) => [[r.l, P.dn], [r.s, P.up]].forEach(([v, c]) => {
+        if (!(v > 0)) return;
+        const bw = Math.max(3, Math.sqrt(v / mx) * (lw - 6));
+        ctx.fillStyle = alpha(c, 0.12 + 0.55 * v / mx); ctx.fillRect(w - bw, r.y - bh / 2, bw, bh);
+      }));
+      ctx.font = `600 9.5px ${P.font}`; ctx.fillStyle = P.mute; ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+      ctx.fillText('LIQUID.', w - 3, narrow ? 54 : 40);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // en los paneles de RSI y MACD: la franja 30-70 y las divergencias marcadas tambien en el indicador
+  function drawOsc(name, s) {
+    return (ctx, w) => {
+      const d = G.d, P = G.P; if (!d) return;
+      if (name === 'RSI') {
+        const a = Y(70, s), b = Y(30, s);
+        if (a !== null && b !== null) { ctx.fillStyle = alpha(P.c2, 0.06); ctx.fillRect(0, a, w, b - a); }
+      }
+      if (!S.layers.patrones) return;
+      d.divs.forEach((v) => {
+        const z = v.ind[name]; if (!z) return;
+        const col = v.tipo === 'alcista' ? P.up : P.dn, x1 = X(z.t1), x2 = X(z.t2), y1 = Y(z.v1, s), y2 = Y(z.v2, s);
+        if (y1 === null || y2 === null) return;
+        ctx.globalAlpha = dimA(v.key); ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        [[x1, y1], [x2, y2]].forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill(); });
+        ctx.globalAlpha = 1;
+      });
+    };
+  }
+
+  function buildChart(box, P) {
+    if (G.chart) { try { G.chart.remove(); } catch (e) { /* ya no estaba */ } }
+    clearInterval(G.cdTimer);
+    box.replaceChildren();
+    const narrow = box.clientWidth < 520;
+    const cross = { color: alpha(P.mute, 0.7), width: 1, style: LW.LineStyle.Dashed, labelBackgroundColor: P.lbl };
+    const chart = LW.createChart(box, {
+      autoSize: true,
+      layout: { background: { type: 'solid', color: P.panel }, textColor: P.mute, fontFamily: P.font, fontSize: 11,
+        panes: { separatorColor: P.line, separatorHoverColor: alpha(P.fg, 0.12), enableResize: true } },
+      grid: { vertLines: { color: P.grid }, horzLines: { color: P.grid } },
+      crosshair: { mode: LW.CrosshairMode.Normal, vertLine: cross, horzLine: cross },
+      rightPriceScale: { borderVisible: false, scaleMargins: { top: narrow ? 0.17 : 0.11, bottom: 0.2 }, minimumWidth: narrow ? 58 : 70 },
+      timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 4, barSpacing: narrow ? 6 : 8, minBarSpacing: 1,
+        shiftVisibleRangeOnNewBar: true },
+      localization: { locale: 'es-AR', timeFormatter: (t) => fmtSec(t) },
+      handleScroll: { vertTouchDrag: !!S.fs }, kineticScroll: { touch: true, mouse: false },
+    });
+    const quiet = { lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false };
+    G.bbU = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.01 }, ...quiet, color: alpha(P.mute, 0.4), lineWidth: 1 });
+    G.bbL = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.01 }, ...quiet, color: alpha(P.mute, 0.4), lineWidth: 1 });
+    G.vol = chart.addSeries(LW.HistogramSeries, { ...quiet, priceScaleId: 'vol', priceFormat: { type: 'volume' } });
+    chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.84, bottom: 0 }, visible: false });
+    G.e20 = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.01 }, ...quiet, color: P.c0, lineWidth: 1 });
+    G.e50 = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.01 }, ...quiet, color: P.c1, lineWidth: 1 });
+    G.ghost = chart.addSeries(LW.CandlestickSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.01 }, ...quiet, upColor: alpha(P.up, 0.25), downColor: alpha(P.dn, 0.25), borderVisible: true,
+      borderUpColor: alpha(P.up, 0.85), borderDownColor: alpha(P.dn, 0.85), wickUpColor: alpha(P.up, 0.6), wickDownColor: alpha(P.dn, 0.6) });
+    G.c = chart.addSeries(LW.CandlestickSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.01 }, upColor: P.up, downColor: P.dn, borderVisible: false, wickUpColor: P.up, wickDownColor: P.dn,
+      priceLineStyle: LW.LineStyle.Dotted, priceLineWidth: 1 });
+    G.markers = LW.createSeriesMarkers(G.c, []);
+    G.under = new Capa(drawUnder, 'bottom');
+    // cuanto falta para que cierre la vela, debajo de la etiqueta del precio (como en TradingView)
+    G.cd = '';
+    G.over = new Capa(drawOver, 'top', {
+      coordinate: () => { const y = G.d ? Y(G.d.price) : null; return y === null ? -100 : y + 19; },
+      text: () => G.cd, textColor: () => '#ffffff', backColor: () => (G.d ? G.d.nowCol : P.mute), visible: () => !!G.cd && !!G.d && G.d.live,
+      tickVisible: () => false,
+    });
+    G.c.attachPrimitive(G.under); G.c.attachPrimitive(G.over);
+    G.rsi = G.hist = G.macd = G.sig = null;
+    if (S.layers.osc) {
+      G.rsi = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => f1(v), minMove: 0.1 }, color: P.c2, lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false,
+        autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }) }, 1);
+      [70, 30].forEach((v) => G.rsi.createPriceLine({ price: v, color: alpha(P.mute, 0.5), lineWidth: 1, lineStyle: LW.LineStyle.Dashed, axisLabelVisible: false }));
+      G.rsi.attachPrimitive(new Capa(drawOsc('RSI', G.rsi), 'bottom'));
+      G.hist = chart.addSeries(LW.HistogramSeries, { priceFormat: { type: 'custom', formatter: (v) => (Math.abs(v) >= 100 ? f0(v) : f1(v)), minMove: 0.1 }, ...quiet }, 2);
+      G.macd = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => (Math.abs(v) >= 100 ? f0(v) : f1(v)), minMove: 0.1 }, color: P.c0, lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false }, 2);
+      G.sig = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => (Math.abs(v) >= 100 ? f0(v) : f1(v)), minMove: 0.1 }, color: P.c1, lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false }, 2);
+      G.macd.attachPrimitive(new Capa(drawOsc('MACD', G.macd), 'top'));
+      const pn = chart.panes(); pn[0].setStretchFactor(3.2); pn[1].setStretchFactor(1); pn[2].setStretchFactor(1);
+    }
+    // leyendas arriba a la izquierda de cada panel, como en TradingView
+    G.leg = el('div', 'ab-ohlc'); G.legO = []; box.append(G.leg);
+    if (S.layers.osc) ['rsi', 'macd'].forEach(() => { const e = el('div', 'ab-ohlc ab-ohlc-pane'); box.append(e); G.legO.push(e); });
+    G.tip = el('div', 'ab-tip'); G.tip.hidden = true; box.append(G.tip);
+    chart.subscribeCrosshairMove(onCross);
+    chart.timeScale().subscribeVisibleLogicalRangeChange((r) => {
+      if (r) document.getElementById('zoom-info').textContent = `${Math.max(1, Math.round(r.to - r.from))} velas`;
+    });
+    G.cdTimer = setInterval(() => {
+      if (!G.d || !G.d.live) return;
+      const left = Math.max(0, Math.round((G.d.closeAt - Date.now()) / 1000));
+      const hh = Math.floor(left / 3600), mi = Math.floor((left % 3600) / 60), se = left % 60;
+      G.cd = hh >= 24 ? `${Math.floor(hh / 24)} d ${hh % 24} h` : hh ? `${hh}:${p2(mi)}:${p2(se)}` : `${p2(mi)}:${p2(se)}`;
+      G.over.update();
+    }, 1000);
+    Object.assign(G, { chart, box, P, tf: null, anim: null });
+  }
+
+  // leyenda de la vela bajo la mira (sin mira: la ultima), con medias, volumen, RSI y MACD
+  function legend(i) {
+    const d = G.d; if (!d) return;
+    let b = null, fut = false;
+    if (i !== null && i !== undefined && i >= 0) {
+      if (i < d.all.length) b = d.all[i];
+      else { const k = i - d.lastIdx; b = d.ghosts.find((g) => g.k === k) || null; fut = !!b; }
+    }
+    if (!b) b = d.all[d.all.length - 1];
+    const P = G.P, col = b.c >= b.o ? P.up : P.dn;
+    const kv = (k, v, c) => { const sp = el('span'); const bb = el('b', '', v); bb.style.color = c || col; sp.append(k, bb); return sp; };
+    const row1 = el('div', 'ab-ohlc-r');
+    const head = fut ? `Futura ${b.k} · ${SCEN_TXT[S.scen]}` : `${MON()}USDT · ${TF_TXT[S.tf]}`;
+    row1.append(el('span', 'ab-ohlc-t', head));
+    const ch = el('b', '', sg((b.c / b.o - 1) * 100)); ch.style.color = col;
+    if (d.narrow) row1.append(kv('C', f0(b.c)), ch);
+    else row1.append(kv('A', f0(b.o)), kv('Máx', f0(b.h)), kv('Mín', f0(b.l)), kv('C', f0(b.c)), ch);
+    const rows = [row1];
+    if (d.narrow && !fut) { const r = el('div', 'ab-ohlc-r'); r.append(kv('Máx', f0(b.h)), kv('Mín', f0(b.l))); rows.push(r); }
+    if (!fut) {
+      const r2 = el('div', 'ab-ohlc-r');
+      if (S.layers.ema && b.e20 !== null) r2.append(kv('EMA 20 ', f0(b.e20), P.c0), kv('EMA 50 ', b.e50 === null ? '—' : f0(b.e50), P.c1));
+      r2.append(kv('Vol ', `${f1(b.v)}`, alpha(col, 1)));
+      rows.push(r2);
+    }
+    G.leg.replaceChildren(...rows);
+    if (G.legO.length) {
+      const ob = fut ? null : b.rsi !== null && b.rsi !== undefined ? b : d.lastOsc;
+      // arriba de cada panel: la suma de los altos de los paneles de arriba (y 1 px por cada separador)
+      const hgt = [0, 1, 2].map((k) => { try { return G.chart.paneSize(k).height; } catch (e) { return 0; } });
+      [1, 2].forEach((k, j) => {
+        const e = G.legO[j];
+        e.style.top = `${hgt.slice(0, k).reduce((a, b) => a + b, 0) + k + 5}px`;
+        if (k === 1) {
+          const rv = ob ? ob.rsi : null;
+          e.replaceChildren(el('span', 'ab-ohlc-t', 'RSI 14'), kv('', rv === null ? '—' : f1(rv), P.c2),
+            el('span', '', rv === null ? '' : rv >= 70 ? 'sobrecompra' : rv <= 30 ? 'sobreventa' : ''));
+        } else {
+          const fM = (v) => (v === null || v === undefined ? '—' : v === 0 ? '0' : Math.abs(v) >= 100 ? f0(v) : f1(v));
+          const parts = [el('span', 'ab-ohlc-t', 'MACD 12 26 9')];
+          if (ob) parts.push(kv('', fM(ob.macd), P.c0), kv('', fM(ob.sig), P.c1), kv('', fM(ob.hist), ob.hist >= 0 ? P.up : P.dn));
+          if (ob === d.lastOsc && d.cruce) parts.push(el('span', '', d.cruce));
+          e.replaceChildren(...parts);
+        }
+      });
+    }
+  }
+
+  function onCross(p) {
+    const d = G.d; if (!d) return;
+    G.hover = !!(p && p.point);
+    if (!p || !p.point || p.logical === undefined) { legend(null); G.tip.hidden = true; return; }
+    legend(Math.round(p.logical));
+    // sobre las barras de liquidaciones: cuantos USD se liquidan en ese precio
+    const pw = G.chart.paneSize(0).width;
+    if (S.layers.liq && G.liqW && (p.paneIndex === 0 || p.paneIndex === undefined) && p.point.x > pw - G.liqW) {
+      const pr = G.c.coordinateToPrice(p.point.y);
+      const r = pr === null ? null : d.liq.reduce((a, z) => (!a || Math.abs(z.p - pr) < Math.abs(a.p - pr) ? z : a), null);
+      if (r && Math.abs(r.p - pr) / pr < 0.004) {
+        const g = el('div', 'ab-tip-g');
+        g.append(el('span', 'ab-tip-d', 'Longs que se liquidan'), el('span', '', M(r.l)), el('span', 'ab-tip-d', 'Shorts que se liquidan'), el('span', '', M(r.s)));
+        G.tip.replaceChildren(el('div', 'ab-tip-d', `Si ${MON()} llega a ≈ ${f0(r.p)} (${sg((r.p / d.price - 1) * 100, 1)})`), g,
+          el('div', 'ab-tip-d', 'Estimación con open interest de la última semana'));
+        G.tip.hidden = false;
+        G.tip.style.left = `${Math.max(4, p.point.x - G.tip.offsetWidth - 14)}px`; G.tip.style.top = `${Math.max(4, p.point.y - 30)}px`;
+        return;
+      }
+    }
+    G.tip.hidden = true;
+  }
+
+  // el foco de "Que estas viendo": lo señalado queda encendido y el resto se apaga
+  function applyFocus() {
+    if (!G.chart || !G.d) return;
+    const k = S.focus, P = G.P, set = k && S.exCandles ? S.exCandles[k] : null;
+    const dim = (c, key) => (k && k !== key ? alpha(c, 0.15) : c);
+    if (k || G.wasFocus) {
+      G.c.setData(G.d.cdata.map((b) => (!k || (set && set.has(b.ms)) ? b.bar
+        : { ...b.bar, color: alpha(b.bar.close >= b.bar.open ? P.up : P.dn, 0.15), wickColor: alpha(b.bar.close >= b.bar.open ? P.up : P.dn, 0.15) })));
+      G.wasFocus = !!k;
+    }
+    G.e20.applyOptions({ color: dim(P.c0, 'ema') }); G.e50.applyOptions({ color: dim(P.c1, 'ema') });
+    G.bbU.applyOptions({ color: dim(alpha(P.mute, 0.4), 'bb') }); G.bbL.applyOptions({ color: dim(alpha(P.mute, 0.4), 'bb') });
+    G.ghost.applyOptions({ visible: !k || k === 'futuro' });
+    G.under.update(); G.over.update();
+  }
+
+  // un tick del WebSocket: mueve la ultima vela al instante, sin rehacer el grafico
+  function liveTick() {
+    if (!G.chart || !G.d || G.tf !== S.tf || !liveBar || liveBar.tf !== S.tf) return;
+    const t = T2(liveBar.t), d = G.d;
+    if (liveBar.t < d.all[d.all.length - 1].t) return;
+    try {
+      G.c.update({ time: t, open: liveBar.o, high: liveBar.h, low: liveBar.l, close: liveBar.c });
+      G.vol.update({ time: t, value: liveBar.v, color: alpha(liveBar.c >= liveBar.o ? G.P.up : G.P.dn, 0.3) });
+    } catch (e) { return; }
+    d.price = liveBar.c; d.nowCol = liveBar.c >= liveBar.o ? G.P.up : G.P.dn;
+    const last = d.all[d.all.length - 1];
+    if (liveBar.t === last.t) Object.assign(last, { h: liveBar.h, l: liveBar.l, c: liveBar.c, v: liveBar.v });
+    if (!G.hover) legend(null);
+  }
+
   function drawChart(rows, sum) {
     if (ghostTimer) { clearInterval(ghostTimer); ghostTimer = null; }
-    const box = document.getElementById('chart'); box.replaceChildren();
-    box.classList.toggle('ab-with-osc', !!S.layers.osc);   // con RSI y MACD el grafico crece para que el precio no quede chico
-    const tf = S.tf, price = liveBar && liveBar.tf === tf ? liveBar.c : num(sum.precio), L = S.layers;
+    const box = document.getElementById('chart');
+    if (!LW) { box.replaceChildren(); const f = el('div', 'ab-fail'); f.append(el('i'), 'No se pudo cargar el gráfico'); box.append(f); return; }
+    box.classList.toggle('ab-with-osc', !!S.layers.osc);
+    const P = pal(), L = S.layers, tf = S.tf, tfMs = TF_MIN[tf] * 60000;
+    const key = `${!!L.osc}|${P.panel}|${P.up}|${P.c0}`;
+    if (!G.chart || G.key !== key || G.box !== box || !box.firstChild) { buildChart(box, P); G.key = key; }
+    G.P = P;
+    G.chart.applyOptions({ handleScroll: { vertTouchDrag: !!S.fs } });
     const all = pick(rows, 'vela', tf).map((r) => ({ t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), v: num(r.v), en: !!r.en_curso,
       e20: num(r.ema20), e50: num(r.ema50), bu: num(r.bb_up), bl: num(r.bb_lo),
       rsi: num(r.rsi), macd: num(r.macd), sig: num(r.macd_senal), hist: num(r.macd_hist) })).sort((a, b) => a.t - b.t);
     if (!all.length) return;
+    const lastIdx = all.length - 1, lastA = all[lastIdx];         // la ultima vela del analisis: de ahi sale el futuro
     if (liveBar && liveBar.tf === tf) {
-      const last = all[all.length - 1];
-      if (liveBar.t === last.t) all[all.length - 1] = { ...last, h: liveBar.h, l: liveBar.l, c: liveBar.c, v: liveBar.v };
-      else if (liveBar.t > last.t) all.push({ ...liveBar, e20: null, e50: null, bu: null, bl: null, rsi: null, macd: null, sig: null, hist: null });
+      if (liveBar.t === lastA.t) all[lastIdx] = { ...lastA, h: liveBar.h, l: liveBar.l, c: liveBar.c, v: liveBar.v };
+      else if (liveBar.t > lastA.t) all.push({ ...liveBar, e20: null, e50: null, bu: null, bl: null, rsi: null, macd: null, sig: null, hist: null });
     }
-    // el futuro posible es parte de la serie: al arrastrar se corre como cualquier vela, no desaparece de golpe
-    const ghostsAll = pick(rows, 'escenario', tf).filter((r) => r.escenario === S.scen)
-      .map((r) => ({ k: num(r.paso), t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), desde: r.desde })).sort((a, b) => a.k - b.k);
-    const coneAll = pick(rows, 'cono', tf).map((r) => ({ k: num(r.paso), lo: num(r.p10), mid: num(r.p50), hi: num(r.p90) })).sort((a, b) => a.k - b.k);
-    const futN = Math.max(ghostsAll.length, coneAll.length), total = all.length + futN;
-    const nb = Math.max(20, Math.min(total, Math.round(S.nbars)));
-    S.offset = Math.max(0, Math.min(total - nb, S.offset));
-    const end = total - Math.round(S.offset), bars = all.slice(end - nb, Math.min(end, all.length));
-    const shown = Math.max(0, end - all.length);                  // velas del futuro que entran en la vista
-    const ghosts = ghostsAll.filter((g) => g.k <= shown), cone = coneAll.filter((c) => c.k <= shown);
-    const live = end >= all.length;                               // la ultima vela real esta a la vista
-    document.getElementById('zoom-info').textContent = `${nb} velas`;
-    const fvgs = pick(rows, 'fvg', tf).map((r) => ({ up: r.tipo === 'alcista', t: num(r.t), lo: num(r.bajo), hi: num(r.alto) }));
-    const giros = pick(rows, 'giro', tf).map((r) => ({ t: num(r.t), p: num(r.precio), w: r.onda, alto: r.tipo === 'alto' }));
+    const price = liveBar && liveBar.tf === tf ? liveBar.c : num(sum.precio);
+    const ghosts = pick(rows, 'escenario', tf).filter((r) => r.escenario === S.scen)
+      .map((r) => ({ k: num(r.paso), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), desde: r.desde })).sort((a, b) => a.k - b.k)
+      .map((g) => ({ ...g, t: lastA.t + g.k * tfMs }));
+    const cone = pick(rows, 'cono', tf).map((r) => ({ k: num(r.paso), lo: num(r.p10), mid: num(r.p50), hi: num(r.p90) })).sort((a, b) => a.k - b.k)
+      .map((c) => ({ ...c, t: lastA.t + c.k * tfMs }));
+    const futN = Math.max(ghosts.length, cone.length);
+    const fvgs = L.fvg ? pick(rows, 'fvg', tf).map((r) => ({ up: r.tipo === 'alcista', t: num(r.t), lo: num(r.bajo), hi: num(r.alto) })) : [];
+    const byT = new Map(all.map((b) => [b.t, b]));
+    const giros = pick(rows, 'giro', tf).map((r) => ({ t: num(r.t), p: num(r.precio), w: r.onda, alto: r.tipo === 'alto' })).filter((g) => byT.has(g.t));
     const liq = pick(rows, 'liquidacion').map((r) => ({ p: num(r.precio), l: num(r.longs), s: num(r.shorts) }));
-
-    const W = Math.max(300, box.clientWidth);
-    const steps = shown, n = bars.length + steps;
-    const narrow = W < 520;
-    const heatW = L.liq ? Math.min(narrow ? 44 : 78, W * .11) : 0, axW = narrow ? 54 : 66;
-    const m = { t: 36, b: 26, l: 2 }, gapP = 16;
-    const plotR = W - axW - heatW;
-    // de arriba a abajo: precio, volumen y, si estan prendidos, los paneles de RSI y MACD
-    // de arriba a abajo: precio, volumen, RSI y MACD. Cada uno se hace mas alto o mas bajo arrastrando su borde
-    // de abajo (como en TradingView) y el grafico entero crece o se achica con ellos
-    let H, ph;
-    if (S.ph) {
-      ph = S.ph;
-      if (S.fs) {
-        // en pantalla completa los altos elegidos se respetan en proporcion, para que todo entre en la pantalla
-        box.style.height = '';
-        const avail = Math.max(240, (box.clientHeight || 440) - 4), fixed = m.t + 8 + (L.osc ? 2 * gapP : 0) + m.b;
-        const panes = ph.price + ph.vol + (L.osc ? ph.rsi + ph.macd : 0), k = Math.max(0.2, (avail - fixed) / panes);
-        ph = { price: Math.round(ph.price * k), vol: Math.round(ph.vol * k), rsi: Math.round(ph.rsi * k), macd: Math.round(ph.macd * k) };
-      }
-      H = m.t + ph.price + 8 + ph.vol + (L.osc ? 2 * gapP + ph.rsi + ph.macd : 0) + m.b;
-      if (!S.fs) box.style.height = `${H + 4}px`;
-    } else {
-      box.style.height = '';
-      H = Math.max(280, (box.clientHeight || 440) - 4);
-      const oh = Math.round(H * .14), vh = Math.round(H * (L.osc ? .09 : .14));
-      ph = { vol: vh, rsi: oh, macd: oh, price: H - m.t - m.b - vh - 8 - (L.osc ? 2 * gapP + 2 * oh : 0) };
-    }
-    const priceB = m.t + ph.price, volH = ph.vol, volB = priceB + 8 + volH;
-    const rsiT = volB + gapP, rsiB = rsiT + (L.osc ? ph.rsi : 0), macdT = rsiB + gapP, macdB = macdT + (L.osc ? ph.macd : 0);
-    const x = d3.scaleBand(d3.range(n), [m.l, plotR]).paddingInner(.3);
-    const bw = x.bandwidth(), cxi = (i) => x(i) + bw / 2;
-    const vals = live ? [price] : [];
-    bars.forEach((b) => { vals.push(b.h, b.l); if (L.bb && b.bu !== null) vals.push(b.bu, b.bl); });
-    ghosts.forEach((g) => vals.push(g.h, g.l)); cone.forEach((c) => vals.push(c.lo, c.hi));
-    let [lo, hi] = d3.extent(vals); const pad = (hi - lo) * .06; lo -= pad; hi += pad;
-    { const mid = (lo + hi) / 2, half = (hi - lo) / 2 * S.yzoom; lo = mid - half; hi = mid + half; }   // eje comprimido o estirado
-    { const sh = (hi - lo) * S.ypan; lo += sh; hi += sh; }                                              // arrastrado hacia arriba o abajo
-    const y = d3.scaleLinear([lo, hi], [priceB, m.t]);
-    const yv = d3.scaleLinear([0, d3.max(bars, (b) => b.v) || 1], [volB, volB - volH]);
-
-    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img')
-      .attr('aria-label', `Velas de ${TF_TXT[tf]} con escenario ${SCEN_TXT[S.scen]}`);
-    const tip = el('div', 'ab-tip'); tip.hidden = true; box.append(tip);
-    const showTip = (parts, sx) => {
-      tip.replaceChildren(...parts); tip.hidden = false;
-      const px = sx / W * box.clientWidth;
-      tip.style.left = Math.max(4, px > box.clientWidth / 2 ? px - tip.offsetWidth - 14 : px + 14) + 'px'; tip.style.top = '10px';
-    };
-    const tfMs = TF_MIN[tf] * 60000;
-    const pill = (g, px, py, text, col, solid, anchor = 'start') => {
-      const gr = g.append('g').attr('class', 'ab-pill-svg');
-      const t = gr.append('text').attr('dy', '.34em').style('fill', col).text(text);
-      const w = t.node().getComputedTextLength() + 14;
-      let x0 = anchor === 'end' ? px - w : anchor === 'middle' ? px - w / 2 : px;
-      x0 = Math.max(m.l + 2, Math.min(x0, plotR - w - 2));
-      const y0 = Math.max(m.t + 2, Math.min(py, priceB - 10));
-      gr.insert('rect', 'text').attr('x', x0).attr('y', y0 - 9).attr('width', w).attr('height', 18).attr('rx', 9)
-        .style('fill', col).style('fill-opacity', solid ? .2 : .08).style('stroke', col).style('stroke-opacity', solid ? .9 : .55)
-        .style('stroke-dasharray', solid ? null : '3 2');
-      t.attr('x', x0 + 7).attr('y', y0);
-    };
-    const xt = (t) => cxi(0) + (t - bars[0].t) / tfMs * x.step();
-    const defs = svg.append('defs');
-    defs.append('clipPath').attr('id', 'ab-clip').append('rect').attr('x', m.l).attr('y', m.t - 16).attr('width', plotR - m.l).attr('height', priceB - m.t + 16);
-    const hatch = defs.append('pattern').attr('id', 'ab-hatch').attr('width', 7).attr('height', 7).attr('patternUnits', 'userSpaceOnUse').attr('patternTransform', 'rotate(45)');
-    hatch.append('line').attr('x1', 0).attr('y1', 0).attr('x2', 0).attr('y2', 7).style('stroke', 'var(--color-fg)').style('stroke-opacity', .06).style('stroke-width', 3);
-    const cg = defs.append('linearGradient').attr('id', 'ab-cone-g').attr('x1', 0).attr('x2', 1);
-    [[0, .16], [1, .05]].forEach(([o, a]) => cg.append('stop').attr('offset', o).style('stop-color', 'var(--color-fg)').style('stop-opacity', a));
-    const fg = defs.append('linearGradient').attr('id', 'ab-fut-g').attr('x1', 0).attr('x2', 1);
-    [[0, .045], [1, .015]].forEach(([o, a]) => fg.append('stop').attr('offset', o).style('stop-color', 'var(--color-fg)').style('stop-opacity', a));
-
-    const ticks = y.ticks(6);
-    svg.append('g').selectAll('line').data(ticks).join('line').attr('class', 'ab-gl').attr('x1', m.l).attr('x2', plotR + heatW).attr('y1', y).attr('y2', y);
-    svg.append('g').attr('class', 'ab-ax').selectAll('text').data(ticks).join('text').attr('x', W - 4).attr('y', y).attr('dy', '.32em').attr('text-anchor', 'end').text(f0);
-    // una marca cada ~80 px, en horas redondas; cuando cambia el dia se escribe el dia en negrita
-    const axT = bars.map((b) => b.t).concat(ghosts.map((g) => g.t));
-    const parts = (t) => {
-      const o = {}; new Intl.DateTimeFormat('es-AR', { ...tz, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
-        .formatToParts(new Date(Number(t))).forEach((q) => { o[q.type] = q.value; }); return o;
-    };
-    const every = Math.max(1, Math.ceil(80 / x.step()));
-    const NICE = { '5m': [12, 6, 3, 1], '15m': [16, 8, 4, 1], '30m': [16, 8, 4, 2], '1h': [24, 12, 6, 3], '4h': [6, 3, 1], '1d': [30, 14, 7, 1] }[tf] || [1];
-    const stride = NICE.slice().reverse().find((k) => k >= every) || every;
-    const marks = [];
-    let prevDay = null;
-    axT.forEach((t, i) => {
-      const q = parts(t), day = `${q.day}/${q.month}`;
-      const slot = Math.round(t / tfMs);
-      if (slot % stride !== 0 && !(tf !== '1d' && day !== prevDay && i > 0)) return;
-      const newDay = day !== prevDay;
-      prevDay = day;
-      const mk = { x: cxi(i), txt: tf === '1d' || newDay && i > 0 ? day : `${q.hour}:${q.minute}`, bold: newDay && i > 0 && tf !== '1d' };
-      if (mk.x < 22 || mk.x > plotR - 10) return;
-      // si dos marcas quedan pegadas, gana la del cambio de dia
-      const last = marks[marks.length - 1];
-      if (last && mk.x - last.x < 46) { if (mk.bold && !last.bold) marks[marks.length - 1] = mk; return; }
-      marks.push(mk);
+    const mk = pick(rows, 'marco', tf)[0];
+    const pzr = pick(rows, 'plazo').find((r) => r.plazo === S.plazo);
+    const dvg = {};
+    pick(rows, 'divergencia', tf).forEach((v) => {
+      const k = `${v.t1}-${v.t2}-${v.tipo}`;
+      const g = (dvg[k] = dvg[k] || { key: `div-${k}`, tipo: v.tipo, t1: num(v.t1), t2: num(v.t2), p1: num(v.p1), p2: num(v.p2), names: [], ind: {} });
+      g.names.push(v.indicador);
+      g.ind[v.indicador] = { t1: num(v.ti1 ?? v.t1), t2: num(v.ti2 ?? v.t2), v1: num(v.v1), v2: num(v.v2) };
     });
-    const axg = svg.append('g').attr('class', 'ab-ax');
-    // solo una linea vertical por cada cambio de dia: el resto de la grilla es horizontal y tenue
-    axg.selectAll('line').data(marks.filter((d) => d.bold)).join('line').attr('class', 'ab-gl').attr('x1', (d) => d.x).attr('x2', (d) => d.x).attr('y1', m.t).attr('y2', H - m.b).style('stroke-dasharray', '2 4');
-    axg.selectAll('text').data(marks).join('text').attr('x', (d) => d.x).attr('y', H - 8).attr('text-anchor', 'middle')
-      .style('font-weight', (d) => (d.bold ? 700 : null)).text((d) => d.txt);
-
-    // futuro
-    const fx = live && steps ? x(bars.length) - x.step() * .15 : plotR;   // sin escenarios no hay zona de futuro
-    if (live && steps) {
-      // la zona del futuro: un fondo apenas distinto y una linea fina donde empieza
-      svg.append('rect').attr('x', fx).attr('y', m.t - 16).attr('width', plotR - fx).attr('height', H - m.b - m.t + 16).style('fill', 'url(#ab-fut-g)');
-      svg.append('line').attr('x1', fx).attr('x2', fx).attr('y1', m.t - 16).attr('y2', H - m.b).style('stroke', 'var(--color-fg)').style('stroke-opacity', .12);
-      const fl = svg.append('g').attr('class', 'ab-fut-lbl');
-      // el texto mas largo que entre en la zona del futuro
-      const ft = fl.append('text').attr('x', fx + 12).attr('y', m.t - 8).attr('dy', '.34em');
-      const fit = [`Futuro posible · ${SCEN_TXT[S.scen]}`, 'Futuro posible', 'Futuro'].find((s) => { ft.text(s); return fx + ft.node().getComputedTextLength() + 20 <= plotR + heatW; });
-      if (!fit) ft.text('');
-      else fl.insert('rect', 'text').attr('x', fx + 5).attr('y', m.t - 17).attr('width', ft.node().getComputedTextLength() + 14).attr('height', 18).attr('rx', 9);
-      // la hora de la prediccion del plazo elegido, para leer el grafico y los numeros juntos
-      const pz = pick(rows, 'plazo').find((r) => r.plazo === S.plazo);
-      if (pz) {
-        const xx = xt(num(pz.t_hasta)) - x.step() / 2;
-        if (xx > fx && xx <= plotR) {
-          svg.append('line').attr('class', 'ab-plazo-mark').attr('x1', xx).attr('x2', xx).attr('y1', m.t + 6).attr('y2', priceB).style('stroke', 'var(--color-fg)').style('stroke-opacity', .4).style('stroke-dasharray', '2 4');
-          svg.append('text').attr('class', 'ab-future-lbl ab-plazo-mark').attr('x', Math.min(xx, plotR - 4)).attr('y', priceB - 6).attr('text-anchor', 'end').text(`${S.plazo} · ${pz.hora.slice(-5)} h`);
-        }
-      }
+    const live = true;
+    const lastOsc = [...all].reverse().find((b) => b.rsi !== null && b.macd !== null) || null;
+    const narrow = box.clientWidth < 520;
+    G.d = { all, lastIdx, t0: all[0].t, tfMs, lastT: lastA.t, lastC: lastA.c, firstT: all[0].t, endT: lastA.t + Math.max(futN, 1) * tfMs, price,
+      nowCol: price >= all[all.length - 1].o ? P.up : P.dn, closeAt: all[all.length - 1].t + tfMs, live, futN, ghosts, cone, fvgs, giros, liq, byT,
+      figs: L.patrones ? pick(rows, 'patron', tf).filter((p) => p.clase === 'grafico') : [], divs: Object.values(dvg),
+      bb: all.filter((b) => b.bu !== null).map((b) => ({ t: b.t, u: b.bu, l: b.bl })),
+      pz: pzr ? { t: num(pzr.t_hasta), txt: `${S.plazo} · ${pzr.hora.slice(-5)} h` } : null,
+      ondaCur: mk ? mk.elliott_curso : null, ondaObj: mk ? num(mk.elliott_objetivo) : null, lastOsc, narrow,
+      cruce: mk && mk.macd_cruce ? `cruzó ${mk.macd_cruce === 'alcista' ? 'al alza' : 'a la baja'}` : '' };
+    const d = G.d;
+    // datos de cada serie
+    const ts = G.chart.timeScale();
+    const keep = G.tf === tf ? ts.getVisibleLogicalRange() : null;
+    d.cdata = all.map((b) => ({ ms: b.t, bar: { time: T2(b.t), open: b.o, high: b.h, low: b.l, close: b.c } }));
+    G.c.setData(d.cdata.map((b) => b.bar));
+    G.vol.setData(all.map((b) => ({ time: T2(b.t), value: b.v, color: alpha(b.c >= b.o ? P.up : P.dn, 0.3) })));
+    const line = (k) => all.filter((b) => b[k] !== null).map((b) => ({ time: T2(b.t), value: b[k] }));
+    G.e20.setData(L.ema ? line('e20') : []); G.e50.setData(L.ema ? line('e50') : []);
+    G.bbU.setData(L.bb ? line('bu') : []); G.bbL.setData(L.bb ? line('bl') : []);
+    if (G.rsi) {
+      G.rsi.setData(line('rsi'));
+      G.hist.setData(all.filter((b) => b.hist !== null).map((b) => ({ time: T2(b.t), value: b.hist, color: alpha(b.hist >= 0 ? P.up : P.dn, 0.45) })));
+      G.macd.setData(line('macd')); G.sig.setData(line('sig'));
     }
-
-    defs.append('clipPath').attr('id', 'ab-pane').append('rect').attr('x', m.l).attr('y', m.t - 16).attr('width', plotR - m.l).attr('height', priceB - m.t + 16);
-    const pane = svg.append('g').attr('clip-path', 'url(#ab-pane)');
-    if (L.bb) {
-      const bb = bars.map((b, i) => ({ i, u: b.bu, l: b.bl })).filter((b) => b.u !== null);
-      pane.append('path').attr('class', 'ab-bb-area').attr('d', d3.area().x((d) => cxi(d.i)).y0((d) => y(d.l)).y1((d) => y(d.u))(bb)).style('fill', 'var(--color-fg)').style('fill-opacity', .04);
-      ['u', 'l'].forEach((k) => pane.append('path').attr('class', 'ab-bb').style('fill', 'none').attr('d', d3.line().x((d) => cxi(d.i)).y((d) => y(d[k]))(bb)));
+    // velas del escenario: aparecen una por una la primera vez (o con "Repetir"); el resto del tiempo quedan quietas
+    const fut = Array.from({ length: futN }, (_, j) => j + 1).map((k) => ({ k, time: T2(lastA.t + k * tfMs), g: ghosts.find((g) => g.k === k) }));
+    const showGhosts = (n) => G.ghost.setData(fut.map((f) => (f.g && f.k <= n ? { time: f.time, open: f.g.o, high: f.g.h, low: f.g.l, close: f.g.c } : { time: f.time })));
+    const animKey = `${tf}|${S.scen}|${ghostK}`;
+    if (reduce || !ghosts.length || G.anim === animKey) showGhosts(Infinity);
+    else {
+      G.anim = animKey; let n = 0; showGhosts(0);
+      ghostTimer = setInterval(() => { n += 1; showGhosts(n); if (n >= ghosts.length) { clearInterval(ghostTimer); ghostTimer = null; } }, 260);
     }
-    if (L.fvg) fvgs.forEach((z) => {
-      const i0 = bars.findIndex((b) => b.t >= z.t); if (i0 < 0) return;
-      const yt = y(Math.min(z.hi, hi)), yb = y(Math.max(z.lo, lo)); if (yb <= m.t || yt >= priceB) return;
-      pane.append('rect').attr('class', z.up ? 'ab-fvg-u' : 'ab-fvg-d').attr('x', x(i0)).attr('y', yt).attr('width', plotR - x(i0)).attr('height', Math.max(2, yb - yt));
-      pane.append('line').attr('class', z.up ? 'ab-fvg-edge-u' : 'ab-fvg-edge-d').attr('x1', x(i0)).attr('x2', x(i0)).attr('y1', yt).attr('y2', Math.max(yt + 2, yb));
-    });
+    // marcas de patrones de velas, como las flechitas de TradingView
+    const marks = L.patrones ? pick(rows, 'patron', tf).filter((p) => p.clase === 'vela' && byT.has(num(p.t))).map((p) => ({
+      time: T2(num(p.t)), position: p.sesgo === 'alcista' ? 'belowBar' : 'aboveBar', color: colOf(p.sesgo),
+      shape: p.sesgo === 'alcista' ? 'arrowUp' : p.sesgo === 'bajista' ? 'arrowDown' : 'circle',
+      text: narrow ? '' : `${p.nombre}${p.exito !== null ? ` · ${f0(num(p.exito))}%` : ''}` })).sort((a, b) => a.time - b.time) : [];
+    G.markers.setMarkers(marks);
+    // niveles: soporte y resistencia del plazo y objetivos de las figuras, como lineas de precio con su etiqueta en el eje
+    (G.plines || []).forEach((pl) => { try { G.c.removePriceLine(pl); } catch (e) { /* ya no estaba */ } });
+    G.plines = [];
     pick(rows, 'explicacion').filter((e) => e.plazo === S.plazo && e.tipo === 'vigilar' && e.precio !== null && e.precio !== undefined).forEach((e) => {
-      const v = num(e.precio); if (!(v > lo && v < hi)) return;
-      const col = e.sesgo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)';
-      pane.append('line').attr('class', 'ab-sr').attr('x1', m.l).attr('x2', plotR).attr('y1', y(v)).attr('y2', y(v)).style('stroke', col).style('stroke-width', 1)
-        .style('stroke-dasharray', '6 5').style('stroke-opacity', .7);
-      pane.append('text').attr('class', 'ab-pat-lbl ab-sr').style('fill', col).style('font-weight', 500).attr('x', m.l + 6).attr('y', y(v) + (e.sesgo === 'alcista' ? -5 : 13))
-        .text(narrow ? e.texto.replace(/\s*\(.*\)$/, '') : e.texto);
+      G.plines.push(G.c.createPriceLine({ price: num(e.precio), color: alpha(e.sesgo === 'alcista' ? P.up : P.dn, 0.8), lineWidth: 1, lineStyle: LW.LineStyle.Dashed,
+        axisLabelVisible: true, title: String(e.texto).replace(/\s*\d[\d.,]*.*$/, '') }));
     });
-    if (cone.length) {
-      const li = bars.length - 1, c0 = bars[li].c;
-      const pts = [{ i: li, lo: c0, hi: c0, mid: c0 }].concat(cone.map((c) => ({ i: li + c.k, ...c })));
-      pane.append('path').attr('class', 'ab-cone-area').attr('d', d3.area().curve(d3.curveMonotoneX).x((d) => cxi(d.i)).y0((d) => y(d.lo)).y1((d) => y(d.hi))(pts)).style('fill', 'url(#ab-cone-g)');
-      pane.append('path').attr('class', 'ab-median').attr('d', d3.line().curve(d3.curveMonotoneX).x((d) => cxi(d.i)).y((d) => y(d.mid))(pts));
-    }
-    // figuras del grafico y patrones de velas
-    if (L.patrones) {
-      const pg = svg.append('g').attr('clip-path', 'url(#ab-clip)');
-      const lastT = bars[bars.length - 1].t, endT = lastT + steps * tfMs;
-      pick(rows, 'patron', tf).forEach((p) => {
-        const exKey = `pat-${p.clase}-${p.nombre}`;
-        const g0 = pg.append('g').attr('data-ex', exKey), tg = svg.append('g').attr('data-ex', exKey);
-        const col = p.sesgo === 'alcista' ? 'var(--color-ok)' : p.sesgo === 'bajista' ? 'var(--color-bad)' : 'var(--color-warn)';
-        if (p.clase === 'grafico') {
-          const conf = p.estado === 'confirmado';
-          let label = null;
-          [1, 2].forEach((k) => {
-            const t0 = num(p[`l${k}_t`]); if (t0 === null) return;
-            const p0 = num(p[`l${k}_p`]), mm = num(p[`l${k}_m`]), val = (t) => p0 + mm * (t - t0), ta = Math.max(t0, bars[0].t);
-            g0.append('line').attr('class', 'ab-pat-line').style('stroke', col).style('stroke-dasharray', conf ? null : '6 4')
-              .style('stroke-width', conf ? 2 : 1.4).attr('x1', xt(ta)).attr('y1', y(val(ta))).attr('x2', xt(endT)).attr('y2', y(val(endT)));
-            // el nombre de la linea y su precio de hoy, junto a la ultima vela
-            const name = p[`l${k}_nombre`] || '', now = val(lastT);
-            const when = name === 'Cuello' && !conf ? (p.sesgo === 'alcista' ? ' · se confirma si lo supera' : ' · se confirma si lo pierde') : '';
-            // en el celu no entra: el detalle esta en "Que estas viendo"
-            if (!narrow && now > lo && now < hi) pill(g0, xt(lastT) - 10, y(now) + (name === 'Piso' ? 14 : -14), `${name} ${f0(now)}${when}`, col, false, 'end');
-            if (!label) label = { x: xt(ta) + 4, y: y(val(ta)) + (name === 'Piso' ? 16 : -16) };
-          });
-          // los puntos que forman la figura: pisos, techos, hombros, cabeza y eventos de Wyckoff
-          let first = null;
-          [1, 2, 3, 4, 5].forEach((k) => {
-            const t0 = num(p[`pt${k}_t`]); if (t0 === null) return;
-            const i = bars.findIndex((b) => b.t === t0); if (i < 0) return;
-            // la etiqueta va debajo de un minimo y arriba de un maximo
-            const pv = num(p[`pt${k}_p`]), below = Math.abs(pv - bars[i].l) < Math.abs(pv - bars[i].h), py0 = y(pv);
-            g0.append('circle').attr('cx', cxi(i)).attr('cy', py0).attr('r', 4.5).style('fill', 'var(--color-panel)').style('stroke', col).style('stroke-width', 2);
-            g0.append('text').attr('class', 'ab-pat-lbl').style('fill', col).attr('x', cxi(i)).attr('y', py0 + (below ? 17 : -10))
-              .attr('text-anchor', 'middle').text(p[`pt${k}_nombre`]);
-            if (!first) first = { x: cxi(i), y: py0 + (below ? 34 : -28) };
-          });
-          const head = first || label;
-          // en el celu el nombre va corto (el completo esta en "Que estas viendo")
-          const pn = narrow && p.nombre.length > 22 ? `${p.nombre.slice(0, 21).trim()}…` : p.nombre;
-          if (head) pill(g0, head.x, head.y, conf ? `✓ ${pn}` : `Posible ${pn.slice(0, 1).toLowerCase()}${pn.slice(1)}`, col, conf, first ? 'middle' : 'start');
-          const obj = num(p.objetivo);
-          if (obj !== null && live) {
-            const txt = `${conf ? 'Objetivo' : 'Objetivo si se confirma'}: ${f0(obj)}`;
-            if (obj > lo && obj < hi) {
-              tg.append('line').attr('class', 'ab-pat-line').style('stroke', col).attr('x1', fx).attr('x2', plotR).attr('y1', y(obj)).attr('y2', y(obj));
-              // cerca del borde de arriba el texto va debajo de su linea, para no pisar la etiqueta de la figura
-              tg.append('text').attr('class', 'ab-pat-lbl').style('fill', col).attr('x', plotR - 4).attr('y', y(obj) < m.t + 34 ? y(obj) + 13 : y(obj) - 5).attr('text-anchor', 'end').text(txt);
-            } else {
-              tg.append('text').attr('class', 'ab-pat-lbl').style('fill', col).attr('x', plotR - 4).attr('y', obj > hi ? m.t + 10 : priceB - 6)
-                .attr('text-anchor', 'end').text(`${obj > hi ? '▲' : '▼'} ${txt}`);
-            }
-          }
-        } else {
-          const i = bars.findIndex((b) => b.t === num(p.t)); if (i < 0) return;
-          const below = p.sesgo === 'alcista';
-          const yy = below ? y(bars[i].l) + 12 : y(bars[i].h) - 12;
-          g0.append('text').attr('class', 'ab-pat-mark').style('fill', col).attr('x', cxi(i)).attr('y', yy).text(p.sesgo === 'alcista' ? '▲' : p.sesgo === 'bajista' ? '▼' : '◆');
-          pill(g0, cxi(i) - 8, below ? yy + 16 : yy - 16, p.exito !== null ? `${p.nombre} · funcionó ${f0(num(p.exito))}%` : p.nombre, col, false, 'end');
-        }
-      });
-    }
-    if (L.patrones) {
-      const pd = svg.append('g').attr('clip-path', 'url(#ab-clip)');
-      const groups = {};
-      pick(rows, 'divergencia', tf).forEach((d) => {
-        const k = `${d.t1}-${d.t2}-${d.tipo}`;
-        (groups[k] = groups[k] || { ...d, names: [] }).names.push(d.indicador);
-      });
-      Object.values(groups).forEach((d) => {
-        const g0 = pd.append('g').attr('data-ex', `div-${d.t1}-${d.t2}-${d.tipo}`);
-        const i1 = bars.findIndex((b) => b.t === num(d.t1)), i2 = bars.findIndex((b) => b.t === num(d.t2));
-        if (i1 < 0 || i2 < 0) return;
-        const col = d.tipo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)', off = d.tipo === 'bajista' ? -9 : 9;
-        const x1 = cxi(i1), y1 = y(num(d.p1)) + off, x2 = cxi(i2), y2 = y(num(d.p2)) + off;
-        g0.append('line').attr('x1', x1).attr('y1', y1).attr('x2', x2).attr('y2', y2).style('stroke', col).style('stroke-width', 2.2).style('stroke-linecap', 'round');
-        [[x1, y1], [x2, y2]].forEach(([cx, cy]) => g0.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 3.5).style('fill', col));
-        // la etiqueta va en el medio de la linea: en las puntas estan las marcas de las ondas
-        pill(g0, (x1 + x2) / 2, (y1 + y2) / 2 + (d.tipo === 'bajista' ? -14 : 14), `Div. ${d.tipo} · ${d.names.join(' + ')}`, col, true, 'middle');
-      });
-    }
-    // volumen
-    svg.append('g').selectAll('rect').data(bars).join('rect').attr('class', (b) => (b.c >= b.o ? 'ab-vol-up' : 'ab-vol-dn'))
-      .attr('x', (b, i) => x(i)).attr('width', bw).attr('y', (b) => yv(b.v)).attr('height', (b) => volB - yv(b.v)).attr('rx', Math.min(1.5, bw / 4));
-    // referencias del eje derecho y etiqueta con el ultimo valor, en cada panel (como los precios)
-    const axG = svg.append('g').attr('class', 'ab-ax');
-    const axTxt = (yy, txt) => axG.append('text').attr('x', W - 4).attr('y', yy).attr('dy', '.32em').attr('text-anchor', 'end').text(txt);
-    const tagG = svg.append('g'), tagYs = [];
-    const axTag = (yy, txt, col, t0, b0) => {
-      const yc = Math.max(t0 + 8, Math.min(b0 - 8, yy));
-      tagYs.push(yc);
-      tagG.append('rect').attr('x', W - axW + 2).attr('y', yc - 8).attr('width', axW - 2).attr('height', 16).attr('rx', 4).style('fill', col);
-      tagG.append('text').attr('class', 'ab-tag-t').attr('x', W - 4).attr('y', yc).attr('dy', '.34em').attr('text-anchor', 'end').text(txt);
-      return yc;
-    };
-    const fV = (v) => (v >= 10000 ? `${f0(v / 1000)} mil` : v >= 1000 ? `${f1(v / 1000)} mil` : f0(v));
-    yv.ticks(2).filter((v) => v > 0 && yv(v) > volB - volH + 6).forEach((v) => axTxt(yv(v), fV(v)));
-    { const lb = bars[bars.length - 1]; axTag(yv(lb.v), fV(lb.v), lb.c >= lb.o ? 'var(--color-ok)' : 'var(--color-bad)', volB - volH, volB); }
-    const oscLbl = (g, yy) => {
-      const t = g.append('text').attr('class', 'ab-osc-lbl').attr('x', m.l + 2).attr('y', yy);
-      return (parts) => { t.selectAll('tspan').remove(); parts.forEach(([txt, col]) => t.append('tspan').style('fill', col || null).text(txt)); };
-    };
-    const setVol = oscLbl(svg, volB - volH + 12);   // los titulos van adentro de cada panel, debajo de su borde
-    // RSI y MACD, con sus divergencias marcadas tambien en cada panel
-    const divGroups = {};
-    pick(rows, 'divergencia', tf).forEach((d) => { (divGroups[`${d.t1}-${d.t2}-${d.tipo}`] = divGroups[`${d.t1}-${d.t2}-${d.tipo}`] || []).push(d); });
-    const oscDivs = (name, yo, g) => Object.entries(divGroups).forEach(([k, ds]) => {
-      const d = ds.find((z) => z.indicador === name); if (!d || !L.patrones) return;
-      // en el panel del indicador, la linea va entre sus propios picos (pueden caer una o dos velas antes o despues que en el precio)
-      const it1 = num(d.ti1 ?? d.t1), it2 = num(d.ti2 ?? d.t2);
-      const i1 = bars.findIndex((b) => b.t === it1), i2 = bars.findIndex((b) => b.t === it2); if (i1 < 0 || i2 < 0) return;
-      const col = d.tipo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)', dg = g.append('g').attr('data-ex', `div-${k}`);
-      dg.append('line').attr('x1', cxi(i1)).attr('y1', yo(num(d.v1))).attr('x2', cxi(i2)).attr('y2', yo(num(d.v2)))
-        .style('stroke', col).style('stroke-width', 2.2).style('stroke-linecap', 'round');
-      [[i1, d.v1], [i2, d.v2]].forEach(([i, v]) => dg.append('circle').attr('cx', cxi(i)).attr('cy', yo(num(v))).attr('r', 3).style('fill', col));
+    if (L.patrones) d.figs.forEach((p) => {
+      const obj = num(p.objetivo); if (obj === null) return;
+      G.plines.push(G.c.createPriceLine({ price: obj, color: colOf(p.sesgo), lineWidth: 1, lineStyle: LW.LineStyle.SparseDotted, axisLabelVisible: true,
+        title: p.estado === 'confirmado' ? 'Objetivo' : 'Objetivo si se confirma' }));
     });
-    let lastOsc = null, setRsi = null, setMacd = null;
-    const oscY = {};
-    if (L.osc) {
-      lastOsc = [...bars].reverse().find((b) => b.rsi !== null && b.macd !== null) || null;
-      const og = svg.append('g').attr('data-ex', 'osc');
-      const clip = (id, t, b) => { defs.append('clipPath').attr('id', id).append('rect').attr('x', m.l).attr('y', t).attr('width', plotR - m.l).attr('height', Math.max(1, b - t)); return `url(#${id})`; };
-      const zr = S.oscZ.rsi, yr = d3.scaleLinear([50 - 50 / zr, 50 + 50 / zr], [rsiB, rsiT]);
-      oscY.rsi = yr;
-      const rg = og.append('g').attr('clip-path', clip('ab-clip-rsi', rsiT, rsiB));
-      rg.append('rect').attr('class', 'ab-osc-bg').attr('x', m.l).attr('width', plotR - m.l).attr('y', yr(70)).attr('height', yr(30) - yr(70));
-      [70, 50, 30].forEach((v) => rg.append('line').attr('class', v === 50 ? 'ab-gl' : 'ab-osc-ref').attr('x1', m.l).attr('x2', plotR).attr('y1', yr(v)).attr('y2', yr(v)));
-      [70, 50, 30].filter((v) => yr(v) >= rsiT + 6 && yr(v) <= rsiB - 6).forEach((v) => axTxt(yr(v), v));
-      rg.append('path').attr('class', 'ab-osc-line').style('stroke', dash.colors[2])
-        .attr('d', d3.line().defined((b) => b.rsi !== null).x((b, i) => cxi(i)).y((b) => yr(b.rsi))(bars));
-      oscDivs('RSI', yr, svg.append('g').attr('clip-path', clip('ab-clip-rsi2', rsiT - 4, rsiB + 4)));
-      if (lastOsc) axTag(yr(lastOsc.rsi), f1(lastOsc.rsi), dash.colors[2], rsiT, rsiB);
-      const rl = oscLbl(og, rsiT + 12);
-      setRsi = (b) => { const rv = b ? b.rsi : null;
-        rl([['RSI 14 '], [rv === null ? '—' : f1(rv), dash.colors[2]], [rv === null ? '' : rv >= 70 ? ' · sobrecompra' : rv <= 30 ? ' · sobreventa' : '']]); };
-
-      const mv = bars.flatMap((b) => [b.macd, b.sig, b.hist]).filter((v) => v !== null);
-      const ma = d3.max(mv, Math.abs) || 1;
-      const ym = d3.scaleLinear([-ma * 1.1 / S.oscZ.macd, ma * 1.1 / S.oscZ.macd], [macdB, macdT]);
-      oscY.macd = ym;
-      const mg = og.append('g').attr('clip-path', clip('ab-clip-macd', macdT, macdB));
-      mg.append('line').attr('class', 'ab-gl').attr('x1', m.l).attr('x2', plotR).attr('y1', ym(0)).attr('y2', ym(0));
-      mg.append('g').selectAll('rect').data(bars.map((b, i) => ({ i, h: b.hist })).filter((d) => d.h !== null)).join('rect')
-        .attr('class', (d) => (d.h >= 0 ? 'ab-vol-up' : 'ab-vol-dn')).attr('x', (d) => x(d.i)).attr('width', bw)
-        .attr('y', (d) => Math.min(ym(0), ym(d.h))).attr('height', (d) => Math.max(1, Math.abs(ym(d.h) - ym(0))));
-      [['macd', dash.colors[0]], ['sig', dash.colors[1]]].forEach(([k, c]) => mg.append('path').attr('class', 'ab-osc-line').style('stroke', c)
-        .attr('d', d3.line().defined((b) => b[k] !== null).x((b, i) => cxi(i)).y((b) => ym(b[k]))(bars)));
-      oscDivs('MACD', ym, svg.append('g').attr('clip-path', clip('ab-clip-macd2', macdT - 4, macdB + 4)));
-      const mk = pick(rows, 'marco', tf)[0];
-      const cruce = mk && mk.macd_cruce ? ` · cruzó ${mk.macd_cruce === 'alcista' ? 'al alza' : 'a la baja'}` : '';
-      const fM = (v) => (v === 0 ? '0' : Math.abs(v) >= 100 ? f0(v) : f1(v));
-      ym.ticks(4).filter((v) => ym(v) >= macdT + 6 && ym(v) <= macdB - 6).forEach((v) => axTxt(ym(v), fM(v)));
-      if (lastOsc) {
-        // las dos etiquetas no se pisan: la de abajo se corre lo necesario
-        const [a, b] = [[ym(lastOsc.macd), fM(lastOsc.macd), dash.colors[0]], [ym(lastOsc.sig), fM(lastOsc.sig), dash.colors[1]]].sort((p, q) => p[0] - q[0]);
-        const ya = axTag(a[0], a[1], a[2], macdT, macdB - 16);
-        axTag(Math.max(b[0], ya + 16), b[1], b[2], macdT, macdB);
-      }
-      const ml = oscLbl(og, macdT + 12);
-      setMacd = (b, isLast) => ml(b && b.macd !== null ? [['MACD '], [fM(b.macd), dash.colors[0]], [' señal '], [fM(b.sig), dash.colors[1]],
-        [' hist. '], [fM(b.hist), b.hist >= 0 ? 'var(--color-ok)' : 'var(--color-bad)'], [isLast ? cruce : '']] : [['MACD —']]);
+    if (keep) ts.setVisibleLogicalRange(keep);
+    else {
+      const total = all.length + futN, nb = Math.min(total, defBars());
+      ts.setVisibleLogicalRange({ from: total - nb, to: total + 1 });
+      G.chart.priceScale('right').applyOptions({ autoScale: true });
     }
-    if (L.ema) [['e20', dash.colors[0]], ['e50', dash.colors[1]]].forEach(([k, c]) =>
-      pane.append('path').attr('class', 'ab-ema').style('stroke', c).attr('d', d3.line().defined((b) => b[k] !== null).x((b, i) => cxi(i)).y((b) => y(b[k]))(bars)));
-    // velas
-    const cs = pane.append('g').selectAll('g').data(bars).join('g').attr('class', (b) => 'ab-candle ' + (b.c >= b.o ? 'ab-c-up' : 'ab-c-dn')).attr('data-t', (b) => b.t)
-      .style('animation-delay', (b, i) => `${i * 10}ms`);
-    cs.append('line').attr('x1', (b, i) => cxi(i)).attr('x2', (b, i) => cxi(i)).attr('y1', (b) => y(b.h)).attr('y2', (b) => y(b.l)).style('stroke-width', 1);
-    cs.append('rect').attr('x', (b, i) => x(i)).attr('width', bw).attr('rx', Math.min(1.5, bw / 4))
-      .attr('y', (b) => y(Math.max(b.o, b.c))).attr('height', (b) => Math.max(1, Math.abs(y(b.o) - y(b.c))));
-    // ondas
-    if (L.ondas) {
-      const gp = giros.map((g) => ({ ...g, i: bars.findIndex((b) => b.t === g.t) })).filter((g) => g.i >= 0);
-      if (gp.length > 1) pane.append('path').attr('class', 'ab-zig').attr('d', d3.line().x((g) => cxi(g.i)).y((g) => y(g.p))(gp));
-      // la onda en curso: si es la del ultimo giro, su circulo va punteado; si ya arranco la siguiente, se proyecta
-      // con una linea punteada hasta su objetivo y un circulo punteado con su numero o letra
-      const mkE = pick(rows, 'marco', tf)[0], cur = mkE ? mkE.elliott_curso : null, lastG = gp[gp.length - 1];
-      const wv = pane.append('g').selectAll('g').data(gp.filter((g) => g.w)).join('g')
-        .attr('class', (g) => 'ab-wave' + (cur && g === lastG && g.w === cur ? ' ab-wave-cur' : ''))
-        .attr('transform', (g) => `translate(${cxi(g.i)},${Math.max(m.t, Math.min(priceB, y(g.p) + (g.alto ? -13 : 13)))})`);
-      wv.append('circle').attr('r', 7.5); wv.append('text').text((g) => g.w);
-      if (cur && lastG && lastG.w && lastG.w !== cur && live) {
-        const tgt = num(mkE.elliott_objetivo);
-        const x1 = Math.min(plotR - 12, steps ? cxi(bars.length - 1 + Math.min(steps, 8)) : cxi(bars.length - 1) + 30);
-        const y1 = tgt === null ? y(price) : Math.max(m.t + 10, Math.min(priceB - 10, y(tgt)));
-        pane.append('path').attr('class', 'ab-wave-proj').attr('d', `M${cxi(lastG.i)},${y(lastG.p)} L${cxi(bars.length - 1)},${y(price)} L${x1},${y1}`);
-        const pg = pane.append('g').attr('class', 'ab-wave ab-wave-cur').attr('transform', `translate(${x1},${y1})`);
-        pg.append('circle').attr('r', 7.5); pg.append('text').text(cur);
-      }
-    }
-    // escenario
-    const gx = (g) => x(bars.length - 1 + g.k);
-    const gg = pane.append('g').selectAll('g').data(ghosts).join('g').attr('class', (g) => 'ab-ghost ' + (g.c >= g.o ? 'ab-c-up' : 'ab-c-dn'));
-    gg.append('line').attr('x1', (g) => gx(g) + bw / 2).attr('x2', (g) => gx(g) + bw / 2).attr('y1', (g) => y(g.h)).attr('y2', (g) => y(g.l)).style('stroke-width', 1.2);
-    gg.append('rect').attr('x', gx).attr('width', bw).attr('rx', Math.min(1.5, bw / 4)).attr('y', (g) => y(Math.max(g.o, g.c))).attr('height', (g) => Math.max(1, Math.abs(y(g.o) - y(g.c))));
-    const scan = pane.append('line').attr('class', 'ab-scan').attr('x1', 0).attr('x2', 0).attr('y1', m.t - 12).attr('y2', priceB).style('opacity', ghosts.length && !reduce ? 1 : 0);
-    // liquidaciones
-    if (L.liq && liq.length) {
-      const inR = liq.filter((r) => r.p > lo && r.p < hi);
-      const mx = d3.max(inR, (r) => Math.max(r.l, r.s)) || 1;
-      const hx = d3.scaleSqrt([0, mx], [0, heatW - 8]);
-      const bh = Math.max(2, Math.abs(y(price) - y(price * 1.0025)) - 1);
-      const op = d3.scaleLinear([0, mx], [.12, .65]);
-      defs.append('clipPath').attr('id', 'ab-clip-liq').append('rect').attr('x', plotR).attr('y', m.t).attr('width', heatW).attr('height', priceB - m.t);
-      svg.append('g').attr('clip-path', 'url(#ab-clip-liq)').selectAll('rect').data(inR.flatMap((r) => [r.l > 0 ? { p: r.p, v: r.l, side: 'l' } : null, r.s > 0 ? { p: r.p, v: r.s, side: 's' } : null]).filter(Boolean))
-        .join('rect').attr('class', (d) => (d.side === 'l' ? 'ab-liq-l' : 'ab-liq-s')).attr('x', plotR + 4).attr('y', (d) => y(d.p) - bh / 2)
-        .attr('height', bh).attr('width', (d) => Math.max(3, hx(d.v))).attr('rx', 1).style('fill-opacity', (d) => op(d.v)).style('cursor', 'help')
-        .on('pointermove', (ev, d) => {
-          const r = liq.find((z) => z.p === d.p) || { l: 0, s: 0 };
-          const g = el('div', 'ab-tip-g');
-          g.append(el('span', 'ab-tip-d', 'Longs que se liquidan'), el('span', '', M(r.l)), el('span', 'ab-tip-d', 'Shorts que se liquidan'), el('span', '', M(r.s)));
-          showTip([el('div', 'ab-tip-d', `Si ${MON()} llega a ≈ ${f0(d.p)} (${sg((d.p / price - 1) * 100, 1)})`), g,
-            el('div', 'ab-tip-d', 'Estimación con open interest de la última semana')], d3.pointer(ev, svg.node())[0]);
-        })
-        .on('pointerleave', () => { tip.hidden = true; });
-      svg.append('text').attr('class', 'ab-future-lbl').attr('x', plotR + 4).attr('y', priceB + 14).text('Liquid.');
-    }
-    // precio actual
-    // la linea y la etiqueta del precio toman el color de la vela en curso (verde si va subiendo, rojo si baja)
-    const py = y(price), hx0 = cxi(bars.length - 1), lb0 = bars[bars.length - 1];
-    const nowCol = live && price < lb0.o ? 'var(--color-bad)' : 'var(--color-ok)';
-    svg.append('line').attr('class', 'ab-now-line').attr('x1', m.l).attr('x2', plotR + heatW).attr('y1', py).attr('y2', py).style('stroke', nowCol);
-    const tag = svg.append('g').attr('class', 'ab-tag');
-    tag.append('rect').attr('x', W - axW + 2).attr('y', py - 10).attr('width', axW - 2).attr('height', 20).attr('rx', 6).style('fill', nowCol);
-    tag.append('text').attr('x', W - 4).attr('y', py).attr('dy', '.34em').attr('text-anchor', 'end').text(f0(price));
-    // cuanto falta para que cierre la vela en curso, debajo del precio (como TradingView)
-    clearInterval(S.cdTimer);
-    if (live) {
-      const closeAt = bars[bars.length - 1].t + tfMs;
-      const cd = svg.append('g').attr('class', 'ab-cd');
-      const cdY = Math.min(priceB - 8, py + 19);
-      cd.append('rect').attr('x', W - axW + 2).attr('y', cdY - 8).attr('width', axW - 2).attr('height', 16).attr('rx', 4);
-      const cdt = cd.append('text').attr('x', W - 4).attr('y', cdY).attr('dy', '.34em').attr('text-anchor', 'end');
-      const pad2 = (v) => String(v).padStart(2, '0');
-      const tickCd = () => {
-        const left = Math.max(0, Math.round((closeAt - Date.now()) / 1000));
-        const h = Math.floor(left / 3600), mi = Math.floor((left % 3600) / 60), se = left % 60;
-        cdt.text(h >= 24 ? `${Math.floor(h / 24)} d ${h % 24} h` : h ? `${h}:${pad2(mi)}:${pad2(se)}` : `${pad2(mi)}:${pad2(se)}`);
-      };
-      tickCd(); S.cdTimer = setInterval(tickCd, 1000);
-      tagYs.push(cdY);
-    }
-    if (live) {
-    svg.append('circle').attr('class', 'ab-pulse').attr('cx', hx0).attr('cy', py).attr('r', 5).style('fill', nowCol);
-    svg.append('circle').attr('class', 'ab-dot').attr('cx', hx0).attr('cy', py).attr('r', 3.5).style('fill', nowCol);
-    }
-
-    // mira: sigue al puntero en todos los paneles (tambien mientras se arrastra), con el valor en el eje
-    // derecho y la fecha y hora en el eje de abajo
-    const cross = svg.append('g').attr('class', 'ab-cross').style('display', 'none');
-    const vx = cross.append('line').attr('y1', m.t).attr('y2', H - m.b);
-    const hy = cross.append('line').attr('x1', m.l).attr('x2', plotR + heatW);
-    const crect = cross.append('rect').attr('x', W - axW + 2).attr('width', axW - 2).attr('height', 18).attr('rx', 4);
-    const ctext = cross.append('text').attr('x', W - 4).attr('text-anchor', 'end');
-    const trect = cross.append('rect').attr('y', H - m.b + 3).attr('height', 18).attr('rx', 4);
-    const ttext = cross.append('text').attr('y', H - m.b + 12).attr('dy', '.34em').attr('text-anchor', 'middle');
-    const longT = (t) => {
-      const o = {}; new Intl.DateTimeFormat('es-AR', { ...tz, weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
-        .formatToParts(new Date(Number(t))).forEach((q) => { o[q.type] = q.value; });
-      const wd = o.weekday.replace('.', '');
-      return tf === '1d' ? `${wd} ${o.day}/${o.month}/${o.year}` : `${wd} ${o.day}/${o.month} ${o.hour}:${o.minute} h`;
-    };
-    const ohlc = el('div', 'ab-ohlc'); box.append(ohlc);
-    ohlc.style.maxWidth = `${Math.max(140, (live ? fx : plotR) - m.l - 12) / W * 100}%`;
-    const lastReal = bars[bars.length - 1];
-    // la vela bajo la mira; sin mira, la ultima (como TradingView)
-    const legend = (b, fut) => {
-      const col = b.c >= b.o ? 'var(--color-ok)' : 'var(--color-bad)';
-      const kv = (k, v) => { const sp = el('span'); const bb = el('b', '', v); bb.style.color = col; sp.append(k, bb); return sp; };
-      ohlc.replaceChildren();
-      const head = fut ? `Futura ${b.k} · ${SCEN_TXT[S.scen]}` : narrow ? '' : `${fmtT(b.t, tf)} h${b.en || (liveBar && liveBar.t === b.t) ? ' · en curso' : ''}`;
-      if (head) ohlc.append(el('span', 'ab-ohlc-t', head));
-      const ch = el('b', '', sg((b.c / b.o - 1) * 100)); ch.style.color = col;
-      // en el celu: cierre y cambio primero (lo que mas se mira); la apertura se ve en el cambio
-      if (narrow) ohlc.append(kv('C', f0(b.c)), ch, kv('Máx', f0(b.h)), kv('Mín', f0(b.l)));
-      else ohlc.append(kv('A', f0(b.o)), kv('Máx', f0(b.h)), kv('Mín', f0(b.l)), kv('C', f0(b.c)), ch);
-      const isLast = !fut && b === lastReal;
-      const ob = fut ? null : b.rsi !== null && b.rsi !== undefined ? b : isLast ? lastOsc : null;
-      setVol([['Volumen '], [fut ? '—' : `${f1(b.v)} ${MON()}`, fut ? null : col]]);
-      if (setRsi) setRsi(ob);
-      if (setMacd) setMacd(ob, isLast);
-    };
-    legend(lastReal, false);
-    // el borde de abajo de cada panel: una linea con una manija bien visible en el medio; mientras se arrastra
-    // se resalta y dice que panel es y cuanto mide
-    const PANE_TXT = { price: 'Precio', vol: 'Volumen', rsi: 'RSI', macd: 'MACD' };
-    const sep = svg.append('g').attr('class', 'ab-seps');
-    const gw = narrow ? 64 : 48, gh = narrow ? 10 : 8, gcx = plotR - gw / 2 - 8;   // a la derecha: a la izquierda estan los titulos
-    // el eje de la derecha tambien queda separado por una linea, como en TradingView
-    sep.append('line').attr('class', 'ab-sep').attr('x1', W - axW).attr('x2', W - axW).attr('y1', m.t - 16).attr('y2', H - m.b + 3);
-    [{ k: 'price', t: m.t - 16, y: priceB + 4 }, { k: 'vol', t: priceB + 4, y: L.osc ? volB + gapP / 2 : volB + 3 }]
-      .concat(L.osc ? [{ k: 'rsi', t: volB + gapP / 2, y: rsiB + gapP / 2 }, { k: 'macd', t: rsiB + gapP / 2, y: macdB + 3 }] : []).forEach((d) => {
-      const on = S.dragDiv === d.k;
-      const g0 = sep.append('g').attr('class', 'ab-sep-g' + (on ? ' is-on' : '')).attr('data-k', d.k);
-      // el panel que se esta cambiando se tine, para ver bien que se agranda o se achica
-      g0.append('rect').attr('class', 'ab-sep-pane').attr('x', m.l).attr('y', d.t).attr('width', W - m.l).attr('height', Math.max(0, d.y - d.t));
-      g0.append('line').attr('class', 'ab-sep').attr('x1', m.l).attr('x2', W).attr('y1', d.y).attr('y2', d.y);
-      g0.append('rect').attr('class', 'ab-grip').attr('x', gcx - gw / 2).attr('y', d.y - gh / 2).attr('width', gw).attr('height', gh).attr('rx', gh / 2);
-      [-1, 1].forEach((k) => g0.append('line').attr('class', 'ab-grip-l').attr('x1', gcx - gw / 4).attr('x2', gcx + gw / 4).attr('y1', d.y + k * 1.5).attr('y2', d.y + k * 1.5));
-      if (on) {
-        const tx = gcx - gw / 2 - 8;
-        const t = g0.append('text').attr('class', 'ab-grip-t').attr('x', tx).attr('y', d.y).attr('dy', '.34em').attr('text-anchor', 'end').text(`↕ ${PANE_TXT[d.k]} · ${f0(ph[d.k])} px`);
-        const tw = t.node().getComputedTextLength() + 14;
-        g0.insert('rect', '.ab-grip-t').attr('class', 'ab-grip-bg').attr('x', tx - tw + 7).attr('y', d.y - 10).attr('width', tw).attr('height', 20).attr('rx', 10);
-      }
-    });
-    // las referencias del eje que quedan debajo de una etiqueta se sacan
-    axG.selectAll('text').filter(function () { const yy = +this.getAttribute('y'); return tagYs.some((t) => Math.abs(t - yy) < 17); }).remove();
-    const hideCross = () => { tip.hidden = true; cross.style('display', 'none'); legend(lastReal, false); };
-    S.pointAt = (pt) => {
-      if (!pt) { hideCross(); return; }
-      const mx2 = pt.x, my = pt.y;
-      if (my < m.t - 16 || my > H) { hideCross(); return; }
-      if (mx2 > plotR) { cross.style('display', 'none'); return; }   // sobre las liquidaciones manda su propio detalle
-      const i = Math.max(0, Math.min(n - 1, Math.floor((mx2 - m.l) / x.step())));
-      const fut = i >= bars.length, b = fut ? ghosts[i - bars.length] : bars[i];
-      if (!b) { hideCross(); return; }
-      cross.style('display', null); vx.attr('x1', cxi(i)).attr('x2', cxi(i));
-      // el valor del eje depende del panel donde esta el puntero
-      const yy = Math.max(m.t, Math.min(my, H - m.b));
-      let val = null;
-      if (yy <= priceB) val = f0(y.invert(yy));
-      else if (yy <= volB && yy >= volB - volH) val = `${f1(yv.invert(yy))} ${MON()}`;
-      else if (oscY.rsi && yy >= rsiT && yy <= rsiB) val = f1(oscY.rsi.invert(yy));
-      else if (oscY.macd && yy >= macdT && yy <= macdB) val = f1(oscY.macd.invert(yy));
-      hy.attr('y1', yy).attr('y2', yy).style('display', val === null ? 'none' : null);
-      crect.style('display', val === null ? 'none' : null).attr('y', yy - 9);
-      ctext.style('display', val === null ? 'none' : null).attr('y', yy).attr('dy', '.34em').text(val || '');
-      const tt = longT(b.t);
-      ttext.text(tt);
-      const tw = ttext.node().getComputedTextLength() + 12, tx = Math.max(m.l + tw / 2, Math.min(cxi(i), plotR + heatW - tw / 2));
-      ttext.attr('x', tx); trect.attr('x', tx - tw / 2).attr('width', tw);
-      legend(b, fut);
-      // la hora de abajo de una vela futura dice ademas cuanto falta
-      if (fut) { ttext.text(`${tt} · en ${dur(b.k * TF_MIN[tf])}`); const w2 = ttext.node().getComputedTextLength() + 12, x2 = Math.max(m.l + w2 / 2, Math.min(cxi(i), plotR + heatW - w2 / 2));
-        ttext.attr('x', x2); trect.attr('x', x2 - w2 / 2).attr('width', w2); }
-    };
-    if (S.lastPt) S.pointAt(S.lastPt);   // al redibujar (en vivo o arrastrando) la mira queda donde estaba
-
-    const tagEx = (sel, key) => svg.selectAll(sel).attr('data-ex', key);
-    tagEx('.ab-ema', 'ema'); tagEx('.ab-bb, .ab-bb-area', 'bb'); tagEx('.ab-fvg-u, .ab-fvg-d, .ab-fvg-edge-u, .ab-fvg-edge-d', 'fvg');
-    tagEx('.ab-zig, .ab-wave', 'ondas'); tagEx('.ab-liq-l, .ab-liq-s', 'liq'); tagEx('.ab-sr', 'sr');
-    tagEx('.ab-ghost, .ab-median, .ab-cone-area, .ab-scan, .ab-plazo-mark', 'futuro');
+    G.tf = tf;
+    legend(null);
+    G.under.update(); G.over.update();
 
     // que estas viendo: una linea por cada cosa dibujada, solo de las capas activas
     const leg = document.getElementById('legend'); leg.replaceChildren();
-    const item = (key, sw, title, text) => {
+    const item = (k, sw, title, text) => {
       const r = el('div', 'ab-ex-item ab-ex-link'), i = el('i'); Object.assign(i.style, sw);
       const t = el('span'); t.append(el('b', '', title), ' ', text); r.append(i, t); leg.append(r);
-      r.dataset.ex = key;
+      r.dataset.ex = k;
       // mouse: al pasar por encima. Dedo: ver exHold (mantener apretado o toque corto; deslizar no activa nada)
-      r.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') focusEx(key); });
+      r.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') focusEx(k); });
       r.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') focusEx(S.sticky || null); });
-      r.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') exHold(key, e); });
+      r.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') exHold(k, e); });
       r.addEventListener('contextmenu', (e) => e.preventDefault());
     };
-    const C = (c) => ({ background: c }), D = (c) => ({ background: 'transparent', border: `1.5px dashed ${c}` });
-    pick(rows, 'patron', tf).filter((p) => L.patrones && p.clase === 'grafico').forEach((p) => {
-      const col = p.sesgo === 'alcista' ? 'var(--color-ok)' : p.sesgo === 'bajista' ? 'var(--color-bad)' : 'var(--color-warn)';
-      item(`pat-grafico-${p.nombre}`, p.estado === 'confirmado' ? C(col) : D(col), `${p.estado === 'confirmado' ? '✓' : 'Posible'} ${p.nombre.toLowerCase()}:`, p.descripcion);
-    });
-    const dvs = {};
-    if (L.patrones) pick(rows, 'divergencia', tf).forEach((d) => { const k = `${d.t1}-${d.t2}-${d.tipo}`; (dvs[k] = dvs[k] || { ...d, names: [] }).names.push(d.indicador); });
-    Object.values(dvs).forEach((d) => item(`div-${d.t1}-${d.t2}-${d.tipo}`, C(d.tipo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)'), `Divergencia ${d.tipo} (${d.names.join(' + ')}):`,
-      d.tipo === 'bajista' ? `el precio hizo un máximo más alto (${f0(num(d.p1))} → ${f0(num(d.p2))}) pero ${d.names.join(' y ')} no acompañó: la suba pierde fuerza.`
-        : `el precio hizo un mínimo más bajo (${f0(num(d.p1))} → ${f0(num(d.p2))}) pero ${d.names.join(' y ')} no acompañó: la baja pierde fuerza.`));
-    pick(rows, 'patron', tf).filter((p) => L.patrones && p.clase === 'vela' && bars.some((b) => b.t === num(p.t))).forEach((p) =>
-      item(`pat-vela-${p.nombre}`, C(p.sesgo === 'alcista' ? 'var(--color-ok)' : p.sesgo === 'bajista' ? 'var(--color-bad)' : 'var(--color-warn)'), `Flechita · ${p.nombre}:`, p.descripcion));
-    if (pick(rows, 'explicacion').some((e) => e.plazo === S.plazo && e.tipo === 'vigilar'))
-      item('sr', D('var(--color-fg-muted)'), 'Líneas largas verde y roja:', `resistencia y soporte más cercanos para el plazo de ${S.plazo}.`);
-    if (ghosts.length) item('futuro', D('var(--color-fg-muted)'), 'Velas punteadas a la derecha:',
+    const CC = (c) => ({ background: c }), DD = (c) => ({ background: 'transparent', border: `1.5px dashed ${c}` });
+    d.figs.forEach((p) => item(`pat-grafico-${p.nombre}`, p.estado === 'confirmado' ? CC(colOf(p.sesgo)) : DD(colOf(p.sesgo)),
+      `${p.estado === 'confirmado' ? '✓' : 'Posible'} ${p.nombre.toLowerCase()}:`, p.descripcion));
+    if (L.patrones) d.divs.forEach((v) => item(v.key, CC(v.tipo === 'alcista' ? P.up : P.dn), `Divergencia ${v.tipo} (${v.names.join(' + ')}):`,
+      v.tipo === 'bajista' ? `el precio hizo un máximo más alto (${f0(v.p1)} → ${f0(v.p2)}) pero ${v.names.join(' y ')} no acompañó: la suba pierde fuerza.`
+        : `el precio hizo un mínimo más bajo (${f0(v.p1)} → ${f0(v.p2)}) pero ${v.names.join(' y ')} no acompañó: la baja pierde fuerza.`));
+    if (L.patrones) pick(rows, 'patron', tf).filter((p) => p.clase === 'vela' && byT.has(num(p.t))).forEach((p) =>
+      item(`pat-vela-${p.nombre}`, CC(colOf(p.sesgo)), `Flechita · ${p.nombre}:`, p.descripcion));
+    if (G.plines.length) item('sr', DD(P.mute), 'Líneas punteadas con etiqueta en el eje:',
+      `resistencia y soporte más cercanos para el plazo de ${S.plazo}${L.patrones && d.figs.some((p) => num(p.objetivo) !== null) ? ' y el objetivo de cada figura' : ''}.`);
+    if (ghosts.length) item('futuro', DD(P.mute), 'Velas transparentes a la derecha:',
       `un camino real del ${ghosts[0].desde.split('-').reverse().join('/')}, cuando ${MON()} estaba en una situación parecida, llevado al precio de hoy. La zona gris es donde terminó el 80% de esos casos y la línea vertical, la hora del plazo elegido.`);
-    if (L.ondas && giros.some((g) => g.w)) {
-      const mk = pick(rows, 'marco', tf)[0];
-      item('ondas', { background: 'transparent', border: '1.5px solid var(--color-fg)', borderRadius: '50%', width: '10px', height: '10px' }, 'Círculos con letras o números:',
-        `conteo de Elliott. ${mk ? mk.elliott : ''}.`);
-    }
-    if (L.fvg && fvgs.length) item('fvg', C('color-mix(in srgb, var(--color-ok) 35%, transparent)'), 'Franjas verdes o rojas:', 'huecos (FVG) que el precio dejó sin operar; suele volver a llenarlos.');
-    if (L.ema) item('ema', { background: `linear-gradient(90deg, ${dash.colors[0]} 50%, ${dash.colors[1]} 50%)` }, 'Líneas azul y naranja:', 'medias móviles EMA 20 y EMA 50.');
-    if (L.bb) item('bb', C('color-mix(in srgb, var(--color-fg) 12%, transparent)'), 'Banda gris:', 'Bollinger, el rango normal del precio en las últimas 20 velas.');
-    if (L.liq) item('liq', { background: 'linear-gradient(90deg, var(--color-bad), var(--color-ok))' }, 'Barras de la derecha:',
-      'liquidaciones estimadas. Rojas: longs que se liquidan si baja; verdes: shorts si sube. Pasá el mouse para ver los USD.');
+    if (L.ondas && giros.some((g) => g.w)) item('ondas', { background: 'transparent', border: `1.5px solid ${P.fg}`, borderRadius: '50%', width: '10px', height: '10px' },
+      'Círculos con letras o números:', `conteo de Elliott. ${mk ? mk.elliott : ''}.`);
+    if (L.fvg && fvgs.length) item('fvg', CC(alpha(P.up, 0.35)), 'Franjas verdes o rojas:', 'huecos (FVG) que el precio dejó sin operar; suele volver a llenarlos.');
+    if (L.ema) item('ema', { background: `linear-gradient(90deg, ${P.c0} 50%, ${P.c1} 50%)` }, 'Líneas azul y naranja:', 'medias móviles EMA 20 y EMA 50.');
+    if (L.bb) item('bb', CC(alpha(P.fg, 0.12)), 'Banda gris:', 'Bollinger, el rango normal del precio en las últimas 20 velas.');
+    if (L.liq && liq.length) item('liq', { background: `linear-gradient(90deg, ${P.dn}, ${P.up})` }, 'Barras junto al eje de precios:',
+      'liquidaciones estimadas. Rojas: longs que se liquidan si baja; verdes: shorts si sube. Pasá el mouse o tocá ahí para ver los USD.');
     if (L.osc && lastOsc) {
-      const rv = lastOsc.rsi, mk = pick(rows, 'marco', tf)[0];
+      const rv = lastOsc.rsi;
       const rTxt = rv >= 70 ? 'en sobrecompra (arriba de 70): la suba está estirada y suele frenar' : rv <= 30 ? 'en sobreventa (debajo de 30): la baja está estirada y suele rebotar'
         : `en ${f0(rv)}, zona neutral (entre 30 y 70)`;
       const mTxt = mk && mk.macd_cruce ? `el MACD acaba de cruzar ${mk.macd_cruce === 'alcista' ? 'por encima de su señal: impulso a favor de la suba' : 'por debajo de su señal: impulso a favor de la baja'}`
         : lastOsc.macd >= lastOsc.sig ? 'el MACD está por encima de su señal (impulso alcista)' : 'el MACD está por debajo de su señal (impulso bajista)';
-      item('osc', { background: `linear-gradient(90deg, ${dash.colors[2]} 50%, ${dash.colors[0]} 50%)` }, 'Paneles de abajo:',
+      item('osc', { background: `linear-gradient(90deg, ${P.c2} 50%, ${P.c0} 50%)` }, 'Paneles de abajo:',
         `RSI ${rTxt}; ${mTxt}. Las barras son la diferencia entre las dos líneas. Si hay divergencias, se marcan con la misma línea en el precio y en el indicador.`);
     }
     document.getElementById('ex-n').textContent = leg.children.length || '';
-    document.getElementById('scen-note').textContent = ghosts.length || !live ? '' :'No hay suficientes situaciones parecidas para armar escenarios en esta temporalidad.';
+    document.getElementById('scen-note').textContent = ghosts.length ? '' : 'No hay suficientes situaciones parecidas para armar escenarios en esta temporalidad.';
 
     // que velas forman cada marca: se encienden al resaltarla
     const ex = {};
-    const inView = (t) => bars.some((b) => b.t === t);
     pick(rows, 'patron', tf).forEach((p) => {
       if (p.clase === 'grafico') {
-        const ts = ['l1_t', 'l2_t', 'pt1_t', 'pt2_t', 'pt3_t', 'pt4_t', 'pt5_t'].map((k) => num(p[k])).filter((v) => v !== null);
-        const t0 = ts.length ? Math.min(...ts) : num(p.t);
-        ex[`pat-grafico-${p.nombre}`] = new Set(bars.filter((b) => b.t >= t0).map((b) => b.t));
+        const tt = ['l1_t', 'l2_t', 'pt1_t', 'pt2_t', 'pt3_t', 'pt4_t', 'pt5_t'].map((k) => num(p[k])).filter((v) => v !== null);
+        const t0 = tt.length ? Math.min(...tt) : num(p.t);
+        ex[`pat-grafico-${p.nombre}`] = new Set(all.filter((b) => b.t >= t0).map((b) => b.t));
       } else {
         const k = /^Tres|^Estrella de la|vespertina/.test(p.nombre) ? 3 : /^Envolvente|^Harami/.test(p.nombre) ? 2 : 1;
         ex[`pat-vela-${p.nombre}`] = new Set(Array.from({ length: k }, (_, j) => num(p.t) - j * tfMs));
       }
     });
-    pick(rows, 'divergencia', tf).forEach((d) => { ex[`div-${d.t1}-${d.t2}-${d.tipo}`] = new Set([num(d.t1), num(d.t2)]); });
-    ex.fvg = new Set(fvgs.flatMap((z) => [z.t - tfMs, z.t, z.t + tfMs]).filter(inView));
+    d.divs.forEach((v) => { ex[v.key] = new Set([v.t1, v.t2]); });
+    ex.fvg = new Set(fvgs.flatMap((z) => [z.t - tfMs, z.t, z.t + tfMs]));
     ex.ondas = new Set(giros.filter((g) => g.w).map((g) => g.t));
     const srLv = pick(rows, 'explicacion').filter((e) => e.plazo === S.plazo && e.tipo === 'vigilar' && e.precio !== null && e.precio !== undefined).map((e) => num(e.precio));
-    ex.sr = new Set(bars.filter((b) => srLv.some((v) => b.l <= v && v <= b.h)).map((b) => b.t));
+    ex.sr = new Set(all.filter((b) => srLv.some((v) => b.l <= v && v <= b.h)).map((b) => b.t));
     S.exCandles = ex;
     focusEx(S.focus);
-    // zonas para arrastrar: separadores de paneles, eje de tiempo y cada panel
-    const divs = [{ k: 'price', y: priceB + 4 }, { k: 'vol', y: L.osc ? volB + gapP / 2 : volB + 3 }]
-      .concat(L.osc ? [{ k: 'rsi', y: rsiB + gapP / 2 }, { k: 'macd', y: macdB + 3 }] : []);
-    S.geom = { W, H, plotR, heatW, step: x.step(), priceT: m.t, priceB, timeT: H - m.b + 8, ph: { ...ph }, divs,
-      panes: L.osc ? [{ k: 'rsi', t: rsiT, b: rsiB }, { k: 'macd', t: macdT, b: macdB }] : [] };
-    if (!ghosts.length) return;
-    if (reduce) { gg.classed('on', true); return; }
-    const paint = () => {
-      gg.classed('on', (g) => g.k <= ghostK);
-      const last = Math.min(ghostK, ghosts.length);
-      scan.style('transform', `translateX(${last ? gx(ghosts[last - 1]) + bw + 3 : fx}px)`).style('opacity', ghostK > ghosts.length ? 0 : 1);
-    };
-    const tick = () => { ghostK = ghostK > ghosts.length + 6 ? 0 : ghostK + 1; paint(); };
-    paint(); ghostTimer = setInterval(tick, 380);
   }
 
   // ---------- probabilidades ----------
@@ -2171,6 +1999,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       [h.tf, h.horizonte, h.pronosticos, `${f1(num(h.aciertos))}%`, ar.format('.3f')(num(h.brier))].forEach((v) => tr.append(el('td', '', String(v)))); tb.append(tr); });
     tbl.append(th, tb); box.append(tbl, el('p', 'ab-note', 'Brier mide la calidad de las probabilidades: 0,250 es tirar una moneda; menos es mejor.'));
   }
+  dash.onData(draw);   // al final: todo lo de arriba (tambien el grafico) ya esta definido
 })();
 </script>
 

@@ -50,6 +50,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 @keyframes ea { to { opacity: .25; } }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
 <script src="app.js"></script>
 </head><body><div id="dash-root">
 __PAGE__
