@@ -149,6 +149,11 @@ def update_candles(ex, tf, days):
     return candles
 
 
+def ap(x):
+    """Precio: sin decimales desde 1.000 (BTC) y con dos debajo (ZEC)."""
+    return ar(x, 0 if abs(x) >= 1000 else 2)
+
+
 def ar(x, d=0):
     """Numero con formato argentino: 80.757,25"""
     return f"{x:,.{d}f}".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -710,7 +715,7 @@ def explain(rows, price, spec):
     for p in get("patron"):
         if p["tf"] not in sig_tfs or p["sesgo"] == "neutral":
             continue
-        target = f" → {ar(p['objetivo'])}" if p["objetivo"] else ""
+        target = f" → {ap(p['objetivo'])}" if p["objetivo"] else ""
         if p["clase"] == "grafico":
             signals.append((1 if p["estado"] == "confirmado" else 4, p["sesgo"], f"{p['nombre']} en {TF_TXT[p['tf']]}{target}"))
         elif p["exito"] is not None and p["exito"] >= 55 and p["casos"] >= 20:
@@ -730,7 +735,7 @@ def explain(rows, price, spec):
     m_last = get("marco", tf=sig_tfs[-1])[0]
     if m_last["elliott_objetivo"]:
         signals.append((7, "alcista" if m_last["elliott_objetivo"] > price else "bajista",
-                        f"Elliott {TF_TXT[sig_tfs[-1]]}: {m_last['elliott_corto'].split(':')[0]} → {ar(m_last['elliott_objetivo'])}"))
+                        f"Elliott {TF_TXT[sig_tfs[-1]]}: {m_last['elliott_corto'].split(':')[0]} → {ap(m_last['elliott_objetivo'])}"))
     sma = next((n for n in get("nivel") if n["nombre"] == "Media 200 días"), None)
     if sma and name == "1 día":
         signals.append((6, "alcista" if price > sma["precio"] else "bajista",
@@ -742,13 +747,13 @@ def explain(rows, price, spec):
     n_dn = len(signals) - n_up
     if pu is not None and pu - 50 > max(5, mg):
         bias = "alcista"
-        head = f"Hasta las {hh} h, es más probable que BTC suba a {ar(up)} ({ar(pu)}%) antes que baje a {ar(dn)}."
+        head = f"Hasta las {hh} h, es más probable que BTC suba a {ap(up)} ({ar(pu)}%) antes que baje a {ap(dn)}."
     elif pu is not None and 50 - pu > max(5, mg):
         bias = "bajista"
-        head = f"Hasta las {hh} h, es más probable que BTC baje a {ar(dn)} ({ar(100 - pu)}%) antes que suba a {ar(up)}."
+        head = f"Hasta las {hh} h, es más probable que BTC baje a {ap(dn)} ({ar(100 - pu)}%) antes que suba a {ap(up)}."
     else:
         bias = "neutral"
-        head = f"Hasta las {hh} h, sin dirección clara: lo esperable es que BTC se mueva entre {ar(dn)} y {ar(up)}."
+        head = f"Hasta las {hh} h, sin dirección clara: lo esperable es que BTC se mueva entre {ap(dn)} y {ap(up)}."
     agree = n_up if bias == "alcista" else n_dn
     if not signals:
         why = "No hay señales fuertes en este plazo."
@@ -772,15 +777,15 @@ def explain(rows, price, spec):
     sup = next((n for n in reversed(levels) if n["precio"] < price * (1 - gap)), None)
     k = len(out)
     if res:
-        out.append(row(k, "vigilar", "alcista", f"Resistencia {ar(res['precio'])} ({lc1(res['nombre'])})", res["precio"]))
+        out.append(row(k, "vigilar", "alcista", f"Resistencia {ap(res['precio'])} ({lc1(res['nombre'])})", res["precio"]))
     if sup:
-        out.append(row(k + 1, "vigilar", "bajista", f"Soporte {ar(sup['precio'])} ({lc1(sup['nombre'])})", sup["precio"]))
+        out.append(row(k + 1, "vigilar", "bajista", f"Soporte {ap(sup['precio'])} ({lc1(sup['nombre'])})", sup["precio"]))
     if bias == "alcista" and sup:
-        inval = f"Si una vela de {candle} cierra debajo de {ar(sup['precio'])}, la idea deja de valer."
+        inval = f"Si una vela de {candle} cierra debajo de {ap(sup['precio'])}, la idea deja de valer."
     elif bias == "bajista" and res:
-        inval = f"Si una vela de {candle} cierra arriba de {ar(res['precio'])}, la idea deja de valer."
+        inval = f"Si una vela de {candle} cierra arriba de {ap(res['precio'])}, la idea deja de valer."
     else:
-        inval = f"La dirección la marca la primera vela de {candle} que cierre fuera de {ar(dn)} a {ar(up)}."
+        inval = f"La dirección la marca la primera vela de {candle} que cierre fuera de {ap(dn)} a {ap(up)}."
     out.append(row(k + 2, "invalida", bias, inval))
     out.append(row(k + 3, "aprendizaje", bias, learning_text(get("aprendizaje", plazo=name)[0])))
     return out
@@ -1024,7 +1029,7 @@ def print_console(rows):
             print(f"  En {e['plazo']:<8} {e['texto']}")
     for p in get("patron"):
         if p["tf"] in ("15m", "1h", "4h"):
-            extra = f", objetivo {ar(p['objetivo'])}" if p["objetivo"] else f", funcionó {ar(p['exito'])}% de {p['casos']}" if p["exito"] else ""
+            extra = f", objetivo {ap(p['objetivo'])}" if p["objetivo"] else f", funcionó {ar(p['exito'])}% de {p['casos']}" if p["exito"] else ""
             print(f"  Patrón {p['tf']}: {p['nombre']} ({p['estado']}{extra})")
     print("\nTEMPORALIDAD  tendencia            calificacion    medias c/v   osc c/v   RSI   ADX")
     for m in get("marco"):

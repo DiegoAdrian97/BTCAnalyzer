@@ -21,6 +21,7 @@
   for (let k = -4; k < 6; k++) for (const m of [1, 2.5, 5]) NICE_STEPS.push(m * 10 ** k);
 
   // ---------- formato ----------
+  const ap = (x) => ar(x, Math.abs(x) >= 1000 ? 0 : 2);     // precio: con decimales si vale menos de 1.000
   const arp = (x, d = 1) => (x > 0 ? '+' : '') + ar(x, d) + '%';
   const pct = (a, b) => (a / b - 1) * 100;
   const lc1 = (s) => s.slice(0, 1).toLowerCase() + s.slice(1);   // sin tocar siglas como R1 u onda C
@@ -440,7 +441,7 @@
     });
     get('patron').forEach((p) => {
       if (!sigTfs.includes(p.tf) || p.sesgo === 'neutral') return;
-      const target = p.objetivo ? ` → ${ar(p.objetivo)}` : '';
+      const target = p.objetivo ? ` → ${ap(p.objetivo)}` : '';
       if (p.clase === 'grafico') signals.push([p.estado === 'confirmado' ? 1 : 4, p.sesgo, `${p.nombre} en ${TF_TXT[p.tf]}${target}`]);
       else if (p.exito !== null && p.exito >= 55 && p.casos >= 20) signals.push([5, p.sesgo, `${p.nombre} en ${TF_TXT[p.tf]} (funcionó ${ar(p.exito)}%)`]);
     });
@@ -463,7 +464,7 @@
     const mLast = get('marco', { tf: sigTfs[sigTfs.length - 1] })[0];
     if (mLast.elliott_objetivo) {
       signals.push([7, mLast.elliott_objetivo > price ? 'alcista' : 'bajista',
-        `Elliott ${TF_TXT[sigTfs[sigTfs.length - 1]]}: ${mLast.elliott_corto.split(':')[0]} → ${ar(mLast.elliott_objetivo)}`]);
+        `Elliott ${TF_TXT[sigTfs[sigTfs.length - 1]]}: ${mLast.elliott_corto.split(':')[0]} → ${ap(mLast.elliott_objetivo)}`]);
     }
     const sma = get('nivel').find((n) => n.nombre === 'Media 200 días');
     if (sma && name === '1 día') {
@@ -476,13 +477,13 @@
     let bias, head;
     if (pu !== null && pu - 50 > Math.max(5, mg)) {
       bias = 'alcista';
-      head = `Hasta las ${hh} h, es más probable que BTC suba a ${ar(up)} (${ar(pu)}%) antes que baje a ${ar(dn)}.`;
+      head = `Hasta las ${hh} h, es más probable que BTC suba a ${ap(up)} (${ar(pu)}%) antes que baje a ${ap(dn)}.`;
     } else if (pu !== null && 50 - pu > Math.max(5, mg)) {
       bias = 'bajista';
-      head = `Hasta las ${hh} h, es más probable que BTC baje a ${ar(dn)} (${ar(100 - pu)}%) antes que suba a ${ar(up)}.`;
+      head = `Hasta las ${hh} h, es más probable que BTC baje a ${ap(dn)} (${ar(100 - pu)}%) antes que suba a ${ap(up)}.`;
     } else {
       bias = 'neutral';
-      head = `Hasta las ${hh} h, sin dirección clara: lo esperable es que BTC se mueva entre ${ar(dn)} y ${ar(up)}.`;
+      head = `Hasta las ${hh} h, sin dirección clara: lo esperable es que BTC se mueva entre ${ap(dn)} y ${ap(up)}.`;
     }
     const agree = bias === 'alcista' ? nUp : nDn;
     let why;
@@ -500,12 +501,12 @@
     const res = levels.find((n) => n.precio > price * (1 + gap));
     const sup = levels.slice().reverse().find((n) => n.precio < price * (1 - gap));
     const k = out.length;
-    if (res) out.push(row(k, 'vigilar', 'alcista', `Resistencia ${ar(res.precio)} (${lc1(res.nombre)})`, res.precio));
-    if (sup) out.push(row(k + 1, 'vigilar', 'bajista', `Soporte ${ar(sup.precio)} (${lc1(sup.nombre)})`, sup.precio));
+    if (res) out.push(row(k, 'vigilar', 'alcista', `Resistencia ${ap(res.precio)} (${lc1(res.nombre)})`, res.precio));
+    if (sup) out.push(row(k + 1, 'vigilar', 'bajista', `Soporte ${ap(sup.precio)} (${lc1(sup.nombre)})`, sup.precio));
     let inval;
-    if (bias === 'alcista' && sup) inval = `Si una vela de ${candle} cierra debajo de ${ar(sup.precio)}, la idea deja de valer.`;
-    else if (bias === 'bajista' && res) inval = `Si una vela de ${candle} cierra arriba de ${ar(res.precio)}, la idea deja de valer.`;
-    else inval = `La dirección la marca la primera vela de ${candle} que cierre fuera de ${ar(dn)} a ${ar(up)}.`;
+    if (bias === 'alcista' && sup) inval = `Si una vela de ${candle} cierra debajo de ${ap(sup.precio)}, la idea deja de valer.`;
+    else if (bias === 'bajista' && res) inval = `Si una vela de ${candle} cierra arriba de ${ap(res.precio)}, la idea deja de valer.`;
+    else inval = `La dirección la marca la primera vela de ${candle} que cierre fuera de ${ap(dn)} a ${ap(up)}.`;
     out.push(row(k + 2, 'invalida', bias, inval));
     out.push(row(k + 3, 'aprendizaje', bias, learningText(get('aprendizaje', { plazo: name })[0])));
     return out;

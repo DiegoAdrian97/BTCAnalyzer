@@ -11,6 +11,11 @@ oscilador vota compra / venta / neutral con las reglas de TradingView, y se suma
 import math
 
 
+def _ap(x):
+    """Precio en formato argentino: sin decimales desde 1.000 (BTC) y con dos debajo (ZEC)."""
+    return _ar(x, 0 if abs(x) >= 1000 else 2)
+
+
 def _ar(x, d=0):
     """Numero con formato argentino: 80.757,25"""
     return f"{x:,.{d}f}".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -354,7 +359,7 @@ def calificar(bars):
     add("Volatilidad", "ATR 14", atr_[i], NEUTRAL, f"{_ar(atr_[i] / px * 100, 2)}% del precio por vela", rated=False)
     dh, dl = max(h[i - 19:i + 1]), min(l[i - 19:i + 1])
     add("Volatilidad", "Donchian 20", (dh + dl) / 2, COMPRA if px >= dh else VENTA if px <= dl else NEUTRAL,
-        f"{_ar(dl)} - {_ar(dh)}", rated=False)
+        f"{_ap(dl)} - {_ap(dh)}", rated=False)
     sar = psar(h, l)
     add("Tendencia", "Parabolic SAR", sar[i], COMPRA if px > sar[i] else VENTA, "puntos debajo del precio" if px > sar[i] else "puntos encima del precio", rated=False)
     st, sdir = supertrend(h, l, c)
@@ -716,18 +721,18 @@ def patron_grafico(bars, pivots, atr_last):
             neck = line(q[1], q[3], "Cuello")
             n_now = at_now(neck)
             target, broke = n_now - (k[2] - (k[1] + k[3]) / 2), px < n_now
-            desc = (f"Tres máximos, el del medio más alto. BTC perdió el cuello en {_ar(n_now)}: objetivo {_ar(target)}." if broke
-                    else f"Tres máximos, el del medio más alto. Si BTC cierra debajo del cuello ({_ar(n_now)}), "
-                         f"se confirma y el objetivo es {_ar(target)}.")
+            desc = (f"Tres máximos, el del medio más alto. BTC perdió el cuello en {_ap(n_now)}: objetivo {_ap(target)}." if broke
+                    else f"Tres máximos, el del medio más alto. Si BTC cierra debajo del cuello ({_ap(n_now)}), "
+                         f"se confirma y el objetivo es {_ap(target)}.")
             return result("Hombro-cabeza-hombro", "bajista", [neck], shoulders, target, desc, broke)
         if (q[0][0] == "bajo" and k[2] < k[0] - tol and k[2] < k[4] - tol and abs(k[0] - k[4]) < 1.5 * tol
                 and _hch_bien(bars, q, False) and still_valid(q[4], "alcista", k[2], neck_at)):
             neck = line(q[1], q[3], "Cuello")
             n_now = at_now(neck)
             target, broke = n_now + ((k[1] + k[3]) / 2 - k[2]), px > n_now
-            desc = (f"Tres mínimos, el del medio más bajo. BTC superó el cuello en {_ar(n_now)}: objetivo {_ar(target)}." if broke
-                    else f"Tres mínimos, el del medio más bajo. Si BTC cierra arriba del cuello ({_ar(n_now)}), "
-                         f"se confirma y el objetivo es {_ar(target)}.")
+            desc = (f"Tres mínimos, el del medio más bajo. BTC superó el cuello en {_ap(n_now)}: objetivo {_ap(target)}." if broke
+                    else f"Tres mínimos, el del medio más bajo. Si BTC cierra arriba del cuello ({_ap(n_now)}), "
+                         f"se confirma y el objetivo es {_ap(target)}.")
             return result("Hombro-cabeza-hombro invertido", "alcista", [neck], shoulders, target, desc, broke)
     # triangulos, cunas, canales y rangos: piden mas toques que un doble techo o piso, asi que van primero
     lines_fig = figura_lineas(bars, P, atr_last)
@@ -765,10 +770,10 @@ def patron_grafico(bars, pivots, atr_last):
             neck, top = nk[2], (a[2] + b[2]) / 2
             target, broke = neck - (top - neck), px < neck
             done = any(bars[j][3] <= target for j in range(b[1] + 1, len(bars)))   # ya llego al objetivo: terminada
-            desc = None if done else (f"Dos máximos que rechazaron la misma zona ({_ar(a[2])} y {_ar(b[2])}). BTC perdió el cuello en {_ar(neck)}: "
-                    f"objetivo {_ar(target)}." if broke
-                    else f"Dos máximos que rechazaron la misma zona ({_ar(a[2])} y {_ar(b[2])}). Si BTC cierra debajo del cuello "
-                         f"({_ar(neck)}), se confirma y el objetivo es {_ar(target)}.")
+            desc = None if done else (f"Dos máximos que rechazaron la misma zona ({_ap(a[2])} y {_ap(b[2])}). BTC perdió el cuello en {_ap(neck)}: "
+                    f"objetivo {_ap(target)}." if broke
+                    else f"Dos máximos que rechazaron la misma zona ({_ap(a[2])} y {_ap(b[2])}). Si BTC cierra debajo del cuello "
+                         f"({_ap(neck)}), se confirma y el objetivo es {_ap(target)}.")
             if desc:
                 return result("Doble techo", "bajista", [flat_line(nk, "Cuello")],
                               [point(a, "Techo 1"), point(b, "Techo 2")], target, desc, broke)
@@ -779,10 +784,10 @@ def patron_grafico(bars, pivots, atr_last):
             neck, bot = nk[2], (a[2] + b[2]) / 2
             target, broke = neck + (neck - bot), px > neck
             done = any(bars[j][2] >= target for j in range(b[1] + 1, len(bars)))
-            desc = None if done else (f"Dos mínimos que defendieron la misma zona ({_ar(a[2])} y {_ar(b[2])}). BTC superó el cuello en {_ar(neck)}: "
-                    f"objetivo {_ar(target)}." if broke
-                    else f"Dos mínimos que defendieron la misma zona ({_ar(a[2])} y {_ar(b[2])}). Si BTC cierra arriba del cuello "
-                         f"({_ar(neck)}), se confirma y el objetivo es {_ar(target)}.")
+            desc = None if done else (f"Dos mínimos que defendieron la misma zona ({_ap(a[2])} y {_ap(b[2])}). BTC superó el cuello en {_ap(neck)}: "
+                    f"objetivo {_ap(target)}." if broke
+                    else f"Dos mínimos que defendieron la misma zona ({_ap(a[2])} y {_ap(b[2])}). Si BTC cierra arriba del cuello "
+                         f"({_ap(neck)}), se confirma y el objetivo es {_ap(target)}.")
             if desc:
                 return result("Doble piso", "alcista", [flat_line(nk, "Cuello")],
                               [point(a, "Piso 1"), point(b, "Piso 2")], target, desc, broke)
@@ -895,24 +900,24 @@ def figura_lineas(bars, P, atr_last):
                 return None                 # la ruptura fue hace mucho: la figura ya no esta vigente
             target = u_now + height
             return _figura(f"Ruptura alcista de {name.lower()}", "alcista", [up_l, lo_l], [], target,
-                           f"BTC rompió hacia arriba el techo de {art} {name.lower()}{touches} en {_ar(u_now)}: "
-                           f"el objetivo de la ruptura es {_ar(target)}.", True)
+                           f"BTC rompió hacia arriba el techo de {art} {name.lower()}{touches} en {_ap(u_now)}: "
+                           f"el objetivo de la ruptura es {_ap(target)}.", True)
         if px < l_now - tol:
             if not any(bars[k][4] >= val(lo_l, k) for k in recent):
                 return None
             target = l_now - height
             return _figura(f"Ruptura bajista de {name.lower()}", "bajista", [up_l, lo_l], [], target,
-                           f"BTC rompió hacia abajo el piso de {art} {name.lower()}{touches} en {_ar(l_now)}: "
-                           f"el objetivo de la ruptura es {_ar(target)}.", True)
+                           f"BTC rompió hacia abajo el piso de {art} {name.lower()}{touches} en {_ap(l_now)}: "
+                           f"el objetivo de la ruptura es {_ap(target)}.", True)
         target = u_now + height if bias == "alcista" else l_now - height if bias == "bajista" else None
         if bias == "alcista":
-            side = f"suele romper hacia arriba; si supera {_ar(u_now)}, el objetivo es {_ar(target)}"
+            side = f"suele romper hacia arriba; si supera {_ap(u_now)}, el objetivo es {_ap(target)}"
         elif bias == "bajista":
-            side = f"suele romper hacia abajo; si pierde {_ar(l_now)}, el objetivo es {_ar(target)}"
+            side = f"suele romper hacia abajo; si pierde {_ap(l_now)}, el objetivo es {_ap(target)}"
         else:
             side = "puede romper para cualquier lado: la dirección la da la ruptura"
         return _figura(name, bias, [up_l, lo_l], [], target,
-                       f"BTC se mueve entre un piso en {_ar(l_now)} y un techo en {_ar(u_now)}{touches}; {side}.", False)
+                       f"BTC se mueve entre un piso en {_ap(l_now)} y un techo en {_ap(u_now)}{touches}; {side}.", False)
     return None
 
 
@@ -995,11 +1000,11 @@ def wyckoff(bars, pivots, atr_last):
             points.append((t(sos), bars[sos][4], nm[4]))
             desc = (f"Rango después de una {'caída' if acc else 'suba'} con clímax de {'venta' if acc else 'compra'}, "
                     f"prueba y {nm[3].lower() if acc else nm[3]}; BTC ya {'superó el techo' if acc else 'perdió el piso'} "
-                    f"({_ar(other)}): fase de {'suba' if acc else 'baja'}, objetivo {_ar(target)}.")
+                    f"({_ap(other)}): fase de {'suba' if acc else 'baja'}, objetivo {_ap(target)}.")
             return _figura(name, "alcista" if acc else "bajista", lines, points, target, desc, True)
-        desc = (f"Rango entre {_ar(lo)} y {_ar(hi)} después de una {'caída' if acc else 'suba'} con clímax de "
+        desc = (f"Rango entre {_ap(lo)} y {_ap(hi)} después de una {'caída' if acc else 'suba'} con clímax de "
                 f"{'venta' if acc else 'compra'}. Ya hubo prueba y {nm[3].lower() if acc else nm[3]}: "
-                f"{'si cierra arriba de ' if acc else 'si cierra debajo de '}{_ar(other)}, se confirma y el objetivo es {_ar(target)}.")
+                f"{'si cierra arriba de ' if acc else 'si cierra debajo de '}{_ap(other)}, se confirma y el objetivo es {_ap(target)}.")
         return _figura(name, "alcista" if acc else "bajista", lines, points, target, desc, False)
     return None
 

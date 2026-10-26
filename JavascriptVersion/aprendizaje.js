@@ -377,7 +377,7 @@
   const cache = new Map();
   /** aprender() solo cuando cerro una vela nueva: mientras tanto el resultado es el mismo. */
   function aprendido(clave, bars, combo, h, warmup, X = null) {
-    const stamp = `${bars.length}|${bars[bars.length - 1][0]}|${h}|${warmup}`;
+    const stamp = `${bars.length}|${bars[bars.length - 1][0]}|${bars[bars.length - 1][4]}|${h}|${warmup}`;   // con el precio: BTC y ZEC tienen las mismas horas
     const hit = cache.get(clave);
     if (hit && hit[0] === stamp) return hit[1];
     const res = aprender(bars, combo, h, warmup, X);

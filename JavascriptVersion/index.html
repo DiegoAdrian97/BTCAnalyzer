@@ -418,6 +418,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   .ab-appmode button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
   .ab-appmode button[data-app="holo"]:hover { color: #2ad8ff; }
 
+  /* movimiento fuerte */
+  .ab-mov[hidden] { display: none; }
+  .ab-mov.ab-mov-on { border-color: color-mix(in srgb, var(--color-warn) 60%, transparent); }
+  .ab-mov.ab-mov-on #mov-nivel { color: var(--color-warn); }
+
   /* aprendizaje */
   .ab-apr-line { margin: 0; display: flex; gap: 8px; align-items: baseline; font-size: var(--cds-font-size-caption); color: var(--mute); line-height: 1.45; }
   .ab-apr-line b { color: var(--ink); font-weight: 600; }
@@ -474,8 +479,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 <div class="ab ab-first" id="analista" data-source="analisis">
   <header class="ab-top" id="resumen">
     <div class="ab-top-l">
-      <span class="ab-live"><i></i><span>BTC/USDT perpetuo · actualizado <span data-source="analisis" data-field="hora_local" data-where="tabla=resumen">—</span> · <span id="next-run">—</span></span><span class="ab-live-state" id="live-state"></span></span>
-      <h1 class="ab-title">Analista BTC</h1>
+      <span class="ab-live"><i></i><span><span id="moneda-lbl">BTC</span>/USDT perpetuo · actualizado <span data-source="analisis" data-field="hora_local" data-where="tabla=resumen">—</span> · <span id="next-run">—</span></span><span class="ab-live-state" id="live-state"></span></span>
+      <h1 class="ab-title" id="ab-title">Analista BTC</h1>
+      <!-- version JS (Vercel): que cripto se analiza -->
+      <div class="ab-appmode" id="app-moneda" role="group" aria-label="Cripto" hidden>
+        <button type="button" data-m="BTC" aria-pressed="true">BTC</button><button type="button" data-m="ZEC" aria-pressed="false">ZEC</button>
+      </div>
       <!-- interruptor de la version JS (Vercel): Web | Holograma -->
       <div class="ab-appmode" id="app-modo" role="group" aria-label="Modo de la app" hidden>
         <button type="button" data-app="web" aria-pressed="true">Web</button><button type="button" data-app="holo" aria-pressed="false">✦ Holograma</button>
@@ -494,6 +503,16 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       </div>
     </div>
   </header>
+
+  <section class="ab-card ab-mov" id="movimiento" aria-labelledby="mov-t" data-source="analisis" hidden>
+    <div class="ab-card-head"><h2 id="mov-t">Movimiento en la próxima hora</h2><span class="ab-kicker" id="mov-k"></span></div>
+    <div class="ab-apr-top">
+      <div class="ab-apr-stat"><small>Mercado</small><b id="mov-nivel">—</b><span id="mov-vol"></span></div>
+      <div class="ab-apr-stat"><small>Chance de movimiento fuerte</small><b id="mov-prob">—</b><span id="mov-base"></span></div>
+      <div class="ab-apr-stat"><small>Rango esperado</small><b id="mov-rango">—</b><span id="mov-normal"></span></div>
+    </div>
+    <p class="ab-note" id="mov-txt"></p>
+  </section>
 
   <nav class="ab-plazos" id="plazos" aria-label="Plazo del análisis" data-source="analisis"></nav>
 
@@ -684,7 +703,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   const dur = (min) => (min < 60 ? `${min} min` : min < 1440 ? `${Math.round(min / 60)} h` : `${Math.round(min / 1440)} d`);
   const M = (v) => `${f1(v)} M USD`;
   let ghostTimer = null, first = true, ghostK = 0;
-  let liveBar = null, ws = null, wsTf = null, ticks = 0;
+  let liveBar = null, ws = null, wsTf = null, wsMon = null, ticks = 0;
 
   // ---------- controles ----------
   function seg(nav, attr, onPick) {
@@ -890,10 +909,10 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 
   // ---------- en vivo (solo en la version local con --vivo: en claude.ai la pagina no puede conectarse a Binance) ----------
   function connectLive() {
-    if (!window.abLive || wsTf === S.tf) return;
+    if (!window.abLive || (wsTf === S.tf && wsMon === MON())) return;
     if (ws) ws.close();
-    wsTf = S.tf; liveBar = null;
-    const sock = new WebSocket(`wss://fstream.binance.com/market/ws/btcusdt@kline_${S.tf}`);
+    wsTf = S.tf; wsMon = MON(); liveBar = null; S.lastTick = undefined;
+    const sock = new WebSocket(`wss://fstream.binance.com/market/ws/${MON().toLowerCase()}usdt@kline_${S.tf}`);
     ws = sock;
     sock.onmessage = (ev) => {
       const k = JSON.parse(ev.data).k; if (!k) return;
@@ -902,14 +921,14 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       const pe = root.querySelector('.ab-price');
       if (pe && pe.firstChild) {
         const prev = S.lastTick;
-        pe.firstChild.textContent = f0(liveBar.c);
+        pe.firstChild.textContent = fp(liveBar.c);
         if (prev !== undefined && liveBar.c !== prev) {
           pe.classList.remove('ab-tick-up', 'ab-tick-dn'); void pe.offsetWidth;
           pe.classList.add(liveBar.c > prev ? 'ab-tick-up' : 'ab-tick-dn');
           clearTimeout(S.tickT); S.tickT = setTimeout(() => pe.classList.remove('ab-tick-up', 'ab-tick-dn'), 350);
         }
         S.lastTick = liveBar.c;
-        document.title = `${f0(liveBar.c)} · Analista BTC`;
+        document.title = `${fp(liveBar.c)} · ${MON()}`;
       }
       document.getElementById('live-state').textContent = ` · ● en vivo · análisis #${f0(window.abAnalyses || 1)} · ${f0(ticks)} ticks`;
       if (ticks % 10 === 0 && S.rows && !S.hover) drawChart(S.rows, S.sum);
@@ -937,6 +956,10 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 
   dash.onData(draw);
 
+  // la cripto que se analiza (la version JS puede elegir ZEC) y precio con los decimales que hacen falta
+  function MON() { return window.abMoneda || 'BTC'; }
+  function fp(x) { return x === null || x === undefined ? '—' : Math.abs(x) >= 1000 ? f0(x) : ar.format(',.2f')(x); }
+
   function draw() {
     const res = dash.data('analisis');
     const chart = document.getElementById('chart');
@@ -959,6 +982,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     drawPlazos(rows);
     drawStory(rows);
     drawPrediction(rows, sum);
+    drawMovimiento(rows);
     drawLearning(rows);
     drawGauge(rows);
     drawChart(rows, sum);
@@ -974,6 +998,23 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     if (first) { first = false; setTimeout(() => root.classList.remove('ab-first'), 1800); }
   }
 
+  // ---------- movimiento fuerte en la proxima hora ----------
+  function drawMovimiento(rows) {
+    const m = pick(rows, 'movimiento')[0], box = document.getElementById('movimiento');
+    box.hidden = !m; if (!m) return;
+    const on = m.nivel === 'Se despertó' || num(m.prob_fuerte) >= 35;
+    box.classList.toggle('ab-mov-on', on);
+    document.getElementById('mov-k').textContent = MON();
+    document.getElementById('mov-nivel').textContent = m.nivel;
+    document.getElementById('mov-vol').textContent = `volatilidad ${f1(num(m.volatilidad))}× la habitual`;
+    document.getElementById('mov-prob').textContent = `${f0(num(m.prob_fuerte))}%`;
+    document.getElementById('mov-base').textContent = `en una hora cualquiera: ${f0(num(m.prob_normal))}%`;
+    const fu = (x) => (num(S.sum && S.sum.precio) >= 1000 ? f0(x) : ar.format(',.2f')(x));
+    document.getElementById('mov-rango').textContent = `~${fu(num(m.esperado_usd))}`;
+    document.getElementById('mov-normal').textContent = `USD de punta a punta · normal ~${fu(num(m.normal_usd))} (${f1(num(m.normal_pct))}%)`;
+    document.getElementById('mov-txt').textContent = `"Movimiento fuerte" = la próxima hora se mueve más del doble de lo normal. Probabilidades medidas con ${MON()} 2021–2026 según qué tan agitado está el mercado; se mantuvieron iguales en 2025–26. Dice cuánto se puede mover, no para dónde.`;
+  }
+
   // ---------- cabecera y precio ----------
   function drawHeader(rows, s) {
     root.querySelector('[data-field="hora_local"]').textContent = s.hora_local + ' h';
@@ -981,8 +1022,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     const next = [0, 8, 12, 16, 20].find((h) => h > hour);
     document.getElementById('next-run').textContent = window.abLive ? 'se reanaliza solo'
       : `próximo análisis ${String(next === undefined ? 0 : next).padStart(2, '0')}:00 h`;
-    root.querySelector('.ab-price').replaceChildren(f0(num(s.precio)), el('small', '', 'USDT'));
-    document.title = `${f0(num(s.precio))} · Analista BTC`;
+    root.querySelector('.ab-price').replaceChildren(fp(num(s.precio)), el('small', '', 'USDT'));
+    document.title = `${fp(num(s.precio))} · ${MON()}`;
+    document.getElementById('moneda-lbl').textContent = MON();
+    document.getElementById('ab-title').textContent = `Analista ${MON()}`;
+    document.getElementById('graf-t').textContent = `Dónde está ${MON()} y hacia dónde suele ir desde acá`;
     const put = (id, v, d) => { const e = document.getElementById(id); e.textContent = v === null ? '—' : sg(v, d);
       e.classList.toggle('ab-up-t', v > 0); e.classList.toggle('ab-down-t', v < 0); };
     put('c24', num(s.cambio_24h), 2); put('c7', num(s.cambio_7d), 2); put('c200', num(s.sma200d_dist), 1);
@@ -1613,7 +1657,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
           const r = liq.find((z) => z.p === d.p) || { l: 0, s: 0 };
           const g = el('div', 'ab-tip-g');
           g.append(el('span', 'ab-tip-d', 'Longs que se liquidan'), el('span', '', M(r.l)), el('span', 'ab-tip-d', 'Shorts que se liquidan'), el('span', '', M(r.s)));
-          showTip([el('div', 'ab-tip-d', `Si BTC llega a ≈ ${f0(d.p)} (${sg((d.p / price - 1) * 100, 1)})`), g,
+          showTip([el('div', 'ab-tip-d', `Si ${MON()} llega a ≈ ${f0(d.p)} (${sg((d.p / price - 1) * 100, 1)})`), g,
             el('div', 'ab-tip-d', 'Estimación con open interest de la última semana')], d3.pointer(ev, svg.node())[0]);
         })
         .on('pointerleave', () => { tip.hidden = true; });
@@ -1676,7 +1720,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       ohlc.append(kv('A', f0(b.o)), kv('Máx', f0(b.h)), kv('Mín', f0(b.l)), kv('C', f0(b.c)), ch);
       const isLast = !fut && b === lastReal;
       const ob = fut ? null : b.rsi !== null && b.rsi !== undefined ? b : isLast ? lastOsc : null;
-      setVol([['Volumen '], [fut ? '—' : `${f1(b.v)} BTC`, fut ? null : col]]);
+      setVol([['Volumen '], [fut ? '—' : `${f1(b.v)} ${MON()}`, fut ? null : col]]);
       if (setRsi) setRsi(ob);
       if (setMacd) setMacd(ob, isLast);
     };
@@ -1720,7 +1764,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       const yy = Math.max(m.t, Math.min(my, H - m.b));
       let val = null;
       if (yy <= priceB) val = f0(y.invert(yy));
-      else if (yy <= volB && yy >= volB - volH) val = `${f1(yv.invert(yy))} BTC`;
+      else if (yy <= volB && yy >= volB - volH) val = `${f1(yv.invert(yy))} ${MON()}`;
       else if (oscY.rsi && yy >= rsiT && yy <= rsiB) val = f1(oscY.rsi.invert(yy));
       else if (oscY.macd && yy >= macdT && yy <= macdB) val = f1(oscY.macd.invert(yy));
       hy.attr('y1', yy).attr('y2', yy).style('display', val === null ? 'none' : null);
@@ -1769,7 +1813,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     if (pick(rows, 'explicacion').some((e) => e.plazo === S.plazo && e.tipo === 'vigilar'))
       item('sr', D('var(--color-fg-muted)'), 'Líneas largas verde y roja:', `resistencia y soporte más cercanos para el plazo de ${S.plazo}.`);
     if (ghosts.length) item('futuro', D('var(--color-fg-muted)'), 'Velas punteadas a la derecha:',
-      `un camino real del ${ghosts[0].desde.split('-').reverse().join('/')}, cuando BTC estaba en una situación parecida, llevado al precio de hoy. La zona gris es donde terminó el 80% de esos casos y la línea vertical, la hora del plazo elegido.`);
+      `un camino real del ${ghosts[0].desde.split('-').reverse().join('/')}, cuando ${MON()} estaba en una situación parecida, llevado al precio de hoy. La zona gris es donde terminó el 80% de esos casos y la línea vertical, la hora del plazo elegido.`);
     if (L.ondas && giros.some((g) => g.w)) {
       const mk = pick(rows, 'marco', tf)[0];
       item('ondas', { background: 'transparent', border: '1.5px solid var(--color-fg)', borderRadius: '50%', width: '10px', height: '10px' }, 'Círculos con letras o números:',
@@ -1856,7 +1900,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       if (it.now) {
         g.append('rect').attr('x', 0).attr('y', yy).attr('width', W).attr('height', rh - 4).attr('rx', 6).style('fill', 'var(--color-fg)');
         g.append('text').attr('x', 8).attr('y', yy + 15).style('fill', 'var(--color-bg)').style('font-weight', 600).text(f0(it.p));
-        g.append('text').attr('x', lx).attr('y', yy + 15).style('fill', 'var(--color-bg)').text('BTC ahora');
+        g.append('text').attr('x', lx).attr('y', yy + 15).style('fill', 'var(--color-bg)').text(`${MON()} ahora`);
         return;
       }
       const col = it.up ? 'var(--color-ok)' : 'var(--color-bad)';
@@ -1867,7 +1911,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       later(() => bar.style('width', bx(it.prob) + 'px'));
       g.append('text').attr('x', W - 4).attr('y', yy + 15).attr('text-anchor', 'end').style('font-weight', 600).text(`${f0(it.prob)}%`);
     });
-    document.getElementById('prob-foot').textContent = `Probabilidad de que BTC toque cada precio antes de esa hora, según ${f0(num(p.n))} casos parecidos de los últimos ${num(p.dias)} días.`
+    document.getElementById('prob-foot').textContent = `Probabilidad de que ${MON()} toque cada precio antes de esa hora, según ${f0(num(p.n))} casos parecidos de los últimos ${num(p.dias)} días.`
       + (med === null ? '' : ` Precio más probable al cierre: ${f0(med)}.`) + ` El 80% terminó entre ${f0(num(p.min))} y ${f0(num(p.max))}.`;
   }
 
@@ -1908,7 +1952,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     svg.append('rect').attr('x', axisX - 3).attr('y', y(price)).attr('width', 6).attr('height', Math.max(0, y(ext[0]) - y(price))).attr('rx', 3)
       .style('fill', 'var(--color-bad)').style('fill-opacity', .25);
     // separar etiquetas que se pisan (el precio actual ocupa su propio renglon, mas alto)
-    const items = lv.concat([{ name: 'BTC ahora', p: price, d: 0, now: true }]).sort((a, b) => b.p - a.p)
+    const items = lv.concat([{ name: `${MON()} ahora`, p: price, d: 0, now: true }]).sort((a, b) => b.p - a.p)
       .map((r) => ({ ...r, y: y(r.p), ly: y(r.p), gap: r.now ? 26 : 17 }));
     const gapOf = (a, b) => (a.now || b.now ? 22 : 17);
     for (let k = 1; k < items.length; k++) if (items[k].ly - items[k - 1].ly < gapOf(items[k], items[k - 1])) items[k].ly = items[k - 1].ly + gapOf(items[k], items[k - 1]);
