@@ -43,7 +43,8 @@ VOL_N = 100             # velas para el ATR promedio (volatilidad alta o baja)
 # confianza en las propias probabilidades: 1 = tal cual, menos = las modera hacia 50%, mas = las refuerza.
 # El orden decide los empates: ante la duda, sin cambios.
 FACTORES = (1.0, 0.75, 0.5, 0.25, 0.0, 1.25, 1.5)
-NICE_STEPS = (25, 50, 100, 250, 500, 1000, 2500, 5000, 10000)
+# escalones "redondos" de 1, 2,5 y 5 por cada potencia de 10: sirven para BTC (25, 50, 100...) y para ZEC (0,5, 1, 2,5...)
+NICE_STEPS = tuple(m * 10.0 ** k for k in range(-4, 6) for m in (1, 2.5, 5))
 ETA = 2.0               # cuanto castiga Hedge cada error (sobre el error cuadratico de las dos predicciones)
 REPARTO = 0.05          # parte del peso que se reparte entre todos en cada paso (adaptarse a cambios)
 TASA = 0.0005          # paso de aprendizaje del modelo (chico: con datos reales, mas grande se cree casualidades)
@@ -336,6 +337,7 @@ def aprender(bars, combo, h, warmup, X=None):
     price = c[-1]
     spread = (q(0.9) - q(0.1)) * price
     unit = min(NICE_STEPS, key=lambda s: abs(s - spread / 4))
+    unit = int(unit) if unit >= 1 else unit
     rel = unit / price
 
     sube, prim = [0] * n, [None] * n

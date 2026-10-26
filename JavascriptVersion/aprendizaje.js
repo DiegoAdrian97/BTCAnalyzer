@@ -20,7 +20,9 @@
   const PUNTOS_CURVA = 30;
   const VOL_N = 100;
   const FACTORES = [1.0, 0.75, 0.5, 0.25, 0.0, 1.25, 1.5];
-  const NICE_STEPS = [25, 50, 100, 250, 500, 1000, 2500, 5000, 10000];
+  // escalones "redondos" de 1, 2,5 y 5 por cada potencia de 10 (como en Python)
+  const NICE_STEPS = [];
+  for (let k = -4; k < 6; k++) for (const m of [1, 2.5, 5]) NICE_STEPS.push(m * 10 ** k);
   const ETA = 2.0;          // cuanto castiga Hedge cada error
   const REPARTO = 0.05;     // parte del peso que se reparte entre todos en cada paso (adaptarse a cambios)
   const TASA = 0.0005;      // paso de aprendizaje del modelo

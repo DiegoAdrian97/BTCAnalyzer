@@ -192,6 +192,47 @@ def similar(st, last, warmup):
     return idxs, keep
 
 
+# ---------- movimiento fuerte en la proxima hora ----------
+# Probabilidad de que la hora siguiente se mueva mas del doble de lo normal y cuanto se mueve (mediana, en veces lo
+# normal), segun la volatilidad de las velas de 5 min (rapida / lenta). Medido con velas de futuros de Binance
+# 2021-2026: la tabla casi no cambio entre 2021-24 y 2025-26.
+MOV_CORTES = (0.8, 1.0, 1.3, 1.6, 2.0, 2.5)
+MOV_TABLA = {"BTC": {"prob": (8, 12, 19, 32, 43, 60, 68), "veces": (0.8, 0.96, 1.18, 1.53, 1.75, 2.3, 3.0), "base": 14},
+             "ZEC": {"prob": (7, 8, 14, 24, 35, 50, 69), "veces": (0.87, 0.94, 1.11, 1.38, 1.6, 2.0, 3.7), "base": 11}}
+
+
+def movimiento(c5, price, moneda="BTC"):
+    """Que tan agitado esta el mercado y que se puede esperar de la proxima hora. c5: velas de 5 min cerradas."""
+    if len(c5) < 300:
+        return None
+    af, asl = 2 / 21, 2 / 201
+    ef = es = None
+    serie = []
+    for b in c5:
+        r = (b[2] - b[3]) / b[4]
+        v = r * r
+        ef = v if ef is None else ef + af * (v - ef)
+        es = v if es is None else es + asl * (v - es)
+        serie.append(math.sqrt(ef / es) if es > 0 else 1.0)
+    vol = serie[-1]
+    rangos = []
+    j = len(c5) - 13
+    while j >= 0 and len(rangos) < 720:
+        hi = max(b[2] for b in c5[j + 1:j + 13])
+        lo = min(b[3] for b in c5[j + 1:j + 13])
+        rangos.append((hi - lo) / c5[j][4])
+        j -= 12
+    rangos.sort()
+    normal = rangos[len(rangos) // 2]
+    k = sum(1 for x in MOV_CORTES if vol >= x)
+    t = MOV_TABLA[moneda]
+    nivel = "Calma" if vol < 0.8 else "Normal" if vol < 1.3 else "Agitado" if vol < 1.8 else "Se despertó"
+    return {"tabla": "movimiento", "volatilidad": round(vol, 2), "nivel": nivel, "prob_fuerte": t["prob"][k],
+            "prob_normal": t["base"], "veces": t["veces"][k], "normal_pct": round(normal * 100, 2),
+            "esperado_pct": round(normal * t["veces"][k] * 100, 2), "normal_usd": round(normal * price, 1),
+            "esperado_usd": round(normal * t["veces"][k] * price, 1), "despierto": vol > 1.8 and serie[-7] <= 1.8}
+
+
 # ---------- volatilidad prevista ----------
 # Lo que se mueve el precio tiene memoria (despues de horas agitadas vienen horas agitadas) y depende de la hora
 # del dia. Cada caso del pasado se lleva a la volatilidad de ahora antes de usarlo para el rango esperado, los
@@ -281,7 +322,7 @@ def scenarios(bars, idxs, price, tf_ms, F=None):
     return candles, cone
 
 
-NICE_STEPS = (25, 50, 100, 250, 500, 1000, 2500, 5000, 10000)
+NICE_STEPS = apr.NICE_STEPS
 
 
 def targets(bars, idxs, price, h, when, f=1.0, unit=None, pf_ap=None, F=None):
@@ -302,6 +343,7 @@ def targets(bars, idxs, price, h, when, f=1.0, unit=None, pf_ap=None, F=None):
     spread = (q(0.9) - q(0.1)) * price
     # la distancia la fija el aprendizaje (es la que viene midiendo); si no hay, la de los casos parecidos
     unit = unit or min(NICE_STEPS, key=lambda s: abs(s - spread / 4))
+    unit = int(unit) if unit >= 1 else unit
     rows = []
     # el primer nivel de cada lado queda al menos a medio escalon: uno pegado al precio se toca siempre
     first_up = (int((price + unit / 2) // unit) + 1) * unit
@@ -313,7 +355,11 @@ def targets(bars, idxs, price, h, when, f=1.0, unit=None, pf_ap=None, F=None):
             rows.append({"precio": level, "lado": side, "prob": round(hits / len(usable) * 100, 1)})
     # cual se toco PRIMERO entre dos niveles A LA MISMA DISTANCIA del precio (precio +/- un escalon).
     # Con niveles redondos asimetricos ganaria siempre el que queda mas cerca, no el que tiene mas chances.
-    up_lvl, dn_lvl = round(price + unit, -1), round(price - unit, -1)
+    if unit >= 10:
+        up_lvl, dn_lvl = round(price + unit, -1), round(price - unit, -1)
+    else:                       # criptos de precio chico: se redondea a la decima parte del escalon
+        q = unit / 10
+        up_lvl, dn_lvl = round((price + unit) / q) * q, round((price - unit) / q) * q
     rel = unit / price
     first = []
     for j in usable:
@@ -949,6 +995,9 @@ def analyze():
         rows.append({"tabla": "acierto", "tf": tf, "horizonte": label(h * tf_min), "pronosticos": n,
                      "aciertos": round(hits / n * 100, 1), "brier": round(brier / n, 3)})
 
+    mov = movimiento(candles["5m"], price)
+    if mov:
+        rows.append(mov)
     explanation = [e for spec in PLAZOS for e in explain(rows, price, spec)]
     rows += explanation
     takeaway = next(e["texto"] for e in explanation if e["plazo"] == "1 hora" and e["tipo"] == "titular")
