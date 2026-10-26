@@ -41,8 +41,8 @@ El servidor de Render mira el mercado las 24 horas (se mantiene despierto solo) 
   2021–2026, ganó el 64%, +0,22 R por operación con comisiones, peor racha −3,4 R, 5 de 6 años positivos.
   Después avisa si tocó el objetivo o el stop. Es estadística del pasado, no una garantía.
 
-Configuración en Render (Environment), nunca en el código: `WHATSAPP_TEL` y `WHATSAPP_CLAVE` (CallMeBot) y, si se
-quiere también la app ntfy, `NTFY_TEMA`. Si Binance bloquea la IP, el mapa de liquidaciones sale de Bybit.
+Configuración en Render (Environment), nunca en el código: `TELEGRAM_TOKEN` y `TELEGRAM_CHAT` (bot de Telegram),
+o `WHATSAPP_TEL` y `WHATSAPP_CLAVE` (CallMeBot), o `NTFY_TEMA` (app ntfy). Si Binance bloquea la IP, el mapa de liquidaciones sale de Bybit.
 
 ### Volatilidad prevista
 
