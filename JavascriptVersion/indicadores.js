@@ -719,7 +719,7 @@
       const neckLine = line(q[1], q[3], 'Cuello');
       const neckAt = (j) => neckLine[1] + neckLine[2] * (t(j) - neckLine[0]);
       if (q[0][0] === 'alto' && k[2] > k[0] + tol && k[2] > k[4] + tol && Math.abs(k[0] - k[4]) < 1.5 * tol
-          && stillValid(q[4], 'bajista', k[2], neckAt)) {
+          && hchBien(bars, q, true) && stillValid(q[4], 'bajista', k[2], neckAt)) {
         const neck = line(q[1], q[3], 'Cuello'), nNow = atNow(neck);
         const target = nNow - (k[2] - (k[1] + k[3]) / 2), broke = px < nNow;
         const desc = broke ? `Tres máximos, el del medio más alto. BTC perdió el cuello en ${ar(nNow)}: objetivo ${ar(target)}.`
@@ -727,7 +727,7 @@
         return result('Hombro-cabeza-hombro', 'bajista', [neck], shoulders, target, desc, broke);
       }
       if (q[0][0] === 'bajo' && k[2] < k[0] - tol && k[2] < k[4] - tol && Math.abs(k[0] - k[4]) < 1.5 * tol
-          && stillValid(q[4], 'alcista', k[2], neckAt)) {
+          && hchBien(bars, q, false) && stillValid(q[4], 'alcista', k[2], neckAt)) {
         const neck = line(q[1], q[3], 'Cuello'), nNow = atNow(neck);
         const target = nNow + ((k[1] + k[3]) / 2 - k[2]), broke = px > nNow;
         const desc = broke ? `Tres mínimos, el del medio más bajo. BTC superó el cuello en ${ar(nNow)}: objetivo ${ar(target)}.`
@@ -789,11 +789,28 @@
   }
 
   /** Recta por dos giros que deja a todos los demas del lado de adentro (o tocandola): [linea, toques] o null. */
-  function envolvente(pts, top, tol, t) {
+  /** Que un hombro-cabeza-hombro tenga forma de verdad (como _hch_bien de Python). */
+  function hchBien(bars, q, top) {
+    const k = q.map((p) => p[2]);
+    const neckIn = top ? Math.max(k[1], k[3]) : Math.min(k[1], k[3]);
+    const head = top ? k[2] - neckIn : neckIn - k[2];
+    if (head <= 0) return false;
+    const shoulder = top ? Math.min(k[0], k[4]) - neckIn : neckIn - Math.max(k[0], k[4]);
+    if (shoulder < 0.35 * head || Math.abs(k[1] - k[3]) > 0.6 * head) return false;
+    const dl = q[2][1] - q[0][1], dr = q[4][1] - q[2][1];
+    if (dl <= 0 || dr <= 0 || dl > 2.5 * dr || dr > 2.5 * dl) return false;
+    const seg = bars.slice(Math.max(0, q[0][1] - (q[4][1] - q[0][1])), q[0][1]);
+    if (!seg.length) return false;
+    const neckOut = top ? Math.min(k[1], k[3]) : Math.max(k[1], k[3]);
+    return top ? Math.min(...seg.map((b) => b[3])) < neckOut : Math.max(...seg.map((b) => b[2])) > neckOut;
+  }
+
+  function envolvente(pts, top, tol, t, minSpan = 0) {
     let best = null;
     for (let bi = pts.length - 1; bi > 0; bi--) {
       for (let ai = bi - 1; ai >= 0; ai--) {
         const a = pts[ai], b = pts[bi];
+        if (t(b[1]) - t(a[1]) < minSpan) continue;
         const m = (b[2] - a[2]) / (t(b[1]) - t(a[1]) || 1);
         const at = (q) => a[2] + m * (t(q[1]) - t(a[1]));
         if (pts.some((q) => (top ? q[2] > at(q) + tol : q[2] < at(q) - tol))) continue;
@@ -820,11 +837,12 @@
       const W = P.slice(-n);
       const hs = W.filter((q) => q[0] === 'alto'), ls = W.filter((q) => q[0] === 'bajo');
       if (hs.length < 2 || ls.length < 2) continue;
-      const eu = envolvente(hs, true, tol, t), el = envolvente(ls, false, tol, t);
-      if (eu === null || el === null || eu[1] < 2 || el[1] < 2 || eu[1] + el[1] < 5) continue;
-      const upL = eu[0].concat(['Techo']), loL = el[0].concat(['Piso']);
       const s0 = W[0][1], s1 = W[W.length - 1][1];
       if (iLast - s0 < 15 || s1 - s0 < 10) continue;
+      const minSpan = 0.35 * (t(s1) - t(s0));    // cada linea se apoya en giros que cubren buena parte de la figura
+      const eu = envolvente(hs, true, tol, t, minSpan), el = envolvente(ls, false, tol, t, minSpan);
+      if (eu === null || el === null || eu[1] < 2 || el[1] < 2 || eu[1] + el[1] < 5) continue;
+      const upL = eu[0].concat(['Techo']), loL = el[0].concat(['Piso']);
       let out = false;
       for (let k = s0; k <= s1; k++) if (bars[k][4] > val(upL, k) + tol || bars[k][4] < val(loL, k) - tol) { out = true; break; }
       if (out) continue;                              // el precio no respeto las lineas: no es una figura
