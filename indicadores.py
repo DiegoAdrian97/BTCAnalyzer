@@ -712,7 +712,7 @@ def patron_grafico(bars, pivots, atr_last):
         neck_line = line(q[1], q[3], "Cuello")
         neck_at = lambda j: neck_line[1] + neck_line[2] * (t(j) - neck_line[0])
         if (q[0][0] == "alto" and k[2] > k[0] + tol and k[2] > k[4] + tol and abs(k[0] - k[4]) < 1.5 * tol
-                and still_valid(q[4], "bajista", k[2], neck_at)):
+                and _hch_bien(bars, q, True) and still_valid(q[4], "bajista", k[2], neck_at)):
             neck = line(q[1], q[3], "Cuello")
             n_now = at_now(neck)
             target, broke = n_now - (k[2] - (k[1] + k[3]) / 2), px < n_now
@@ -721,7 +721,7 @@ def patron_grafico(bars, pivots, atr_last):
                          f"se confirma y el objetivo es {_ar(target)}.")
             return result("Hombro-cabeza-hombro", "bajista", [neck], shoulders, target, desc, broke)
         if (q[0][0] == "bajo" and k[2] < k[0] - tol and k[2] < k[4] - tol and abs(k[0] - k[4]) < 1.5 * tol
-                and still_valid(q[4], "alcista", k[2], neck_at)):
+                and _hch_bien(bars, q, False) and still_valid(q[4], "alcista", k[2], neck_at)):
             neck = line(q[1], q[3], "Cuello")
             n_now = at_now(neck)
             target, broke = n_now + ((k[1] + k[3]) / 2 - k[2]), px > n_now
@@ -789,14 +789,39 @@ def patron_grafico(bars, pivots, atr_last):
     return None
 
 
-def _envolvente(pts, top, tol, t):
+def _hch_bien(bars, q, top):
+    """Que un hombro-cabeza-hombro tenga forma de verdad: hombros bien por encima del cuello (no rozandolo), un
+    cuello sin demasiada inclinacion, hombros parecidos en duracion y una tendencia previa que llego desde el otro
+    lado del cuello (es una figura de giro: sin tendencia antes, no hay nada que girar)."""
+    k = [p[2] for p in q]
+    neck_in = max(k[1], k[3]) if top else min(k[1], k[3])         # el punto del cuello mas cercano a la cabeza
+    head = (k[2] - neck_in) if top else (neck_in - k[2])
+    if head <= 0:
+        return False
+    shoulder = (min(k[0], k[4]) - neck_in) if top else (neck_in - max(k[0], k[4]))
+    if shoulder < 0.35 * head or abs(k[1] - k[3]) > 0.6 * head:
+        return False
+    dl, dr = q[2][1] - q[0][1], q[4][1] - q[2][1]
+    if dl <= 0 or dr <= 0 or dl > 2.5 * dr or dr > 2.5 * dl:
+        return False
+    seg = bars[max(0, q[0][1] - (q[4][1] - q[0][1])):q[0][1]]
+    if not seg:
+        return False
+    neck_out = min(k[1], k[3]) if top else max(k[1], k[3])
+    return min(b[3] for b in seg) < neck_out if top else max(b[2] for b in seg) > neck_out
+
+
+def _envolvente(pts, top, tol, t, min_span=0):
     """Recta por dos giros que deja a todos los demas del lado de adentro (o tocandola): (linea, toques) o None.
 
-    Gana la que mas giros toca; a igualdad, la mas reciente."""
+    Los dos giros que la definen tienen que estar separados al menos min_span (una recta por dos giros pegados
+    tiene una inclinacion casi arbitraria). Gana la que mas giros toca; a igualdad, la mas reciente."""
     best = None
     for bi in range(len(pts) - 1, 0, -1):
         for ai in range(bi - 1, -1, -1):
             a, b = pts[ai], pts[bi]
+            if t(b[1]) - t(a[1]) < min_span:
+                continue
             m = (b[2] - a[2]) / ((t(b[1]) - t(a[1])) or 1)
             at = lambda q: a[2] + m * (t(q[1]) - t(a[1]))
             if any((q[2] > at(q) + tol) if top else (q[2] < at(q) - tol) for q in pts):
@@ -824,13 +849,14 @@ def figura_lineas(bars, P, atr_last):
         hs, ls_ = [q for q in W if q[0] == "alto"], [q for q in W if q[0] == "bajo"]
         if len(hs) < 2 or len(ls_) < 2:
             continue
-        eu, el = _envolvente(hs, True, tol, t), _envolvente(ls_, False, tol, t)
-        if eu is None or el is None or eu[1] < 2 or el[1] < 2 or eu[1] + el[1] < 5:
-            continue
-        up_l, lo_l = eu[0] + ("Techo",), el[0] + ("Piso",)
         s0, s1 = W[0][1], W[-1][1]
         if i_last - s0 < 15 or s1 - s0 < 10:
             continue
+        min_span = 0.35 * (t(s1) - t(s0))         # cada linea se apoya en giros que cubren buena parte de la figura
+        eu, el = _envolvente(hs, True, tol, t, min_span), _envolvente(ls_, False, tol, t, min_span)
+        if eu is None or el is None or eu[1] < 2 or el[1] < 2 or eu[1] + el[1] < 5:
+            continue
+        up_l, lo_l = eu[0] + ("Techo",), el[0] + ("Piso",)
         if any(bars[k][4] > val(up_l, k) + tol or bars[k][4] < val(lo_l, k) - tol for k in range(s0, s1 + 1)):
             continue                        # el precio no respeto las lineas: no es una figura
         w0, w1 = val(up_l, s0) - val(lo_l, s0), val(up_l, i_last) - val(lo_l, i_last)
