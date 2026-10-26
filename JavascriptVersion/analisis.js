@@ -17,7 +17,8 @@
   const TIMEFRAMES = { '5m': [30, [3, 12]], '15m': [90, [4, 16]], '30m': [180, [4, 16]], '1h': [365, [4, 24]], '4h': [730, [3, 6]], '1d': [1500, [3, 7]] };
   const TF_MS = { '5m': 300000, '15m': 900000, '30m': 1800000, '1h': 3600000, '4h': 14400000, '1d': 86400000 };
   const TF_TXT = { '5m': '5 min', '15m': '15 min', '30m': '30 min', '1h': '1 hora', '4h': '4 horas', '1d': 'diario' };
-  const NICE_STEPS = [25, 50, 100, 250, 500, 1000, 2500, 5000, 10000];
+  const NICE_STEPS = [];      // como en Python: 1, 2,5 y 5 por cada potencia de 10
+  for (let k = -4; k < 6; k++) for (const m of [1, 2.5, 5]) NICE_STEPS.push(m * 10 ** k);
 
   // ---------- formato ----------
   const arp = (x, d = 1) => (x > 0 ? '+' : '') + ar(x, d) + '%';
@@ -63,6 +64,35 @@
   }
 
   const quantile = (sorted, p) => sorted[Math.min(Math.trunc(p * sorted.length), sorted.length - 1)];
+
+  // ---------- movimiento fuerte en la proxima hora (como movimiento() de Python) ----------
+  const MOV_CORTES = [0.8, 1.0, 1.3, 1.6, 2.0, 2.5];
+  const MOV_TABLA = { BTC: { prob: [8, 12, 19, 32, 43, 60, 68], veces: [0.8, 0.96, 1.18, 1.53, 1.75, 2.3, 3.0], base: 14 },
+    ZEC: { prob: [7, 8, 14, 24, 35, 50, 69], veces: [0.87, 0.94, 1.11, 1.38, 1.6, 2.0, 3.7], base: 11 } };
+  function movimiento(c5, price, moneda = 'BTC') {
+    if (c5.length < 300) return null;
+    const af = 2 / 21, as = 2 / 201;
+    let ef = null, es = null;
+    const serie = [];
+    for (const b of c5) {
+      const r = (b[2] - b[3]) / b[4], v = r * r;
+      ef = ef === null ? v : ef + af * (v - ef);
+      es = es === null ? v : es + as * (v - es);
+      serie.push(es > 0 ? Math.sqrt(ef / es) : 1);
+    }
+    const vol = serie[serie.length - 1], rangos = [];
+    for (let j = c5.length - 13; j >= 0 && rangos.length < 720; j -= 12) {
+      let hi = -Infinity, lo = Infinity;
+      for (let k = j + 1; k < j + 13; k++) { hi = Math.max(hi, c5[k][2]); lo = Math.min(lo, c5[k][3]); }
+      rangos.push((hi - lo) / c5[j][4]);
+    }
+    rangos.sort((a, b) => a - b);
+    const normal = rangos[Math.floor(rangos.length / 2)], k = MOV_CORTES.filter((x) => vol >= x).length, t = MOV_TABLA[moneda];
+    const nivel = vol < 0.8 ? 'Calma' : vol < 1.3 ? 'Normal' : vol < 1.8 ? 'Agitado' : 'Se despertó';
+    return { tabla: 'movimiento', volatilidad: rnd(vol, 2), nivel, prob_fuerte: t.prob[k], prob_normal: t.base, veces: t.veces[k],
+      normal_pct: rnd(normal * 100, 2), esperado_pct: rnd(normal * t.veces[k] * 100, 2), normal_usd: rnd(normal * price, 1),
+      esperado_usd: rnd(normal * t.veces[k] * price, 1), despierto: vol > 1.8 && serie[serie.length - 7] <= 1.8 };
+  }
 
   // ---------- volatilidad prevista (ver vol_escala en analisis_btc.py) ----------
   const VOL_RAPIDA = 20, VOL_LENTA = 200, VOL_PESO = 0.5, VOL_MIN_FRANJA = 20;
@@ -167,7 +197,9 @@
       });
     }
     // cual se toco PRIMERO entre dos niveles A LA MISMA DISTANCIA del precio (precio +/- un escalon)
-    const upLvl = roundEven((price + unit) / 10) * 10, dnLvl = roundEven((price - unit) / 10) * 10;
+    const q10 = unit >= 10 ? 10 : unit / 10;      // criptos de precio chico: a la decima parte del escalon
+    const upLvl = unit >= 10 ? roundEven((price + unit) / 10) * 10 : roundEven((price + unit) / q10) * q10;
+    const dnLvl = unit >= 10 ? roundEven((price - unit) / 10) * 10 : roundEven((price - unit) / q10) * q10;
     const rel = unit / price;
     const first = [];
     usable.forEach((j) => {
@@ -654,6 +686,8 @@
       .forEach(([tf, h, [n, hits, brier]]) => rows.push({ tabla: 'acierto', tf, horizonte: label(h * (TF_MS[tf] / 60000)), pronosticos: n,
         aciertos: rnd((hits / n) * 100, 1), brier: rnd(brier / n, 3) }));
 
+    const mov = movimiento(candles['5m'], price, input.moneda || 'BTC');
+    if (mov) rows.push(mov);
     const explanation = [];
     PLAZOS.forEach((spec) => explain(rows, price, spec).forEach((e) => explanation.push(e)));
     explanation.forEach((e) => rows.push(e));
