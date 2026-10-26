@@ -35,11 +35,16 @@ El servidor de Render mira el mercado las 24 horas (se mantiene despierto solo) 
   2021–2026: la hora siguiente se mueve 2,3 veces lo normal y más del doble el 59% de las veces (15% en una hora
   cualquiera). No dice para dónde.
 - **Zona grande de liquidaciones cerca**: el precio a menos de 0,4% de la zona más grande de cada lado.
-- **Setup de entrada (largo o corto)** con entrada, stop, objetivo e historial: ruptura de 55 velas de 1 hora a
-  favor de la tendencia de 4 horas, con el mercado despierto; stop a 2,5 ATR, objetivo 1R, cierre a las 72 h.
-  Elegido con 2021–24 y verificado con 2025–26 y 27 variantes vecinas (todas positivas): 99 operaciones
-  2021–2026, ganó el 64%, +0,22 R por operación con comisiones, peor racha −3,4 R, 5 de 6 años positivos.
-  Después avisa si tocó el objetivo o el stop. Es estadística del pasado, no una garantía.
+- **Setups de entrada (largo o corto) en BTC, ETH y ZEC**, con entrada, stop, objetivo e historial: ruptura de 55
+  velas de 1 hora a favor de la tendencia de 4 horas, con el mercado despierto; cierre a las 72 h. Elegidos con
+  2021–24 y verificados con 2025–26 (con comisiones). Arriesgando 1% por operación, 2021–2026:
+  | | Stop / objetivo | Aciertos | R por operación | Cuenta | Peor caída | Años positivos |
+  |---|---|---|---|---|---|---|
+  | BTC | 2,5 ATR / 1R | 64–69% | +0,22 a +0,35 | +22% a +36% | −3% | 5–6 de 6 |
+  | ETH | 2,5 ATR / 1R | 61% | +0,22 | +22% | −3% | 6 de 6 |
+  | ZEC | 2,5 ATR / 1,5R | 49% | +0,19 | +44% | −7% | 6 de 6 |
+  SOL y XRP no dieron ventaja con esta regla. Después avisa si tocó el objetivo o el stop. Es estadística del
+  pasado, no una garantía.
 
 Configuración en Render (Environment), nunca en el código: `TELEGRAM_TOKEN` y `TELEGRAM_CHAT` (bot de Telegram),
 o `WHATSAPP_TEL` y `WHATSAPP_CLAVE` (CallMeBot), o `NTFY_TEMA` (app ntfy). Si Binance bloquea la IP, el mapa de liquidaciones sale de Bybit.

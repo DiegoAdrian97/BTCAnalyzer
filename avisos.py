@@ -8,11 +8,15 @@ Que avisa (solo lo que se probo con velas reales de BTC):
   donde: eso no se pudo predecir.
 - "Zona grande de liquidaciones cerca": cuando el precio queda a menos de 0,4% de la zona mas grande de
   liquidaciones estimadas de cada lado (dentro de 3%). Es informativo: alli el movimiento se puede acelerar.
-- Setup de entrada (largo o corto) con stop y objetivo: ruptura de 55 velas de 1 hora a favor de la tendencia de
-  4 horas (EMA 50 vs 200) y de la EMA 200 de 1 hora, con el mercado despierto (volatilidad de 1 hora > 1,5 veces la
-  habitual). Stop a 2,5 ATR, objetivo 1R, cierre si en 72 horas no toco ninguno. Elegido con 2021-24 y verificado
-  con 2025-26 y con 27 variantes vecinas (todas positivas): 99 operaciones 2021-2026, gano el 64%, +0,22 R por
-  operacion con comisiones, peor racha -3,4 R, 5 de 6 anos positivos. Despues avisa si toco el objetivo o el stop.
+- Setups de entrada (largo o corto) con stop y objetivo, en BTC, ETH y ZEC: ruptura de 55 velas de 1 hora a favor
+  de la tendencia de 4 horas (EMA 50 vs 200) y de la EMA 200 de 1 hora, con el mercado despierto (volatilidad de 1
+  hora sobre la habitual). Cierre si en 72 horas no toco ni el stop ni el objetivo. Elegidos con 2021-24 y
+  verificados con 2025-26 (velas de futuros de Binance, con comisiones):
+    BTC y ETH: despierto > 1,5, stop 2,5 ATR, objetivo 1R. BTC 64-69% de aciertos, +0,22 a +0,35 R por operacion;
+               ETH 61%, +0,22 R. Positivos 6 de 6 anos.
+    ZEC:       despierto > 1,2, stop 2,5 ATR, objetivo 1,5R (en ZEC conviene dejar correr): 49%, +0,19 R, 6 de 6 anos;
+               las 43 variantes que ganaban en 2021-24 tambien ganaron en 2025-26.
+  Despues avisa si toco el objetivo o el stop. Las velas de ETH y ZEC se piden a Bybit una vez por hora.
 
 Por donde (variables de entorno de Render; nunca en el codigo ni en el repositorio):
 - TELEGRAM_TOKEN y TELEGRAM_CHAT: el token del bot (de @BotFather) y tu numero de usuario (de @userinfobot).
@@ -35,11 +39,22 @@ CERCA_LIQ = 0.004          # 0,4% de la zona de liquidaciones
 RANGO_LIQ = 0.03           # zonas dentro de 3% del precio
 ESPERA_LIQ = 3 * 3600      # la misma zona no se avisa dos veces en 3 horas
 
-SETUP = {"ruptura": 55, "despierto": 1.5, "stop_atr": 2.5, "objetivo_r": 1.0, "horas": 72}
-HISTORIAL = ("Historial 2021–2026 (con comisiones): 99 operaciones, ganó el 64%, promedio +0,22 R por operación, "
-             "peor racha −3,4 R, positivo 5 de 6 años. Es estadística del pasado, no una garantía.")
+HORAS = 72
+_PIE = " Arriesgando 1% de la cuenta por operación: {cuenta}, peor caída {caida}. Es estadística del pasado, no una garantía."
+SETUPS = {
+    "BTC": {"ruptura": 55, "despierto": 1.5, "stop_atr": 2.5, "objetivo_r": 1.0, "simbolo": "BTC/USDT:USDT",
+            "historial": "Historial 2021–2026 (con comisiones): 91 a 99 operaciones según la fuente de datos, ganó el "
+                         "64–69%, +0,22 a +0,35 R por operación, positivo 5–6 de 6 años."
+                         + _PIE.format(cuenta="+22% a +36%", caida="−3%")},
+    "ETH": {"ruptura": 55, "despierto": 1.5, "stop_atr": 2.5, "objetivo_r": 1.0, "simbolo": "ETH/USDT:USDT",
+            "historial": "Historial 2021–2026 (con comisiones): 93 operaciones, ganó el 61%, +0,22 R por operación, "
+                         "positivo 6 de 6 años." + _PIE.format(cuenta="+22%", caida="−3%")},
+    "ZEC": {"ruptura": 55, "despierto": 1.2, "stop_atr": 2.5, "objetivo_r": 1.5, "simbolo": "ZEC/USDT:USDT",
+            "historial": "Historial 2021–2026 (con comisiones): 195 operaciones, ganó el 49% (el objetivo es 1,5 veces "
+                         "el stop), +0,19 R por operación, positivo 6 de 6 años." + _PIE.format(cuenta="+44%", caida="−7%")},
+}
 
-_estado = {"mov": 0.0, "liq": {}, "arranque": False, "setup_t": None, "abierta": None}
+_estado = {"mov": 0.0, "liq": {}, "arranque": False, "setup_t": {}, "abierta": {}, "velas": {}, "precio": {}}
 
 
 def _ar(x, d=0):
@@ -93,11 +108,12 @@ def volatilidad(velas):
     return serie
 
 
-def setup(h1, h4):
+def setup(h1, h4, cfg=None):
     """El setup en la ultima vela de 1 hora cerrada: (direccion, entrada, stop, objetivo) o None.
-    h1, h4: velas cerradas [t, o, h, l, c, v] de 1 hora y de 4 horas."""
+    h1, h4: velas cerradas [t, o, h, l, c, v] de 1 hora y de 4 horas. cfg: los parametros de la cripto."""
     import indicadores as ind
-    N = SETUP["ruptura"]
+    cfg = cfg or SETUPS["BTC"]
+    N = cfg["ruptura"]
     if len(h1) < 260 or len(h4) < 210:
         return None
     c = [b[4] for b in h1]
@@ -110,31 +126,106 @@ def setup(h1, h4):
     i = len(h1) - 1
     hi, lo = max(b[2] for b in h1[i - N:i]), min(b[3] for b in h1[i - N:i])
     d = 1 if c[i] > hi and c[i] > e200[i] else -1 if c[i] < lo and c[i] < e200[i] else 0
-    if not d or d != tend or v <= SETUP["despierto"] or atr[i] is None:
+    if not d or d != tend or v <= cfg["despierto"] or atr[i] is None:
         return None
     e = c[i]
-    sl = e - d * SETUP["stop_atr"] * atr[i]
-    return d, e, sl, e + d * SETUP["objetivo_r"] * abs(e - sl)
+    sl = e - d * cfg["stop_atr"] * atr[i]
+    return d, e, sl, e + d * cfg["objetivo_r"] * abs(e - sl)
 
 
-def _seguir(price, ahora):
-    """Si hay un setup abierto, avisa cuando toca el objetivo o el stop (o vence)."""
-    op = _estado["abierta"]
+_BYBIT = None
+
+
+def _bybit():
+    global _BYBIT
+    if _BYBIT is None:
+        import ccxt
+        _BYBIT = ccxt.bybit({"enableRateLimit": True, "options": {"defaultType": "swap"}})
+    return _BYBIT
+
+
+def _velas(nombre, ahora):
+    """Velas cerradas de 1 hora y de 4 horas de ETH o ZEC (Bybit, 1000 de cada una), una sola vez por hora."""
+    hora = int(ahora // 3600)
+    got = _estado["velas"].get(nombre)
+    if got and got[0] == hora:
+        return got[1], got[2]
+    ex, sym = _bybit(), SETUPS[nombre]["simbolo"]
+    h1 = [list(x) for x in ex.fetch_ohlcv(sym, "1h", limit=1000) if x[0] + 3_600_000 <= ahora * 1000]
+    h4 = [list(x) for x in ex.fetch_ohlcv(sym, "4h", limit=1000) if x[0] + 14_400_000 <= ahora * 1000]
+    _estado["velas"][nombre] = (hora, h1, h4)
+    return h1, h4
+
+
+def _precio(nombre, ahora, btc):
+    if nombre == "BTC":
+        return btc
+    got = _estado["precio"].get(nombre)
+    if got and ahora - got[0] < 60:
+        return got[1]
+    p = float(_bybit().fetch_ticker(SETUPS[nombre]["simbolo"])["last"])
+    _estado["precio"][nombre] = (ahora, p)
+    return p
+
+
+def _seguir(nombre, price, ahora):
+    """Si hay un setup abierto de esa cripto, avisa cuando toca el objetivo o el stop (o vence)."""
+    op = _estado["abierta"].get(nombre)
     if not op:
         return
     d, e, sl, tp, t0 = op
     lado = "LARGO" if d > 0 else "CORTO"
+    rr = SETUPS[nombre]["objetivo_r"]
     if (price >= tp) if d > 0 else (price <= tp):
-        enviar(f"✅ Setup {lado}: objetivo alcanzado", f"BTC llegó a {_ar(tp)} (entrada {_ar(e)}). +1R.")
-        _estado["abierta"] = None
+        enviar(f"✅ {nombre} {lado}: objetivo alcanzado", f"{nombre} llegó a {_fmt(tp)} (entrada {_fmt(e)}). +{_ar(rr, 1)}R.")
+        _estado["abierta"].pop(nombre)
     elif (price <= sl) if d > 0 else (price >= sl):
-        enviar(f"❌ Setup {lado}: tocó el stop", f"BTC llegó a {_ar(sl)} (entrada {_ar(e)}). −1R.")
-        _estado["abierta"] = None
-    elif ahora - t0 > SETUP["horas"] * 3600:
+        enviar(f"❌ {nombre} {lado}: tocó el stop", f"{nombre} llegó a {_fmt(sl)} (entrada {_fmt(e)}). −1R.")
+        _estado["abierta"].pop(nombre)
+    elif ahora - t0 > HORAS * 3600:
         r = (price - e) / abs(e - sl) * d
-        enviar(f"⏱ Setup {lado}: pasaron 72 h", f"No tocó ni el stop ni el objetivo. Según la regla, se cierra en "
-               f"{_ar(price)} ({'+' if r >= 0 else ''}{_ar(r, 2)} R).")
-        _estado["abierta"] = None
+        enviar(f"⏱ {nombre} {lado}: pasaron 72 h", f"No tocó ni el stop ni el objetivo. Según la regla, se cierra en "
+               f"{_fmt(price)} ({'+' if r >= 0 else ''}{_ar(r, 2)} R).")
+        _estado["abierta"].pop(nombre)
+
+
+def _fmt(x):
+    """Precio con los decimales que hacen falta (BTC sin decimales, ZEC con dos)."""
+    return _ar(x, 0 if x >= 1000 else 2 if x >= 10 else 4)
+
+
+def _setups(velas, price_btc, liq, ahora):
+    for nombre, cfg in SETUPS.items():
+        try:
+            if nombre == "BTC":
+                if not (velas and velas.get("1h") and velas.get("4h")):
+                    continue
+                h1, h4 = velas["1h"], velas["4h"]
+            else:
+                h1, h4 = _velas(nombre, ahora)
+            price = _precio(nombre, ahora, price_btc) if (_estado["abierta"].get(nombre) or nombre == "BTC") else h1[-1][4]
+            _seguir(nombre, price, ahora)
+            if not h1 or h1[-1][0] == _estado["setup_t"].get(nombre):
+                continue
+            _estado["setup_t"][nombre] = h1[-1][0]
+            got = setup(h1, h4, cfg)
+            if not got or _estado["abierta"].get(nombre):
+                continue
+            d, e, sl, tp = got
+            lado = "LARGO 📈" if d > 0 else "CORTO 📉"
+            _estado["abierta"][nombre] = (d, e, sl, tp, ahora)
+            txt = (f"Ruptura de 55 horas a favor de la tendencia, con el mercado despierto.\n"
+                   f"Entrada: ~{_fmt(e)}\n"
+                   f"Stop: {_fmt(sl)} ({_ar(abs(sl / e - 1) * 100, 2)}%)\n"
+                   f"Objetivo: {_fmt(tp)} ({_ar(abs(tp / e - 1) * 100, 2)}%)\n"
+                   f"Si en 72 h no tocó ninguno, se cierra.\n{cfg['historial']}")
+            if nombre == "BTC":
+                cerca = _zonas(liq, price_btc)
+                if cerca:
+                    txt += "\nLiquidaciones grandes: " + "; ".join(cerca) + "."
+            enviar(f"Setup {lado} {nombre}", txt, urgente=True)
+        except Exception as e:      # una cripto que falla no frena a las otras
+            print(f"(setup {nombre}: {type(e).__name__}: {e})", flush=True)
 
 
 def revisar(rows, velas=None):
@@ -149,30 +240,12 @@ def revisar(rows, velas=None):
     if not _estado["arranque"]:
         _estado["arranque"] = True
         enviar("Analista BTC: vigía activo",
-               f"Te aviso cuando se venga movimiento fuerte o el precio se acerque a una zona grande de liquidaciones. "
-               f"BTC ahora: {_ar(price, 1)}.")
+               f"Te aviso cuando se venga movimiento fuerte, cuando el precio se acerque a una zona grande de "
+               f"liquidaciones y cuando haya un setup de entrada en BTC, ETH o ZEC. BTC ahora: {_ar(price, 1)}.")
     liq = [r for r in rows if r["tabla"] == "liquidacion"]
 
-    # 0) setup de entrada, una vez por vela de 1 hora cerrada, y seguimiento del abierto
-    _seguir(price, ahora)
-    if velas and velas.get("1h") and velas.get("4h"):
-        h1 = velas["1h"]
-        if h1[-1][0] != _estado["setup_t"]:
-            _estado["setup_t"] = h1[-1][0]
-            got = setup(h1, velas["4h"])
-            if got and not _estado["abierta"]:
-                d, e, sl, tp = got
-                lado = "LARGO 📈" if d > 0 else "CORTO 📉"
-                _estado["abierta"] = (d, e, sl, tp, ahora)
-                txt = (f"Ruptura de 55 horas a favor de la tendencia, con el mercado despierto.\n"
-                       f"Entrada: ~{_ar(e)} (BTC ahora {_ar(price, 1)})\n"
-                       f"Stop: {_ar(sl)} ({_ar(abs(sl / e - 1) * 100, 2)}%)\n"
-                       f"Objetivo: {_ar(tp)} ({_ar(abs(tp / e - 1) * 100, 2)}%)\n"
-                       f"Si en 72 h no tocó ninguno, se cierra.\n{HISTORIAL}")
-                cerca = _zonas(liq, price)
-                if cerca:
-                    txt += "\nLiquidaciones grandes: " + "; ".join(cerca) + "."
-                enviar(f"Setup {lado} BTC", txt, urgente=True)
+    # 0) setups de entrada (BTC, ETH y ZEC), una vez por vela de 1 hora cerrada, y seguimiento de los abiertos
+    _setups(velas, price, liq, ahora)
 
     # 1) se viene movimiento fuerte (velas de 5 min cerradas)
     velas = [(r["o"], r["h"], r["l"], r["c"]) for r in rows if r["tabla"] == "vela" and r["tf"] == "5m" and not r["en_curso"]]
