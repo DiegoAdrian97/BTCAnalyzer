@@ -1099,8 +1099,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   }
   var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   window.dash = {
-    colors: dark ? ['#7aa7ff', '#e0a64a', '#c78bff', '#4fd1c5', '#f08bb4', '#a3e635', '#fb923c', '#94a3b8']
-                 : ['#2f6fde', '#b7791f', '#8b4fd6', '#0f9488', '#d1477e', '#4d7c0f', '#c2410c', '#64748b'],
+    colors: dark ? ['#5b9cff', '#f5b041', '#b392ff', '#4fd1c5', '#f08bb4', '#a3e635', '#fb923c', '#94a3b8']
+                 : ['#2563eb', '#d97706', '#7c3aed', '#0f9488', '#d1477e', '#4d7c0f', '#c2410c', '#64748b'],
     data: function () { return { status: 'ok', data: rows, columns: [], meta: [], refreshing: false }; },
     onData: function (fn) { fns.push(fn); fn(); },
     params: function () { return {}; }, setParams: function () {}, resetParams: function () {}, setLink: function () {}, refresh: function () {}
