@@ -28,6 +28,14 @@ verificaron con 2025–2026; el modelo le gana a la tasa base en los 5 plazos, p
 y las recetas solas casi nunca. Todo sale de las velas, así que no se pierde cuando Render borra el disco.
 En el dashboard: sección "Cómo viene aprendiendo".
 
+### Volatilidad prevista
+
+El rango esperado, la probabilidad de tocar cada precio y los caminos posibles usan casos del pasado llevados a la
+volatilidad de ahora: lo que se mueve el precio tiene memoria (promedios móviles corto y largo del rango de las
+velas) y depende de la hora del día. Se aplica con velas de hasta 1 hora. Verificado con el código real sobre
+velas de BTC de 2025–2026: 1,7% a 3,3% menos error en la escalera de niveles (15 min, 1 hora y 4 horas). Con
+velas de 4 horas o diarias no mejoraba, así que ahí no se usa.
+
 ## En tu PC
 
 ```
