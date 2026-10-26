@@ -39,6 +39,7 @@ from datetime import datetime, timedelta, timezone
 import ccxt
 
 import aprendizaje as apr
+import avisos
 import backtest_grid as bg
 import indicadores as ind
 
@@ -553,6 +554,28 @@ def liquidation_map(bnc, h1, hours=168):
     return ind.mapa_liquidaciones(price_by_hour, oi, ls, after)
 
 
+def liquidation_map_bybit(h1, hours=168):
+    """El mismo mapa con datos de Bybit: open interest por hora (en BTC, se pasa a USD con el cierre) y la
+    proporcion de cuentas compradas y vendidas."""
+    ex = exchange("bybit")
+    oi_raw = api("bybit", ex.publicGetV5MarketOpenInterest,
+                 {"category": "linear", "symbol": "BTCUSDT", "intervalTime": "1h", "limit": 200})["result"]["list"]
+    ls_raw = api("bybit", ex.publicGetV5MarketAccountRatio,
+                 {"category": "linear", "symbol": "BTCUSDT", "period": "1h", "limit": 200})["result"]["list"]
+    bars = h1[-(hours + 2):]
+    close_at = {b[0] + bg.HOUR_MS: b[4] for b in bars}
+    oi = sorted((int(x["timestamp"]), float(x["openInterest"]) * close_at[int(x["timestamp"])])
+                for x in oi_raw if int(x["timestamp"]) in close_at)
+    ls = {int(x["timestamp"]): float(x["buyRatio"]) / float(x["sellRatio"]) for x in ls_raw if float(x["sellRatio"]) > 0}
+    price_by_hour = dict(sorted(close_at.items()))
+    suffix_lo, suffix_hi, lo, hi = {}, {}, float("inf"), 0.0
+    for b in reversed(bars):
+        suffix_lo[b[0]], suffix_hi[b[0]] = lo, hi
+        lo, hi = min(lo, b[3]), max(hi, b[2])
+    after = lambda t: (suffix_lo.get(t - bg.HOUR_MS, float("inf")), suffix_hi.get(t - bg.HOUR_MS, 0.0))
+    return ind.mapa_liquidaciones(price_by_hour, oi[-hours:], ls, after)
+
+
 TF_TXT = {"5m": "5 min", "15m": "15 min", "30m": "30 min", "1h": "1 hora", "4h": "4 horas", "1d": "diario"}
 NO_LINES = {"l1_t": None, "l1_p": None, "l1_m": None, "l1_nombre": None, "l2_t": None, "l2_p": None, "l2_m": None,
             "l2_nombre": None, **{f"pt{k}_{f}": None for k in (1, 2, 3, 4, 5) for f in ("t", "p", "nombre")}}
@@ -906,9 +929,8 @@ def analyze():
                 rows.append({"tabla": "nivel", "nombre": f"Muro de {side} ({ar(q)} BTC en libros)", "precio": p,
                              "tipo": kind, "distancia": round(pct(p, price), 2)})
     try:
-        if bnc is None:
-            raise ccxt.DDoSProtection("Binance bloqueado")
-        heat = cached("liquidaciones", 300, lambda: liquidation_map(bnc, h1))
+        # Binance suele bloquear la IP de Render: entonces se arma con open interest y long/short de Bybit
+        heat = cached("liquidaciones", 300, lambda: liquidation_map(bnc, h1) if bnc is not None else liquidation_map_bybit(h1))
         rows += [{"tabla": "liquidacion", **x} for x in heat]
         for side, kind in (("longs", "soporte"), ("shorts", "resistencia")):
             near = [x for x in heat if (x["precio"] < price) == (side == "longs") and x[side] > 0]
@@ -1163,6 +1185,8 @@ def run_live(every, public=False):
     print(f"Modo en vivo: {'publicado en el puerto ' + str(port) if public else url} (recalcula cada {every} s, Ctrl+C para salir)",
           flush=True)
     first = True
+    if public:
+        avisos.mantener_despierto()
     try:
         while True:
             started = time.time()
@@ -1175,6 +1199,10 @@ def run_live(every, public=False):
                     code_stamp = stamp
                     print("Código del análisis actualizado: se usa la versión nueva desde este análisis.")
                 data = {"rows": live_mod.analyze(), "pagina": page_version()}
+                try:
+                    avisos.revisar(data["rows"])       # WhatsApp / notificacion, si estan configurados
+                except Exception as e:
+                    print(f"(avisos: {type(e).__name__}: {e})", flush=True)
                 save_json(OUT_FILE, data)
                 save_json(os.path.join(LIVE_DIR, "analisis_btc.json"), data)
                 if data["pagina"] != page_stamp:   # al arrancar, o si cambio el diseno: la pagina se recarga sola

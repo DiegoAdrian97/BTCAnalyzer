@@ -28,6 +28,17 @@ verificaron con 2025–2026; el modelo le gana a la tasa base en los 5 plazos, p
 y las recetas solas casi nunca. Todo sale de las velas, así que no se pierde cuando Render borra el disco.
 En el dashboard: sección "Cómo viene aprendiendo".
 
+### Avisos al celular (WhatsApp y notificación)
+
+El servidor de Render mira el mercado las 24 horas (se mantiene despierto solo) y avisa:
+- **Se viene movimiento fuerte**: cuando la volatilidad de las velas de 5 min pasa 1,8 veces la habitual. Probado
+  2021–2026: la hora siguiente se mueve 2,3 veces lo normal y más del doble el 59% de las veces (15% en una hora
+  cualquiera). No dice para dónde.
+- **Zona grande de liquidaciones cerca**: el precio a menos de 0,4% de la zona más grande de cada lado.
+
+Configuración en Render (Environment), nunca en el código: `NTFY_TEMA` (tema secreto de la app ntfy),
+`WHATSAPP_TEL` y `WHATSAPP_CLAVE` (CallMeBot). Si Binance bloquea la IP, el mapa de liquidaciones sale de Bybit.
+
 ### Volatilidad prevista
 
 El rango esperado, la probabilidad de tocar cada precio y los caminos posibles usan casos del pasado llevados a la
