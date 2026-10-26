@@ -1,23 +1,44 @@
 <style>
+  /* Tema: minimalista y moderno. Una sola familia tipografica (la del sistema: SF en el iPhone), superficies planas,
+     bordes finos y color solo donde dice algo (verde sube, rojo baja). Pisa los colores que trae cada version. */
+  :root { --color-fg: #0f1218; --color-fg-muted: #687080; --color-bg: #f3f4f7; --color-panel: #ffffff;
+    --color-border-line: #e6e8ec; --color-ok: #0b9e6a; --color-warn: #c97a12; --color-bad: #e0484f;
+    --cds-chart-grid: #eef0f3; --cds-surface-popover: #ffffff; --cds-border: #e3e6ea; --cds-text-secondary: #687080;
+    --cds-shadow-popover: 0 8px 28px rgba(16, 24, 40, .12);
+    --font-anthropic-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --font-anthropic-serif: var(--font-anthropic-sans); --cds-radius: 10px; }
+  @media (prefers-color-scheme: dark) {
+    :root { --color-fg: #e7eaf0; --color-fg-muted: #8a92a2; --color-bg: #0a0c10; --color-panel: #12151b;
+      --color-border-line: #1f242c; --color-ok: #2ebd85; --color-warn: #f0b90b; --color-bad: #f6465d;
+      --cds-chart-grid: #1a1e25; --cds-surface-popover: #191d24; --cds-border: #2a303a; --cds-text-secondary: #8a92a2;
+      --cds-shadow-popover: 0 10px 30px rgba(0, 0, 0, .5); }
+  }
+  body { background: var(--color-bg); -webkit-font-smoothing: antialiased; }
   /* Layout: franja superior (precio · prediccion protagonista · sesgo), selector de temporalidad,
      grafico grande con panel de probabilidades al costado, y debajo senales, niveles, ondas, indicadores. */
   /* sin zoom por doble toque en el iPhone (el pellizco sigue andando); el grafico usa sus propios gestos */
   #dash-root { --dash-gutter: clamp(12px, 3vw, 32px); touch-action: manipulation; }
   .ab { --up: var(--color-ok); --down: var(--color-bad); --mute: var(--color-fg-muted); --line: var(--color-border-line);
     --panel: var(--color-panel); --ink: var(--color-fg); --paper: var(--color-bg);
-    --serif: var(--font-anthropic-serif); --sans: var(--font-anthropic-sans);
-    font-family: var(--sans); color: var(--ink); max-width: 84rem; margin-inline: auto; display: grid; gap: var(--cds-gap-lg); }
+    --serif: var(--font-anthropic-sans); --sans: var(--font-anthropic-sans);
+    --soft: color-mix(in srgb, var(--color-fg) 5%, transparent); --soft2: color-mix(in srgb, var(--color-fg) 9%, transparent);
+    font-family: var(--sans); color: var(--ink); max-width: 84rem; margin-inline: auto; display: grid; gap: var(--cds-gap-lg);
+    font-feature-settings: "tnum" 1, "cv11" 1; }
+  /* numeros grandes: mismo tipo de letra, mas peso y menos espacio entre letras */
+  .ab-title, .ab-verdict-big, .ab-price, .ab-tug b, .ab-plazo b, .ab-story-head, .ab-pred-when, .ab-likely-top b,
+  .ab-gauge-txt b, .ab-wave-big, .ab-apr-stat b, .ab-ring text { font-weight: 650 !important; letter-spacing: -.025em; }
   .ab * { box-sizing: border-box; }
   .ab-row { display: grid; gap: var(--cds-gap-md); grid-template-columns: repeat(12, minmax(0, 1fr)); }
   .ab-s3 { grid-column: span 3; } .ab-s4 { grid-column: span 4; } .ab-s5 { grid-column: span 5; } .ab-s8 { grid-column: span 8; } .ab-s12 { grid-column: span 12; }
   @media (max-width: 1100px) { .ab-s3, .ab-s4, .ab-s5 { grid-column: span 6; } .ab-s5 { grid-column: span 12; order: -1; } .ab-s8 { grid-column: span 12; } }
   @media (max-width: 700px) { .ab-row > * { grid-column: span 12 !important; } }
 
-  .ab-card { background: var(--panel); border: 1px solid var(--line); border-radius: calc(var(--cds-radius) * 1.5);
-    padding: var(--cds-pad-lg); display: grid; gap: var(--cds-gap-md); align-content: start; min-width: 0; position: relative; }
+  .ab-card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px;
+    padding: 20px; display: grid; gap: var(--cds-gap-md); align-content: start; min-width: 0; position: relative;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, .04); }
   .ab-card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: var(--cds-gap-xs) var(--cds-gap-md); }
-  .ab-card h2 { margin: 0; font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); text-wrap: balance; }
-  .ab-kicker { font-size: var(--cds-font-size-caption); color: var(--mute); letter-spacing: .06em; text-transform: uppercase; }
+  .ab-card h2 { margin: 0; font-size: 1.02rem; font-weight: 600; letter-spacing: -.01em; text-wrap: balance; }
+  .ab-kicker { font-size: 11px; font-weight: 500; color: var(--mute); letter-spacing: .07em; text-transform: uppercase; }
   .ab-note { margin: 0; font-size: var(--cds-font-size-caption); color: var(--mute); line-height: 1.5; }
   .ab-num { font-variant-numeric: tabular-nums; }
   .ab-up-t { color: var(--up); } .ab-down-t { color: var(--down); }
@@ -25,7 +46,7 @@
   /* cabecera */
   .ab-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: var(--cds-gap-md); }
   .ab-head-l { display: grid; gap: var(--cds-gap-xs); min-width: 0; }
-  .ab-title { margin: 0; font-family: var(--serif); font-weight: 400; font-size: clamp(2rem, 4.5vw, 3rem); line-height: 1.05; letter-spacing: -.01em; }
+  .ab-title { margin: 0; font-family: var(--serif); font-weight: 400; font-size: clamp(1.45rem, 3.2vw, 2rem); line-height: 1.1; letter-spacing: -.01em; }
   .ab-live { display: inline-flex; align-items: center; gap: 8px; font-size: var(--cds-font-size-caption); color: var(--mute); }
   .ab-live i { width: 8px; height: 8px; border-radius: 50%; background: var(--up); box-shadow: 0 0 0 0 color-mix(in srgb, var(--up) 60%, transparent); }
   .ab-takeaway { margin: 0; max-width: 70ch; font-size: var(--cds-font-size-body); line-height: 1.55; color: var(--ink); }
@@ -52,17 +73,22 @@
   .ab-hero-sub { margin: 0; font-size: var(--cds-font-size-body); line-height: 1.5; max-width: 64ch; }
   .ab-tug-wrap { display: grid; gap: 6px; }
   .ab-tug-legend { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; font-size: var(--cds-font-size-caption); color: var(--mute); }
-  .ab-tug { position: relative; display: flex; height: 56px; border-radius: 14px; overflow: hidden; background: var(--paper); }
+  .ab-tug { position: relative; display: flex; height: 50px; border-radius: 12px; overflow: hidden; background: var(--soft); gap: 3px; }
   .ab-tug > div { display: flex; align-items: center; gap: 10px; padding-inline: 14px; min-width: 0; overflow: hidden; white-space: nowrap;
     color: var(--paper); transition: flex-basis 1.1s var(--cds-ease-out); }
-  .ab-tug-d { background: var(--down); } .ab-tug-u { background: var(--up); justify-content: flex-end; }
-  .ab-tug b { font-family: var(--serif); font-weight: 400; font-size: 1.55rem; font-variant-numeric: tabular-nums; }
+  /* barras en tono suave con el texto en el color fuerte: se leen mejor que un bloque saturado */
+  .ab-tug > div { color: var(--ink); }
+  .ab-tug-d { background: color-mix(in srgb, var(--down) 22%, transparent); border-radius: 12px 4px 4px 12px; }
+  .ab-tug-u { background: color-mix(in srgb, var(--up) 22%, transparent); justify-content: flex-end; border-radius: 4px 12px 12px 4px; }
+  .ab-tug-d b { color: var(--down); } .ab-tug-u b { color: var(--up); }
+  .ab-tug b { font-family: var(--serif); font-weight: 400; font-size: 1.4rem; font-variant-numeric: tabular-nums; }
   .ab-tug span { font-size: var(--cds-font-size-caption); font-weight: 600; font-variant-numeric: tabular-nums; }
-  .ab-tug-mid { position: absolute; left: calc(50% - 1px); top: 0; bottom: 0; width: 2px; background: var(--paper); opacity: .8; }
+  .ab-tug-mid { position: absolute; left: calc(50% - 1px); top: 6px; bottom: 6px; width: 2px; border-radius: 1px; background: var(--ink); opacity: .35; }
 
   /* secciones plegables */
   .ab-more-list { display: grid; gap: var(--cds-gap-sm); }
-  .ab-more { background: var(--panel); border: 1px solid var(--line); border-radius: calc(var(--cds-radius) * 1.5); }
+  .ab-more { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
+  .ab-more summary:hover { background: var(--soft); border-radius: 14px; }
   .ab-more summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 12px;
     padding: var(--cds-pad-md) var(--cds-pad-lg); font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); }
   .ab-more summary::-webkit-details-marker { display: none; }
@@ -74,12 +100,12 @@
   /* selector de plazo */
   .ab-plazos { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--cds-gap-sm); }
   @media (max-width: 760px) { .ab-plazos { grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); } }
-  .ab-plazo { font: inherit; text-align: left; display: grid; gap: 4px; padding: var(--cds-pad-md); border-radius: calc(var(--cds-radius) * 1.5);
-    border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; transition: border-color .2s, transform .2s; min-width: 0; }
-  .ab-plazo:hover { transform: translateY(-1px); }
-  .ab-plazo[aria-pressed="true"] { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink) inset; }
-  .ab-plazo small { font-size: var(--cds-font-size-caption); color: var(--mute); letter-spacing: .04em; text-transform: uppercase; }
-  .ab-plazo b { font-family: var(--serif); font-weight: 400; font-size: var(--cds-font-size-heading); }
+  .ab-plazo { font: inherit; text-align: left; display: grid; gap: 3px; padding: 12px 14px; border-radius: 14px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; transition: border-color .2s, background .2s, transform .2s; min-width: 0; }
+  .ab-plazo:hover { transform: translateY(-1px); border-color: var(--soft2); }
+  .ab-plazo[aria-pressed="true"] { border-color: color-mix(in srgb, var(--ink) 55%, transparent); background: color-mix(in srgb, var(--ink) 4%, var(--panel)); }
+  .ab-plazo small { font-size: 11px; color: var(--mute); letter-spacing: .06em; text-transform: uppercase; }
+  .ab-plazo b { font-family: var(--serif); font-weight: 400; font-size: 1.05rem; }
   .ab-plazo span { font-size: var(--cds-font-size-caption); color: var(--mute); font-variant-numeric: tabular-nums; }
   .ab-plazo.ab-alcista b { color: var(--up); } .ab-plazo.ab-bajista b { color: var(--down); }
 
@@ -125,8 +151,8 @@
   .ab-price { font-family: var(--serif); font-weight: 400; font-size: clamp(2.6rem, 5vw, 3.4rem); line-height: 1; letter-spacing: -.02em; }
   .ab-price small { font-family: var(--sans); font-size: var(--cds-font-size-body); color: var(--mute); margin-left: 4px; letter-spacing: 0; }
   .ab-pills { display: flex; flex-wrap: wrap; gap: 6px; }
-  .ab-pill { display: inline-flex; gap: 6px; align-items: baseline; padding: 4px 10px; border-radius: 999px; background: var(--paper);
-    border: 1px solid var(--line); font-size: var(--cds-font-size-caption); white-space: nowrap; }
+  .ab-pill { display: inline-flex; gap: 6px; align-items: baseline; padding: 4px 10px; border-radius: 8px; background: var(--soft);
+    border: 0; font-size: var(--cds-font-size-caption); color: var(--mute); white-space: nowrap; }
   .ab-pill b { font-weight: 600; font-variant-numeric: tabular-nums; }
   .ab-spark { width: 100%; height: 64px; display: block; overflow: visible; }
 
@@ -162,32 +188,56 @@
   .ab-strip i { width: 100%; max-width: 34px; height: 6px; border-radius: 3px; }
 
   /* selector de temporalidad */
-  .ab-seg { position: relative; display: inline-grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); padding: 4px; gap: 0;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 999px; max-width: 100%; overflow-x: auto; }
-  .ab-seg button { position: relative; z-index: 1; font: inherit; font-size: var(--cds-font-size-body); padding: 8px 16px; border: 0; border-radius: 999px;
+  .ab-seg { position: relative; display: inline-grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); padding: 3px; gap: 0;
+    background: var(--soft); border: 0; border-radius: 11px; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .ab-seg::-webkit-scrollbar { display: none; }
+  .ab-seg button { position: relative; z-index: 1; font: inherit; font-size: var(--cds-font-size-body); font-weight: 500; padding: 7px 14px; border: 0; border-radius: 8px;
     background: transparent; color: var(--mute); cursor: pointer; white-space: nowrap; transition: color .25s; }
-  .ab-seg button[aria-pressed="true"] { color: var(--paper); }
-  .ab-seg-thumb { position: absolute; z-index: 0; top: 4px; bottom: 4px; border-radius: 999px; background: var(--ink); transition: left .35s var(--cds-ease-out), width .35s var(--cds-ease-out); }
-  .ab-seg.ab-small button { font-size: var(--cds-font-size-caption); padding: 5px 12px; }
+  .ab-seg button[aria-pressed="true"] { color: var(--ink); font-weight: 600; }
+  .ab-seg-thumb { position: absolute; z-index: 0; top: 3px; bottom: 3px; border-radius: 8px; background: color-mix(in srgb, var(--ink) 12%, var(--panel));
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .12); transition: left .35s var(--cds-ease-out), width .35s var(--cds-ease-out); }
+  .ab-seg.ab-small button { font-size: 12.5px; padding: 5px 11px; }
   .ab-bar-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--cds-gap-sm); align-items: center; }
   .ab button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
   /* grafico */
-  .ab-tools { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm); align-items: center; justify-content: space-between; }
+  /* barra del grafico: temporalidad y escenario a la vista; capas y zoom en un panel que se abre (en la compu, siempre abierto) */
+  .ab-graf-head { align-items: flex-start; flex-wrap: nowrap; }
+  .ab-graf-head > div:first-child { display: grid; gap: 2px; min-width: 0; flex: 1 1 auto; }
+  .ab-head-act { display: flex; gap: 6px; flex: none; }
+  .ab-tip[hidden] { display: none; }
+  @media (max-width: 600px) { .ab-gauge { max-width: 200px; } }
+  .ab-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .ab-tools #tfs { flex: 0 1 auto; min-width: 0; }
+  .ab-capas-btn { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+  .ab-capas-btn b { font-weight: 600; font-size: 11px; color: var(--mute); }
+  .ab-capas-btn[aria-expanded="true"] { background: var(--soft2); }
+  .ab-capas { display: none; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between;
+    padding: 10px; border-radius: 12px; background: var(--soft); }
+  .ab-capas.is-open { display: flex; }
+  @media (min-width: 900px) { .ab-capas { display: flex; background: transparent; padding: 0; } .ab-capas-btn { display: none; } }
+  .ab-help { padding: 10px 12px; border-radius: 10px; background: var(--soft); }
+  .ab-help[hidden] { display: none; }
   .ab-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .ab-chipbtn { font: inherit; font-size: var(--cds-font-size-caption); padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line);
-    background: transparent; color: var(--mute); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
-  .ab-chipbtn i { width: 8px; height: 8px; border-radius: 2px; opacity: .35; }
-  .ab-chipbtn[aria-pressed="true"] { color: var(--ink); border-color: color-mix(in srgb, var(--ink) 40%, transparent); }
+  .ab-chipbtn { font: inherit; font-size: 12.5px; padding: 5px 10px; border-radius: 8px; border: 1px solid transparent;
+    background: transparent; color: var(--mute); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .2s, color .2s; }
+  .ab-chipbtn i { width: 8px; height: 8px; border-radius: 50%; opacity: .3; }
+  .ab-chipbtn:hover { color: var(--ink); }
+  .ab-chipbtn[aria-pressed="true"] { color: var(--ink); background: var(--soft2); }
   .ab-chipbtn[aria-pressed="true"] i { opacity: 1; }
-  .ab-iconbtn { font: inherit; font-size: var(--cds-font-size-caption); padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line);
-    background: var(--paper); color: var(--ink); cursor: pointer; }
+  .ab-iconbtn { font: inherit; font-size: 12.5px; font-weight: 500; padding: 6px 11px; border-radius: 9px; border: 0;
+    background: var(--soft); color: var(--ink); cursor: pointer; transition: background .2s; min-height: 30px; }
+  .ab-iconbtn:hover { background: var(--soft2); }
+  .ab-iconbtn.ab-round { width: 32px; height: 32px; padding: 0; display: inline-grid; place-items: center; font-size: 15px; }
   .ab-chart { position: relative; height: 460px; min-height: 280px; overflow: hidden; }
-  /* limites de cada panel: siempre visibles; al pasar el mouse o arrastrar se encienden en color */
-  .ab-sep { stroke: color-mix(in srgb, var(--color-fg) 32%, transparent); stroke-width: 1.5; }
+  /* limites de cada panel: una linea fina; la manija aparece al pasar el mouse (en el celu queda tenue) */
+  .ab-sep { stroke: var(--line); stroke-width: 1; }
   .ab-sep-pane { fill: var(--ab-c0); fill-opacity: 0; transition: fill-opacity .15s; pointer-events: none; }
-  .ab-grip { fill: var(--panel); stroke: color-mix(in srgb, var(--color-fg) 55%, transparent); stroke-width: 1.2; }
-  .ab-grip-l { stroke: color-mix(in srgb, var(--color-fg) 70%, transparent); stroke-width: 1.4; stroke-linecap: round; }
+  .ab-grip { fill: var(--panel); stroke: color-mix(in srgb, var(--color-fg) 35%, transparent); stroke-width: 1; }
+  .ab-grip-l { stroke: color-mix(in srgb, var(--color-fg) 55%, transparent); stroke-width: 1.2; stroke-linecap: round; }
+  .ab-grip, .ab-grip-l { opacity: 0; transition: opacity .2s; }
+  .ab-chart:hover .ab-grip, .ab-chart:hover .ab-grip-l, .ab-sep-g.is-on .ab-grip, .ab-sep-g.is-on .ab-grip-l { opacity: 1; }
+  @media (hover: none) { .ab-grip, .ab-grip-l { opacity: .55; } }
   .ab-sep-g.is-hot .ab-sep { stroke: var(--ab-c0); stroke-width: 2.5; }
   .ab-sep-g.is-hot .ab-sep-pane { fill-opacity: .05; }
   .ab-sep-g.is-on .ab-sep { stroke: var(--ab-c0); stroke-width: 3.5; filter: drop-shadow(0 0 4px var(--ab-c0)); }
@@ -197,8 +247,8 @@
   .ab-grip-bg { fill: var(--ab-c0); } .ab-grip-t { fill: var(--color-bg); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .ab-chart.ab-with-osc { height: 640px; }
   @media (max-width: 600px) { .ab-chart { height: 380px; } .ab-chart.ab-with-osc { height: 560px; } }
-  .ab-osc-bg { fill: var(--color-fg); fill-opacity: .035; }
-  .ab-osc-ref { stroke: var(--mute); stroke-opacity: .55; stroke-dasharray: 3 3; }
+  .ab-osc-bg { fill: var(--color-fg); fill-opacity: .025; }
+  .ab-osc-ref { stroke: var(--mute); stroke-opacity: .35; stroke-dasharray: 2 4; }
   .ab-osc-line { fill: none; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
   .ab-osc-lbl, .ab-ax-t { fill: var(--mute); font-size: 10.5px; font-variant-numeric: tabular-nums; }
   .ab-osc-lbl { font-weight: 600; paint-order: stroke; stroke: var(--panel); stroke-width: 3px; stroke-linejoin: round; }
@@ -206,6 +256,15 @@
   .ab-ohlc { position: absolute; top: 7px; left: 6px; z-index: 2; pointer-events: none; display: flex; gap: 10px; align-items: baseline;
     overflow: hidden; white-space: nowrap; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; color: var(--mute); }
   .ab-ohlc span { display: inline-flex; gap: 4px; } .ab-ohlc b { font-weight: 600; }
+  /* "que estas viendo": plegable (abierto en la compu), en dos columnas cuando hay lugar */
+  .ab-exbox { border-top: 1px solid var(--line); padding-top: 4px; }
+  .ab-exbox summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; padding: 8px 0;
+    font-size: 11px; font-weight: 500; letter-spacing: .07em; text-transform: uppercase; color: var(--mute); }
+  .ab-exbox summary::-webkit-details-marker { display: none; }
+  .ab-exbox summary::after { content: "›"; font-size: 15px; letter-spacing: 0; transition: transform .2s; }
+  .ab-exbox[open] summary::after { transform: rotate(90deg); }
+  .ab-exbox summary b { font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--soft2); color: var(--ink); letter-spacing: 0; }
+  @media (min-width: 900px) { .ab-exbox .ab-explain { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; } }
   .ab-ohlc-t { color: var(--ink); }
   @media (max-width: 600px) { .ab-ohlc { font-size: 11px; gap: 7px; } }
   .ab-tag-t { fill: var(--color-bg); font-size: 10.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -217,23 +276,24 @@
   .ab-gl { stroke: var(--cds-chart-grid); stroke-width: 1; }
   .ab-c-up line, .ab-c-up rect { stroke: var(--up); fill: var(--up); }
   .ab-c-dn line, .ab-c-dn rect { stroke: var(--down); fill: var(--down); }
-  .ab-vol-up { fill: var(--up); fill-opacity: .28; } .ab-vol-dn { fill: var(--down); fill-opacity: .28; }
+  .ab-vol-up { fill: var(--up); fill-opacity: .22; } .ab-vol-dn { fill: var(--down); fill-opacity: .22; }
   .ab-ghost rect { fill-opacity: .14; stroke-width: 1.3; stroke-dasharray: 3 2; }
   .ab-ghost { opacity: 0; transform: translateY(10px) scaleY(.6); transform-box: fill-box; transform-origin: center; transition: opacity .4s var(--cds-ease-out), transform .45s var(--cds-ease-out); }
   .ab-ghost.on { opacity: 1; transform: none; }
   .ab-scan { stroke: var(--ink); stroke-opacity: .35; stroke-width: 1; transition: transform .38s linear; }
   .ab-future-lbl { fill: var(--mute); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
-  .ab-median { fill: none; stroke: var(--ink); stroke-opacity: .55; stroke-width: 1.4; stroke-dasharray: 5 4; }
-  .ab-ema { fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-  .ab-bb { stroke: var(--mute); stroke-opacity: .4; stroke-width: 1; }
-  .ab-fvg-u { fill: var(--up); fill-opacity: .12; } .ab-fvg-d { fill: var(--down); fill-opacity: .12; }
-  .ab-fvg-edge-u { stroke: var(--up); stroke-opacity: .6; } .ab-fvg-edge-d { stroke: var(--down); stroke-opacity: .6; }
-  .ab-zig { fill: none; stroke: var(--ink); stroke-opacity: .5; stroke-width: 1.2; stroke-dasharray: 1 4; stroke-linecap: round; }
-  .ab-wave circle { fill: var(--panel); stroke: var(--ink); stroke-width: 1.2; }
-  .ab-wave text { fill: var(--ink); font-size: 10px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+  .ab-median { fill: none; stroke: var(--ink); stroke-opacity: .45; stroke-width: 1.2; stroke-dasharray: 4 4; }
+  .ab-ema { fill: none; stroke-width: 1.4; stroke-opacity: .9; stroke-linecap: round; stroke-linejoin: round; }
+  .ab-bb { stroke: var(--mute); stroke-opacity: .22; stroke-width: 1; }
+  .ab-fvg-u { fill: var(--up); fill-opacity: .08; } .ab-fvg-d { fill: var(--down); fill-opacity: .08; }
+  .ab-fvg-edge-u { stroke: var(--up); stroke-opacity: .45; } .ab-fvg-edge-d { stroke: var(--down); stroke-opacity: .45; }
+  .ab-zig { fill: none; stroke: var(--ink); stroke-opacity: .35; stroke-width: 1; stroke-dasharray: 1 4; stroke-linecap: round; }
+  .ab-wave circle { fill: var(--panel); stroke: color-mix(in srgb, var(--ink) 60%, transparent); stroke-width: 1; }
+  .ab-wave text { fill: var(--ink); font-size: 9px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
   .ab-liq-l { fill: var(--down); } .ab-liq-s { fill: var(--up); }
-  .ab-now-line { stroke: var(--ink); stroke-width: 1; stroke-dasharray: 2 3; }
-  .ab-tag rect { fill: var(--ink); } .ab-tag text { fill: var(--paper); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ab-now-line { stroke-width: 1; stroke-dasharray: 1 3; stroke-opacity: .9; }
+  .ab-tag text { fill: #fff; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ab-fut-lbl rect { fill: var(--soft2); } .ab-fut-lbl text { fill: var(--mute); font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
   .ab-here text { fill: var(--ink); font-size: 11px; font-weight: 600; }
   .ab-here rect { fill: var(--panel); stroke: var(--ink); stroke-width: 1; }
   .ab-dot { fill: var(--ink); } .ab-pulse { fill: var(--ink); transform-box: fill-box; transform-origin: center; }
@@ -411,12 +471,14 @@
   #grafico.ab-fs { position: fixed; inset: 0; z-index: 60; margin: 0; max-width: none; border-radius: 0; border: 0; resize: none;
     display: flex; flex-direction: column; gap: 6px; overflow: hidden;
     padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
-  #grafico.ab-fs > .ab-card-head h2, #grafico.ab-fs .ab-zoom .ab-note, #grafico.ab-fs > .ab-kicker, #grafico.ab-fs #legend, #grafico.ab-fs #scen-note { display: none; }
+  #grafico.ab-fs > .ab-card-head > div:first-child, #grafico.ab-fs #help-btn, #grafico.ab-fs #chart-help, #grafico.ab-fs #ex-box, #grafico.ab-fs #scen-note { display: none; }
+  #grafico.ab-fs .ab-capas { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; flex: none; }
+  #grafico.ab-fs .ab-capas > * { flex: none; }
   #grafico.ab-fs .ab-tools, #grafico.ab-fs .ab-zoom { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; flex: none; }
   #grafico.ab-fs .ab-tools::-webkit-scrollbar, #grafico.ab-fs .ab-zoom::-webkit-scrollbar { display: none; }
   #grafico.ab-fs .ab-chips { flex-wrap: nowrap; }
   #grafico.ab-fs .ab-tools > *, #grafico.ab-fs .ab-zoom > *, #grafico.ab-fs .ab-chips > * { flex: none; }
-  #grafico.ab-fs .ab-tools { margin-right: 92px; }
+  #grafico.ab-fs .ab-tools { margin-right: 44px; }
   #grafico.ab-fs .ab-zoom-g > span { white-space: nowrap; }
   #grafico.ab-fs .ab-zoom-lbl { display: none; }
   #grafico.ab-fs > .ab-card-head { position: absolute; top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); z-index: 3; }
@@ -497,8 +559,12 @@
   </section>
 
   <section class="ab-card" id="grafico" aria-labelledby="graf-t">
-      <div class="ab-card-head"><h2 id="graf-t">Dónde está BTC y hacia dónde suele ir desde acá</h2>
-        <button type="button" class="ab-iconbtn ab-fs-btn" id="fs-btn" aria-pressed="false" aria-label="Ver el gráfico en pantalla completa">⤢ Pantalla completa</button></div>
+      <div class="ab-card-head ab-graf-head">
+        <div><span class="ab-kicker">Gráfico</span><h2 id="graf-t">Dónde está BTC y hacia dónde suele ir desde acá</h2></div>
+        <div class="ab-head-act">
+          <button type="button" class="ab-iconbtn ab-round" id="help-btn" aria-expanded="false" aria-controls="chart-help" aria-label="Cómo se usa el gráfico" title="Cómo se usa">?</button>
+          <button type="button" class="ab-iconbtn ab-round ab-fs-btn" id="fs-btn" aria-pressed="false" aria-label="Ver el gráfico en pantalla completa" title="Pantalla completa">⤢</button>
+        </div></div>
       <div class="ab-tools">
         <nav class="ab-seg ab-small" id="tfs" aria-label="Velas del gráfico">
           <span class="ab-seg-thumb"></span>
@@ -515,30 +581,33 @@
           <button type="button" data-scen="alcista" aria-pressed="false">Alcista</button>
           <button type="button" data-scen="bajista" aria-pressed="false">Bajista</button>
         </nav>
+        <button type="button" class="ab-iconbtn ab-capas-btn" id="capas-btn" aria-expanded="false" aria-controls="capas">Capas <b id="capas-n"></b></button>
+      </div>
+      <div class="ab-capas" id="capas">
         <div class="ab-chips" id="layers">
           <button type="button" class="ab-chipbtn" data-layer="ema" aria-pressed="true"><i style="background: var(--ab-c0)"></i>EMA 20 / 50</button>
           <button type="button" class="ab-chipbtn" data-layer="bb" aria-pressed="true"><i style="background: var(--color-fg-muted)"></i>Bollinger</button>
           <button type="button" class="ab-chipbtn" data-layer="fvg" aria-pressed="true"><i style="background: var(--color-ok)"></i>FVG</button>
-          <button type="button" class="ab-chipbtn" data-layer="patrones" aria-pressed="true"><i style="background: var(--color-warn)"></i>Patrones y divergencias</button>
+          <button type="button" class="ab-chipbtn" data-layer="patrones" aria-pressed="true"><i style="background: var(--color-warn)"></i>Patrones</button>
           <button type="button" class="ab-chipbtn" data-layer="ondas" aria-pressed="true"><i style="background: var(--color-fg)"></i>Ondas</button>
           <button type="button" class="ab-chipbtn" data-layer="liq" aria-pressed="true"><i style="background: var(--color-bad)"></i>Liquidaciones</button>
-          <button type="button" class="ab-chipbtn" data-layer="osc" aria-pressed="true"><i style="background: var(--ab-c2)"></i>RSI y MACD</button>
-          <button type="button" class="ab-iconbtn" id="replay">↻ Repetir</button>
+          <button type="button" class="ab-chipbtn" data-layer="osc" aria-pressed="true"><i style="background: var(--ab-c2)"></i>RSI · MACD</button>
+        </div>
+        <div class="ab-zoom" role="group" aria-label="Zoom del gráfico">
+          <span class="ab-zoom-g"><button type="button" class="ab-iconbtn ab-round" data-zoom="out" aria-label="Ver más velas">−</button>
+            <span id="zoom-info" class="ab-num">— velas</span>
+            <button type="button" class="ab-iconbtn ab-round" data-zoom="in" aria-label="Ver menos velas">+</button></span>
+          <span class="ab-zoom-g"><span class="ab-zoom-lbl">Precio</span>
+            <button type="button" class="ab-iconbtn ab-round" data-yzoom="out" aria-label="Comprimir el eje de precios" title="Comprimir el eje de precios">↕</button>
+            <button type="button" class="ab-iconbtn ab-round" data-yzoom="in" aria-label="Estirar el eje de precios" title="Estirar el eje de precios">⇕</button></span>
+          <button type="button" class="ab-iconbtn" id="fit">Ajustar</button>
+          <button type="button" class="ab-iconbtn" id="replay" title="Repetir la animación del escenario">↻</button>
         </div>
       </div>
-      <div class="ab-zoom" role="group" aria-label="Zoom del gráfico">
-        <span class="ab-zoom-g"><button type="button" class="ab-iconbtn" data-zoom="out" aria-label="Ver más velas">−</button>
-          <span id="zoom-info" class="ab-num">— velas</span>
-          <button type="button" class="ab-iconbtn" data-zoom="in" aria-label="Ver menos velas">+</button></span>
-        <span class="ab-zoom-g"><span class="ab-zoom-lbl">Rango de precio</span>
-          <button type="button" class="ab-iconbtn" data-yzoom="out" aria-label="Comprimir el eje de precios">↕ más</button>
-          <button type="button" class="ab-iconbtn" data-yzoom="in" aria-label="Estirar el eje de precios">↕ menos</button></span>
-        <button type="button" class="ab-iconbtn" id="fit">Ajustar</button>
-        <span class="ab-note"><span class="ab-only-mouse">Arrastrá el gráfico para moverte · rueda: zoom · arrastrá el eje de precios o el de horas para estirarlos · arrastrá el borde de abajo del precio o de cada indicador para hacerlo más alto o más bajo · doble clic en un eje: vuelve ese eje a como estaba (en el de horas, todos los paneles) · doble clic en el gráfico: ajusta todo</span><span class="ab-only-touch">Arrastrá con un dedo para moverte · pellizcá para zoom (de costado: velas; vertical: precios) · arrastrá los ejes para estirarlos · arrastrá la manija de abajo de cada panel para cambiar su alto · doble toque en un eje lo vuelve a como estaba · tocá una vela para ver sus datos</span></span>
-      </div>
+      <p class="ab-note ab-help" id="chart-help" hidden><span class="ab-only-mouse">Arrastrá el gráfico para moverte · rueda: zoom · arrastrá el eje de precios o el de horas para estirarlos · arrastrá el borde de abajo del precio o de cada indicador para hacerlo más alto o más bajo · doble clic en un eje: vuelve ese eje a como estaba (en el de horas, todos los paneles) · doble clic en el gráfico: ajusta todo</span><span class="ab-only-touch">Arrastrá con un dedo para moverte · pellizcá para zoom (de costado: velas; vertical: precios) · arrastrá los ejes para estirarlos · arrastrá la manija de abajo de cada panel para cambiar su alto · doble toque en un eje lo vuelve a como estaba · tocá una vela para ver sus datos</span></p>
       <div class="ab-chart dash-skeleton" id="chart" data-source="analisis"></div>
-      <span class="ab-kicker">Qué estás viendo</span>
-      <div class="ab-explain" id="legend"></div>
+      <details class="ab-exbox" id="ex-box"><summary>Qué estás viendo <b id="ex-n"></b></summary>
+        <div class="ab-explain" id="legend"></div></details>
       <p class="ab-note" id="scen-note"></p>
     </section>
 
@@ -655,6 +724,8 @@
     layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, liq: true, osc: true } };
   const defBars = () => (window.innerWidth < 600 ? 62 : 102);  // incluye las 12 del futuro posible; en el telefono, menos para que se lean
   S.nbars = defBars();
+  // en el celu arranca con lo esencial (velas, medias, patrones y liquidaciones); el resto se prende en "Capas"
+  if (window.innerWidth < 600) Object.assign(S.layers, { bb: false, fvg: false, ondas: false, osc: false });
   const TF_MIN = { '5m': 5, '15m': 15, '30m': 30, '1h': 60, '4h': 240, '1d': 1440 };
   const dur = (min) => (min < 60 ? `${min} min` : min < 1440 ? `${Math.round(min / 60)} h` : `${Math.round(min / 1440)} d`);
   const M = (v) => `${f1(v)} M USD`;
@@ -683,9 +754,23 @@
       Object.assign(S, { plazo: saved.plazo, tf: saved.tf, scen: saved.scen, nbars: saved.nbars, yzoom: saved.yzoom, ph: saved.ph || null, fs: !!saved.fs });
       Object.assign(S.layers, saved.layers || {});
       document.querySelectorAll('#scens button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.scen === S.scen)));
-      document.querySelectorAll('#layers [data-layer]').forEach((x) => x.setAttribute('aria-pressed', String(!!S.layers[x.dataset.layer])));
     }
   } catch (e) { /* sin almacenamiento: arranca con la vista por defecto */ }
+  const syncLayers = () => {
+    document.querySelectorAll('#layers [data-layer]').forEach((x) => x.setAttribute('aria-pressed', String(!!S.layers[x.dataset.layer])));
+    const all = Object.keys(S.layers);
+    document.getElementById('capas-n').textContent = `${all.filter((k) => S.layers[k]).length}/${all.length}`;
+  };
+  syncLayers();
+  // capas y zoom (en el celu se abren con "Capas") y ayuda de gestos
+  const capasBtn = document.getElementById('capas-btn'), capas = document.getElementById('capas');
+  capasBtn.addEventListener('click', () => {
+    const on = !capas.classList.contains('is-open');
+    capas.classList.toggle('is-open', on); capasBtn.setAttribute('aria-expanded', String(on));
+  });
+  const helpBtn = document.getElementById('help-btn'), help = document.getElementById('chart-help');
+  helpBtn.addEventListener('click', () => { help.hidden = !help.hidden; helpBtn.setAttribute('aria-expanded', String(!help.hidden)); });
+  document.getElementById('ex-box').open = window.innerWidth >= 900;
   window.addEventListener('pagehide', () => {
     try { sessionStorage.setItem('ab-vista', JSON.stringify({ plazo: S.plazo, tf: S.tf, scen: S.scen, nbars: S.nbars, yzoom: S.yzoom, layers: S.layers, ph: S.ph, fs: S.fs })); } catch (e) { /* idem */ }
   });
@@ -693,7 +778,7 @@
   const placeSc = seg(document.getElementById('scens'), 'data-scen', (v) => { S.scen = v; draw(); });
   document.getElementById('layers').addEventListener('click', (e) => {
     const b = e.target.closest('[data-layer]'); if (!b) return;
-    const k = b.dataset.layer; S.layers[k] = !S.layers[k]; b.setAttribute('aria-pressed', String(S.layers[k])); draw();
+    const k = b.dataset.layer; S.layers[k] = !S.layers[k]; syncLayers(); draw();
   });
   document.getElementById('replay').addEventListener('click', () => { ghostK = 0; draw(); });
   function setPlazo(name) { S.plazo = name; S.offset = 0; setTf(PLAZO_VIEW[name]); }
@@ -712,7 +797,7 @@
     card.classList.toggle('ab-fs', on);
     document.documentElement.classList.toggle('ab-fs-on', on);
     fsBtn.setAttribute('aria-pressed', String(on));
-    fsBtn.textContent = on ? '✕ Salir' : '⤢ Pantalla completa';
+    fsBtn.textContent = on ? '✕' : '⤢';
     fsBtn.setAttribute('aria-label', on ? 'Salir de pantalla completa' : 'Ver el gráfico en pantalla completa');
     if (native) {
       try {
@@ -1332,7 +1417,9 @@
     const hatch = defs.append('pattern').attr('id', 'ab-hatch').attr('width', 7).attr('height', 7).attr('patternUnits', 'userSpaceOnUse').attr('patternTransform', 'rotate(45)');
     hatch.append('line').attr('x1', 0).attr('y1', 0).attr('x2', 0).attr('y2', 7).style('stroke', 'var(--color-fg)').style('stroke-opacity', .06).style('stroke-width', 3);
     const cg = defs.append('linearGradient').attr('id', 'ab-cone-g').attr('x1', 0).attr('x2', 1);
-    [[0, .2], [1, .07]].forEach(([o, a]) => cg.append('stop').attr('offset', o).style('stop-color', 'var(--color-fg)').style('stop-opacity', a));
+    [[0, .16], [1, .05]].forEach(([o, a]) => cg.append('stop').attr('offset', o).style('stop-color', 'var(--color-fg)').style('stop-opacity', a));
+    const fg = defs.append('linearGradient').attr('id', 'ab-fut-g').attr('x1', 0).attr('x2', 1);
+    [[0, .045], [1, .015]].forEach(([o, a]) => fg.append('stop').attr('offset', o).style('stop-color', 'var(--color-fg)').style('stop-opacity', a));
 
     const ticks = y.ticks(6);
     svg.append('g').selectAll('line').data(ticks).join('line').attr('class', 'ab-gl').attr('x1', m.l).attr('x2', plotR + heatW).attr('y1', y).attr('y2', y);
@@ -1362,21 +1449,29 @@
       marks.push(mk);
     });
     const axg = svg.append('g').attr('class', 'ab-ax');
-    axg.selectAll('line').data(marks).join('line').attr('class', 'ab-gl').attr('x1', (d) => d.x).attr('x2', (d) => d.x).attr('y1', m.t).attr('y2', H - m.b).style('stroke-opacity', .5);
+    // solo una linea vertical por cada cambio de dia: el resto de la grilla es horizontal y tenue
+    axg.selectAll('line').data(marks.filter((d) => d.bold)).join('line').attr('class', 'ab-gl').attr('x1', (d) => d.x).attr('x2', (d) => d.x).attr('y1', m.t).attr('y2', H - m.b).style('stroke-dasharray', '2 4');
     axg.selectAll('text').data(marks).join('text').attr('x', (d) => d.x).attr('y', H - 8).attr('text-anchor', 'middle')
       .style('font-weight', (d) => (d.bold ? 700 : null)).text((d) => d.txt);
 
     // futuro
     const fx = live && steps ? x(bars.length) - x.step() * .15 : plotR;   // sin escenarios no hay zona de futuro
     if (live && steps) {
-      svg.append('rect').attr('x', fx).attr('y', m.t - 16).attr('width', plotR - fx).attr('height', H - m.b - m.t + 16).style('fill', 'url(#ab-hatch)');
-      svg.append('text').attr('class', 'ab-future-lbl').attr('x', fx + 6).attr('y', m.t - 5).text(`Futuro posible · ${SCEN_TXT[S.scen]}`);
+      // la zona del futuro: un fondo apenas distinto y una linea fina donde empieza
+      svg.append('rect').attr('x', fx).attr('y', m.t - 16).attr('width', plotR - fx).attr('height', H - m.b - m.t + 16).style('fill', 'url(#ab-fut-g)');
+      svg.append('line').attr('x1', fx).attr('x2', fx).attr('y1', m.t - 16).attr('y2', H - m.b).style('stroke', 'var(--color-fg)').style('stroke-opacity', .12);
+      const fl = svg.append('g').attr('class', 'ab-fut-lbl');
+      // el texto mas largo que entre en la zona del futuro
+      const ft = fl.append('text').attr('x', fx + 12).attr('y', m.t - 8).attr('dy', '.34em');
+      const fit = [`Futuro posible · ${SCEN_TXT[S.scen]}`, 'Futuro posible', 'Futuro'].find((s) => { ft.text(s); return fx + ft.node().getComputedTextLength() + 20 <= plotR + heatW; });
+      if (!fit) ft.text('');
+      else fl.insert('rect', 'text').attr('x', fx + 5).attr('y', m.t - 17).attr('width', ft.node().getComputedTextLength() + 14).attr('height', 18).attr('rx', 9);
       // la hora de la prediccion del plazo elegido, para leer el grafico y los numeros juntos
       const pz = pick(rows, 'plazo').find((r) => r.plazo === S.plazo);
       if (pz) {
         const xx = xt(num(pz.t_hasta)) - x.step() / 2;
         if (xx > fx && xx <= plotR) {
-          svg.append('line').attr('class', 'ab-plazo-mark').attr('x1', xx).attr('x2', xx).attr('y1', m.t + 6).attr('y2', priceB).style('stroke', 'var(--color-fg)').style('stroke-opacity', .6).style('stroke-dasharray', '3 3');
+          svg.append('line').attr('class', 'ab-plazo-mark').attr('x1', xx).attr('x2', xx).attr('y1', m.t + 6).attr('y2', priceB).style('stroke', 'var(--color-fg)').style('stroke-opacity', .4).style('stroke-dasharray', '2 4');
           svg.append('text').attr('class', 'ab-future-lbl ab-plazo-mark').attr('x', Math.min(xx, plotR - 4)).attr('y', priceB - 6).attr('text-anchor', 'end').text(`${S.plazo} · ${pz.hora.slice(-5)} h`);
         }
       }
@@ -1398,9 +1493,10 @@
     pick(rows, 'explicacion').filter((e) => e.plazo === S.plazo && e.tipo === 'vigilar' && e.precio !== null && e.precio !== undefined).forEach((e) => {
       const v = num(e.precio); if (!(v > lo && v < hi)) return;
       const col = e.sesgo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)';
-      pane.append('line').attr('class', 'ab-sr').attr('x1', m.l).attr('x2', plotR).attr('y1', y(v)).attr('y2', y(v)).style('stroke', col).style('stroke-width', 1.3)
-        .style('stroke-dasharray', '10 5').style('stroke-opacity', .85);
-      pane.append('text').attr('class', 'ab-pat-lbl ab-sr').style('fill', col).attr('x', m.l + 6).attr('y', y(v) + (e.sesgo === 'alcista' ? -5 : 13)).text(e.texto);
+      pane.append('line').attr('class', 'ab-sr').attr('x1', m.l).attr('x2', plotR).attr('y1', y(v)).attr('y2', y(v)).style('stroke', col).style('stroke-width', 1)
+        .style('stroke-dasharray', '6 5').style('stroke-opacity', .7);
+      pane.append('text').attr('class', 'ab-pat-lbl ab-sr').style('fill', col).style('font-weight', 500).attr('x', m.l + 6).attr('y', y(v) + (e.sesgo === 'alcista' ? -5 : 13))
+        .text(narrow ? e.texto.replace(/\s*\(.*\)$/, '') : e.texto);
     });
     if (cone.length) {
       const li = bars.length - 1, c0 = bars[li].c;
@@ -1427,7 +1523,8 @@
             // el nombre de la linea y su precio de hoy, junto a la ultima vela
             const name = p[`l${k}_nombre`] || '', now = val(lastT);
             const when = name === 'Cuello' && !conf ? (p.sesgo === 'alcista' ? ' · se confirma si lo supera' : ' · se confirma si lo pierde') : '';
-            if (now > lo && now < hi) pill(g0, xt(lastT) - 10, y(now) + (name === 'Piso' ? 14 : -14), `${name} ${f0(now)}${when}`, col, false, 'end');
+            // en el celu no entra: el detalle esta en "Que estas viendo"
+            if (!narrow && now > lo && now < hi) pill(g0, xt(lastT) - 10, y(now) + (name === 'Piso' ? 14 : -14), `${name} ${f0(now)}${when}`, col, false, 'end');
             if (!label) label = { x: xt(ta) + 4, y: y(val(ta)) + (name === 'Piso' ? 16 : -16) };
           });
           // los puntos que forman la figura: pisos, techos, hombros, cabeza y eventos de Wyckoff
@@ -1443,13 +1540,16 @@
             if (!first) first = { x: cxi(i), y: py0 + (below ? 34 : -28) };
           });
           const head = first || label;
-          if (head) pill(g0, head.x, head.y, conf ? `✓ ${p.nombre}` : `Posible ${p.nombre.slice(0, 1).toLowerCase()}${p.nombre.slice(1)}`, col, conf, first ? 'middle' : 'start');
+          // en el celu el nombre va corto (el completo esta en "Que estas viendo")
+          const pn = narrow && p.nombre.length > 22 ? `${p.nombre.slice(0, 21).trim()}…` : p.nombre;
+          if (head) pill(g0, head.x, head.y, conf ? `✓ ${pn}` : `Posible ${pn.slice(0, 1).toLowerCase()}${pn.slice(1)}`, col, conf, first ? 'middle' : 'start');
           const obj = num(p.objetivo);
           if (obj !== null && live) {
             const txt = `${conf ? 'Objetivo' : 'Objetivo si se confirma'}: ${f0(obj)}`;
             if (obj > lo && obj < hi) {
               tg.append('line').attr('class', 'ab-pat-line').style('stroke', col).attr('x1', fx).attr('x2', plotR).attr('y1', y(obj)).attr('y2', y(obj));
-              tg.append('text').attr('class', 'ab-pat-lbl').style('fill', col).attr('x', plotR - 4).attr('y', y(obj) - 5).attr('text-anchor', 'end').text(txt);
+              // cerca del borde de arriba el texto va debajo de su linea, para no pisar la etiqueta de la figura
+              tg.append('text').attr('class', 'ab-pat-lbl').style('fill', col).attr('x', plotR - 4).attr('y', y(obj) < m.t + 34 ? y(obj) + 13 : y(obj) - 5).attr('text-anchor', 'end').text(txt);
             } else {
               tg.append('text').attr('class', 'ab-pat-lbl').style('fill', col).attr('x', plotR - 4).attr('y', obj > hi ? m.t + 10 : priceB - 6)
                 .attr('text-anchor', 'end').text(`${obj > hi ? '▲' : '▼'} ${txt}`);
@@ -1582,14 +1682,14 @@
       const wv = pane.append('g').selectAll('g').data(gp.filter((g) => g.w)).join('g')
         .attr('class', (g) => 'ab-wave' + (cur && g === lastG && g.w === cur ? ' ab-wave-cur' : ''))
         .attr('transform', (g) => `translate(${cxi(g.i)},${Math.max(m.t, Math.min(priceB, y(g.p) + (g.alto ? -13 : 13)))})`);
-      wv.append('circle').attr('r', 8.5); wv.append('text').text((g) => g.w);
+      wv.append('circle').attr('r', 7.5); wv.append('text').text((g) => g.w);
       if (cur && lastG && lastG.w && lastG.w !== cur && live) {
         const tgt = num(mkE.elliott_objetivo);
         const x1 = Math.min(plotR - 12, steps ? cxi(bars.length - 1 + Math.min(steps, 8)) : cxi(bars.length - 1) + 30);
         const y1 = tgt === null ? y(price) : Math.max(m.t + 10, Math.min(priceB - 10, y(tgt)));
         pane.append('path').attr('class', 'ab-wave-proj').attr('d', `M${cxi(lastG.i)},${y(lastG.p)} L${cxi(bars.length - 1)},${y(price)} L${x1},${y1}`);
         const pg = pane.append('g').attr('class', 'ab-wave ab-wave-cur').attr('transform', `translate(${x1},${y1})`);
-        pg.append('circle').attr('r', 8.5); pg.append('text').text(cur);
+        pg.append('circle').attr('r', 7.5); pg.append('text').text(cur);
       }
     }
     // escenario
@@ -1604,7 +1704,7 @@
       const mx = d3.max(inR, (r) => Math.max(r.l, r.s)) || 1;
       const hx = d3.scaleSqrt([0, mx], [0, heatW - 8]);
       const bh = Math.max(2, Math.abs(y(price) - y(price * 1.0025)) - 1);
-      const op = d3.scaleLinear([0, mx], [.18, .8]);
+      const op = d3.scaleLinear([0, mx], [.12, .65]);
       defs.append('clipPath').attr('id', 'ab-clip-liq').append('rect').attr('x', plotR).attr('y', m.t).attr('width', heatW).attr('height', priceB - m.t);
       svg.append('g').attr('clip-path', 'url(#ab-clip-liq)').selectAll('rect').data(inR.flatMap((r) => [r.l > 0 ? { p: r.p, v: r.l, side: 'l' } : null, r.s > 0 ? { p: r.p, v: r.s, side: 's' } : null]).filter(Boolean))
         .join('rect').attr('class', (d) => (d.side === 'l' ? 'ab-liq-l' : 'ab-liq-s')).attr('x', plotR + 4).attr('y', (d) => y(d.p) - bh / 2)
@@ -1620,10 +1720,12 @@
       svg.append('text').attr('class', 'ab-future-lbl').attr('x', plotR + 4).attr('y', priceB + 14).text('Liquid.');
     }
     // precio actual
-    const py = y(price), hx0 = cxi(bars.length - 1);
-    svg.append('line').attr('class', 'ab-now-line').attr('x1', m.l).attr('x2', plotR + heatW).attr('y1', py).attr('y2', py);
+    // la linea y la etiqueta del precio toman el color de la vela en curso (verde si va subiendo, rojo si baja)
+    const py = y(price), hx0 = cxi(bars.length - 1), lb0 = bars[bars.length - 1];
+    const nowCol = live && price < lb0.o ? 'var(--color-bad)' : 'var(--color-ok)';
+    svg.append('line').attr('class', 'ab-now-line').attr('x1', m.l).attr('x2', plotR + heatW).attr('y1', py).attr('y2', py).style('stroke', nowCol);
     const tag = svg.append('g').attr('class', 'ab-tag');
-    tag.append('rect').attr('x', W - axW + 2).attr('y', py - 10).attr('width', axW - 2).attr('height', 20).attr('rx', 4);
+    tag.append('rect').attr('x', W - axW + 2).attr('y', py - 10).attr('width', axW - 2).attr('height', 20).attr('rx', 6).style('fill', nowCol);
     tag.append('text').attr('x', W - 4).attr('y', py).attr('dy', '.34em').attr('text-anchor', 'end').text(f0(price));
     // cuanto falta para que cierre la vela en curso, debajo del precio (como TradingView)
     clearInterval(S.cdTimer);
@@ -1643,8 +1745,8 @@
       tagYs.push(cdY);
     }
     if (live) {
-    svg.append('circle').attr('class', 'ab-pulse').attr('cx', hx0).attr('cy', py).attr('r', 5);
-    svg.append('circle').attr('class', 'ab-dot').attr('cx', hx0).attr('cy', py).attr('r', 4);
+    svg.append('circle').attr('class', 'ab-pulse').attr('cx', hx0).attr('cy', py).attr('r', 5).style('fill', nowCol);
+    svg.append('circle').attr('class', 'ab-dot').attr('cx', hx0).attr('cy', py).attr('r', 3.5).style('fill', nowCol);
     }
 
     // mira: sigue al puntero en todos los paneles (tambien mientras se arrastra), con el valor en el eje
@@ -1673,7 +1775,9 @@
       const head = fut ? `Futura ${b.k} · ${SCEN_TXT[S.scen]}` : narrow ? '' : `${fmtT(b.t, tf)} h${b.en || (liveBar && liveBar.t === b.t) ? ' · en curso' : ''}`;
       if (head) ohlc.append(el('span', 'ab-ohlc-t', head));
       const ch = el('b', '', sg((b.c / b.o - 1) * 100)); ch.style.color = col;
-      ohlc.append(kv('A', f0(b.o)), kv('Máx', f0(b.h)), kv('Mín', f0(b.l)), kv('C', f0(b.c)), ch);
+      // en el celu: cierre y cambio primero (lo que mas se mira); la apertura se ve en el cambio
+      if (narrow) ohlc.append(kv('C', f0(b.c)), ch, kv('Máx', f0(b.h)), kv('Mín', f0(b.l)));
+      else ohlc.append(kv('A', f0(b.o)), kv('Máx', f0(b.h)), kv('Mín', f0(b.l)), kv('C', f0(b.c)), ch);
       const isLast = !fut && b === lastReal;
       const ob = fut ? null : b.rsi !== null && b.rsi !== undefined ? b : isLast ? lastOsc : null;
       setVol([['Volumen '], [fut ? '—' : `${f1(b.v)} ${MON()}`, fut ? null : col]]);
@@ -1705,7 +1809,7 @@
       }
     });
     // las referencias del eje que quedan debajo de una etiqueta se sacan
-    axG.selectAll('text').filter(function () { const yy = +this.getAttribute('y'); return tagYs.some((t) => Math.abs(t - yy) < 13); }).remove();
+    axG.selectAll('text').filter(function () { const yy = +this.getAttribute('y'); return tagYs.some((t) => Math.abs(t - yy) < 17); }).remove();
     const hideCross = () => { tip.hidden = true; cross.style('display', 'none'); legend(lastReal, false); };
     S.pointAt = (pt) => {
       if (!pt) { hideCross(); return; }
@@ -1789,7 +1893,8 @@
       item('osc', { background: `linear-gradient(90deg, ${dash.colors[2]} 50%, ${dash.colors[0]} 50%)` }, 'Paneles de abajo:',
         `RSI ${rTxt}; ${mTxt}. Las barras son la diferencia entre las dos líneas. Si hay divergencias, se marcan con la misma línea en el precio y en el indicador.`);
     }
-    document.getElementById('scen-note').textContent = ghosts.length || !live ? '' : 'No hay suficientes situaciones parecidas para armar escenarios en esta temporalidad.';
+    document.getElementById('ex-n').textContent = leg.children.length || '';
+    document.getElementById('scen-note').textContent = ghosts.length || !live ? '' :'No hay suficientes situaciones parecidas para armar escenarios en esta temporalidad.';
 
     // que velas forman cada marca: se encienden al resaltarla
     const ex = {};

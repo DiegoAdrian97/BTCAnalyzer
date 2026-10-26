@@ -14,7 +14,7 @@ SHELL = """<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Analista BTC</title>
 <meta name="description" content="Análisis de BTC/USDT en vivo, calculado en el teléfono.">
-<meta name="theme-color" content="#121418">
+<meta name="theme-color" content="#0a0c10">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
