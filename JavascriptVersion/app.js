@@ -6,6 +6,11 @@
   'use strict';
   let rows = null;
   const fns = [];
+  // la cripto que se analiza: BTC o ZEC (cada una con su ultimo analisis guardado para volver enseguida)
+  let moneda = 'BTC';
+  try { moneda = localStorage.getItem('app-moneda') === 'ZEC' ? 'ZEC' : 'BTC'; } catch (e) { /* sin almacenamiento */ }
+  window.abMoneda = moneda;
+  const porMoneda = {};
   const redraw = () => fns.forEach((f) => f());
   window.abLive = true;            // la pagina se conecta sola al WebSocket de Binance para los ticks
   const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -30,7 +35,8 @@
 
   // ---------- interruptor Web | Holograma: el holograma se abre encima, en la misma pagina ----------
   let holo = null;
-  const sendHolo = () => { if (holo && rows) holo.contentWindow.postMessage({ tipo: 'analisis', rows }, location.origin); };
+  // el holograma muestra la prediccion de BTC
+  const sendHolo = () => { const r = porMoneda.BTC; if (holo && r) holo.contentWindow.postMessage({ tipo: 'analisis', rows: r }, location.origin); };
   const markMode = (m) => document.querySelectorAll('#app-modo button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.app === m)));
   function openHolo() {
     if (holo) return;
@@ -68,9 +74,31 @@
   });
 
   const worker = new Worker('worker.js');
+  const sym = () => `${moneda}USDT`;
+  function elegir(m) {
+    if (m === moneda) return;
+    moneda = m; window.abMoneda = m;
+    try { localStorage.setItem('app-moneda', m); } catch (e) { /* idem */ }
+    document.querySelectorAll('#app-moneda button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.m === m)));
+    rows = porMoneda[m] || null;
+    if (!rows) estado(`Preparando el análisis de ${m}… bajando el historial de velas`);
+    worker.postMessage({ tipo: 'seguir', sym: sym() });
+    redraw();
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    const sw = document.getElementById('app-moneda');
+    if (!sw) return;
+    sw.hidden = false;
+    sw.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.m === moneda)));
+    sw.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) elegir(b.dataset.m); });
+  });
+  worker.postMessage({ tipo: 'seguir', sym: sym() });
   worker.onmessage = (ev) => {
     const m = ev.data;
+    if (m.sym && m.sym !== sym() && m.tipo !== 'analisis') return;
     if (m.tipo === 'analisis') {
+      porMoneda[(m.sym || 'BTCUSDT').replace('USDT', '')] = m.rows;
+      if (m.sym && m.sym !== sym()) { if (holo) sendHolo(); return; }
       rows = m.rows;
       window.abAnalyses = m.numero;
       estado(m.fuente === 'bybit' ? 'Binance limitó los pedidos: por ahora las velas salen de Bybit.' : '');
@@ -82,6 +110,6 @@
     }
   };
   // con la app en segundo plano no se analiza: ahorra bateria y datos
-  document.addEventListener('visibilitychange', () => worker.postMessage({ tipo: document.hidden ? 'pausa' : 'seguir' }));
+  document.addEventListener('visibilitychange', () => worker.postMessage(document.hidden ? { tipo: 'pausa' } : { tipo: 'seguir', sym: sym() }));
   document.addEventListener('DOMContentLoaded', () => { if (!rows) estado('Preparando el primer análisis… bajando el historial de velas'); });
 })();

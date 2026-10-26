@@ -25,6 +25,8 @@
     return x.toFixed(d);
   }
   /** Numero con formato argentino: 80.757,25 */
+  /** Precio: sin decimales desde 1.000 (BTC) y con dos debajo (ZEC). */
+  const ap = (x) => ar(x, Math.abs(x) >= 1000 ? 0 : 2);
   function ar(x, d = 0) {
     const s = fixedLikePython(Math.abs(x), d);
     const [int, dec] = s.split('.');
@@ -412,7 +414,7 @@
       px > ku[i] || px < kl[i] ? 'fuera del canal' : 'dentro del canal', false);
     add('Volatilidad', 'ATR 14', atr[i], NEUTRAL, `${ar((atr[i] / px) * 100, 2)}% del precio por vela`, false);
     const dh = maxOf(h.slice(i - 19, i + 1)), dl = minOf(l.slice(i - 19, i + 1));
-    add('Volatilidad', 'Donchian 20', (dh + dl) / 2, px >= dh ? COMPRA : px <= dl ? VENTA : NEUTRAL, `${ar(dl)} - ${ar(dh)}`, false);
+    add('Volatilidad', 'Donchian 20', (dh + dl) / 2, px >= dh ? COMPRA : px <= dl ? VENTA : NEUTRAL, `${ap(dl)} - ${ap(dh)}`, false);
     const sar = psar(h, l);
     add('Tendencia', 'Parabolic SAR', sar[i], px > sar[i] ? COMPRA : VENTA, px > sar[i] ? 'puntos debajo del precio' : 'puntos encima del precio', false);
     const [st, sdir] = supertrend(h, l, c);
@@ -722,16 +724,16 @@
           && hchBien(bars, q, true) && stillValid(q[4], 'bajista', k[2], neckAt)) {
         const neck = line(q[1], q[3], 'Cuello'), nNow = atNow(neck);
         const target = nNow - (k[2] - (k[1] + k[3]) / 2), broke = px < nNow;
-        const desc = broke ? `Tres máximos, el del medio más alto. BTC perdió el cuello en ${ar(nNow)}: objetivo ${ar(target)}.`
-          : `Tres máximos, el del medio más alto. Si BTC cierra debajo del cuello (${ar(nNow)}), se confirma y el objetivo es ${ar(target)}.`;
+        const desc = broke ? `Tres máximos, el del medio más alto. BTC perdió el cuello en ${ap(nNow)}: objetivo ${ap(target)}.`
+          : `Tres máximos, el del medio más alto. Si BTC cierra debajo del cuello (${ap(nNow)}), se confirma y el objetivo es ${ap(target)}.`;
         return result('Hombro-cabeza-hombro', 'bajista', [neck], shoulders, target, desc, broke);
       }
       if (q[0][0] === 'bajo' && k[2] < k[0] - tol && k[2] < k[4] - tol && Math.abs(k[0] - k[4]) < 1.5 * tol
           && hchBien(bars, q, false) && stillValid(q[4], 'alcista', k[2], neckAt)) {
         const neck = line(q[1], q[3], 'Cuello'), nNow = atNow(neck);
         const target = nNow + ((k[1] + k[3]) / 2 - k[2]), broke = px > nNow;
-        const desc = broke ? `Tres mínimos, el del medio más bajo. BTC superó el cuello en ${ar(nNow)}: objetivo ${ar(target)}.`
-          : `Tres mínimos, el del medio más bajo. Si BTC cierra arriba del cuello (${ar(nNow)}), se confirma y el objetivo es ${ar(target)}.`;
+        const desc = broke ? `Tres mínimos, el del medio más bajo. BTC superó el cuello en ${ap(nNow)}: objetivo ${ap(target)}.`
+          : `Tres mínimos, el del medio más bajo. Si BTC cierra arriba del cuello (${ap(nNow)}), se confirma y el objetivo es ${ap(target)}.`;
         return result('Hombro-cabeza-hombro invertido', 'alcista', [neck], shoulders, target, desc, broke);
       }
     }
@@ -766,8 +768,8 @@
         const neck = nk[2], top = (a[2] + b[2]) / 2, target = neck - (top - neck), broke = px < neck;
         const done = range(b[1] + 1, bars.length).some((j) => bars[j][3] <= target);   // ya llego al objetivo: terminada
         if (!done) {
-          const desc = broke ? `Dos máximos que rechazaron la misma zona (${ar(a[2])} y ${ar(b[2])}). BTC perdió el cuello en ${ar(neck)}: objetivo ${ar(target)}.`
-            : `Dos máximos que rechazaron la misma zona (${ar(a[2])} y ${ar(b[2])}). Si BTC cierra debajo del cuello (${ar(neck)}), se confirma y el objetivo es ${ar(target)}.`;
+          const desc = broke ? `Dos máximos que rechazaron la misma zona (${ap(a[2])} y ${ap(b[2])}). BTC perdió el cuello en ${ap(neck)}: objetivo ${ap(target)}.`
+            : `Dos máximos que rechazaron la misma zona (${ap(a[2])} y ${ap(b[2])}). Si BTC cierra debajo del cuello (${ap(neck)}), se confirma y el objetivo es ${ap(target)}.`;
           return result('Doble techo', 'bajista', [flatLine(nk, 'Cuello')], [point(a, 'Techo 1'), point(b, 'Techo 2')], target, desc, broke);
         }
       }
@@ -779,8 +781,8 @@
         const neck = nk[2], bot = (a[2] + b[2]) / 2, target = neck + (neck - bot), broke = px > neck;
         const done = range(b[1] + 1, bars.length).some((j) => bars[j][2] >= target);
         if (!done) {
-          const desc = broke ? `Dos mínimos que defendieron la misma zona (${ar(a[2])} y ${ar(b[2])}). BTC superó el cuello en ${ar(neck)}: objetivo ${ar(target)}.`
-            : `Dos mínimos que defendieron la misma zona (${ar(a[2])} y ${ar(b[2])}). Si BTC cierra arriba del cuello (${ar(neck)}), se confirma y el objetivo es ${ar(target)}.`;
+          const desc = broke ? `Dos mínimos que defendieron la misma zona (${ap(a[2])} y ${ap(b[2])}). BTC superó el cuello en ${ap(neck)}: objetivo ${ap(target)}.`
+            : `Dos mínimos que defendieron la misma zona (${ap(a[2])} y ${ap(b[2])}). Si BTC cierra arriba del cuello (${ap(neck)}), se confirma y el objetivo es ${ap(target)}.`;
           return result('Doble piso', 'alcista', [flatLine(nk, 'Cuello')], [point(a, 'Piso 1'), point(b, 'Piso 2')], target, desc, broke);
         }
       }
@@ -873,19 +875,19 @@
         if (!recent.some((k) => bars[k][4] <= val(upL, k))) return null;   // la ruptura fue hace mucho
         const target = uNow + height;
         return figura(`Ruptura alcista de ${name.toLowerCase()}`, 'alcista', [upL, loL], [], target,
-          `BTC rompió hacia arriba el techo de ${art} ${name.toLowerCase()}${touches} en ${ar(uNow)}: el objetivo de la ruptura es ${ar(target)}.`, true);
+          `BTC rompió hacia arriba el techo de ${art} ${name.toLowerCase()}${touches} en ${ap(uNow)}: el objetivo de la ruptura es ${ap(target)}.`, true);
       }
       if (px < lNow - tol) {
         if (!recent.some((k) => bars[k][4] >= val(loL, k))) return null;
         const target = lNow - height;
         return figura(`Ruptura bajista de ${name.toLowerCase()}`, 'bajista', [upL, loL], [], target,
-          `BTC rompió hacia abajo el piso de ${art} ${name.toLowerCase()}${touches} en ${ar(lNow)}: el objetivo de la ruptura es ${ar(target)}.`, true);
+          `BTC rompió hacia abajo el piso de ${art} ${name.toLowerCase()}${touches} en ${ap(lNow)}: el objetivo de la ruptura es ${ap(target)}.`, true);
       }
       const target = bias === 'alcista' ? uNow + height : bias === 'bajista' ? lNow - height : null;
-      const side = bias === 'alcista' ? `suele romper hacia arriba; si supera ${ar(uNow)}, el objetivo es ${ar(target)}`
-        : bias === 'bajista' ? `suele romper hacia abajo; si pierde ${ar(lNow)}, el objetivo es ${ar(target)}`
+      const side = bias === 'alcista' ? `suele romper hacia arriba; si supera ${ap(uNow)}, el objetivo es ${ap(target)}`
+        : bias === 'bajista' ? `suele romper hacia abajo; si pierde ${ap(lNow)}, el objetivo es ${ap(target)}`
           : 'puede romper para cualquier lado: la dirección la da la ruptura';
-      return figura(name, bias, [upL, loL], [], target, `BTC se mueve entre un piso en ${ar(lNow)} y un techo en ${ar(uNow)}${touches}; ${side}.`, false);
+      return figura(name, bias, [upL, loL], [], target, `BTC se mueve entre un piso en ${ap(lNow)} y un techo en ${ap(uNow)}${touches}; ${side}.`, false);
     }
     return null;
   }
@@ -940,10 +942,10 @@
       if (sos !== null) {
         points.push([t(sos), bars[sos][4], nm[4]]);
         return figura(name, acc ? 'alcista' : 'bajista', lines, points, target,
-          `Rango después de una ${acc ? 'caída' : 'suba'} con clímax de ${acc ? 'venta' : 'compra'}, prueba y ${ev}; BTC ya ${acc ? 'superó el techo' : 'perdió el piso'} (${ar(other)}): fase de ${acc ? 'suba' : 'baja'}, objetivo ${ar(target)}.`, true);
+          `Rango después de una ${acc ? 'caída' : 'suba'} con clímax de ${acc ? 'venta' : 'compra'}, prueba y ${ev}; BTC ya ${acc ? 'superó el techo' : 'perdió el piso'} (${ap(other)}): fase de ${acc ? 'suba' : 'baja'}, objetivo ${ap(target)}.`, true);
       }
       return figura(name, acc ? 'alcista' : 'bajista', lines, points, target,
-        `Rango entre ${ar(lo)} y ${ar(hi)} después de una ${acc ? 'caída' : 'suba'} con clímax de ${acc ? 'venta' : 'compra'}. Ya hubo prueba y ${ev}: ${acc ? 'si cierra arriba de ' : 'si cierra debajo de '}${ar(other)}, se confirma y el objetivo es ${ar(target)}.`, false);
+        `Rango entre ${ap(lo)} y ${ap(hi)} después de una ${acc ? 'caída' : 'suba'} con clímax de ${acc ? 'venta' : 'compra'}. Ya hubo prueba y ${ev}: ${acc ? 'si cierra arriba de ' : 'si cierra debajo de '}${ap(other)}, se confirma y el objetivo es ${ap(target)}.`, false);
     }
     return null;
   }
