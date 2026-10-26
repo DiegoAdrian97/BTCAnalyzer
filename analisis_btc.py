@@ -796,6 +796,8 @@ def analyze():
     books_job = pool.submit(cached, "libros", 20, order_books)
     jobs = {tf: pool.submit(update_candles, src, tf, days) for tf, (days, _) in TIMEFRAMES.items()}
     candles = {tf: job.result() for tf, job in jobs.items()}
+    global ULTIMAS_VELAS
+    ULTIMAS_VELAS = candles          # velas cerradas: las usan los avisos (setups) en el modo en vivo
     # el analisis incluye la vela en curso de cada temporalidad (como TradingView): los indicadores, patrones y
     # escenarios se mueven con el precio. Todas salen de la vela de 5m en curso: un solo pedido.
     # El cache y el registro de aciertos siguen usando solo velas cerradas.
@@ -1200,7 +1202,7 @@ def run_live(every, public=False):
                     print("Código del análisis actualizado: se usa la versión nueva desde este análisis.")
                 data = {"rows": live_mod.analyze(), "pagina": page_version()}
                 try:
-                    avisos.revisar(data["rows"])       # WhatsApp / notificacion, si estan configurados
+                    avisos.revisar(data["rows"], getattr(live_mod, "ULTIMAS_VELAS", None))   # WhatsApp / notificacion
                 except Exception as e:
                     print(f"(avisos: {type(e).__name__}: {e})", flush=True)
                 save_json(OUT_FILE, data)

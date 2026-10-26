@@ -8,6 +8,11 @@ Que avisa (solo lo que se probo con velas reales de BTC):
   donde: eso no se pudo predecir.
 - "Zona grande de liquidaciones cerca": cuando el precio queda a menos de 0,4% de la zona mas grande de
   liquidaciones estimadas de cada lado (dentro de 3%). Es informativo: alli el movimiento se puede acelerar.
+- Setup de entrada (largo o corto) con stop y objetivo: ruptura de 55 velas de 1 hora a favor de la tendencia de
+  4 horas (EMA 50 vs 200) y de la EMA 200 de 1 hora, con el mercado despierto (volatilidad de 1 hora > 1,5 veces la
+  habitual). Stop a 2,5 ATR, objetivo 1R, cierre si en 72 horas no toco ninguno. Elegido con 2021-24 y verificado
+  con 2025-26 y con 27 variantes vecinas (todas positivas): 99 operaciones 2021-2026, gano el 64%, +0,22 R por
+  operacion con comisiones, peor racha -3,4 R, 5 de 6 anos positivos. Despues avisa si toco el objetivo o el stop.
 
 Por donde (variables de entorno de Render; nunca en el codigo ni en el repositorio):
 - NTFY_TEMA: el nombre secreto del tema en ntfy.sh (la app ntfy del iPhone, suscripta a ese tema).
@@ -29,7 +34,11 @@ CERCA_LIQ = 0.004          # 0,4% de la zona de liquidaciones
 RANGO_LIQ = 0.03           # zonas dentro de 3% del precio
 ESPERA_LIQ = 3 * 3600      # la misma zona no se avisa dos veces en 3 horas
 
-_estado = {"mov": 0.0, "liq": {}, "arranque": False}
+SETUP = {"ruptura": 55, "despierto": 1.5, "stop_atr": 2.5, "objetivo_r": 1.0, "horas": 72}
+HISTORIAL = ("Historial 2021–2026 (con comisiones): 99 operaciones, ganó el 64%, promedio +0,22 R por operación, "
+             "peor racha −3,4 R, positivo 5 de 6 años. Es estadística del pasado, no una garantía.")
+
+_estado = {"mov": 0.0, "liq": {}, "arranque": False, "setup_t": None, "abierta": None}
 
 
 def _ar(x, d=0):
@@ -73,8 +82,52 @@ def volatilidad(velas):
     return serie
 
 
-def revisar(rows):
-    """Mira el ultimo analisis y manda los avisos que correspondan."""
+def setup(h1, h4):
+    """El setup en la ultima vela de 1 hora cerrada: (direccion, entrada, stop, objetivo) o None.
+    h1, h4: velas cerradas [t, o, h, l, c, v] de 1 hora y de 4 horas."""
+    import indicadores as ind
+    N = SETUP["ruptura"]
+    if len(h1) < 260 or len(h4) < 210:
+        return None
+    c = [b[4] for b in h1]
+    atr = ind.dmi([b[2] for b in h1], [b[3] for b in h1], c)[3]
+    e200 = ind.ema(c, 200)
+    c4 = [b[4] for b in h4]
+    t50, t200 = ind.ema(c4, 50)[-1], ind.ema(c4, 200)[-1]
+    tend = 1 if t50 > t200 else -1
+    v = volatilidad([(b[1], b[2], b[3], b[4]) for b in h1])[-1]
+    i = len(h1) - 1
+    hi, lo = max(b[2] for b in h1[i - N:i]), min(b[3] for b in h1[i - N:i])
+    d = 1 if c[i] > hi and c[i] > e200[i] else -1 if c[i] < lo and c[i] < e200[i] else 0
+    if not d or d != tend or v <= SETUP["despierto"] or atr[i] is None:
+        return None
+    e = c[i]
+    sl = e - d * SETUP["stop_atr"] * atr[i]
+    return d, e, sl, e + d * SETUP["objetivo_r"] * abs(e - sl)
+
+
+def _seguir(price, ahora):
+    """Si hay un setup abierto, avisa cuando toca el objetivo o el stop (o vence)."""
+    op = _estado["abierta"]
+    if not op:
+        return
+    d, e, sl, tp, t0 = op
+    lado = "LARGO" if d > 0 else "CORTO"
+    if (price >= tp) if d > 0 else (price <= tp):
+        enviar(f"✅ Setup {lado}: objetivo alcanzado", f"BTC llegó a {_ar(tp)} (entrada {_ar(e)}). +1R.")
+        _estado["abierta"] = None
+    elif (price <= sl) if d > 0 else (price >= sl):
+        enviar(f"❌ Setup {lado}: tocó el stop", f"BTC llegó a {_ar(sl)} (entrada {_ar(e)}). −1R.")
+        _estado["abierta"] = None
+    elif ahora - t0 > SETUP["horas"] * 3600:
+        r = (price - e) / abs(e - sl) * d
+        enviar(f"⏱ Setup {lado}: pasaron 72 h", f"No tocó ni el stop ni el objetivo. Según la regla, se cierra en "
+               f"{_ar(price)} ({'+' if r >= 0 else ''}{_ar(r, 2)} R).")
+        _estado["abierta"] = None
+
+
+def revisar(rows, velas=None):
+    """Mira el ultimo analisis y manda los avisos que correspondan. velas: velas cerradas por temporalidad."""
     if not configurado():
         return
     ahora = time.time()
@@ -88,6 +141,27 @@ def revisar(rows):
                f"Te aviso cuando se venga movimiento fuerte o el precio se acerque a una zona grande de liquidaciones. "
                f"BTC ahora: {_ar(price, 1)}.")
     liq = [r for r in rows if r["tabla"] == "liquidacion"]
+
+    # 0) setup de entrada, una vez por vela de 1 hora cerrada, y seguimiento del abierto
+    _seguir(price, ahora)
+    if velas and velas.get("1h") and velas.get("4h"):
+        h1 = velas["1h"]
+        if h1[-1][0] != _estado["setup_t"]:
+            _estado["setup_t"] = h1[-1][0]
+            got = setup(h1, velas["4h"])
+            if got and not _estado["abierta"]:
+                d, e, sl, tp = got
+                lado = "LARGO 📈" if d > 0 else "CORTO 📉"
+                _estado["abierta"] = (d, e, sl, tp, ahora)
+                txt = (f"Ruptura de 55 horas a favor de la tendencia, con el mercado despierto.\n"
+                       f"Entrada: ~{_ar(e)} (BTC ahora {_ar(price, 1)})\n"
+                       f"Stop: {_ar(sl)} ({_ar(abs(sl / e - 1) * 100, 2)}%)\n"
+                       f"Objetivo: {_ar(tp)} ({_ar(abs(tp / e - 1) * 100, 2)}%)\n"
+                       f"Si en 72 h no tocó ninguno, se cierra.\n{HISTORIAL}")
+                cerca = _zonas(liq, price)
+                if cerca:
+                    txt += "\nLiquidaciones grandes: " + "; ".join(cerca) + "."
+                enviar(f"Setup {lado} BTC", txt, urgente=True)
 
     # 1) se viene movimiento fuerte (velas de 5 min cerradas)
     velas = [(r["o"], r["h"], r["l"], r["c"]) for r in rows if r["tabla"] == "vela" and r["tf"] == "5m" and not r["en_curso"]]
