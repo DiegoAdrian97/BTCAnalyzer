@@ -15,6 +15,7 @@ Que avisa (solo lo que se probo con velas reales de BTC):
   operacion con comisiones, peor racha -3,4 R, 5 de 6 anos positivos. Despues avisa si toco el objetivo o el stop.
 
 Por donde (variables de entorno de Render; nunca en el codigo ni en el repositorio):
+- TELEGRAM_TOKEN y TELEGRAM_CHAT: el token del bot (de @BotFather) y tu numero de usuario (de @userinfobot).
 - NTFY_TEMA: el nombre secreto del tema en ntfy.sh (la app ntfy del iPhone, suscripta a ese tema).
 - WHATSAPP_TEL y WHATSAPP_CLAVE: el numero (con +54...) y la clave que da CallMeBot.
 Sin esas variables no se manda nada. Los avisos se guardan en memoria para no repetirlos.
@@ -46,7 +47,8 @@ def _ar(x, d=0):
 
 
 def configurado():
-    return bool(os.environ.get("NTFY_TEMA") or (os.environ.get("WHATSAPP_TEL") and os.environ.get("WHATSAPP_CLAVE")))
+    return bool(os.environ.get("NTFY_TEMA") or (os.environ.get("WHATSAPP_TEL") and os.environ.get("WHATSAPP_CLAVE"))
+                or (os.environ.get("TELEGRAM_TOKEN") and os.environ.get("TELEGRAM_CHAT")))
 
 
 def enviar(titulo, texto, urgente=False):
@@ -59,6 +61,15 @@ def enviar(titulo, texto, urgente=False):
             urllib.request.urlopen(req, timeout=10).read()
         except Exception as e:
             print(f"(aviso por ntfy no enviado: {type(e).__name__})", flush=True)
+    token, chat = os.environ.get("TELEGRAM_TOKEN"), os.environ.get("TELEGRAM_CHAT")
+    if token and chat:
+        try:
+            body = json.dumps({"chat_id": chat, "text": f"{titulo}\n{texto}", "disable_web_page_preview": True})
+            req = urllib.request.Request(f"https://api.telegram.org/bot{token}/sendMessage", data=body.encode("utf-8"),
+                                         headers={"Content-Type": "application/json"})
+            urllib.request.urlopen(req, timeout=15).read()
+        except Exception as e:
+            print(f"(aviso por Telegram no enviado: {type(e).__name__})", flush=True)
     tel, clave = os.environ.get("WHATSAPP_TEL"), os.environ.get("WHATSAPP_CLAVE")
     if tel and clave:
         try:
