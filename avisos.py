@@ -194,6 +194,31 @@ def _fmt(x):
     return _ar(x, 0 if x >= 1000 else 2 if x >= 10 else 4)
 
 
+def _mov_zec(ahora):
+    """Se viene movimiento fuerte en ZEC (velas de 5 min de Bybit, una vez cada 5 min). Probado con ZEC 2021-2026:
+    la hora siguiente se movio 2,1 veces lo normal y mas del doble el 52% de las veces (11% en una hora cualquiera)."""
+    tramo = int(ahora // 300)
+    if _estado.get("zec5_t") == tramo:
+        return
+    _estado["zec5_t"] = tramo
+    raw = _bybit().fetch_ohlcv(SETUPS["ZEC"]["simbolo"], "5m", limit=1000)
+    c5 = [x for x in raw if x[0] + 300_000 <= ahora * 1000]
+    if len(c5) < 300:
+        return
+    v = volatilidad([(x[1], x[2], x[3], x[4]) for x in c5])
+    if not (v[-1] > DESPIERTA and v[-7] < DESPIERTA and ahora - _estado.get("mov_zec", 0) > ESPERA_MOV):
+        return
+    _estado["mov_zec"] = ahora
+    price = c5[-1][4]
+    rangos = sorted((max(x[2] for x in c5[i + 1:i + 13]) - min(x[3] for x in c5[i + 1:i + 13])) / c5[i][4]
+                    for i in range(len(c5) - 13, -1, -12))
+    normal = rangos[len(rangos) // 2] * price
+    enviar("⚡ ZEC: se viene movimiento fuerte",
+           f"El mercado de ZEC se despertó: precio {_fmt(price)}. En situaciones así, la hora siguiente se movió 2,1 veces "
+           f"lo normal y más del doble el 52% de las veces. Movimiento normal en una hora: ~{_fmt(normal)} USD; "
+           f"esperable ahora: ~{_fmt(normal * 2.1)} USD. No indica para dónde.", urgente=True)
+
+
 def _setups(velas, price_btc, liq, ahora):
     for nombre, cfg in SETUPS.items():
         try:
@@ -246,6 +271,10 @@ def revisar(rows, velas=None):
 
     # 0) setups de entrada (BTC, ETH y ZEC), una vez por vela de 1 hora cerrada, y seguimiento de los abiertos
     _setups(velas, price, liq, ahora)
+    try:
+        _mov_zec(ahora)
+    except Exception as e:
+        print(f"(movimiento ZEC: {type(e).__name__}: {e})", flush=True)
 
     # 1) se viene movimiento fuerte (velas de 5 min cerradas)
     velas = [(r["o"], r["h"], r["l"], r["c"]) for r in rows if r["tabla"] == "vela" and r["tf"] == "5m" and not r["en_curso"]]
