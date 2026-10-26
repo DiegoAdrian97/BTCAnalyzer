@@ -40,6 +40,23 @@ RANGO_LIQ = 0.03           # zonas dentro de 3% del precio
 ESPERA_LIQ = 3 * 3600      # la misma zona no se avisa dos veces en 3 horas
 
 HORAS = 72
+# capital para futuros (se puede cambiar con la variable CAPITAL_FUTUROS en Render) y riesgo por operacion
+CAPITAL = float(os.environ.get("CAPITAL_FUTUROS", "9600"))
+RIESGO = float(os.environ.get("RIESGO_PCT", "1")) / 100
+
+
+def tamano(e, sl, tp):
+    """Cuanto operar: perder RIESGO del capital si toca el stop. Apalancamiento para que la liquidacion quede al
+    menos a 3 veces la distancia del stop (y nunca mas de 10x); margen aislado."""
+    capital = float(os.environ.get("CAPITAL_FUTUROS", CAPITAL))
+    riesgo_usd = capital * RIESGO
+    dist = abs(e - sl) / e
+    qty = riesgo_usd / abs(e - sl)
+    nocional = qty * e
+    lev = max(1, min(10, int(1 / (3 * dist))))
+    margen = nocional / lev
+    gana = qty * abs(tp - e)
+    return qty, nocional, lev, margen, riesgo_usd, gana, capital
 _PIE = " Arriesgando 1% de la cuenta por operación: {cuenta}, peor caída {caida}. Es estadística del pasado, no una garantía."
 SETUPS = {
     "BTC": {"ruptura": 55, "despierto": 1.5, "stop_atr": 2.5, "objetivo_r": 1.0, "simbolo": "BTC/USDT:USDT",
@@ -281,14 +298,17 @@ def _setups(velas, price_btc, liq, ahora):
             d, e, sl, tp = got
             lado = "LONG 📈 (compra)" if d > 0 else "SHORT 📉 (venta)"
             _estado["abierta"][nombre] = (d, e, sl, tp, ahora)
-            riesgo = abs(e - sl)
-            cant = 10 / riesgo              # cuanto operar para perder 10 USD si toca el stop
+            qty, nocional, lev, margen, perder, ganar, capital = tamano(e, sl, tp)
             txt = (f"Entrada: {_fmt(e)} USD (ya, a mercado)\n"
                    f"Stop loss: {_fmt(sl)} USD ({_ar(abs(sl / e - 1) * 100, 1)}% de distancia)\n"
                    f"Take profit: {_fmt(tp)} USD ({_ar(abs(tp / e - 1) * 100, 1)}% de distancia)\n"
                    f"Si en 3 días no tocó ninguno de los dos, cerrá la operación.\n\n"
-                   f"Tamaño: por cada 10 USD que aceptes perder si toca el stop, operá "
-                   f"{_ar(cant, 3 if cant < 1 else 2)} {nombre} (≈ {_ar(cant * e)} USD).\n\n"
+                   f"Cómo entrar (capital {_ar(capital)} USDT):\n"
+                   f"• Apalancamiento: {lev}x, margen aislado\n"
+                   f"• Margen a poner: {_ar(margen)} USDT\n"
+                   f"• Tamaño: {_ar(qty, 4 if qty < 1 else 2)} {nombre} (≈ {_ar(nocional)} USDT de posición)\n"
+                   f"• Si toca el stop perdés ~{_ar(perder)} USDT ({_ar(RIESGO * 100, 0)}% del capital); "
+                   f"si llega al take profit ganás ~{_ar(ganar)} USDT (más o menos comisiones).\n\n"
                    f"{cfg['simple']}")
             enviar(f"{nombre}: entrada en {lado} recomendada", txt, urgente=True)
         except Exception as e:      # una cripto que falla no frena a las otras
