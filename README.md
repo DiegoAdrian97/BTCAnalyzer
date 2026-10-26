@@ -4,6 +4,9 @@ Analista de BTC/USDT perpetuo con un dashboard en vivo: predicción por plazo (5
 gráfico con escenarios, figuras, divergencias, liquidaciones estimadas, libros de órdenes y más de
 30 indicadores. Datos públicos de Binance Futures, Bybit, OKX, Bitget y BingX (no usa claves).
 
+El gráfico usa el motor de TradingView ([Lightweight Charts](https://www.tradingview.com/lightweight-charts/)): mismas velas, ejes, mira y
+gestos, con las marcas del analista encima (escenarios, cono, patrones, divergencias, ondas, FVG, liquidaciones y niveles).
+
 No es una recomendación de inversión.
 
 ## Aprendizaje automático

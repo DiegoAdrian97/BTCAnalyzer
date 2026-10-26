@@ -1082,6 +1082,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 #dash-root { padding-block: 24px 40px; padding-left: max(16px, var(--dash-gutter, 24px)); padding-right: max(16px, var(--dash-gutter, 24px)); }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
 <script>
 (function () {
   var rows = __DATA__, fns = [], pageVersion = __PAGEV__;
