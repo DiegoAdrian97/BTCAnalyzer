@@ -45,13 +45,17 @@ SETUPS = {
     "BTC": {"ruptura": 55, "despierto": 1.5, "stop_atr": 2.5, "objetivo_r": 1.0, "simbolo": "BTC/USDT:USDT",
             "historial": "Historial 2021–2026 (con comisiones): 91 a 99 operaciones según la fuente de datos, ganó el "
                          "64–69%, +0,22 a +0,35 R por operación, positivo 5–6 de 6 años."
-                         + _PIE.format(cuenta="+22% a +36%", caida="−3%")},
+                         + _PIE.format(cuenta="+22% a +36%", caida="−3%"),
+            "simple": "Con esta señal, entre 2021 y 2026 se ganó 2 de cada 3 veces. No es seguro: respetá el stop loss."},
     "ETH": {"ruptura": 55, "despierto": 1.5, "stop_atr": 2.5, "objetivo_r": 1.0, "simbolo": "ETH/USDT:USDT",
             "historial": "Historial 2021–2026 (con comisiones): 93 operaciones, ganó el 61%, +0,22 R por operación, "
-                         "positivo 6 de 6 años." + _PIE.format(cuenta="+22%", caida="−3%")},
+                         "positivo 6 de 6 años." + _PIE.format(cuenta="+22%", caida="−3%"),
+            "simple": "Con esta señal, entre 2021 y 2026 se ganó 6 de cada 10 veces. No es seguro: respetá el stop loss."},
     "ZEC": {"ruptura": 55, "despierto": 1.2, "stop_atr": 2.5, "objetivo_r": 1.5, "simbolo": "ZEC/USDT:USDT",
             "historial": "Historial 2021–2026 (con comisiones): 195 operaciones, ganó el 49% (el objetivo es 1,5 veces "
-                         "el stop), +0,19 R por operación, positivo 6 de 6 años." + _PIE.format(cuenta="+44%", caida="−7%")},
+                         "el stop), +0,19 R por operación, positivo 6 de 6 años." + _PIE.format(cuenta="+44%", caida="−7%"),
+            "simple": "Con esta señal, entre 2021 y 2026 se ganó 1 de cada 2 veces, pero cada ganancia es 1,5 veces lo "
+                      "que se pierde cuando sale mal. No es seguro: respetá el stop loss."},
 }
 
 _estado = {"mov": 0.0, "liq": {}, "arranque": False, "setup_t": {}, "abierta": {}, "velas": {}, "precio": {}}
@@ -174,19 +178,42 @@ def _seguir(nombre, price, ahora):
     if not op:
         return
     d, e, sl, tp, t0 = op
-    lado = "LARGO" if d > 0 else "CORTO"
-    rr = SETUPS[nombre]["objetivo_r"]
+    lado = "LONG" if d > 0 else "SHORT"
     if (price >= tp) if d > 0 else (price <= tp):
-        enviar(f"✅ {nombre} {lado}: objetivo alcanzado", f"{nombre} llegó a {_fmt(tp)} (entrada {_fmt(e)}). +{_ar(rr, 1)}R.")
+        enviar(f"✅ {nombre}: llegó al take profit", f"{nombre} tocó {_fmt(tp)} USD. Operación {lado.lower()} cerrada con ganancia.")
         _estado["abierta"].pop(nombre)
     elif (price <= sl) if d > 0 else (price >= sl):
-        enviar(f"❌ {nombre} {lado}: tocó el stop", f"{nombre} llegó a {_fmt(sl)} (entrada {_fmt(e)}). −1R.")
+        enviar(f"❌ {nombre}: tocó el stop loss", f"{nombre} tocó {_fmt(sl)} USD. Operación {lado.lower()} cerrada con pérdida (la prevista).")
         _estado["abierta"].pop(nombre)
     elif ahora - t0 > HORAS * 3600:
         r = (price - e) / abs(e - sl) * d
-        enviar(f"⏱ {nombre} {lado}: pasaron 72 h", f"No tocó ni el stop ni el objetivo. Según la regla, se cierra en "
-               f"{_fmt(price)} ({'+' if r >= 0 else ''}{_ar(r, 2)} R).")
+        enviar(f"⏱ {nombre}: pasaron 3 días, cerrá la operación",
+               f"No tocó ni el stop loss ni el take profit. Cerrala ahora a mercado (~{_fmt(price)} USD), "
+               f"{'con ganancia' if r >= 0 else 'con pérdida'}.")
         _estado["abierta"].pop(nombre)
+
+
+def niveles(h1, h4, cfg):
+    """Donde se activaria el setup en la proxima vela de 1 hora: (direccion, nivel) si la tendencia de 4 horas
+    acompana y el precio esta a menos de 1 ATR de romper el maximo (o minimo) de las ultimas 55 horas; si no, None."""
+    import indicadores as ind
+    N = cfg["ruptura"]
+    if len(h1) < 260 or len(h4) < 210:
+        return None
+    c = [b[4] for b in h1]
+    atr = ind.dmi([b[2] for b in h1], [b[3] for b in h1], c)[3][-1]
+    e200 = ind.ema(c, 200)[-1]
+    c4 = [b[4] for b in h4]
+    tend = 1 if ind.ema(c4, 50)[-1] > ind.ema(c4, 200)[-1] else -1
+    hi, lo = max(b[2] for b in h1[-N:]), min(b[3] for b in h1[-N:])
+    v = volatilidad([(b[1], b[2], b[3], b[4]) for b in h1])[-1]
+    if atr is None or v < 0.85 * cfg["despierto"]:      # mercado quieto: es muy probable que no se active
+        return None
+    if tend > 0 and hi > e200 and 0 < hi - c[-1] <= atr:
+        return 1, hi
+    if tend < 0 and lo < e200 and 0 < c[-1] - lo <= atr:
+        return -1, lo
+    return None
 
 
 def _fmt(x):
@@ -234,21 +261,36 @@ def _setups(velas, price_btc, liq, ahora):
                 continue
             _estado["setup_t"][nombre] = h1[-1][0]
             got = setup(h1, h4, cfg)
+            if not got and not _estado["abierta"].get(nombre):
+                pre = niveles(h1, h4, cfg)
+                clave = (nombre, pre[0]) if pre else None
+                if pre and ahora - _estado.setdefault("pre", {}).get(clave, 0) > 12 * 3600:
+                    _estado["pre"][clave] = ahora
+                    d, nivel = pre
+                    lado, verbo, quien = ("LONG (compra)", "por encima", "suba") if d > 0 else ("SHORT (venta)", "por debajo", "baje")
+                    enviar(f"👀 {nombre}: atento a una posible entrada en {lado}",
+                           f"Si una vela de 1 hora de {nombre} cierra {verbo} de {_fmt(nivel)} USD (ahora está en "
+                           f"{_fmt(h1[-1][4])}), se puede activar una entrada en {lado}.\n"
+                           f"No entres antes: esperá mi aviso al cierre de esa vela, con la entrada, el stop loss y el "
+                           f"take profit. Si el mercado está muy quieto en ese momento, la entrada no se activa.\n"
+                           f"Por qué: la tendencia de fondo (4 horas) es {'alcista' if d > 0 else 'bajista'} y el precio "
+                           f"está cerca de romper el {'máximo' if d > 0 else 'mínimo'} de los últimos 2 días; esas "
+                           f"rupturas a favor de la tendencia son las que mejor funcionaron.")
             if not got or _estado["abierta"].get(nombre):
                 continue
             d, e, sl, tp = got
-            lado = "LARGO 📈" if d > 0 else "CORTO 📉"
+            lado = "LONG 📈 (compra)" if d > 0 else "SHORT 📉 (venta)"
             _estado["abierta"][nombre] = (d, e, sl, tp, ahora)
-            txt = (f"Ruptura de 55 horas a favor de la tendencia, con el mercado despierto.\n"
-                   f"Entrada: ~{_fmt(e)}\n"
-                   f"Stop: {_fmt(sl)} ({_ar(abs(sl / e - 1) * 100, 2)}%)\n"
-                   f"Objetivo: {_fmt(tp)} ({_ar(abs(tp / e - 1) * 100, 2)}%)\n"
-                   f"Si en 72 h no tocó ninguno, se cierra.\n{cfg['historial']}")
-            if nombre == "BTC":
-                cerca = _zonas(liq, price_btc)
-                if cerca:
-                    txt += "\nLiquidaciones grandes: " + "; ".join(cerca) + "."
-            enviar(f"Setup {lado} {nombre}", txt, urgente=True)
+            riesgo = abs(e - sl)
+            cant = 10 / riesgo              # cuanto operar para perder 10 USD si toca el stop
+            txt = (f"Entrada: {_fmt(e)} USD (ya, a mercado)\n"
+                   f"Stop loss: {_fmt(sl)} USD ({_ar(abs(sl / e - 1) * 100, 1)}% de distancia)\n"
+                   f"Take profit: {_fmt(tp)} USD ({_ar(abs(tp / e - 1) * 100, 1)}% de distancia)\n"
+                   f"Si en 3 días no tocó ninguno de los dos, cerrá la operación.\n\n"
+                   f"Tamaño: por cada 10 USD que aceptes perder si toca el stop, operá "
+                   f"{_ar(cant, 3 if cant < 1 else 2)} {nombre} (≈ {_ar(cant * e)} USD).\n\n"
+                   f"{cfg['simple']}")
+            enviar(f"{nombre}: entrada en {lado} recomendada", txt, urgente=True)
         except Exception as e:      # una cripto que falla no frena a las otras
             print(f"(setup {nombre}: {type(e).__name__}: {e})", flush=True)
 
