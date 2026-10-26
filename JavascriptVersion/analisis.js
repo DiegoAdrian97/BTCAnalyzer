@@ -64,20 +64,53 @@
 
   const quantile = (sorted, p) => sorted[Math.min(Math.trunc(p * sorted.length), sorted.length - 1)];
 
-  function outcomes(closes, idxs, h) {
-    const rets = idxs.filter((i) => i + h < closes.length).map((i) => closes[i + h] / closes[i] - 1).sort((a, b) => a - b);
+  // ---------- volatilidad prevista (ver vol_escala en analisis_btc.py) ----------
+  const VOL_RAPIDA = 20, VOL_LENTA = 200, VOL_PESO = 0.5, VOL_MIN_FRANJA = 20;
+  /** Por cuanto multiplicar el movimiento de cada caso del pasado para llevarlo a la volatilidad de ahora. */
+  function volEscala(bars, tfMin, h, partial) {
+    const n = bars.length, tfMs = tfMin * 60000, slots = tfMin < 1440 ? Math.floor(1440 / tfMin) : 1;
+    const af = 2 / (VOL_RAPIDA + 1), as = 2 / (VOL_LENTA + 1);
+    let ef = null, es = null, tm = 0, tc = 0, sNow = null;
+    const sm = new Array(slots).fill(0), sc = new Array(slots).fill(0), S = new Array(n).fill(0);
+    const now = partial && n > 1 ? n - 2 : n - 1;
+    const franjas = (desde) => {
+      if (slots === 1 || !tc) return 1;
+      const k0 = Math.floor(bars[desde][0] / tfMs);
+      let acc = 0;
+      for (let k = 1; k <= h; k++) { const x = (k0 + k) % slots; acc += sc[x] >= VOL_MIN_FRANJA ? (sm[x] / sc[x]) / (tm / tc) : 1; }
+      return acc / h;
+    };
+    for (let i = 0; i < n; i++) {
+      const r = (bars[i][2] - bars[i][3]) / bars[i][4], v = r * r;
+      ef = ef === null ? v : ef + af * (v - ef);
+      es = es === null ? v : es + as * (v - es);
+      const base = Math.sqrt(VOL_PESO * ef + (1 - VOL_PESO) * es);
+      if (i <= now) { const x = Math.floor(bars[i][0] / tfMs) % slots; sm[x] += r; sc[x] += 1; tm += r; tc += 1; }
+      S[i] = base * franjas(i);
+      if (i === now) sNow = base * franjas(n - 1);
+    }
+    return S.map((x) => (x > 0 ? sNow / x : 1));
+  }
+  function volFactor(s, h) {
+    if (s.tfMin > 60) return null;      // con velas de 4 h o diarias no mejoro en la prueba con datos reales
+    if (!s.vol.has(h)) s.vol.set(h, volEscala(s.bars, s.tfMin, h, s.partial));
+    return s.vol.get(h);
+  }
+
+  function outcomes(closes, idxs, h, F = null) {
+    const rets = idxs.filter((i) => i + h < closes.length).map((i) => (closes[i + h] / closes[i] - 1) * (F ? F[i] : 1)).sort((a, b) => a - b);
     if (!rets.length) return null;
     return { n: rets.length, up: (rets.filter((r) => r > 0).length / rets.length) * 100, p10: quantile(rets, 0.1) * 100, p90: quantile(rets, 0.9) * 100 };
   }
 
   /** Camino tipico/alcista/bajista: el camino real mas parecido a la mediana y a los percentiles 75/25. */
-  function scenarios(bars, idxs, price, tfMs) {
+  function scenarios(bars, idxs, price, tfMs, F = null) {
     const closes = bars.map((b) => b[4]);
     const usable = idxs.filter((j) => j + SCENARIO_STEPS < bars.length);
     if (usable.length < 10) return [[], []];
     const paths = new Map(usable.map((j) => {
       const p = [];
-      for (let k = 1; k <= SCENARIO_STEPS; k++) p.push(closes[j + k] / closes[j] - 1);
+      for (let k = 1; k <= SCENARIO_STEPS; k++) p.push((closes[j + k] / closes[j] - 1) * (F ? F[j] : 1));
       return [j, p];
     }));
     const cols = [];
@@ -93,11 +126,12 @@
         p.forEach((x, k) => { d += Math.abs(x - target[k]); });
         if (d < bestD) { bestD = d; best = j; }
       });
-      const base = closes[best], s = price / base;
+      const base = closes[best], fj = F ? F[best] : 1;
+      const z = (x) => price * (1 + (x / base - 1) * fj);     // el camino real, al precio y la volatilidad de ahora
       for (let k = 1; k <= SCENARIO_STEPS; k++) {
         const [, o, h, l, c] = bars[best + k];
         candles.push({ tabla: 'escenario', tf: null, escenario: name, paso: k, t: t0 + k * tfMs,
-          o: rnd(o * s, 1), h: rnd(h * s, 1), l: rnd(l * s, 1), c: rnd(c * s, 1), desde: utcDate(bars[best][0]) });
+          o: rnd(z(o), 1), h: rnd(z(h), 1), l: rnd(z(l), 1), c: rnd(z(c), 1), desde: utcDate(bars[best][0]) });
       }
     });
     const p10 = q(0.1), p50 = q(0.5), p90 = q(0.9);
@@ -109,13 +143,14 @@
   }
 
   /** Probabilidad de TOCAR precios redondos antes de 'when', y precio mas probable a esa hora. */
-  function targets(bars, idxs, price, h, when, f = 1, unitIn = null, pfAp = null) {
+  function targets(bars, idxs, price, h, when, f = 1, unitIn = null, pfAp = null, F = null) {
     const usable = idxs.filter((j) => j + h < bars.length);
     if (usable.length < 10) return [[], null];
     const c = bars.map((b) => b[4]);
-    const highs = usable.map((j) => { let m = -Infinity; for (let k = j + 1; k <= j + h; k++) m = Math.max(m, bars[k][2]); return m / c[j] - 1; });
-    const lows = usable.map((j) => { let m = Infinity; for (let k = j + 1; k <= j + h; k++) m = Math.min(m, bars[k][3]); return m / c[j] - 1; });
-    const ends = usable.map((j) => c[j + h] / c[j] - 1).sort((a, b) => a - b);
+    const v = (j) => (F ? F[j] : 1);      // cada caso, a la volatilidad de ahora
+    const highs = usable.map((j) => { let m = -Infinity; for (let k = j + 1; k <= j + h; k++) m = Math.max(m, bars[k][2]); return (m / c[j] - 1) * v(j); });
+    const lows = usable.map((j) => { let m = Infinity; for (let k = j + 1; k <= j + h; k++) m = Math.min(m, bars[k][3]); return (m / c[j] - 1) * v(j); });
+    const ends = usable.map((j) => (c[j + h] / c[j] - 1) * v(j)).sort((a, b) => a - b);
     const q = (p) => quantile(ends, p);
     const spread = (q(0.9) - q(0.1)) * price;
     // la distancia la fija el aprendizaje (es la que viene midiendo); si no hay, la de los casos parecidos
@@ -137,7 +172,7 @@
     const first = [];
     usable.forEach((j) => {
       for (let k = 1; k <= h; k++) {
-        const a = bars[j + k][2] / c[j] - 1 >= rel, b = bars[j + k][3] / c[j] - 1 <= -rel;
+        const a = (bars[j + k][2] / c[j] - 1) * v(j) >= rel, b = (bars[j + k][3] / c[j] - 1) * v(j) <= -rel;
         if (a || b) { first.push(a && b ? 0.5 : a ? 1 : 0); break; }
       }
     });
@@ -205,7 +240,8 @@
   /** Todo lo que se puede decir de las proximas h velas a partir de las situaciones parecidas (ya con lo aprendido). */
   function horizonStats(tf, s, h, price, fit) {
     const sample = fit.sample, f = fit.factor;
-    const o = outcomes(s.closes, sample, h), b = outcomes(s.closes, s.base, h);
+    const F = volFactor(s, h);
+    const o = outcomes(s.closes, sample, h, F), b = outcomes(s.closes, s.base, h);
     // la probabilidad de subir la da el equipo que aprende; sin historia suficiente, los casos parecidos
     const up = fit.p_sube !== null && fit.p_sube !== undefined ? fit.p_sube * 100 : f === 1 ? o.up : Apr.ajustar(o.up / 100, f) * 100;
     // contra la tasa normal moderada igual que la prediccion: si aprendio que no hay ventaja (confianza 0), es moneda
@@ -216,7 +252,7 @@
     const whenMs = s.bars[s.bars.length - 1][0] + (h + 1) * s.tfMs;
     const when = fmtLocal(whenMs);
     const L = fit.learn || {};
-    const [tg, close] = targets(s.bars, sample, price, h, when, f, L.distancia === undefined ? null : L.distancia, fit.p_primero === undefined ? null : fit.p_primero);
+    const [tg, close] = targets(s.bars, sample, price, h, when, f, L.distancia === undefined ? null : L.distancia, fit.p_primero === undefined ? null : fit.p_primero, F);
     return [{
       tf, horizonte: label(h * s.tfMin), velas: h, sube: rnd(up, 1), baja: rnd(100 - up, 1), base: rnd(b.up, 1),
       sube_crudo: rnd(o.up, 1), receta: fit.receta, factor: f,
@@ -507,7 +543,7 @@
       const base = [];
       for (let j = warmup; j < bars.length - 1 - Math.max(...horizons); j++) base.push(j);
       series[tf] = { bars, closes, base, tfMs, tfMin, days, closed: candles[tf], feats, combo: Apr.combos(feats), X, warmup,
-        last: bars.length - 1 - Math.max(...horizons, SCENARIO_STEPS), similar: new Map(), fit: new Map() };
+        last: bars.length - 1 - Math.max(...horizons, SCENARIO_STEPS), similar: new Map(), fit: new Map(), vol: new Map(), partial };
       const mainFit = tune(tf, series[tf], horizons[0]);
       const idxs = mainFit.idxs, keep = mainFit.keep;
       const i = bars.length - 1;
@@ -537,7 +573,7 @@
         entries.push([bars[i][0] + tfMs, tf, h, closes[i], prob.sube]);
       });
 
-      const [sc, cone] = scenarios(bars, idxs, price, tfMs);
+      const [sc, cone] = scenarios(bars, idxs, price, tfMs, volFactor(series[tf], SCENARIO_STEPS));
       sc.concat(cone).forEach((r) => { r.tf = tf; rows.push(r); });
       for (let k = Math.max(0, i - CHART_BARS + 1); k <= i; k++) {
         const [t, o, h, l, c, v] = bars[k];
