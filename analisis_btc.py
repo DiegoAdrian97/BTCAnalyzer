@@ -42,6 +42,7 @@ import aprendizaje as apr
 import avisos
 import backtest_grid as bg
 import indicadores as ind
+import noticias
 
 SYMBOL = "BTC/USDT:USDT"
 DATA_DIR = bg.DATA_DIR
@@ -487,8 +488,8 @@ def horizon_stats(tf, s, h, price, fit):
 def context(bnc, bgx, closes_1h):
     rows = []
 
-    def add(key, title, value, signal, detail):
-        rows.append({"tabla": "contexto", "clave": key, "titulo": title, "valor": value, "senal": signal, "detalle": detail})
+    def add(key, title, value, signal, detail, **num):
+        rows.append({"tabla": "contexto", "clave": key, "titulo": title, "valor": value, "senal": signal, "detalle": detail, **num})
 
     oi = [x["openInterestValue"] for x in api("binanceusdm", bnc.fetch_open_interest_history, SYMBOL, "1h", limit=25)]
     for hrs in (1, 4, 24):
@@ -501,7 +502,8 @@ def context(bnc, bgx, closes_1h):
         else:
             why, sig = (("Entran shorts nuevos: baja con fuerza", "bajista") if d_oi > 0 else
                         ("Cierran o liquidan longs: baja por descarga", "neutral"))
-        add(f"oi_{hrs}h", f"Open interest {hrs} h", f"{arp(d_oi)} con precio {arp(d_px)}", sig, why)
+        add(f"oi_{hrs}h", f"Open interest {hrs} h", f"{arp(d_oi)} con precio {arp(d_px)}", sig, why,
+            d_oi=round(d_oi, 2), d_px=round(d_px, 2))
 
     taker = api("binanceusdm", bnc.fapiDataGetTakerlongshortRatio, {"symbol": "BTCUSDT", "period": "1h", "limit": 4})
     buy, sell = sum(float(x["buyVol"]) for x in taker), sum(float(x["sellVol"]) for x in taker)
@@ -509,7 +511,7 @@ def context(bnc, bgx, closes_1h):
         sig = "alcista" if r > 1.1 else "bajista" if r < 0.9 else "neutral"
         add(f"flujo_{name}", f"Compras vs ventas a mercado {name}", ar(r, 2), sig,
             "Dominan los compradores agresivos" if sig == "alcista" else
-            "Dominan los vendedores agresivos" if sig == "bajista" else "Flujo equilibrado")
+            "Dominan los vendedores agresivos" if sig == "bajista" else "Flujo equilibrado", ratio=round(r, 3))
 
     ls = api("binanceusdm", bnc.fetch_long_short_ratio_history, SYMBOL, "1h", limit=25)
     now_ls, prev_ls = ls[-1]["longShortRatio"], ls[0]["longShortRatio"]
@@ -964,6 +966,10 @@ def analyze():
         funding = None
         rows.append({"tabla": "contexto", "clave": "error", "titulo": "Contexto no disponible", "valor": "",
                      "senal": "neutral", "detalle": f"No se pudo leer: {type(e).__name__}"})
+    try:   # noticias, ETF y prima de Coinbase: para explicar los movimientos fuertes
+        rows += cached("externo", 600, noticias.externo)
+    except Exception as e:
+        print(f"(noticias no disponibles: {type(e).__name__})")
     book_rows, per, mb, ma = books_job.result()
     pool.shutdown(wait=False)
     rows += book_rows

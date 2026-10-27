@@ -483,6 +483,25 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   .ab-appmode button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
   .ab-appmode button[data-app="holo"]:hover { color: #2ad8ff; }
 
+  /* que esta pasando: el porque de los movimientos fuertes */
+  .ab-qp[hidden] { display: none; }
+  .ab-qp.ab-qp-on { border-color: color-mix(in srgb, var(--qp-col, var(--color-warn)) 55%, transparent); }
+  .ab-qp-big { margin: 0; font-size: clamp(1.15rem, 2.6vw, 1.45rem); font-weight: 650; letter-spacing: -.02em; line-height: 1.25; text-wrap: balance; }
+  .ab-qp-big .ab-qp-mv { color: var(--qp-col, var(--ink)); }
+  .ab-qp-sum { margin: 0; font-size: var(--cds-font-size-body); line-height: 1.5; color: var(--ink); }
+  .ab-qp-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+  .ab-qp-list li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; font-size: var(--cds-font-size-body); line-height: 1.45; }
+  .ab-qp-list li > i { font-style: normal; width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; font-size: 12px;
+    background: var(--soft2); color: var(--mute); }
+  .ab-qp-list li.ab-qp-si > i { background: color-mix(in srgb, var(--qp-col, var(--ink)) 18%, transparent); color: var(--qp-col, var(--ink)); }
+  .ab-qp-list li small { display: block; color: var(--mute); font-size: var(--cds-font-size-caption); }
+  .ab-qp-news { display: grid; gap: 2px; }
+  .ab-qp-n { display: grid; gap: 3px; padding: 9px 10px; margin-inline: -10px; border-radius: 10px; text-decoration: none; color: var(--ink); }
+  .ab-qp-n:hover { background: var(--soft); }
+  .ab-qp-n b { font-weight: 500; font-size: var(--cds-font-size-body); line-height: 1.4; }
+  .ab-qp-n span { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; font-size: var(--cds-font-size-caption); color: var(--mute); }
+  .ab-qp-tag { font-style: normal; font-size: 10.5px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--soft2); color: var(--ink); }
+  .ab-qp-tag.ab-qp-hot { background: color-mix(in srgb, var(--color-warn) 22%, transparent); color: var(--color-warn); }
   /* movimiento fuerte */
   .ab-mov[hidden] { display: none; }
   .ab-mov.ab-mov-on { border-color: color-mix(in srgb, var(--color-warn) 60%, transparent); }
@@ -570,6 +589,16 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       </div>
     </div>
   </header>
+
+  <section class="ab-card ab-qp" id="que-pasa" aria-labelledby="qp-t" data-source="analisis" hidden>
+    <div class="ab-card-head"><h2 id="qp-t">Qué está pasando</h2><span class="ab-kicker" id="qp-k"></span></div>
+    <p class="ab-qp-big" id="qp-big"></p>
+    <p class="ab-qp-sum" id="qp-sum"></p>
+    <ul class="ab-qp-list" id="qp-fact"></ul>
+    <span class="ab-kicker" id="qp-news-t">Noticias</span>
+    <div class="ab-qp-news" id="qp-news"></div>
+    <p class="ab-note" id="qp-note"></p>
+  </section>
 
   <section class="ab-card ab-mov" id="movimiento" aria-labelledby="mov-t" data-source="analisis" hidden>
     <div class="ab-card-head"><h2 id="mov-t">Movimiento en la próxima hora</h2><span class="ab-kicker" id="mov-k"></span></div>
@@ -950,6 +979,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     drawStory(rows);
     drawPrediction(rows, sum);
     drawMovimiento(rows);
+    drawQuePasa(rows, sum);
     drawLearning(rows);
     drawGauge(rows);
     drawChart(rows, sum);
@@ -963,6 +993,111 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     placeTf(); placeSc();
     connectLive();
     if (first) { first = false; setTimeout(() => root.classList.remove('ab-first'), 1800); }
+  }
+
+  // ---------- que esta pasando: por que se mueve fuerte ----------
+  // Cuando hay una suba o baja fuerte junta lo que coincide en el tiempo: liquidaciones o dinero nuevo en futuros,
+  // compras o ventas a mercado, compras desde EE.UU. (prima de Coinbase), entradas o salidas de los ETF y las noticias
+  // de esas horas (guerras, la Fed, aranceles, hackeos...). Son coincidencias, no pruebas de la causa.
+  const TEMA_ORDEN = ['Guerra y geopolítica', 'Fed, tasas e inflación', 'Aranceles y política', 'ETF', 'Regulación', 'Hackeo o quiebra',
+    'Ballenas y empresas', 'Liquidaciones', 'Cripto'];
+  const haceTxt = (t) => {
+    const m = Math.max(0, Math.round((Date.now() - t) / 60000));
+    return m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`;
+  };
+  function drawQuePasa(rows, s) {
+    const box = document.getElementById('que-pasa');
+    const price = num(s.precio), mov = pick(rows, 'movimiento')[0];
+    const c5 = pick(rows, 'vela', '5m').sort((a, b) => num(a.t) - num(b.t)), c1h = pick(rows, 'vela', '1h').sort((a, b) => num(a.t) - num(b.t));
+    const back = (cs, k) => (cs.length > k ? num(cs[cs.length - 1 - k].c) : null);
+    const chg = (ref) => (ref ? (price / ref - 1) * 100 : null);
+    const normal = mov ? Math.max(0.15, num(mov.normal_pct)) : 0.6;
+    const win = [
+      { h: 1, txt: 'la última hora', ch: chg(back(c5, 12)), th: Math.max(2 * normal, 0.8), oi: 'oi_1h', fl: 'flujo_1 h' },
+      { h: 4, txt: 'las últimas 4 horas', ch: chg(back(c1h, 4)), th: Math.max(4 * normal, 1.8), oi: 'oi_4h', fl: 'flujo_4 h' },
+      { h: 24, txt: 'las últimas 24 horas', ch: num(s.cambio_24h), th: 5, oi: 'oi_24h', fl: 'flujo_4 h' },
+    ].filter((w) => w.ch !== null && Number.isFinite(w.ch));
+    const news = pick(rows, 'noticia').map((n) => ({ ...n, t: num(n.t) })).sort((a, b) => b.t - a.t);
+    const etf = pick(rows, 'etf').sort((a, b) => (a.fecha < b.fecha ? -1 : 1));
+    if (!win.length) { box.hidden = true; return; }
+    box.hidden = false;
+    const w = win.reduce((a, b) => (Math.abs(b.ch) / b.th > Math.abs(a.ch) / a.th ? b : a));
+    const strong = Math.abs(w.ch) >= w.th, dir = w.ch >= 0 ? 1 : -1;
+    const col = dir > 0 ? 'var(--color-ok)' : 'var(--color-bad)';
+    box.classList.toggle('ab-qp-on', strong);
+    box.style.setProperty('--qp-col', strong ? col : 'var(--color-fg-muted)');
+    document.getElementById('qp-k').textContent = strong ? 'movimiento fuerte' : MON();
+    const big = document.getElementById('qp-big'); big.replaceChildren();
+    const ctx = (k) => pick(rows, 'contexto').find((c) => c.clave === k);
+    // lo que coincide con el movimiento: cada factor dice si empuja para el mismo lado (si) o no
+    const F = [];
+    const oi = ctx(w.oi), dOi = oi ? num(oi.d_oi) : null;
+    if (dOi !== null && dOi !== undefined) {
+      const down = dir < 0;
+      if (down && dOi <= -1.5) F.push({ si: true, ic: '⚡', lbl: 'liquidaciones de longs', txt: `Se liquidaron o cerraron posiciones en largo: el interés abierto de futuros cayó ${f1(Math.abs(dOi))}%. Las ventas forzadas aceleran la baja (cascada de liquidaciones).` });
+      else if (down && dOi >= 1) F.push({ si: true, ic: '⤓', lbl: 'shorts nuevos', txt: `Entraron apuestas nuevas a la baja: el interés abierto subió ${f1(dOi)}% mientras caía el precio.` });
+      else if (!down && dOi <= -1.5) F.push({ si: true, ic: '⚡', lbl: 'un short squeeze', txt: `Se liquidaron o cerraron posiciones en corto (interés abierto −${f1(Math.abs(dOi))}%): para cerrarlas tienen que comprar, y eso empuja la suba.` });
+      else if (!down && dOi >= 1) F.push({ si: true, ic: '⤒', lbl: 'dinero nuevo en futuros', txt: `Entra dinero nuevo apalancado en largo: el interés abierto subió ${f1(dOi)}%.` });
+      else F.push({ si: false, ic: '≈', txt: `El apalancamiento casi no cambió (interés abierto ${sg(dOi, 1)}): el movimiento viene más de compras y ventas al contado que de futuros.` });
+    }
+    const fl = ctx(w.fl), r = fl ? num(fl.ratio) : null;
+    if (r !== null && r !== undefined) {
+      if (r >= 1.15 || r <= 0.87) {
+        const buyers = r >= 1.15, si = buyers === dir > 0;
+        F.push({ si, ic: buyers ? '▲' : '▼', lbl: si ? (buyers ? 'compradores agresivos' : 'vendedores agresivos') : null,
+          txt: buyers ? `Dominaron los compradores a mercado: ${ar.format(',.2f')(r)} compras por cada venta.` : `Dominaron los vendedores a mercado: ${ar.format(',.2f')(1 / r)} ventas por cada compra.` });
+      } else F.push({ si: false, ic: '≈', txt: `Compras y ventas a mercado parejas (${ar.format(',.2f')(r)}).` });
+    }
+    const pr = ctx('prima_coinbase'), pv = pr ? num(pr.prima) : null;
+    if (pv !== null && pv !== undefined && Math.abs(pv) >= 0.05) {
+      const si = (pv > 0) === (dir > 0);
+      F.push({ si, ic: '$', lbl: si ? (pv > 0 ? 'compras desde EE.UU.' : 'ventas desde EE.UU.') : null,
+        txt: pv > 0 ? `En EE.UU. (Coinbase) pagan ${ar.format(',.2f')(pv)}% más que afuera: están comprando fondos y empresas de EE.UU.`
+          : `En EE.UU. (Coinbase) pagan ${ar.format(',.2f')(Math.abs(pv))}% menos que afuera: están vendiendo desde EE.UU.` });
+    }
+    if (etf.length) {
+      const last = etf[etf.length - 1], v = num(last.neto), s5 = etf.slice(-5).reduce((a, x) => a + num(x.neto), 0);
+      const d = String(last.fecha).split('-'), si = Math.abs(v) >= 150 && (v > 0) === (dir > 0);
+      F.push({ si, ic: 'E', lbl: si ? (v > 0 ? 'entradas a los ETF' : 'salidas de los ETF') : null,
+        txt: `ETF de BTC en EE.UU.: ${v >= 0 ? 'entraron' : 'salieron'} ${f0(Math.abs(v))} M USD el ${d[2]}/${d[1]} (en 5 días: ${s5 >= 0 ? '+' : '−'}${f0(Math.abs(s5))} M).`,
+        sub: 'Se publican al día siguiente del cierre en EE.UU. (Farside Investors).' });
+    }
+    // noticias de esas horas (o de las ultimas 24 h si esta tranquilo), las de temas grandes primero
+    const desde = Date.now() - (strong ? (w.h + 2) : 24) * 3600000;
+    const rel = news.filter((n) => n.t >= desde).sort((a, b) => TEMA_ORDEN.indexOf(a.tema) - TEMA_ORDEN.indexOf(b.tema) || b.t - a.t).slice(0, strong ? 5 : 4);
+    const hot = rel.filter((n) => n.tema !== 'Cripto');
+    if (strong) {
+      big.append(`${MON()} `, el('span', 'ab-qp-mv', `${dir > 0 ? 'sube' : 'cae'} ${f1(Math.abs(w.ch))}%`), ` en ${w.txt}`);
+      const lbls = F.filter((f) => f.si && f.lbl).map((f) => f.lbl);
+      // las noticias de liquidaciones repiten lo que ya dice el interes abierto
+      const temas = [...new Set(hot.filter((n) => n.tema !== 'Liquidaciones' || !lbls.length).map((n) => n.tema.toLowerCase()))].slice(0, 2);
+      const parts = lbls.slice(0, 4).concat(temas.map((t) => `noticias de ${t}`));
+      const veces = ar.format(',.1f')(Math.abs(w.ch) / (w.th / (w.h === 1 ? 2 : w.h === 4 ? 4 : 1)));
+      document.getElementById('qp-sum').textContent = (w.h === 24 ? 'Es un movimiento grande para un día. ' : `Es ${veces} veces lo que se mueve normalmente. `)
+        + (parts.length ? `Coincide con ${parts.length > 1 ? parts.slice(0, -1).join(', ') + ' y ' + parts[parts.length - 1] : parts[0]}.`
+          : 'No hay una causa clara en los datos: puede ser una orden grande o una reacción técnica.');
+    } else {
+      const w1 = win[0];
+      big.append(`Sin movimientos fuertes: ${MON()} `, el('span', 'ab-qp-mv', sg(w1.ch, 1)), ` en ${w1.txt}`);
+      document.getElementById('qp-sum').textContent = 'Se mueve dentro de lo normal. Cuando haya una suba o baja fuerte, acá aparece qué la explica.';
+    }
+    const ul = document.getElementById('qp-fact'); ul.replaceChildren();
+    (strong ? F : F.filter((f) => f.ic === 'E' || f.ic === '$')).forEach((f) => {
+      const li = el('li', f.si ? 'ab-qp-si' : ''), t = el('span', '', f.txt);
+      if (f.sub) t.append(el('small', '', f.sub));
+      li.append(el('i', '', f.ic), t); ul.append(li);
+    });
+    const nb = document.getElementById('qp-news'); nb.replaceChildren();
+    document.getElementById('qp-news-t').textContent = strong ? `Noticias de esas horas` : 'Noticias de las últimas 24 h';
+    if (!rel.length) nb.append(el('p', 'ab-note', news.length ? 'Sin noticias relevantes en esas horas.' : 'No se pudieron leer las noticias ahora.'));
+    rel.forEach((n) => {
+      const a = el('a', 'ab-qp-n'); a.href = n.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+      const meta = el('span'); meta.append(el('i', 'ab-qp-tag' + (n.tema !== 'Cripto' ? ' ab-qp-hot' : ''), n.tema), `${n.fuente} · ${haceTxt(n.t)}`);
+      a.append(el('b', '', n.titulo), meta); nb.append(a);
+    });
+    document.getElementById('qp-note').textContent = strong
+      ? 'Son cosas que pasaron al mismo tiempo: ayudan a entender el movimiento, no prueban la causa. Titulares de Google Noticias y CoinDesk; ETF de Farside; futuros de Binance.'
+      : 'Titulares de Google Noticias y CoinDesk; ETF de Farside.';
   }
 
   // ---------- movimiento fuerte en la proxima hora ----------

@@ -176,6 +176,8 @@
     const src = isBanned('binance') ? 'bybit' : 'binance';
     const booksP = cached(`${pre()}libros`, 20000, booksRaw).catch(() => []);
     const ctxP = src === 'binance' ? cached(`${pre()}contexto`, 60000, contextRaw).catch(() => null) : Promise.resolve(null);
+    // noticias, ETF y prima de Coinbase: las junta la funcion del servidor (las paginas no pueden leer esas fuentes)
+    const extP = cached('externo', 600000, async () => { const r = await fetch('api/contexto', { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); return r.json(); }).catch(() => null);
     const liqP = src === 'binance' ? cached(`${pre()}liquidaciones`, 300000, liqRaw).catch(() => null) : Promise.resolve(null);
     const candles = {};
     let done = 0;
@@ -191,7 +193,7 @@
     } catch (e) { /* sin la vela en curso, el analisis igual sirve con las cerradas */ }
     const price = live5m ? live5m[4] : candles['5m'][candles['5m'].length - 1][4];
     const log = (await dbGet(`${pre()}predicciones`)) || [];
-    return { candles, live5m, price, now, ctxRaw: await ctxP, booksRaw: await booksP, liqRaw: await liqP, log, fuente: src };
+    return { candles, live5m, price, now, ctxRaw: await ctxP, booksRaw: await booksP, liqRaw: await liqP, externo: await extP, log, fuente: src };
   }
 
   const Datos = { recolectar, guardarLog: (log, sym = 'BTCUSDT') => dbSet(`${sym === 'BTCUSDT' ? '' : `${sym}:`}predicciones`, log), isBanned };
