@@ -275,6 +275,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   .ab-iconbtn:hover { background: var(--soft2); }
   .ab-iconbtn.ab-round { width: 32px; height: 32px; padding: 0; display: inline-grid; place-items: center; font-size: 15px; }
   .ab-chart { position: relative; height: 460px; min-height: 280px; overflow: hidden; }
+  /* en el celu, arrastrar sobre el eje de precios (o el de horas) estira o comprime el grafico en vez de mover la pagina */
+  .ab-chart table tr td:last-child, .ab-chart table tr:last-child td { touch-action: none; }
   /* limites de cada panel: una linea fina; la manija aparece al pasar el mouse (en el celu queda tenue) */
   .ab-sep { stroke: var(--line); stroke-width: 1; }
   .ab-sep-pane { fill: var(--ab-c0); fill-opacity: 0; transition: fill-opacity .15s; pointer-events: none; }
@@ -1245,6 +1247,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   const TZ = -3 * 3600;                                    // Argentina (sin horario de verano): el eje muestra la hora de aca
   const T2 = (ms) => Math.round(ms / 1000) + TZ;
   const G = { chart: null };
+  window.abGraf = G;                                       // para revisarlo desde la consola
   const cssv = (k) => getComputedStyle(document.documentElement).getPropertyValue(k).trim();
   function alpha(c, a) {
     if (!c) return `rgba(128,128,128,${a})`;
@@ -1468,6 +1471,42 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     };
   }
 
+  // con el dedo, el motor no estira el eje de precios: arrastrar arriba/abajo sobre el eje lo comprime o lo estira
+  // (como en TradingView) y un doble toque lo vuelve a ajustar solo. Vale para el precio y para RSI y MACD.
+  function axisTouch(box) {
+    if (box.abAxisTouch) return;                       // el contenedor queda; el grafico se rehace adentro
+    box.abAxisTouch = true;
+    let t = null, lastTap = 0;
+    const paneAt = (y) => {
+      let top = 0;
+      const n = G.chart.panes().length;
+      for (let k = 0; k < n; k++) { const h = G.chart.paneSize(k).height; if (y < top + h) return k; top += h + 1; }
+      return -1;
+    };
+    box.addEventListener('touchstart', (e) => {
+      if (!G.chart || e.touches.length !== 1) { t = null; return; }
+      const r = box.getBoundingClientRect(), x = e.touches[0].clientX - r.left, y = e.touches[0].clientY - r.top;
+      if (x < G.chart.paneSize(0).width) { t = null; return; }
+      const k = paneAt(y); if (k < 0) { t = null; return; }
+      const ps = G.chart.panes()[k].priceScale('right'), vr = ps.getVisibleRange();
+      if (!vr) { t = null; return; }
+      const now = Date.now();
+      if (now - lastTap < 320) { ps.setAutoScale(true); t = null; lastTap = 0; e.preventDefault(); return; }
+      lastTap = now;
+      t = { y: e.touches[0].clientY, ps, from: vr.from, to: vr.to };
+      e.preventDefault();
+    }, { passive: false, capture: true });
+    box.addEventListener('touchmove', (e) => {
+      if (!t) return;
+      e.preventDefault(); e.stopPropagation();
+      const f = Math.exp((e.touches[0].clientY - t.y) * 0.006), mid = (t.from + t.to) / 2, half = (t.to - t.from) / 2 * f;
+      t.ps.setVisibleRange({ from: mid - half, to: mid + half });
+    }, { passive: false, capture: true });
+    const end = () => { t = null; };
+    box.addEventListener('touchend', end, { capture: true });
+    box.addEventListener('touchcancel', end, { capture: true });
+  }
+
   function buildChart(box, P) {
     if (G.chart) { try { G.chart.remove(); } catch (e) { /* ya no estaba */ } }
     clearInterval(G.cdTimer);
@@ -1527,6 +1566,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     chart.timeScale().subscribeVisibleLogicalRangeChange((r) => {
       if (r) document.getElementById('zoom-info').textContent = `${Math.max(1, Math.round(r.to - r.from))} velas`;
     });
+    axisTouch(box);
     G.cdTimer = setInterval(() => {
       if (!G.d || !G.d.live) return;
       const left = Math.max(0, Math.round((G.d.closeAt - Date.now()) / 1000));
