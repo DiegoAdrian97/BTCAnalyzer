@@ -13,6 +13,7 @@ import json
 import re
 import time
 import urllib.request
+from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
 from email.utils import parsedate_to_datetime
 
@@ -167,6 +168,73 @@ def _prima():
     return prima_coinbase(cb, spot, ut)
 
 
+# ---------- calendario economico de EE.UU. (importancia alta) ----------
+# Medido 2021-2026 con BTC: la hora en la que sale uno de estos datos se movio 1,6 a 1,8 veces lo normal y fue un
+# movimiento fuerte (mas del doble de lo normal) 23% a 29% de las veces, contra 10% a 12% en las demas horas.
+# No dice para donde: para la direccion no sirvio. Fuente: calendario de TradingView (Investing.com no deja leerlo
+# de forma automatica: respondio solo algunos meses).
+NOMBRES = [
+    ("Non Farm Payrolls", "Empleo: nóminas no agrícolas"),
+    ("Unemployment Rate", "Tasa de desempleo"),
+    ("Core Inflation Rate YoY", "Inflación núcleo (IPC) anual"),
+    ("Core Inflation Rate MoM", "Inflación núcleo (IPC) mensual"),
+    ("Inflation Rate YoY", "Inflación (IPC) anual"),
+    ("Inflation Rate MoM", "Inflación (IPC) mensual"),
+    ("Core PCE Price Index", "Inflación PCE núcleo"),
+    ("PCE Price Index", "Inflación PCE"),
+    ("PPI", "Precios mayoristas (PPI)"),
+    ("Fed Interest Rate Decision", "Decisión de tasas de la Fed"),
+    ("Fed Press Conference", "Conferencia de prensa de la Fed"),
+    ("FOMC Minutes", "Minutas de la Fed"),
+    ("Powell", "Habla Powell (Fed)"),
+    ("Retail Sales", "Ventas minoristas"),
+    ("GDP", "PIB"),
+    ("ISM Manufacturing", "ISM manufacturero"),
+    ("ISM Services", "ISM de servicios"),
+    ("JOLTs", "Vacantes laborales (JOLTS)"),
+    ("Michigan", "Confianza del consumidor (Michigan)"),
+    ("Durable Goods", "Pedidos de bienes durables"),
+    ("Personal Income", "Ingresos personales"),
+    ("Personal Spending", "Gasto personal"),
+    ("Initial Jobless Claims", "Pedidos de subsidio por desempleo"),
+    ("Balance of Trade", "Balanza comercial"),
+    ("Building Permits", "Permisos de construcción"),
+    ("Housing Starts", "Inicio de viviendas"),
+    ("Existing Home Sales", "Ventas de viviendas usadas"),
+    ("New Home Sales", "Ventas de viviendas nuevas"),
+    ("ADP", "Empleo privado (ADP)"),
+]
+
+
+def nombre_es(titulo):
+    for en, es in NOMBRES:
+        if en.lower() in (titulo or "").lower():
+            return es
+    return titulo
+
+
+def parse_calendario(txt):
+    """Datos de importancia alta de EE.UU.: hora (ms UTC), nombre en español, previsto, anterior y actual."""
+    out = []
+    for e in json.loads(txt).get("result", []):
+        if e.get("importance") != 1 or not e.get("date"):
+            continue
+        t = int(datetime.fromisoformat(e["date"].replace("Z", "+00:00")).timestamp() * 1000)
+        out.append({"tabla": "evento", "t": t, "titulo": nombre_es(e.get("title")), "original": (e.get("title") or "")[:80],
+                    "previsto": e.get("forecast"), "anterior": e.get("previous"), "actual": e.get("actual")})
+    out.sort(key=lambda r: r["t"])
+    return out
+
+
+def _calendario(now_ms):
+    a = datetime.fromtimestamp(now_ms / 1000 - 86400, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    b = datetime.fromtimestamp(now_ms / 1000 + 8 * 86400, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    req = urllib.request.Request("https://economic-calendar.tradingview.com/events?from=" + a + "&to=" + b + "&countries=US",
+                                 headers={"User-Agent": UA, "Origin": "https://www.tradingview.com", "Referer": "https://www.tradingview.com/"})
+    with urllib.request.urlopen(req, timeout=12) as r:
+        return parse_calendario(r.read().decode("utf-8", "replace"))
+
+
 def externo(now_ms=None, moneda="BTC"):
     """Todas las filas de afuera. Cada fuente es opcional: si una falla, el resto sirve."""
     now_ms = now_ms or int(time.time() * 1000)
@@ -183,7 +251,8 @@ def externo(now_ms=None, moneda="BTC"):
         feeds = [pool.submit(intento, f"noticias {url[:40]}", lambda f=feed, u=url: parse_rss(_get(u), f, now_ms)) for feed, url in FEEDS]
         etf = pool.submit(intento, "flujos de ETF", lambda: parse_farside(_get(FARSIDE)))
         pr = pool.submit(intento, "prima de Coinbase", _prima) if moneda == "BTC" else None
-        rows = juntar([x.result() or [] for x in feeds]) + (etf.result() or [])
+        cal = pool.submit(intento, "calendario economico", lambda: _calendario(now_ms))
+        rows = juntar([x.result() or [] for x in feeds]) + (etf.result() or []) + (cal.result() or [])
         if pr and pr.result():
             rows.append(pr.result())
     return rows

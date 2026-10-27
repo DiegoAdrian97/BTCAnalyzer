@@ -9,6 +9,8 @@ Que avisa (solo lo que se probo con velas reales de BTC):
 - "Noticia que puede mover a BTC": titulares nuevos de guerras grandes, del gobierno de EE.UU., de gobiernos grandes,
   de ETF o de hackeos que
   se leen como buenos o malos para BTC (lectura automatica del titular, ver noticias.py). Como mucho uno cada 20 min.
+- "Dato fuerte de EE.UU. en 30 minutos" (IPC, empleo, Fed...): medido 2021-2026, esa hora BTC se movio 1,7 veces lo normal
+  y fue un movimiento fuerte 26% de las veces (11% en una hora cualquiera). No dice para donde.
 - "Zona grande de liquidaciones cerca": cuando el precio queda a menos de 0,4% de la zona mas grande de
   liquidaciones estimadas de cada lado (dentro de 3%). Es informativo: alli el movimiento se puede acelerar.
 - Setups de entrada (largo o corto) con stop y objetivo, en BTC, ETH y ZEC: ruptura de 55 velas de 1 hora a favor
@@ -44,6 +46,7 @@ ESPERA_LIQ = 3 * 3600      # la misma zona no se avisa dos veces en 3 horas
 NOTI_IMPACTO = 2           # se avisan: guerras grandes y gobierno de EE.UU. (3), gobiernos grandes, ETF y hackeos (2)
 NOTI_FRESCA = 90 * 60      # solo titulares de los ultimos 90 minutos
 ESPERA_NOTI = 20 * 60      # como mucho un aviso de noticias cada 20 minutos (junta hasta 3 titulares)
+ANTES_DATO = 35 * 60       # aviso de dato economico fuerte de EE.UU.: unos 30 minutos antes
 
 HORAS = 72
 # capital para futuros (se puede cambiar con la variable CAPITAL_FUTUROS en Render) y riesgo por operacion
@@ -82,7 +85,7 @@ SETUPS = {
 }
 
 _estado = {"mov": 0.0, "liq": {}, "arranque": False, "setup_t": {}, "abierta": {}, "velas": {}, "precio": {},
-           "noti": set(), "noti_t": 0.0, "noti_listo": False}
+           "noti": set(), "noti_t": 0.0, "noti_listo": False, "datos": set()}
 
 
 def _ar(x, d=0):
@@ -336,7 +339,8 @@ def revisar(rows, velas=None):
         enviar("Analista BTC: vigía activo",
                f"Te aviso cuando se venga movimiento fuerte, cuando el precio se acerque a una zona grande de "
                f"liquidaciones, cuando haya un setup de entrada en BTC, ETH o ZEC y cuando salga una noticia de peso "
-               f"(guerras grandes, gobierno de EE.UU., gobiernos grandes, ETF o hackeos). BTC ahora: {_ar(price, 1)}.")
+               f"(guerras grandes, gobierno de EE.UU., gobiernos grandes, ETF o hackeos) y media hora antes de los datos "
+               f"fuertes de EE.UU. (IPC, empleo, Fed). BTC ahora: {_ar(price, 1)}.")
     liq = [r for r in rows if r["tabla"] == "liquidacion"]
 
     # 0) setups de entrada (BTC, ETH y ZEC), una vez por vela de 1 hora cerrada, y seguimiento de los abiertos
@@ -362,6 +366,12 @@ def revisar(rows, velas=None):
             if cerca:
                 txt += " Liquidaciones grandes: " + "; ".join(cerca) + "."
             enviar("⚡ Se viene movimiento fuerte", txt, urgente=True)
+
+    # 2) dato economico fuerte de EE.UU. en media hora
+    try:
+        _datos(rows, ahora, price)
+    except Exception as e:
+        print(f"(aviso de datos: {type(e).__name__}: {e})", flush=True)
 
     # 2) noticias de peso nuevas
     try:
@@ -408,6 +418,24 @@ def _noticias(rows, ahora):
         lineas.append(f"{'▼' if r['sesgo'] == 'bajista' else '▲'} {r['titulo']} ({r['fuente']}, hace {mins} min · {r['tema']}) {r['url']}")
     enviar(f"📰 Noticia que puede mover BTC {lado}",
            "\n".join(lineas) + "\nLectura automática del titular: confirmalo antes de operar. No es una señal de entrada.")
+
+
+def _datos(rows, ahora, price):
+    """Unos 30 minutos antes de un dato de importancia alta de EE.UU., una vez por horario."""
+    por_hora = {}
+    for r in rows:
+        if r.get("tabla") == "evento":
+            por_hora.setdefault(r["t"], []).append(r["titulo"])
+    for t, nombres in sorted(por_hora.items()):
+        falta = t / 1000 - ahora
+        if 0 < falta <= ANTES_DATO and t not in _estado["datos"]:
+            _estado["datos"].add(t)
+            hora = time.strftime("%H:%M", time.gmtime(t / 1000 - 3 * 3600))
+            lista = ", ".join(dict.fromkeys(nombres))
+            enviar(f"📅 En {int(falta // 60)} min: dato fuerte de EE.UU.",
+                   f"{lista} a las {hora} h (Argentina). BTC en {_ar(price, 1)}. En la hora en que salen datos así, BTC se movió "
+                   f"1,7 veces lo normal y fue un movimiento fuerte 26% de las veces (11% en una hora cualquiera). "
+                   f"Medido 2021–2026. No indica para dónde: ojo con stops muy cerca.", urgente=True)
 
 
 def _zonas(liq, price):
