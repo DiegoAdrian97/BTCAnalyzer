@@ -130,11 +130,67 @@ async function prima() {
   return primaCoinbase(+cb.price, +by.result.list[0].lastPrice, +ut.price);
 }
 
+// ---------- calendario economico de EE.UU. (importancia alta), igual que noticias.py ----------
+// Medido 2021-2026: la hora en la que sale uno de estos datos se movio 1,6 a 1,8 veces lo normal y fue fuerte 23-29%
+// de las veces (10-12% en las demas). No dice para donde. Fuente: TradingView (Investing.com bloquea la lectura automatica).
+const NOMBRES = [
+  ['Non Farm Payrolls', 'Empleo: nóminas no agrícolas'],
+  ['Unemployment Rate', 'Tasa de desempleo'],
+  ['Core Inflation Rate YoY', 'Inflación núcleo (IPC) anual'],
+  ['Core Inflation Rate MoM', 'Inflación núcleo (IPC) mensual'],
+  ['Inflation Rate YoY', 'Inflación (IPC) anual'],
+  ['Inflation Rate MoM', 'Inflación (IPC) mensual'],
+  ['Core PCE Price Index', 'Inflación PCE núcleo'],
+  ['PCE Price Index', 'Inflación PCE'],
+  ['PPI', 'Precios mayoristas (PPI)'],
+  ['Fed Interest Rate Decision', 'Decisión de tasas de la Fed'],
+  ['Fed Press Conference', 'Conferencia de prensa de la Fed'],
+  ['FOMC Minutes', 'Minutas de la Fed'],
+  ['Powell', 'Habla Powell (Fed)'],
+  ['Retail Sales', 'Ventas minoristas'],
+  ['GDP', 'PIB'],
+  ['ISM Manufacturing', 'ISM manufacturero'],
+  ['ISM Services', 'ISM de servicios'],
+  ['JOLTs', 'Vacantes laborales (JOLTS)'],
+  ['Michigan', 'Confianza del consumidor (Michigan)'],
+  ['Durable Goods', 'Pedidos de bienes durables'],
+  ['Personal Income', 'Ingresos personales'],
+  ['Personal Spending', 'Gasto personal'],
+  ['Initial Jobless Claims', 'Pedidos de subsidio por desempleo'],
+  ['Balance of Trade', 'Balanza comercial'],
+  ['Building Permits', 'Permisos de construcción'],
+  ['Housing Starts', 'Inicio de viviendas'],
+  ['Existing Home Sales', 'Ventas de viviendas usadas'],
+  ['New Home Sales', 'Ventas de viviendas nuevas'],
+  ['ADP', 'Empleo privado (ADP)'],
+];
+const nombreEs = (titulo) => { const t = (titulo || '').toLowerCase(); const m = NOMBRES.find(([en]) => t.includes(en.toLowerCase())); return m ? m[1] : titulo; };
+function parseCalendario(txt) {
+  const out = [];
+  for (const e of JSON.parse(txt).result || []) {
+    if (e.importance !== 1 || !e.date) continue;
+    out.push({ tabla: 'evento', t: Date.parse(e.date), titulo: nombreEs(e.title), original: (e.title || '').slice(0, 80),
+      previsto: e.forecast ?? null, anterior: e.previous ?? null, actual: e.actual ?? null });
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
+async function calendario(nowMs) {
+  const iso = (ms) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, '.000Z');
+  const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 12000);
+  try {
+    const r = await fetch(`https://economic-calendar.tradingview.com/events?from=${iso(nowMs - 86400000)}&to=${iso(nowMs + 8 * 86400000)}&countries=US`,
+      { headers: { 'User-Agent': UA, Origin: 'https://www.tradingview.com', Referer: 'https://www.tradingview.com/' }, signal: ctl.signal });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return parseCalendario(await r.text());
+  } finally { clearTimeout(tm); }
+}
+
 async function externo(nowMs = Date.now()) {
   const listas = await Promise.all(FEEDS.map(([feed, url]) => get(url).then((x) => parseRss(x, feed, nowMs)).catch(() => [])));
   const rows = juntar(listas);
-  const [etf, pr] = await Promise.all([get(FARSIDE).then(parseFarside).catch(() => []), prima().catch(() => null)]);
-  rows.push(...etf);
+  const [etf, pr, cal] = await Promise.all([get(FARSIDE).then(parseFarside).catch(() => []), prima().catch(() => null),
+    calendario(nowMs).catch(() => [])]);
+  rows.push(...etf, ...cal);
   if (pr) rows.push(pr);
   return rows;
 }
@@ -153,3 +209,4 @@ module.exports.juntar = juntar;
 module.exports.primaCoinbase = primaCoinbase;
 module.exports.sesgo = sesgo;
 module.exports.tema = tema;
+module.exports.parseCalendario = parseCalendario;

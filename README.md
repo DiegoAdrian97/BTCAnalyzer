@@ -78,6 +78,15 @@ El servidor de Render las lee cada 10 minutos, las 24 horas, y avisa por Telegra
 Python las lee en `noticias.py`; la versión de Vercel, en la función `JavascriptVersion/api/contexto.js` (el navegador
 no puede leer esas fuentes directo). Mismas fuentes y mismas filas.
 
+### Datos económicos fuertes de EE.UU.
+
+Calendario de importancia alta (IPC, empleo, decisiones y discursos de la Fed, PCE, ventas minoristas, PIB...), de
+TradingView. Investing.com solo respondió algunos meses a la lectura automática, por eso no es la fuente. Medido con BTC
+2021–2026: en la hora en que sale uno de estos datos, BTC se movió 1,6 a 1,8 veces lo normal y fue un movimiento fuerte
+23–29% de las veces (10–12% en las demás horas), parejo todos los años. Para predecir la dirección no sirvió, así que
+no entra en la probabilidad de subir o bajar. Se muestra en "Movimiento en la próxima hora" (próximo dato y cuánto
+falta), en "Qué está pasando" si un movimiento fuerte coincide con un dato, y por Telegram 30 minutos antes.
+
 ### Volatilidad prevista
 
 El rango esperado, la probabilidad de tocar cada precio y los caminos posibles usan casos del pasado llevados a la

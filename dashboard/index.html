@@ -464,6 +464,11 @@
   .ab-mov[hidden] { display: none; }
   .ab-mov.ab-mov-on { border-color: color-mix(in srgb, var(--color-warn) 60%, transparent); }
   .ab-mov.ab-mov-on #mov-nivel { color: var(--color-warn); }
+  .ab-mov-dato { margin: 0; display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; font-size: var(--cds-font-size-body); line-height: 1.45; }
+  .ab-mov-dato[hidden] { display: none; }
+  .ab-mov-dato > i { font-style: normal; width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; font-size: 12px; background: var(--soft2); }
+  .ab-mov-dato.ab-pronto > i { background: color-mix(in srgb, var(--color-warn) 25%, transparent); }
+  .ab-mov-dato small { display: block; color: var(--mute); font-size: var(--cds-font-size-caption); }
 
   /* aprendizaje */
   .ab-apr-line { margin: 0; display: flex; gap: 8px; align-items: baseline; font-size: var(--cds-font-size-caption); color: var(--mute); line-height: 1.45; }
@@ -566,6 +571,7 @@
       <div class="ab-apr-stat"><small>Chance de movimiento fuerte</small><b id="mov-prob">—</b><span id="mov-base"></span></div>
       <div class="ab-apr-stat"><small>Rango esperado</small><b id="mov-rango">—</b><span id="mov-normal"></span></div>
     </div>
+    <p class="ab-mov-dato" id="mov-dato" hidden></p>
     <p class="ab-note" id="mov-txt"></p>
   </section>
 
@@ -1036,6 +1042,12 @@
         txt: `ETF de BTC en EE.UU.: ${v >= 0 ? 'entraron' : 'salieron'} ${f0(Math.abs(v))} M USD el ${d[2]}/${d[1]} (en 5 días: ${s5 >= 0 ? '+' : '−'}${f0(Math.abs(s5))} M).`,
         sub: 'Se publican al día siguiente del cierre en EE.UU. (Farside Investors).' });
     }
+    const salio = eventosAgrupados(rows).filter((g) => g.t <= Date.now() && g.t >= Date.now() - (w.h + 1) * 3600000);
+    if (salio.length) {
+      const g = salio[salio.length - 1], e = g.items[0];
+      const det = e.actual !== null && e.actual !== undefined ? ` (salió ${e.actual}${e.previsto !== null && e.previsto !== undefined ? `, se esperaba ${e.previsto}` : ''})` : '';
+      F.unshift({ si: true, ic: '📅', lbl: `el dato de ${g.nombres[0].toLowerCase()}`, txt: `Salió un dato fuerte de EE.UU.: ${g.nombres.slice(0, 3).join(', ')}${det}, a las ${horaAR(g.t)} h. En la hora en que salen datos así, BTC se mueve 1,7 veces lo normal.` });
+    }
     // noticias de esas horas (o de las ultimas 24 h si esta tranquilo), las de temas grandes primero
     const desde = Date.now() - (strong ? (w.h + 2) : 24) * 3600000;
     const rel = news.filter((n) => n.t >= desde).sort((a, b) => TEMA_ORDEN.indexOf(a.tema) - TEMA_ORDEN.indexOf(b.tema) || b.t - a.t).slice(0, strong ? 5 : 4);
@@ -1083,6 +1095,23 @@
       : 'Titulares de Google Noticias y CoinDesk; ETF de Farside.';
   }
 
+  // ---------- calendario economico de EE.UU. (importancia alta) ----------
+  // Medido 2021-2026 con BTC: la hora en la que sale uno de estos datos se movio 1,6 a 1,8 veces lo normal y fue un
+  // movimiento fuerte 23-29% de las veces (10-12% en las demas horas). No dice para donde.
+  const horaAR = (t) => new Date(t).toLocaleTimeString('es-AR', { ...tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const diaAR = (t) => {
+    const f = (x) => new Date(x).toLocaleDateString('es-AR', { ...tz, day: '2-digit', month: '2-digit' });
+    const hoy = f(Date.now()), man = f(Date.now() + 86400000);
+    return f(t) === hoy ? 'hoy' : f(t) === man ? 'mañana' : `el ${f(t)}`;
+  };
+  const faltaTxt = (ms) => { const m = Math.max(0, Math.round(ms / 60000)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`; };
+  /** Datos agrupados por hora: [{t, nombres, items}] */
+  function eventosAgrupados(rows) {
+    const g = new Map();
+    pick(rows, 'evento').forEach((e) => { const t = num(e.t); if (!g.has(t)) g.set(t, []); g.get(t).push(e); });
+    return [...g.entries()].sort((a, b) => a[0] - b[0]).map(([t, items]) => ({ t, items, nombres: [...new Set(items.map((e) => e.titulo))] }));
+  }
+
   // ---------- movimiento fuerte en la proxima hora ----------
   function drawMovimiento(rows) {
     const m = pick(rows, 'movimiento')[0], box = document.getElementById('movimiento');
@@ -1097,6 +1126,19 @@
     const fu = (x) => (num(S.sum && S.sum.precio) >= 1000 ? f0(x) : ar.format(',.2f')(x));
     document.getElementById('mov-rango').textContent = `~${fu(num(m.esperado_usd))}`;
     document.getElementById('mov-normal').textContent = `USD de punta a punta · normal ~${fu(num(m.normal_usd))} (${f1(num(m.normal_pct))}%)`;
+    // proximo dato fuerte de EE.UU.
+    const dv = document.getElementById('mov-dato'), now = Date.now();
+    const prox = eventosAgrupados(rows).find((g) => g.t > now - 15 * 60000);
+    dv.hidden = !prox; dv.replaceChildren(); dv.classList.remove('ab-pronto');
+    if (prox) {
+      const falta = prox.t - now, pronto = falta <= 60 * 60000, lista = prox.nombres.slice(0, 3).join(', ');
+      const t = el('span');
+      if (falta <= 0) t.append(el('b', '', `Acaba de salir: ${lista}`), ` (${horaAR(prox.t)} h).`);
+      else t.append(el('b', '', `${pronto ? 'En ' + faltaTxt(falta) : 'Próximo dato fuerte de EE.UU.'}: ${lista}`), ` — ${diaAR(prox.t)} a las ${horaAR(prox.t)} h${pronto ? '' : ` (en ${faltaTxt(falta)})`}.`);
+      t.append(el('small', '', 'En la hora en que salen datos así, BTC se movió 1,7 veces lo normal y fue un movimiento fuerte 26% de las veces (11% en una hora cualquiera). Medido 2021–2026; no dice para dónde.'));
+      dv.append(el('i', '', '📅'), t); dv.classList.toggle('ab-pronto', pronto);
+      if (pronto) box.classList.add('ab-mov-on');
+    }
     document.getElementById('mov-txt').textContent = `"Movimiento fuerte" = la próxima hora se mueve más del doble de lo normal. Probabilidades medidas con ${MON()} 2021–2026 según qué tan agitado está el mercado; se mantuvieron iguales en 2025–26. Dice cuánto se puede mover, no para dónde.`;
   }
 
