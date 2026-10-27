@@ -60,14 +60,16 @@ junta lo que coincide en el tiempo y lo explica en criollo:
 - **Compras o ventas a mercado** dominantes.
 - **Prima de Coinbase**: si en EE.UU. pagan más o menos que afuera (compras o ventas de fondos y empresas de EE.UU.).
 - **ETF de BTC de EE.UU.**: entradas o salidas del último día y de 5 días (Farside Investors).
-- **Noticias de esas horas** (Google Noticias en español y CoinDesk), clasificadas por tema: guerra y geopolítica, Fed y
-  tasas, aranceles, ETF, regulación, hackeos, ballenas y empresas.
+- **Noticias de esas horas** (Google Noticias en español e inglés, y CoinDesk), filtradas a lo que más mueve a BTC:
+  **guerras grandes** (con una potencia o una zona caliente de por medio: EE.UU., Rusia, Ucrania, Israel, Irán, China,
+  Taiwán, Corea del Norte, OTAN), **gobierno de EE.UU.** (Casa Blanca, Congreso, Fed, Tesoro, SEC, aranceles) y
+  **gobiernos grandes** (China, Unión Europea y BCE, Japón, Reino Unido, Rusia, India, G7, OPEP). El resto se descarta.
 
 Son coincidencias, no pruebas de la causa. Sin movimiento fuerte muestra las noticias del día y los ETF.
 
 Cada titular se lee como **bueno o malo para BTC** con reglas de palabras (en español e inglés: "recorte de tasas",
 "alto el fuego", "entradas" suman; "misiles", "aranceles", "hackeo", "salidas" restan; las frases van antes que las
-palabras sueltas) y con un peso por tema (guerra, Fed y hackeos 3; aranceles, ETF y regulación 2; el resto 1). Con
+palabras sueltas) y con un peso por tema (guerras grandes y gobierno de EE.UU. 3; gobiernos grandes 2). Con
 eso se arma el **clima de las noticias** de las últimas 6 horas (cada titular pierde la mitad del peso cada 3 horas),
 que se muestra junto a la predicción. Todavía no entra en la probabilidad: primero hay que medir si predice.
 El servidor de Render las lee cada 10 minutos, las 24 horas, y avisa por Telegram los titulares nuevos de peso.

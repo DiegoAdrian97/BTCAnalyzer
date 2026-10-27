@@ -18,34 +18,32 @@ from email.utils import parsedate_to_datetime
 
 UA = "Mozilla/5.0 (compatible; AnalistaBTC/1.0)"
 GN = "https://news.google.com/rss/search?hl=es-419&gl=AR&ceid=AR:es-419&q="
+GN_EN = "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q="
 FEEDS = [
-    ("cripto", GN + "bitcoin+OR+criptomonedas+OR+BTC+when:1d"),
-    ("mundo", GN + "guerra+OR+misiles+OR+ataque+OR+aranceles+OR+%22Reserva+Federal%22+OR+inflaci%C3%B3n+OR+Trump+when:1d"),
+    ("mundo", GN + "guerra+OR+misiles+OR+ataque+OR+Trump+OR+%22Casa+Blanca%22+OR+%22Reserva+Federal%22+OR+aranceles+OR+China+OR+Rusia+OR+Ir%C3%A1n+when:1d"),
+    ("mundo", GN_EN + "war+OR+missile+OR+Trump+OR+%22White+House%22+OR+%22Federal+Reserve%22+OR+tariffs+OR+China+when:1d"),
+    ("cripto", GN + "bitcoin+when:1d"),
     ("cripto", "https://www.coindesk.com/arc/outboundfeeds/rss/"),
 ]
 FARSIDE = "https://farside.co.uk/bitcoin-etf-flow-all-data/"
-# temas, en orden de prioridad: el primero que aparece en el titular manda
+# Solo lo que de verdad mueve a BTC (pedido de Diego): guerras grandes (con una potencia o una zona caliente de por
+# medio), el gobierno de EE.UU. (Casa Blanca, Congreso, Fed, Tesoro, SEC, aranceles) y los gobiernos grandes (China,
+# Union Europea, Japon, Reino Unido, Rusia, India, G7, OPEP). El resto de las noticias se descarta.
+ACTOR_GRANDE = r"ee\.? ?uu|estados unidos|\bu\.s\.|\busa\b|washington|pent[aá]gono|pentagon|rusia|russia|putin|kremlin|ucrania|ukrain|zelensk|israel|netanyahu|ir[aá]n\b|iranian|israeli|russian|ukrainian|chinese|american|\bus\b|teher[aá]n|tehran|china|beijing|pek[ií]n|taiw[aá]n|corea del norte|north korea|\botan\b|\bnato\b|india|pakist[aá]n|hezbol|hamas|gaza"
+GUERRA = r"guerra|\bwar\b|misil|missile|ataque|attack|invasi|invade|bombard|airstrike|\bstrikes?\b|ofensiva|offensive|escalad|tropas|troops|nuclear|militar|military|\bdrones?\b|alto el fuego|ceasefire|tregua|truce"
 TEMAS = [
-    ("Guerra y geopolítica", r"guerra|\bwar\b|misil|missile|ataque|attack|invasi|bombard|israel|ir[aá]n\b|rusia|russia|ucrania|ukrain|taiw[aá]n|\botan\b|\bnato\b|sancion|sanction|conflicto|militar"),
-    ("Fed, tasas e inflación", r"\bfed\b|reserva federal|federal reserve|powell|tasas? de inter|interest rate|rate cut|inflaci|inflation|\bcpi\b|\bipc\b|empleo|payroll|desempleo|recesi|recession"),
-    ("Aranceles y política", r"arancel|tariff|trump|shutdown|congreso|congress|elecci|election"),
-    ("ETF", r"\betfs?\b|blackrock|\bibit\b|fidelity|grayscale|fondos cotizados"),
-    ("Regulación", r"\bsec\b|regulac|regulat|\bley\b|\blaw\b|prohib|\bban\b|\bcftc\b|stablecoin bill|clarity act"),
-    ("Hackeo o quiebra", r"hack|robo\b|robaron|exploit|quiebra|bankrupt|insolven|congela|freez"),
-    ("Ballenas y empresas", r"ballena|whale|strategy|microstrategy|saylor|tesla|tesorer|treasury|reserva estrat|strategic reserve|mt\.? ?gox"),
-    ("Liquidaciones", r"liquidac|liquidat"),
+    ("Gobierno de EE.UU.", r"trump|casa blanca|white house|congreso de (?:ee|estados)|congress|senado de (?:ee|estados)|\bsenate\b|reserva federal|federal reserve|\bfed\b|powell|tesoro de (?:ee|estados)|treasury|bessent|\bsec\b|\bcftc\b|arancel|tariff|shutdown|gobierno de (?:ee\.? ?uu|estados unidos)|biden|vance|orden ejecutiva|executive order|\bcpi\b|payroll|n[oó]minas no agr"),
+    ("Grandes gobiernos", r"china|xi jinping|beijing|pek[ií]n|uni[oó]n europea|european union|comisi[oó]n europea|\bbce\b|\becb\b|lagarde|jap[oó]n|japan|\bboj\b|banco de jap[oó]n|reino unido|\bu\.?k\.?\b|bank of england|banco de inglaterra|rusia|russia|putin|kremlin|india|\bmodi\b|\bg7\b|\bg20\b|\bopep\b|\bopec\b|arabia saudita|saudi"),
 ]
-CRIPTO = r"bitcoin|\bbtc\b|cripto|crypto"
 # si el titular es bueno o malo para BTC: frases fuertes (pesan 2) y palabras (pesan 1). Las frases van primero
 # porque cambian el sentido ("baja de tasas" es bueno aunque diga "baja"). Es una lectura del titular, no un modelo.
 SESGO = [
-    (-2, r"fewer rate cuts|menos recortes|sub(?:e|en|ir|a)(?: de)? (?:las |la )?tasas|rate hikes?|hike rates|declara(?:ci[oó]n de)? (?:la )?guerra|invade|invasi[oó]n|prohibe|proh[ií]be|bans? (?:bitcoin|crypto)|hacke|hacked|robo de|roban|robaron|exploit"),
-    (2, r"recorte de tasas|rate cuts?|baja(?:n|r)? (?:de )?(?:las |la )?tasas|baja(?:n)? la inflaci|inflaci[oó]n (?:baja|cae|se desacelera|se modera)|inflation (?:cools|eases|slows)|cooler|cut rates|alto el fuego|ceasefire|tregua|acuerdo de paz|peace deal|reserva estrat[eé]gica|strategic reserve|aprueba (?:el |los )?etf|etf approv"),
-    (1, r"\bsube|\bsuben|subida|dispar|r[eé]cord|m[aá]ximo hist|rall|surge|soar|jump|rebot|rebound|recupera|entradas|inflows?|aprueb|approv|adopt|compra|\bbuys?\b|acumula|dovish|acuerdo|\bdeal\b|alivio|optimis"),
-    (-1, r"\bcae\b|\bcaen\b|ca[ií]da|desplom|derrumb|hund|pierde|retroced|plunge|\bdrops?\b|\bfalls?\b|crash|slump|tumble|sell-?off|venta masiva|liquidac|liquidat|quiebra|bankrupt|demanda|lawsuit|investiga|salidas|outflows?|guerra|\bwar\b|misil|missile|ataque|attack|bombard|escalad|sanci|arancel|tariff|hawkish|recesi|recession|shutdown|miedo|\bfear\b|p[aá]nico|panic|temor|slides?|slips?"),
+    (-2, r"fewer rate cuts|menos recortes|sub(?:e|en|ir|a)(?: de)? (?:las |la )?tasas|rate hikes?|hike rates|raises? (?:interest )?rates|eleva(?:n)? (?:las |la )?tasas|declara(?:ci[oó]n de)? (?:la )?guerra|invade|invasi[oó]n|prohibe|proh[ií]be|bans? (?:bitcoin|crypto)|hacke|hacked|robo de|roban|robaron|exploit"),
+    (2, r"recorte de tasas|recorta(?:n)? (?:las |la )?tasas|rate cuts?|cuts? rates|baja(?:n|r)? (?:de )?(?:las |la )?tasas|baja(?:n)? la inflaci|inflaci[oó]n (?:baja|cae|se desacelera|se modera)|inflation (?:cools|eases|slows)|cooler|cut rates|alto el fuego|ceasefire|tregua|acuerdo de paz|peace deal|reserva estrat[eé]gica|strategic reserve|aprueba (?:el |los )?etf|etf approv"),
+    (1, r"\bsube|\bsuben|subida|se dispar|r[eé]cord|m[aá]ximo hist|rall|surge|soar|jump|rebot|rebound|recupera|entradas|inflows?|aprueb|approv|adopt|compra|\bbuys?\b|acumula|dovish|acuerdo|\bdeal\b|alivio|optimis"),
+    (-1, r"\bcae\b|\bcaen\b|ca[ií]da|desplom|derrumb|hund|pierde|retroced|plunge|\bdrops?\b|\bfalls?\b|crash|slump|tumble|sell-?off|venta masiva|liquidac|liquidat|quiebra|bankrupt|demanda|lawsuit|investiga|salidas|outflows?|guerra|\bwar\b|misil|missile|ataque|attack|\bstrikes?\b|bombard|escalad|sanci|arancel|tariff|hawkish|recesi|recession|shutdown|miedo|\bfear\b|p[aá]nico|panic|temor|slides?|slips?"),
 ]
-IMPACTO = {"Guerra y geopolítica": 3, "Fed, tasas e inflación": 3, "Hackeo o quiebra": 3, "Aranceles y política": 2, "ETF": 2,
-           "Regulación": 2, "Ballenas y empresas": 1, "Liquidaciones": 1, "Cripto": 1}
+IMPACTO = {"Guerras grandes": 3, "Gobierno de EE.UU.": 3, "Grandes gobiernos": 2}
 
 
 def sesgo(titulo):
@@ -66,12 +64,14 @@ def _get(url, timeout=12):
 
 
 def tema(titulo, feed):
-    """De que habla un titular. None: no tiene que ver con lo que mueve a BTC (se descarta)."""
+    """De que habla un titular: guerra grande, gobierno de EE.UU. o gobierno grande. None: se descarta."""
     t = titulo.lower()
+    if re.search(GUERRA, t) and re.search(ACTOR_GRANDE, t):
+        return "Guerras grandes"
     for name, rx in TEMAS:
         if re.search(rx, t):
             return name
-    return "Cripto" if feed == "cripto" and re.search(CRIPTO, t) else None
+    return None
 
 
 def _tag(item, name):

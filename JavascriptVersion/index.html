@@ -1004,14 +1004,13 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   // Cuando hay una suba o baja fuerte junta lo que coincide en el tiempo: liquidaciones o dinero nuevo en futuros,
   // compras o ventas a mercado, compras desde EE.UU. (prima de Coinbase), entradas o salidas de los ETF y las noticias
   // de esas horas (guerras, la Fed, aranceles, hackeos...). Son coincidencias, no pruebas de la causa.
-  const TEMA_ORDEN = ['Guerra y geopolítica', 'Fed, tasas e inflación', 'Aranceles y política', 'ETF', 'Regulación', 'Hackeo o quiebra',
-    'Ballenas y empresas', 'Liquidaciones', 'Cripto'];
+  const TEMA_ORDEN = ['Guerras grandes', 'Gobierno de EE.UU.', 'Grandes gobiernos'];
   const haceTxt = (t) => {
     const m = Math.max(0, Math.round((Date.now() - t) / 60000));
     return m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`;
   };
-  // clima de las noticias: cada titular suma (bueno) o resta (malo) segun su peso (guerra, Fed y hackeos pesan 3;
-  // aranceles, ETF y regulacion 2; el resto 1) y pierde la mitad de su peso cada 3 horas. Es una lectura del titular.
+  // clima de las noticias: cada titular suma (bueno) o resta (malo) segun su peso (guerras grandes y gobierno de EE.UU. 3;
+  // gobiernos grandes 2) y pierde la mitad de su peso cada 3 horas. Es una lectura del titular.
   function climaNoticias(rows, horas = 6) {
     const now = Date.now(), ns = pick(rows, 'noticia').filter((n) => now - num(n.t) <= horas * 3600000 && num(n.t) <= now + 600000);
     let score = 0; const malas = [], buenas = [];
@@ -1085,12 +1084,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     // noticias de esas horas (o de las ultimas 24 h si esta tranquilo), las de temas grandes primero
     const desde = Date.now() - (strong ? (w.h + 2) : 24) * 3600000;
     const rel = news.filter((n) => n.t >= desde).sort((a, b) => TEMA_ORDEN.indexOf(a.tema) - TEMA_ORDEN.indexOf(b.tema) || b.t - a.t).slice(0, strong ? 5 : 4);
-    const hot = rel.filter((n) => n.tema !== 'Cripto');
+    const hot = rel;
     if (strong) {
       big.append(`${MON()} `, el('span', 'ab-qp-mv', `${dir > 0 ? 'sube' : 'cae'} ${f1(Math.abs(w.ch))}%`), ` en ${w.txt}`);
       const lbls = F.filter((f) => f.si && f.lbl).map((f) => f.lbl);
       // las noticias de liquidaciones repiten lo que ya dice el interes abierto
-      const temas = [...new Set(hot.filter((n) => n.tema !== 'Liquidaciones' || !lbls.length).map((n) => n.tema.toLowerCase()))].slice(0, 2);
+      const temas = [...new Set(hot.map((n) => n.tema.toLowerCase()))].slice(0, 2);
       const parts = lbls.slice(0, 4).concat(temas.map((t) => `noticias de ${t}`));
       const veces = ar.format(',.1f')(Math.abs(w.ch) / (w.th / (w.h === 1 ? 2 : w.h === 4 ? 4 : 1)));
       document.getElementById('qp-sum').textContent = (w.h === 24 ? 'Es un movimiento grande para un día. ' : `Es ${veces} veces lo que se mueve normalmente. `)
@@ -1121,7 +1120,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       const a = el('a', 'ab-qp-n'); a.href = n.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
       const meta = el('span');
       if (n.sesgo === 'alcista' || n.sesgo === 'bajista') meta.append(el('i', 'ab-qp-s ab-' + n.sesgo, n.sesgo === 'alcista' ? '▲ buena para BTC' : '▼ mala para BTC'));
-      meta.append(el('i', 'ab-qp-tag' + (n.tema !== 'Cripto' ? ' ab-qp-hot' : ''), n.tema), `${n.fuente} · ${haceTxt(n.t)}`);
+      meta.append(el('i', 'ab-qp-tag ab-qp-hot', n.tema), `${n.fuente} · ${haceTxt(n.t)}`);
       a.append(el('b', '', n.titulo), meta); nb.append(a);
     });
     document.getElementById('qp-note').textContent = strong

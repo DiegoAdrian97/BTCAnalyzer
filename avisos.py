@@ -6,7 +6,7 @@ Que avisa (solo lo que se probo con velas reales de BTC):
   1,8 veces la habitual). Probado 2021-2026: la hora siguiente se mueve 2,3 veces lo normal (mediana) y mas del
   doble de lo normal el 59% de las veces (en una hora cualquiera, 15%). Unos 3 o 4 avisos por semana. No dice para
   donde: eso no se pudo predecir.
-- "Noticia que puede mover a BTC": titulares nuevos de peso (guerra, Fed, hackeos, aranceles, ETF, regulacion) que
+- "Noticia que puede mover a BTC": titulares nuevos de guerras grandes, del gobierno de EE.UU. o de gobiernos grandes que
   se leen como buenos o malos para BTC (lectura automatica del titular, ver noticias.py). Como mucho uno cada 20 min.
 - "Zona grande de liquidaciones cerca": cuando el precio queda a menos de 0,4% de la zona mas grande de
   liquidaciones estimadas de cada lado (dentro de 3%). Es informativo: alli el movimiento se puede acelerar.
@@ -40,7 +40,7 @@ ESPERA_MOV = 4 * 3600      # no repetir el aviso de movimiento antes de 4 horas
 CERCA_LIQ = 0.004          # 0,4% de la zona de liquidaciones
 RANGO_LIQ = 0.03           # zonas dentro de 3% del precio
 ESPERA_LIQ = 3 * 3600      # la misma zona no se avisa dos veces en 3 horas
-NOTI_IMPACTO = 2           # noticias que se avisan: guerra, Fed, hackeos (3); aranceles, ETF, regulacion (2)
+NOTI_IMPACTO = 2           # noticias que se avisan: guerras grandes y gobierno de EE.UU. (3), gobiernos grandes (2)
 NOTI_FRESCA = 90 * 60      # solo titulares de los ultimos 90 minutos
 ESPERA_NOTI = 20 * 60      # como mucho un aviso de noticias cada 20 minutos (junta hasta 3 titulares)
 
@@ -335,7 +335,7 @@ def revisar(rows, velas=None):
         enviar("Analista BTC: vigía activo",
                f"Te aviso cuando se venga movimiento fuerte, cuando el precio se acerque a una zona grande de "
                f"liquidaciones, cuando haya un setup de entrada en BTC, ETH o ZEC y cuando salga una noticia de peso "
-               f"(guerra, Fed, aranceles, ETF, hackeos). BTC ahora: {_ar(price, 1)}.")
+               f"(guerras grandes, gobierno de EE.UU. o gobiernos grandes). BTC ahora: {_ar(price, 1)}.")
     liq = [r for r in rows if r["tabla"] == "liquidacion"]
 
     # 0) setups de entrada (BTC, ETH y ZEC), una vez por vela de 1 hora cerrada, y seguimiento de los abiertos
