@@ -34,9 +34,16 @@ FARSIDE = "https://farside.co.uk/bitcoin-etf-flow-all-data/"
 ACTOR_GRANDE = r"ee\.? ?uu|estados unidos|\bu\.s\.|\busa\b|washington|pent[aá]gono|pentagon|rusia|russia|putin|kremlin|ucrania|ukrain|zelensk|israel|netanyahu|ir[aá]n\b|iranian|israeli|russian|ukrainian|chinese|american|\bus\b|teher[aá]n|tehran|china|beijing|pek[ií]n|taiw[aá]n|corea del norte|north korea|\botan\b|\bnato\b|india|pakist[aá]n|hezbol|hamas|gaza"
 GUERRA = r"guerra|\bwar\b|misil|missile|ataque|attack|invasi|invade|bombard|airstrike|\bstrikes?\b|ofensiva|offensive|escalad|tropas|troops|nuclear|militar|military|\bdrones?\b|alto el fuego|ceasefire|tregua|truce"
 CRIPTO = r"bitcoin|\bbtc\b|cripto|crypto|ethereum|stablecoin|binance|coinbase|tether|blockchain"
+# gobiernos grandes: sus instituciones o lideres, o el pais junto a una palabra de politica o economia (asi
+# "la China Suarez" no cuenta)
+INSTITUCION = r"xi jinping|beijing|pek[ií]n|uni[oó]n europea|european union|comisi[oó]n europea|\bbce\b|\becb\b|lagarde|\bboj\b|banco de jap[oó]n|bank of england|banco de inglaterra|putin|kremlin|\bmodi\b|\bg7\b|\bg20\b|\bopep\b|\bopec\b|pboc|banco popular de china"
+PAIS = r"\bchina\b|jap[oó]n|japan|reino unido|\buk\b|rusia|russia|\bindia\b|arabia saudita|saudi"
+POLITICA = r"gobierno|government|presidente|president|primer ministro|prime minister|ministr|banco central|central bank|tasas|\brates?\b|sanci|arancel|tariff|\bley\b|\blaw\b|prohib|\bban\b|regula|econom|inflaci|cumbre|summit|acuerdo|\bdeal\b|tratado|treaty|elecci|election|parlament|exporta|importa|comercio|\btrade\b|yuan|\byen\b|bolsa|\bstocks?\b|mercados?|markets?|bitcoin|cripto|crypto|militar|military"
+# en las noticias de guerra: si hay ataques es malo para BTC aunque se nombre un alto el fuego; paz sin ataques, bueno
+VIOLENTO = r"ataque|attack|\bstrikes?\b|drones?|misil|missile|bombard|ofensiva|offensive|escalad|invade|invasi|muertos|killed|dead|explosi|disparo|fire[sd]? on|amenaza|threat"
+PAZ = r"acuerdo de paz|peace (?:deal|agreement|talks)|fin de la guerra|end (?:of )?the war|alto el fuego|ceasefire|tregua|truce|negociaci|negotiat|retirada de tropas|withdraw"
 TEMAS = [
     ("Gobierno de EE.UU.", r"trump|casa blanca|white house|congreso de (?:ee|estados)|congress|senado de (?:ee|estados)|\bsenate\b|reserva federal|federal reserve|\bfed\b|powell|tesoro de (?:ee|estados)|treasury|bessent|\bsec\b|\bcftc\b|arancel|tariff|shutdown|gobierno de (?:ee\.? ?uu|estados unidos)|biden|vance|orden ejecutiva|executive order|\bcpi\b|payroll|n[oó]minas no agr"),
-    ("Grandes gobiernos", r"china|xi jinping|beijing|pek[ií]n|uni[oó]n europea|european union|comisi[oó]n europea|\bbce\b|\becb\b|lagarde|jap[oó]n|japan|\bboj\b|banco de jap[oó]n|reino unido|\bu\.?k\.?\b|bank of england|banco de inglaterra|rusia|russia|putin|kremlin|india|\bmodi\b|\bg7\b|\bg20\b|\bopep\b|\bopec\b|arabia saudita|saudi"),
     ("ETF", r"\betfs?\b|blackrock|\bibit\b|fidelity|grayscale|fondos cotizados"),
     ("Hackeo o quiebra", r"hacke|hacked|robo de|roban|robaron|exploit|quiebra|bankrupt|insolven|congela|freez"),
 ]
@@ -51,9 +58,11 @@ SESGO = [
 IMPACTO = {"Guerras grandes": 3, "Gobierno de EE.UU.": 3, "Grandes gobiernos": 2, "ETF": 2, "Hackeo o quiebra": 2, "Cripto": 1}
 
 
-def sesgo(titulo):
+def sesgo(titulo, tm=None):
     """alcista, bajista o neutral para BTC, segun las palabras del titular."""
     t, score = titulo.lower(), 0
+    if tm == "Guerras grandes":
+        return "bajista" if re.search(VIOLENTO, t) or not re.search(PAZ, t) else "alcista"
     for peso, rx in SESGO:
         n = len(re.findall(rx, t))
         score += peso * n
@@ -76,6 +85,8 @@ def tema(titulo, feed):
     for name, rx in TEMAS:
         if re.search(rx, t):
             return name
+        if name == "Gobierno de EE.UU." and (re.search(INSTITUCION, t) or (re.search(PAIS, t) and re.search(POLITICA, t))):
+            return "Grandes gobiernos"
     return "Cripto" if re.search(CRIPTO, t) else None
 
 
@@ -108,7 +119,7 @@ def parse_rss(xml, feed, now_ms, horas=24):
         tm = tema(title, feed)
         if tm:
             out.append({"tabla": "noticia", "t": t, "titulo": title[:220], "fuente": fuente[:60], "url": link, "tema": tm,
-                        "sesgo": sesgo(title), "impacto": IMPACTO[tm]})
+                        "sesgo": sesgo(title, tm), "impacto": IMPACTO[tm]})
     return out
 
 

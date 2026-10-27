@@ -20,9 +20,16 @@ const FARSIDE = 'https://farside.co.uk/bitcoin-etf-flow-all-data/';
 const ACTOR_GRANDE = /ee\.? ?uu|estados unidos|\bu\.s\.|\busa\b|washington|pent[aá]gono|pentagon|rusia|russia|putin|kremlin|ucrania|ukrain|zelensk|israel|netanyahu|ir[aá]n\b|iranian|israeli|russian|ukrainian|chinese|american|\bus\b|teher[aá]n|tehran|china|beijing|pek[ií]n|taiw[aá]n|corea del norte|north korea|\botan\b|\bnato\b|india|pakist[aá]n|hezbol|hamas|gaza/;
 const GUERRA = /guerra|\bwar\b|misil|missile|ataque|attack|invasi|invade|bombard|airstrike|\bstrikes?\b|ofensiva|offensive|escalad|tropas|troops|nuclear|militar|military|\bdrones?\b|alto el fuego|ceasefire|tregua|truce/;
 const CRIPTO = /bitcoin|\bbtc\b|cripto|crypto|ethereum|stablecoin|binance|coinbase|tether|blockchain/;
+// gobiernos grandes: sus instituciones o lideres, o el pais junto a una palabra de politica o economia (asi
+// "la China Suarez" no cuenta)
+const INSTITUCION = /xi jinping|beijing|pek[ií]n|uni[oó]n europea|european union|comisi[oó]n europea|\bbce\b|\becb\b|lagarde|\bboj\b|banco de jap[oó]n|bank of england|banco de inglaterra|putin|kremlin|\bmodi\b|\bg7\b|\bg20\b|\bopep\b|\bopec\b|pboc|banco popular de china/;
+const PAIS = /\bchina\b|jap[oó]n|japan|reino unido|\buk\b|rusia|russia|\bindia\b|arabia saudita|saudi/;
+const POLITICA = /gobierno|government|presidente|president|primer ministro|prime minister|ministr|banco central|central bank|tasas|\brates?\b|sanci|arancel|tariff|\bley\b|\blaw\b|prohib|\bban\b|regula|econom|inflaci|cumbre|summit|acuerdo|\bdeal\b|tratado|treaty|elecci|election|parlament|exporta|importa|comercio|\btrade\b|yuan|\byen\b|bolsa|\bstocks?\b|mercados?|markets?|bitcoin|cripto|crypto|militar|military/;
+// en las noticias de guerra: si hay ataques es malo para BTC aunque se nombre un alto el fuego; paz sin ataques, bueno
+const VIOLENTO = /ataque|attack|\bstrikes?\b|drones?|misil|missile|bombard|ofensiva|offensive|escalad|invade|invasi|muertos|killed|dead|explosi|disparo|fire[sd]? on|amenaza|threat/;
+const PAZ = /acuerdo de paz|peace (?:deal|agreement|talks)|fin de la guerra|end (?:of )?the war|alto el fuego|ceasefire|tregua|truce|negociaci|negotiat|retirada de tropas|withdraw/;
 const TEMAS = [
   ['Gobierno de EE.UU.', /trump|casa blanca|white house|congreso de (?:ee|estados)|congress|senado de (?:ee|estados)|\bsenate\b|reserva federal|federal reserve|\bfed\b|powell|tesoro de (?:ee|estados)|treasury|bessent|\bsec\b|\bcftc\b|arancel|tariff|shutdown|gobierno de (?:ee\.? ?uu|estados unidos)|biden|vance|orden ejecutiva|executive order|\bcpi\b|payroll|n[oó]minas no agr/],
-  ['Grandes gobiernos', /china|xi jinping|beijing|pek[ií]n|uni[oó]n europea|european union|comisi[oó]n europea|\bbce\b|\becb\b|lagarde|jap[oó]n|japan|\bboj\b|banco de jap[oó]n|reino unido|\bu\.?k\.?\b|bank of england|banco de inglaterra|rusia|russia|putin|kremlin|india|\bmodi\b|\bg7\b|\bg20\b|\bopep\b|\bopec\b|arabia saudita|saudi/],
   ['ETF', /\betfs?\b|blackrock|\bibit\b|fidelity|grayscale|fondos cotizados/],
   ['Hackeo o quiebra', /hacke|hacked|robo de|roban|robaron|exploit|quiebra|bankrupt|insolven|congela|freez/],
 ];
@@ -34,8 +41,9 @@ const SESGO = [
   [-1, '\\bcae\\b|\\bcaen\\b|ca[ií]da|desplom|derrumb|hund|pierde|retroced|plunge|\\bdrops?\\b|\\bfalls?\\b|crash|slump|tumble|sell-?off|venta masiva|liquidac|liquidat|quiebra|bankrupt|demanda|lawsuit|investiga|salidas|outflows?|guerra|\\bwar\\b|misil|missile|ataque|attack|\\bstrikes?\\b|bombard|escalad|sanci|arancel|tariff|hawkish|recesi|recession|shutdown|miedo|\\bfear\\b|p[aá]nico|panic|temor|slides?|slips?'],
 ];
 const IMPACTO = { 'Guerras grandes': 3, 'Gobierno de EE.UU.': 3, 'Grandes gobiernos': 2, ETF: 2, 'Hackeo o quiebra': 2, Cripto: 1 };
-function sesgo(titulo) {
+function sesgo(titulo, tm = null) {
   let t = titulo.toLowerCase(), score = 0;
+  if (tm === 'Guerras grandes') return VIOLENTO.test(t) || !PAZ.test(t) ? 'bajista' : 'alcista';
   for (const [peso, src] of SESGO) {
     const rx = new RegExp(src, 'g'), n = (t.match(rx) || []).length;
     score += peso * n;
@@ -61,7 +69,10 @@ const unesc = (s) => s.replace(/&(#x?[0-9a-f]+|\w+);/gi, (m, e) => (e[0] === '#'
 function tema(titulo, feed) {
   const t = titulo.toLowerCase();
   if (GUERRA.test(t) && ACTOR_GRANDE.test(t)) return 'Guerras grandes';
-  for (const [name, rx] of TEMAS) if (rx.test(t)) return name;
+  for (const [name, rx] of TEMAS) {
+    if (rx.test(t)) return name;
+    if (name === 'Gobierno de EE.UU.' && (INSTITUCION.test(t) || (PAIS.test(t) && POLITICA.test(t)))) return 'Grandes gobiernos';
+  }
   return CRIPTO.test(t) ? 'Cripto' : null;
 }
 
@@ -81,7 +92,7 @@ function parseRss(xml, feed, nowMs, horas = 24) {
     if (fuente && title.endsWith(' - ' + fuente)) title = title.slice(0, -fuente.length - 3).trim();   // Google agrega " - Medio"
     if (!fuente) { const m = link.match(/^https?:\/\/(?:www\.)?([^/]+)/); fuente = m ? m[1] : ''; }
     const tm = tema(title, feed);
-    if (tm) out.push({ tabla: 'noticia', t, titulo: title.slice(0, 220), fuente: fuente.slice(0, 60), url: link, tema: tm, sesgo: sesgo(title), impacto: IMPACTO[tm] });
+    if (tm) out.push({ tabla: 'noticia', t, titulo: title.slice(0, 220), fuente: fuente.slice(0, 60), url: link, tema: tm, sesgo: sesgo(title, tm), impacto: IMPACTO[tm] });
   }
   return out;
 }
