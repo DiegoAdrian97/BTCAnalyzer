@@ -455,6 +455,9 @@
   .ab-qp-n:hover { background: var(--soft); }
   .ab-qp-n b { font-weight: 500; font-size: var(--cds-font-size-body); line-height: 1.4; }
   .ab-qp-n span { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; font-size: var(--cds-font-size-caption); color: var(--mute); }
+  .ab-qp-clima { margin: 0; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; font-size: var(--cds-font-size-body); }
+  .ab-qp-clima b { font-weight: 600; } .ab-qp-clima small { color: var(--mute); font-size: var(--cds-font-size-caption); }
+  .ab-qp-s { font-style: normal; font-weight: 700; } .ab-qp-s.ab-alcista { color: var(--color-ok); } .ab-qp-s.ab-bajista { color: var(--color-bad); }
   .ab-qp-tag { font-style: normal; font-size: 10.5px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--soft2); color: var(--ink); }
   .ab-qp-tag.ab-qp-hot { background: color-mix(in srgb, var(--color-warn) 22%, transparent); color: var(--color-warn); }
   /* movimiento fuerte */
@@ -550,6 +553,7 @@
     <p class="ab-qp-big" id="qp-big"></p>
     <p class="ab-qp-sum" id="qp-sum"></p>
     <ul class="ab-qp-list" id="qp-fact"></ul>
+    <p class="ab-qp-clima" id="qp-clima"></p>
     <span class="ab-kicker" id="qp-news-t">Noticias</span>
     <div class="ab-qp-news" id="qp-news"></div>
     <p class="ab-note" id="qp-note"></p>
@@ -573,6 +577,7 @@
       <p class="ab-verdict-big" id="verdict-big">—</p>
       <p class="ab-hero-sub dash-skeleton" id="titular" data-source="analisis">—</p>
       <p class="ab-apr-line" id="apr-line"></p>
+      <p class="ab-apr-line" id="news-line" hidden></p>
       <div class="ab-tug-wrap">
         <div class="ab-tug-legend"><span>¿Qué toca primero?</span><span id="first-mg"></span></div>
         <div class="ab-tug" id="first-split"></div>
@@ -960,6 +965,21 @@
     const m = Math.max(0, Math.round((Date.now() - t) / 60000));
     return m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`;
   };
+  // clima de las noticias: cada titular suma (bueno) o resta (malo) segun su peso (guerra, Fed y hackeos pesan 3;
+  // aranceles, ETF y regulacion 2; el resto 1) y pierde la mitad de su peso cada 3 horas. Es una lectura del titular.
+  function climaNoticias(rows, horas = 6) {
+    const now = Date.now(), ns = pick(rows, 'noticia').filter((n) => now - num(n.t) <= horas * 3600000 && num(n.t) <= now + 600000);
+    let score = 0; const malas = [], buenas = [];
+    ns.forEach((n) => {
+      const sgn = n.sesgo === 'alcista' ? 1 : n.sesgo === 'bajista' ? -1 : 0; if (!sgn) return;
+      const w = (num(n.impacto) || 1) * Math.pow(0.5, (now - num(n.t)) / (3 * 3600000));
+      score += sgn * w; (sgn > 0 ? buenas : malas).push(n);
+    });
+    const est = score >= 2 ? 'alcista' : score <= -2 ? 'bajista' : 'neutral';
+    const temas = (xs) => [...new Set(xs.sort((a, b) => num(b.impacto) - num(a.impacto)).map((n) => n.tema.toLowerCase()))].slice(0, 2).join(', ');
+    return { n: ns.length, score, est, buenas: buenas.length, malas: malas.length, tb: temas(buenas), tm: temas(malas) };
+  }
+
   function drawQuePasa(rows, s) {
     const box = document.getElementById('que-pasa');
     const price = num(s.precio), mov = pick(rows, 'movimiento')[0];
@@ -1042,12 +1062,21 @@
       if (f.sub) t.append(el('small', '', f.sub));
       li.append(el('i', '', f.ic), t); ul.append(li);
     });
+    const cl = climaNoticias(rows), cle = document.getElementById('qp-clima'); cle.replaceChildren();
+    cle.hidden = !news.length;
+    if (news.length) {
+      const b = el('b', 'ab-qp-s ab-' + cl.est, cl.est === 'alcista' ? '▲ a favor de la suba' : cl.est === 'bajista' ? '▼ a favor de la baja' : '◆ neutral');
+      cle.append('Clima de las noticias (6 h):', b,
+        el('small', '', `${cl.buenas} buenas${cl.tb ? ` (${cl.tb})` : ''} · ${cl.malas} malas${cl.tm ? ` (${cl.tm})` : ''} · lectura automática de los titulares`));
+    }
     const nb = document.getElementById('qp-news'); nb.replaceChildren();
     document.getElementById('qp-news-t').textContent = strong ? `Noticias de esas horas` : 'Noticias de las últimas 24 h';
     if (!rel.length) nb.append(el('p', 'ab-note', news.length ? 'Sin noticias relevantes en esas horas.' : 'No se pudieron leer las noticias ahora.'));
     rel.forEach((n) => {
       const a = el('a', 'ab-qp-n'); a.href = n.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
-      const meta = el('span'); meta.append(el('i', 'ab-qp-tag' + (n.tema !== 'Cripto' ? ' ab-qp-hot' : ''), n.tema), `${n.fuente} · ${haceTxt(n.t)}`);
+      const meta = el('span');
+      if (n.sesgo === 'alcista' || n.sesgo === 'bajista') meta.append(el('i', 'ab-qp-s ab-' + n.sesgo, n.sesgo === 'alcista' ? '▲ buena para BTC' : '▼ mala para BTC'));
+      meta.append(el('i', 'ab-qp-tag' + (n.tema !== 'Cripto' ? ' ab-qp-hot' : ''), n.tema), `${n.fuente} · ${haceTxt(n.t)}`);
       a.append(el('b', '', n.titulo), meta); nb.append(a);
     });
     document.getElementById('qp-note').textContent = strong
@@ -1186,6 +1215,11 @@
 
   // ---------- prediccion principal (1 h, primer plazo) ----------
   function drawPrediction(rows, s) {
+    {
+      const cl = climaNoticias(rows), nl = document.getElementById('news-line');
+      nl.hidden = !pick(rows, 'noticia').length; nl.replaceChildren();
+      if (!nl.hidden) nl.append(el('b', '', 'Noticias'), el('span', '', `${cl.est === 'alcista' ? 'clima a favor de la suba' : cl.est === 'bajista' ? 'clima a favor de la baja' : 'clima neutral'} (${cl.buenas} buenas, ${cl.malas} malas en 6 h) · todavía no entra en la probabilidad: se está midiendo si ayuda`));
+    }
     const p = pick(rows, 'plazo').find((r) => r.plazo === S.plazo);
     if (!p) return;
     const head = pick(rows, 'explicacion').find((e) => e.plazo === S.plazo && e.tipo === 'titular');
