@@ -12,11 +12,11 @@ QUERIES = {"btc": "bitcoin", "guerra": '(war OR missile OR airstrike OR invasion
            "fed": '("Federal Reserve" OR "interest rates" OR inflation)'}
 
 
-def get(url, data=None, headers=None, tries=6, espera=6):
+def get(url, data=None, headers=None, tries=4, espera=10):
     for k in range(tries):
         try:
             req = urllib.request.Request(url, data=data, headers={**UA, **(headers or {})})
-            with urllib.request.urlopen(req, timeout=60) as r:
+            with urllib.request.urlopen(req, timeout=30) as r:
                 return r.read().decode("utf-8", "replace")
         except Exception as e:
             print("  reintento", k, type(e).__name__, str(e)[:120], flush=True)
@@ -40,23 +40,37 @@ def gdelt(q, mode, a, b):
     return [(p["date"], p.get("value"), p.get("norm")) for s in j.get("timeline", []) for p in s.get("data", [])]
 
 
-def bajar_gdelt(out, t1, dias=7):
+def bajar_gdelt(out, t1, dias=7, solo=None, limite=None):
+    """Una serie por vez, guardando cada tramo apenas llega (si el trabajo se corta, sigue desde ahi)."""
+    inicio = time.time()
     for key, q in QUERIES.items():
         for mode in ("timelinetone", "timelinevol"):        # timelinevolraw no da datos por hora
-            path = os.path.join(out, f"gdelt_{key}_{mode}.csv")
-            if os.path.exists(path):
+            if solo and f"{key}_{mode}" != solo:
                 continue
-            rows, a = [], T0
+            path = os.path.join(out, f"gdelt_{key}_{mode}.csv")
+            a = T0
+            if os.path.exists(path):
+                last = None
+                for r in csv.reader(open(path)):
+                    if r and r[0] != "fecha":
+                        last = r[0]
+                if last:
+                    a = datetime.strptime(last, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc) + timedelta(hours=1)
+            else:
+                with open(path, "w", newline="") as f:
+                    csv.writer(f).writerow(["fecha", "valor", "norm"])
+            vacios = 0
             while a < t1:
+                if limite and time.time() - inicio > limite:
+                    print("tiempo agotado: se sigue en la proxima corrida", flush=True)
+                    return
                 b = min(t1, a + timedelta(days=dias))
                 pts = gdelt(q, mode, a, b)
-                rows += pts
-                print(key, mode, a.date(), len(pts), flush=True)
+                with open(path, "a", newline="") as f:
+                    csv.writer(f).writerows(pts)
+                print(key, mode, a.date(), len(pts), round(time.time() - inicio), flush=True)
+                vacios = vacios + 1 if not pts else 0
                 a = b
-            with open(path, "w", newline="") as f:
-                w = csv.writer(f)
-                w.writerow(["fecha", "valor", "norm"])
-                w.writerows(rows)
 
 
 def tradingview(a, b):
@@ -130,11 +144,14 @@ def prueba(out):
 if __name__ == "__main__":
     out = sys.argv[1] if len(sys.argv) > 1 else "datos"
     os.makedirs(out, exist_ok=True)
-    if len(sys.argv) > 2 and sys.argv[2] == "prueba":
+    modo = sys.argv[2] if len(sys.argv) > 2 else "completo"
+    t1 = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    if modo == "prueba":
         prueba(out)
+    elif modo.startswith("gdelt:"):            # una sola serie (cada trabajo de GitHub baja una, en paralelo)
+        bajar_gdelt(out, t1, solo=modo[6:], limite=5.3 * 3600)
     else:
-        t1 = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
         bajar_investing(out, t1)
         bajar_calendario(out, t1)
         bajar_gdelt(out, t1)
-        print("listo", flush=True)
+    print("listo", flush=True)

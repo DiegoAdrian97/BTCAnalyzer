@@ -5,17 +5,22 @@ on:
 permissions:
   contents: write
 jobs:
-  bajar:
+  gdelt:
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 345
+    strategy:
+      fail-fast: false
+      matrix:
+        serie: [btc_timelinetone, btc_timelinevol, guerra_timelinetone, guerra_timelinevol, fed_timelinetone, fed_timelinevol]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - name: Bajar noticias y calendario
-        run: python medir/bajar.py medir/datos $(cat medir/modo)
+      - name: Bajar ${{ matrix.serie }}
+        run: python medir/bajar.py medir/datos gdelt:${{ matrix.serie }}
       - name: Guardar
         if: always()
         run: |
           git config user.name "medicion-bot"; git config user.email "noreply@github.com"
-          git add medir/datos && git commit -m "Datos de noticias y calendario" && git pull --rebase -q && git push || echo "nada para guardar"
+          git add medir/datos/gdelt_${{ matrix.serie }}.csv && git commit -q -m "GDELT ${{ matrix.serie }}" || exit 0
+          for i in 1 2 3 4 5 6; do git pull --rebase -q && git push -q && break; sleep $((RANDOM % 20 + 5)); done
