@@ -15,12 +15,16 @@ const FEEDS = [
 ];
 const FARSIDE = 'https://farside.co.uk/bitcoin-etf-flow-all-data/';
 // Solo lo que de verdad mueve a BTC: guerras grandes (con una potencia o una zona caliente de por medio), el gobierno
-// de EE.UU. y los gobiernos grandes (China, UE, Japon, Reino Unido, Rusia, India, G7, OPEP). Igual que noticias.py.
+// de EE.UU., los gobiernos grandes (China, UE, Japon, Reino Unido, Rusia, India, G7, OPEP), los ETF de BTC, los
+// hackeos o quiebras y las noticias cripto. Igual que noticias.py.
 const ACTOR_GRANDE = /ee\.? ?uu|estados unidos|\bu\.s\.|\busa\b|washington|pent[aá]gono|pentagon|rusia|russia|putin|kremlin|ucrania|ukrain|zelensk|israel|netanyahu|ir[aá]n\b|iranian|israeli|russian|ukrainian|chinese|american|\bus\b|teher[aá]n|tehran|china|beijing|pek[ií]n|taiw[aá]n|corea del norte|north korea|\botan\b|\bnato\b|india|pakist[aá]n|hezbol|hamas|gaza/;
 const GUERRA = /guerra|\bwar\b|misil|missile|ataque|attack|invasi|invade|bombard|airstrike|\bstrikes?\b|ofensiva|offensive|escalad|tropas|troops|nuclear|militar|military|\bdrones?\b|alto el fuego|ceasefire|tregua|truce/;
+const CRIPTO = /bitcoin|\bbtc\b|cripto|crypto|ethereum|stablecoin|binance|coinbase|tether|blockchain/;
 const TEMAS = [
   ['Gobierno de EE.UU.', /trump|casa blanca|white house|congreso de (?:ee|estados)|congress|senado de (?:ee|estados)|\bsenate\b|reserva federal|federal reserve|\bfed\b|powell|tesoro de (?:ee|estados)|treasury|bessent|\bsec\b|\bcftc\b|arancel|tariff|shutdown|gobierno de (?:ee\.? ?uu|estados unidos)|biden|vance|orden ejecutiva|executive order|\bcpi\b|payroll|n[oó]minas no agr/],
   ['Grandes gobiernos', /china|xi jinping|beijing|pek[ií]n|uni[oó]n europea|european union|comisi[oó]n europea|\bbce\b|\becb\b|lagarde|jap[oó]n|japan|\bboj\b|banco de jap[oó]n|reino unido|\bu\.?k\.?\b|bank of england|banco de inglaterra|rusia|russia|putin|kremlin|india|\bmodi\b|\bg7\b|\bg20\b|\bopep\b|\bopec\b|arabia saudita|saudi/],
+  ['ETF', /\betfs?\b|blackrock|\bibit\b|fidelity|grayscale|fondos cotizados/],
+  ['Hackeo o quiebra', /hacke|hacked|robo de|roban|robaron|exploit|quiebra|bankrupt|insolven|congela|freez/],
 ];
 // si el titular es bueno o malo para BTC: frases fuertes (pesan 2) y palabras (pesan 1), igual que noticias.py
 const SESGO = [
@@ -29,7 +33,7 @@ const SESGO = [
   [1, '\\bsube|\\bsuben|subida|se dispar|r[eé]cord|m[aá]ximo hist|rall|surge|soar|jump|rebot|rebound|recupera|entradas|inflows?|aprueb|approv|adopt|compra|\\bbuys?\\b|acumula|dovish|acuerdo|\\bdeal\\b|alivio|optimis'],
   [-1, '\\bcae\\b|\\bcaen\\b|ca[ií]da|desplom|derrumb|hund|pierde|retroced|plunge|\\bdrops?\\b|\\bfalls?\\b|crash|slump|tumble|sell-?off|venta masiva|liquidac|liquidat|quiebra|bankrupt|demanda|lawsuit|investiga|salidas|outflows?|guerra|\\bwar\\b|misil|missile|ataque|attack|\\bstrikes?\\b|bombard|escalad|sanci|arancel|tariff|hawkish|recesi|recession|shutdown|miedo|\\bfear\\b|p[aá]nico|panic|temor|slides?|slips?'],
 ];
-const IMPACTO = { 'Guerras grandes': 3, 'Gobierno de EE.UU.': 3, 'Grandes gobiernos': 2 };
+const IMPACTO = { 'Guerras grandes': 3, 'Gobierno de EE.UU.': 3, 'Grandes gobiernos': 2, ETF: 2, 'Hackeo o quiebra': 2, Cripto: 1 };
 function sesgo(titulo) {
   let t = titulo.toLowerCase(), score = 0;
   for (const [peso, src] of SESGO) {
@@ -58,7 +62,7 @@ function tema(titulo, feed) {
   const t = titulo.toLowerCase();
   if (GUERRA.test(t) && ACTOR_GRANDE.test(t)) return 'Guerras grandes';
   for (const [name, rx] of TEMAS) if (rx.test(t)) return name;
-  return null;
+  return CRIPTO.test(t) ? 'Cripto' : null;
 }
 
 function tag(item, name) {
