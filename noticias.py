@@ -36,6 +36,27 @@ TEMAS = [
     ("Liquidaciones", r"liquidac|liquidat"),
 ]
 CRIPTO = r"bitcoin|\bbtc\b|cripto|crypto"
+# si el titular es bueno o malo para BTC: frases fuertes (pesan 2) y palabras (pesan 1). Las frases van primero
+# porque cambian el sentido ("baja de tasas" es bueno aunque diga "baja"). Es una lectura del titular, no un modelo.
+SESGO = [
+    (-2, r"fewer rate cuts|menos recortes|sub(?:e|en|ir|a)(?: de)? (?:las |la )?tasas|rate hikes?|hike rates|declara(?:ci[oó]n de)? (?:la )?guerra|invade|invasi[oó]n|prohibe|proh[ií]be|bans? (?:bitcoin|crypto)|hacke|hacked|robo de|roban|robaron|exploit"),
+    (2, r"recorte de tasas|rate cuts?|baja(?:n|r)? (?:de )?(?:las |la )?tasas|baja(?:n)? la inflaci|inflaci[oó]n (?:baja|cae|se desacelera|se modera)|inflation (?:cools|eases|slows)|cooler|cut rates|alto el fuego|ceasefire|tregua|acuerdo de paz|peace deal|reserva estrat[eé]gica|strategic reserve|aprueba (?:el |los )?etf|etf approv"),
+    (1, r"\bsube|\bsuben|subida|dispar|r[eé]cord|m[aá]ximo hist|rall|surge|soar|jump|rebot|rebound|recupera|entradas|inflows?|aprueb|approv|adopt|compra|\bbuys?\b|acumula|dovish|acuerdo|\bdeal\b|alivio|optimis"),
+    (-1, r"\bcae\b|\bcaen\b|ca[ií]da|desplom|derrumb|hund|pierde|retroced|plunge|\bdrops?\b|\bfalls?\b|crash|slump|tumble|sell-?off|venta masiva|liquidac|liquidat|quiebra|bankrupt|demanda|lawsuit|investiga|salidas|outflows?|guerra|\bwar\b|misil|missile|ataque|attack|bombard|escalad|sanci|arancel|tariff|hawkish|recesi|recession|shutdown|miedo|\bfear\b|p[aá]nico|panic|temor|slides?|slips?"),
+]
+IMPACTO = {"Guerra y geopolítica": 3, "Fed, tasas e inflación": 3, "Hackeo o quiebra": 3, "Aranceles y política": 2, "ETF": 2,
+           "Regulación": 2, "Ballenas y empresas": 1, "Liquidaciones": 1, "Cripto": 1}
+
+
+def sesgo(titulo):
+    """alcista, bajista o neutral para BTC, segun las palabras del titular."""
+    t, score = titulo.lower(), 0
+    for peso, rx in SESGO:
+        n = len(re.findall(rx, t))
+        score += peso * n
+        if abs(peso) == 2 and n:
+            t = re.sub(rx, " ", t)          # la frase ya conto: sus palabras no vuelven a contar
+    return "alcista" if score > 0 else "bajista" if score < 0 else "neutral"
 
 
 def _get(url, timeout=12):
@@ -81,7 +102,8 @@ def parse_rss(xml, feed, now_ms, horas=24):
             fuente = m.group(1) if m else ""
         tm = tema(title, feed)
         if tm:
-            out.append({"tabla": "noticia", "t": t, "titulo": title[:220], "fuente": fuente[:60], "url": link, "tema": tm})
+            out.append({"tabla": "noticia", "t": t, "titulo": title[:220], "fuente": fuente[:60], "url": link, "tema": tm,
+                        "sesgo": sesgo(title), "impacto": IMPACTO[tm]})
     return out
 
 

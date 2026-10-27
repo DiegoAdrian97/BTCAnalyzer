@@ -64,6 +64,13 @@ junta lo que coincide en el tiempo y lo explica en criollo:
   tasas, aranceles, ETF, regulación, hackeos, ballenas y empresas.
 
 Son coincidencias, no pruebas de la causa. Sin movimiento fuerte muestra las noticias del día y los ETF.
+
+Cada titular se lee como **bueno o malo para BTC** con reglas de palabras (en español e inglés: "recorte de tasas",
+"alto el fuego", "entradas" suman; "misiles", "aranceles", "hackeo", "salidas" restan; las frases van antes que las
+palabras sueltas) y con un peso por tema (guerra, Fed y hackeos 3; aranceles, ETF y regulación 2; el resto 1). Con
+eso se arma el **clima de las noticias** de las últimas 6 horas (cada titular pierde la mitad del peso cada 3 horas),
+que se muestra junto a la predicción. Todavía no entra en la probabilidad: primero hay que medir si predice.
+El servidor de Render las lee cada 10 minutos, las 24 horas, y avisa por Telegram los titulares nuevos de peso.
 Python las lee en `noticias.py`; la versión de Vercel, en la función `JavascriptVersion/api/contexto.js` (el navegador
 no puede leer esas fuentes directo). Mismas fuentes y mismas filas.
 

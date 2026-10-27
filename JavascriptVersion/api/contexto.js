@@ -24,6 +24,24 @@ const TEMAS = [
   ['Liquidaciones', /liquidac|liquidat/],
 ];
 const CRIPTO = /bitcoin|\bbtc\b|cripto|crypto/;
+// si el titular es bueno o malo para BTC: frases fuertes (pesan 2) y palabras (pesan 1), igual que noticias.py
+const SESGO = [
+  [-2, 'fewer rate cuts|menos recortes|sub(?:e|en|ir|a)(?: de)? (?:las |la )?tasas|rate hikes?|hike rates|declara(?:ci[oó]n de)? (?:la )?guerra|invade|invasi[oó]n|prohibe|proh[ií]be|bans? (?:bitcoin|crypto)|hacke|hacked|robo de|roban|robaron|exploit'],
+  [2, 'recorte de tasas|rate cuts?|baja(?:n|r)? (?:de )?(?:las |la )?tasas|baja(?:n)? la inflaci|inflaci[oó]n (?:baja|cae|se desacelera|se modera)|inflation (?:cools|eases|slows)|cooler|cut rates|alto el fuego|ceasefire|tregua|acuerdo de paz|peace deal|reserva estrat[eé]gica|strategic reserve|aprueba (?:el |los )?etf|etf approv'],
+  [1, '\\bsube|\\bsuben|subida|dispar|r[eé]cord|m[aá]ximo hist|rall|surge|soar|jump|rebot|rebound|recupera|entradas|inflows?|aprueb|approv|adopt|compra|\\bbuys?\\b|acumula|dovish|acuerdo|\\bdeal\\b|alivio|optimis'],
+  [-1, '\\bcae\\b|\\bcaen\\b|ca[ií]da|desplom|derrumb|hund|pierde|retroced|plunge|\\bdrops?\\b|\\bfalls?\\b|crash|slump|tumble|sell-?off|venta masiva|liquidac|liquidat|quiebra|bankrupt|demanda|lawsuit|investiga|salidas|outflows?|guerra|\\bwar\\b|misil|missile|ataque|attack|bombard|escalad|sanci|arancel|tariff|hawkish|recesi|recession|shutdown|miedo|\\bfear\\b|p[aá]nico|panic|temor|slides?|slips?'],
+];
+const IMPACTO = { 'Guerra y geopolítica': 3, 'Fed, tasas e inflación': 3, 'Hackeo o quiebra': 3, 'Aranceles y política': 2, ETF: 2,
+  'Regulación': 2, 'Ballenas y empresas': 1, Liquidaciones: 1, Cripto: 1 };
+function sesgo(titulo) {
+  let t = titulo.toLowerCase(), score = 0;
+  for (const [peso, src] of SESGO) {
+    const rx = new RegExp(src, 'g'), n = (t.match(rx) || []).length;
+    score += peso * n;
+    if (Math.abs(peso) === 2 && n) t = t.replace(rx, ' ');
+  }
+  return score > 0 ? 'alcista' : score < 0 ? 'bajista' : 'neutral';
+}
 const MESES = Object.fromEntries('Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ').map((m, i) => [m, i + 1]));
 
 async function get(url) {
@@ -61,7 +79,7 @@ function parseRss(xml, feed, nowMs, horas = 24) {
     if (fuente && title.endsWith(' - ' + fuente)) title = title.slice(0, -fuente.length - 3).trim();   // Google agrega " - Medio"
     if (!fuente) { const m = link.match(/^https?:\/\/(?:www\.)?([^/]+)/); fuente = m ? m[1] : ''; }
     const tm = tema(title, feed);
-    if (tm) out.push({ tabla: 'noticia', t, titulo: title.slice(0, 220), fuente: fuente.slice(0, 60), url: link, tema: tm });
+    if (tm) out.push({ tabla: 'noticia', t, titulo: title.slice(0, 220), fuente: fuente.slice(0, 60), url: link, tema: tm, sesgo: sesgo(title), impacto: IMPACTO[tm] });
   }
   return out;
 }
@@ -131,3 +149,4 @@ module.exports.parseRss = parseRss;
 module.exports.parseFarside = parseFarside;
 module.exports.juntar = juntar;
 module.exports.primaCoinbase = primaCoinbase;
+module.exports.sesgo = sesgo;

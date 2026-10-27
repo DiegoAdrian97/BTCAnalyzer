@@ -6,6 +6,8 @@ Que avisa (solo lo que se probo con velas reales de BTC):
   1,8 veces la habitual). Probado 2021-2026: la hora siguiente se mueve 2,3 veces lo normal (mediana) y mas del
   doble de lo normal el 59% de las veces (en una hora cualquiera, 15%). Unos 3 o 4 avisos por semana. No dice para
   donde: eso no se pudo predecir.
+- "Noticia que puede mover a BTC": titulares nuevos de peso (guerra, Fed, hackeos, aranceles, ETF, regulacion) que
+  se leen como buenos o malos para BTC (lectura automatica del titular, ver noticias.py). Como mucho uno cada 20 min.
 - "Zona grande de liquidaciones cerca": cuando el precio queda a menos de 0,4% de la zona mas grande de
   liquidaciones estimadas de cada lado (dentro de 3%). Es informativo: alli el movimiento se puede acelerar.
 - Setups de entrada (largo o corto) con stop y objetivo, en BTC, ETH y ZEC: ruptura de 55 velas de 1 hora a favor
@@ -38,6 +40,9 @@ ESPERA_MOV = 4 * 3600      # no repetir el aviso de movimiento antes de 4 horas
 CERCA_LIQ = 0.004          # 0,4% de la zona de liquidaciones
 RANGO_LIQ = 0.03           # zonas dentro de 3% del precio
 ESPERA_LIQ = 3 * 3600      # la misma zona no se avisa dos veces en 3 horas
+NOTI_IMPACTO = 2           # noticias que se avisan: guerra, Fed, hackeos (3); aranceles, ETF, regulacion (2)
+NOTI_FRESCA = 90 * 60      # solo titulares de los ultimos 90 minutos
+ESPERA_NOTI = 20 * 60      # como mucho un aviso de noticias cada 20 minutos (junta hasta 3 titulares)
 
 HORAS = 72
 # capital para futuros (se puede cambiar con la variable CAPITAL_FUTUROS en Render) y riesgo por operacion
@@ -75,7 +80,8 @@ SETUPS = {
                       "que se pierde cuando sale mal. No es seguro: respetá el stop loss."},
 }
 
-_estado = {"mov": 0.0, "liq": {}, "arranque": False, "setup_t": {}, "abierta": {}, "velas": {}, "precio": {}}
+_estado = {"mov": 0.0, "liq": {}, "arranque": False, "setup_t": {}, "abierta": {}, "velas": {}, "precio": {},
+           "noti": set(), "noti_t": 0.0, "noti_listo": False}
 
 
 def _ar(x, d=0):
@@ -328,7 +334,8 @@ def revisar(rows, velas=None):
         _estado["arranque"] = True
         enviar("Analista BTC: vigía activo",
                f"Te aviso cuando se venga movimiento fuerte, cuando el precio se acerque a una zona grande de "
-               f"liquidaciones y cuando haya un setup de entrada en BTC, ETH o ZEC. BTC ahora: {_ar(price, 1)}.")
+               f"liquidaciones, cuando haya un setup de entrada en BTC, ETH o ZEC y cuando salga una noticia de peso "
+               f"(guerra, Fed, aranceles, ETF, hackeos). BTC ahora: {_ar(price, 1)}.")
     liq = [r for r in rows if r["tabla"] == "liquidacion"]
 
     # 0) setups de entrada (BTC, ETH y ZEC), una vez por vela de 1 hora cerrada, y seguimiento de los abiertos
@@ -355,6 +362,12 @@ def revisar(rows, velas=None):
                 txt += " Liquidaciones grandes: " + "; ".join(cerca) + "."
             enviar("⚡ Se viene movimiento fuerte", txt, urgente=True)
 
+    # 2) noticias de peso nuevas
+    try:
+        _noticias(rows, ahora)
+    except Exception as e:
+        print(f"(aviso de noticias: {type(e).__name__}: {e})", flush=True)
+
     # 2) zona grande de liquidaciones cerca
     for lado, campo, arriba in (("longs", "longs", False), ("shorts", "shorts", True)):
         zonas = [r for r in liq if r[campo] > 0 and (r["precio"] > price) == arriba and abs(r["precio"] / price - 1) <= RANGO_LIQ]
@@ -368,6 +381,32 @@ def revisar(rows, velas=None):
                    f"BTC en {_ar(price, 1)}. La zona más grande de liquidaciones de {lado} ({sentido}) está en "
                    f"{_ar(top['precio'])}: ~{_ar(top[campo], 1)} M USD estimados. Si el precio la alcanza, el movimiento "
                    f"puede acelerarse. Es una estimación con open interest y long/short, no un pronóstico.")
+
+
+def _noticias(rows, ahora):
+    """Titulares nuevos de peso, leidos como buenos o malos para BTC. Al arrancar, los que ya estaban no se avisan."""
+    ns = [r for r in rows if r.get("tabla") == "noticia"]
+    clave = lambda r: (r.get("url") or r["titulo"])[:200]
+    if not _estado["noti_listo"]:
+        _estado["noti"].update(clave(r) for r in ns)
+        _estado["noti_listo"] = bool(ns)
+        return
+    nuevas = [r for r in ns if clave(r) not in _estado["noti"] and r.get("impacto", 0) >= NOTI_IMPACTO
+              and r.get("sesgo") in ("alcista", "bajista") and ahora - r["t"] / 1000 <= NOTI_FRESCA]
+    if not nuevas or ahora - _estado["noti_t"] < ESPERA_NOTI:
+        return
+    nuevas.sort(key=lambda r: (-r["impacto"], -r["t"]))
+    elegidas = nuevas[:3]
+    _estado["noti"].update(clave(r) for r in elegidas)
+    _estado["noti_t"] = ahora
+    malas = sum(1 for r in elegidas if r["sesgo"] == "bajista")
+    lado = "a la baja" if malas > len(elegidas) / 2 else "al alza" if malas < len(elegidas) / 2 else "para los dos lados"
+    lineas = []
+    for r in elegidas:
+        mins = max(0, int((ahora - r["t"] / 1000) // 60))
+        lineas.append(f"{'▼' if r['sesgo'] == 'bajista' else '▲'} {r['titulo']} ({r['fuente']}, hace {mins} min · {r['tema']}) {r['url']}")
+    enviar(f"📰 Noticia que puede mover BTC {lado}",
+           "\n".join(lineas) + "\nLectura automática del titular: confirmalo antes de operar. No es una señal de entrada.")
 
 
 def _zonas(liq, price):
