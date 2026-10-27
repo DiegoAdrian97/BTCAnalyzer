@@ -42,7 +42,7 @@ def gdelt(q, mode, a, b):
 
 def bajar_gdelt(out, t1, dias=7):
     for key, q in QUERIES.items():
-        for mode in ("timelinetone", "timelinevolraw"):
+        for mode in ("timelinetone", "timelinevol"):        # timelinevolraw no da datos por hora
             path = os.path.join(out, f"gdelt_{key}_{mode}.csv")
             if os.path.exists(path):
                 continue
@@ -96,12 +96,26 @@ def investing(desde, hasta):
                         "Referer": "https://www.investing.com/economic-calendar/"}, tries=2)
 
 
+def bajar_investing(out, t1):
+    """Calendario de Investing.com: EE.UU., importancia alta, mes por mes (HTML crudo; se lee despues)."""
+    meses, a = {}, T0
+    while a < t1:
+        b = min(t1, a + timedelta(days=31))
+        txt = investing(a.strftime("%Y-%m-%d"), b.strftime("%Y-%m-%d"))
+        meses[a.strftime("%Y-%m-%d")] = txt
+        print("investing", a.date(), 0 if not txt else len(txt), flush=True)
+        a = b + timedelta(days=1)
+        time.sleep(2)
+    with open(os.path.join(out, "investing.json"), "w") as f:
+        json.dump(meses, f)
+
+
 def prueba(out):
     """Una muestra de cada fuente, para ver que devuelve y con que resolucion."""
     res = {}
     for ini, dias in ((datetime(2021, 3, 1, tzinfo=timezone.utc), 7), (datetime(2025, 3, 1, tzinfo=timezone.utc), 7),
                       (datetime(2025, 3, 1, tzinfo=timezone.utc), 30)):
-        for mode in ("timelinetone", "timelinevolraw"):
+        for mode in ("timelinetone", "timelinevol"):        # timelinevolraw no da datos por hora
             pts = gdelt(QUERIES["btc"], mode, ini, ini + timedelta(days=dias))
             res[f"{mode} {ini.date()} {dias}d"] = {"n": len(pts), "primeros": pts[:3], "ultimos": pts[-2:]}
     tv = tradingview(datetime(2024, 1, 1, tzinfo=timezone.utc), datetime(2024, 1, 31, tzinfo=timezone.utc))
@@ -120,6 +134,7 @@ if __name__ == "__main__":
         prueba(out)
     else:
         t1 = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+        bajar_investing(out, t1)
         bajar_calendario(out, t1)
         bajar_gdelt(out, t1)
         print("listo", flush=True)
