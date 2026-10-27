@@ -52,6 +52,21 @@ El servidor de Render mira el mercado las 24 horas (se mantiene despierto solo) 
 Configuración en Render (Environment), nunca en el código: `TELEGRAM_TOKEN` y `TELEGRAM_CHAT` (bot de Telegram),
 o `WHATSAPP_TEL` y `WHATSAPP_CLAVE` (CallMeBot), o `NTFY_TEMA` (app ntfy). Si Binance bloquea la IP, el mapa de liquidaciones sale de Bybit.
 
+### Qué está pasando (por qué se mueve fuerte)
+
+Arriba de todo. Cuando BTC sube o baja fuerte (más del doble de lo normal en 1 hora, 4 veces en 4 horas o 5% en el día)
+junta lo que coincide en el tiempo y lo explica en criollo:
+- **Futuros**: si el interés abierto cayó (liquidaciones de longs o short squeeze) o subió (dinero nuevo apalancado).
+- **Compras o ventas a mercado** dominantes.
+- **Prima de Coinbase**: si en EE.UU. pagan más o menos que afuera (compras o ventas de fondos y empresas de EE.UU.).
+- **ETF de BTC de EE.UU.**: entradas o salidas del último día y de 5 días (Farside Investors).
+- **Noticias de esas horas** (Google Noticias en español y CoinDesk), clasificadas por tema: guerra y geopolítica, Fed y
+  tasas, aranceles, ETF, regulación, hackeos, ballenas y empresas.
+
+Son coincidencias, no pruebas de la causa. Sin movimiento fuerte muestra las noticias del día y los ETF.
+Python las lee en `noticias.py`; la versión de Vercel, en la función `JavascriptVersion/api/contexto.js` (el navegador
+no puede leer esas fuentes directo). Mismas fuentes y mismas filas.
+
 ### Volatilidad prevista
 
 El rango esperado, la probabilidad de tocar cada precio y los caminos posibles usan casos del pasado llevados a la

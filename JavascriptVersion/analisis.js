@@ -297,7 +297,7 @@
   // ---------- contexto actual (datos crudos de Binance) ----------
   function context(raw, closes1h) {
     const rows = [];
-    const add = (key, title, value, signal, detail) => rows.push({ tabla: 'contexto', clave: key, titulo: title, valor: value, senal: signal, detalle: detail });
+    const add = (key, title, value, signal, detail, num = {}) => rows.push({ tabla: 'contexto', clave: key, titulo: title, valor: value, senal: signal, detalle: detail, ...num });
     const oi = raw.oi;
     [1, 4, 24].forEach((hrs) => {
       const dOi = pct(oi[oi.length - 1], oi[oi.length - 1 - hrs]);
@@ -306,13 +306,13 @@
       if (Math.abs(dOi) < 0.5) [why, sig] = ['Posicionamiento estable', 'neutral'];
       else if (dPx >= 0) [why, sig] = dOi > 0 ? ['Entran longs nuevos: suba con fuerza', 'alcista'] : ['Cierran shorts: suba sin dinero nuevo', 'neutral'];
       else [why, sig] = dOi > 0 ? ['Entran shorts nuevos: baja con fuerza', 'bajista'] : ['Cierran o liquidan longs: baja por descarga', 'neutral'];
-      add(`oi_${hrs}h`, `Open interest ${hrs} h`, `${arp(dOi)} con precio ${arp(dPx)}`, sig, why);
+      add(`oi_${hrs}h`, `Open interest ${hrs} h`, `${arp(dOi)} con precio ${arp(dPx)}`, sig, why, { d_oi: rnd(dOi, 2), d_px: rnd(dPx, 2) });
     });
     const buy = raw.taker.reduce((s, x) => s + x.buy, 0), sell = raw.taker.reduce((s, x) => s + x.sell, 0);
     [['1 h', raw.taker[raw.taker.length - 1].ratio], ['4 h', buy / sell]].forEach(([name, r]) => {
       const sig = r > 1.1 ? 'alcista' : r < 0.9 ? 'bajista' : 'neutral';
       add(`flujo_${name}`, `Compras vs ventas a mercado ${name}`, ar(r, 2), sig,
-        sig === 'alcista' ? 'Dominan los compradores agresivos' : sig === 'bajista' ? 'Dominan los vendedores agresivos' : 'Flujo equilibrado');
+        sig === 'alcista' ? 'Dominan los compradores agresivos' : sig === 'bajista' ? 'Dominan los vendedores agresivos' : 'Flujo equilibrado', { ratio: rnd(r, 3) });
     });
     const nowLs = raw.ls[raw.ls.length - 1], prevLs = raw.ls[0];
     let crowd, sig;
@@ -652,6 +652,10 @@
       funding = fr;
     } else {
       rows.push({ tabla: 'contexto', clave: 'error', titulo: 'Contexto no disponible', valor: '', senal: 'neutral', detalle: 'No se pudo leer: Binance no respondió' });
+    }
+    // noticias, ETF y prima de Coinbase (las trae api/contexto.js): para explicar los movimientos fuertes
+    if (input.externo && Array.isArray(input.externo.rows)) {
+      input.externo.rows.filter((r) => r.clave !== 'prima_coinbase' || (input.moneda || 'BTC') === 'BTC').forEach((r) => rows.push(r));
     }
     const [bookRows, per, mb, ma] = books(input.booksRaw || []);
     bookRows.forEach((r) => rows.push(r));
