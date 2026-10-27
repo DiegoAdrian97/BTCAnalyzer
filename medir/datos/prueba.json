@@ -1,0 +1,178 @@
+{
+ "timelinetone 2021-03-01 7d": {
+  "n": 169,
+  "primeros": [
+   [
+    "20210301T000000Z",
+    -0.2574,
+    null
+   ],
+   [
+    "20210301T010000Z",
+    0.1524,
+    null
+   ],
+   [
+    "20210301T020000Z",
+    0.5596,
+    null
+   ]
+  ],
+  "ultimos": [
+   [
+    "20210307T230000Z",
+    0.3983,
+    null
+   ],
+   [
+    "20210308T000000Z",
+    -0.2698,
+    null
+   ]
+  ]
+ },
+ "timelinevolraw 2021-03-01 7d": {
+  "n": 0,
+  "primeros": [],
+  "ultimos": []
+ },
+ "timelinetone 2025-03-01 7d": {
+  "n": 165,
+  "primeros": [
+   [
+    "20250301T000000Z",
+    -2.1929,
+    null
+   ],
+   [
+    "20250301T010000Z",
+    0.526,
+    null
+   ],
+   [
+    "20250301T020000Z",
+    -1.5674,
+    null
+   ]
+  ],
+  "ultimos": [
+   [
+    "20250307T220000Z",
+    2.0736,
+    null
+   ],
+   [
+    "20250307T230000Z",
+    0,
+    null
+   ]
+  ]
+ },
+ "timelinevolraw 2025-03-01 7d": {
+  "n": 0,
+  "primeros": [],
+  "ultimos": []
+ },
+ "timelinetone 2025-03-01 30d": {
+  "n": 31,
+  "primeros": [
+   [
+    "20250301T000000Z",
+    -1.4423,
+    null
+   ],
+   [
+    "20250302T000000Z",
+    0.4971,
+    null
+   ],
+   [
+    "20250303T000000Z",
+    0.057,
+    null
+   ]
+  ],
+  "ultimos": [
+   [
+    "20250330T000000Z",
+    0.6802,
+    null
+   ],
+   [
+    "20250331T000000Z",
+    0.5232,
+    null
+   ]
+  ]
+ },
+ "timelinevolraw 2025-03-01 30d": {
+  "n": 31,
+  "primeros": [
+   [
+    "20250301T000000Z",
+    181,
+    131626
+   ],
+   [
+    "20250302T000000Z",
+    368,
+    131604
+   ],
+   [
+    "20250303T000000Z",
+    641,
+    172234
+   ]
+  ],
+  "ultimos": [
+   [
+    "20250330T000000Z",
+    186,
+    86924
+   ],
+   [
+    "20250331T000000Z",
+    242,
+    172293
+   ]
+  ]
+ },
+ "tradingview 2024-01": {
+  "n": 295,
+  "muestra": [
+   {
+    "fecha": "2024-01-01T00:00:00.000Z",
+    "titulo": "New Year\u2019s Day",
+    "importancia": -1,
+    "actual": null,
+    "previsto": null,
+    "anterior": null
+   },
+   {
+    "fecha": "2024-01-02T14:45:00.000Z",
+    "titulo": "S&P Global Manufacturing PMI Final",
+    "importancia": 0,
+    "actual": null,
+    "previsto": 48.2,
+    "anterior": null
+   },
+   {
+    "fecha": "2024-01-02T15:00:00.000Z",
+    "titulo": "Construction Spending MoM",
+    "importancia": -1,
+    "actual": 0.4,
+    "previsto": 0.6,
+    "anterior": 1.2
+   },
+   {
+    "fecha": "2024-01-02T16:30:00.000Z",
+    "titulo": "3-Month Bill Auction",
+    "importancia": -1,
+    "actual": 5.245,
+    "previsto": null,
+    "anterior": 5.26
+   }
+  ]
+ },
+ "investing 2024-01": "{\"data\":\"<tr>      <td colspan=\\\"9\\\" class=\\\"theDay\\\" id=\\\"theDay1704067200\\\">Monday, January 1, 2024<\\/td>    <\\/tr><tr id=\\\"eventRowId_9\\\">      <td class=\\\"first left\\\">All Day<\\/td>      <td class=\\\"flagCur left\\\"><span title=\\\"United States\\\" class=\\\"ceFlags USA float_lang_base_1\\\" data-img_key=\\\"United_States\\\">&nbsp;<\\/span><\\/td>      <td class=\\\"left textNum sentiment\\\"><span class=\\\"bold\\\" >Holiday<\\/span><\\/td>      <td colspan=\\\"6\\\" class=\\\"left event\\\">United States - New Year's Day<\\/td>    <\\/tr><tr>      <td colspan=\\\"9\\\" class=\\\"theDay\\\" id=\\\"theDay1704240000\\\">Wednesday, Janu"
+}
