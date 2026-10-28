@@ -1142,13 +1142,18 @@
   function drawMovimiento(rows) {
     const m = pick(rows, 'movimiento')[0], box = document.getElementById('movimiento');
     box.hidden = !m; if (!m) return;
-    const on = m.nivel === 'Se despertó' || num(m.prob_fuerte) >= 35;
+    // con el modelo de arboles (BTC) la chance sale de ahi; si no hay modelo (ZEC), de la tabla
+    const mod = m.modelo_1h !== null && m.modelo_1h !== undefined;
+    const prob = mod ? num(m.modelo_1h) : num(m.prob_fuerte);
+    const on = m.nivel === 'Se despertó' || prob >= (mod ? 30 : 35);
     box.classList.toggle('ab-mov-on', on);
-    document.getElementById('mov-k').textContent = MON();
+    document.getElementById('mov-k').textContent = mod ? `${MON()} · hasta las ${horaAR(num(m.modelo_hasta))} h` : MON();
     document.getElementById('mov-nivel').textContent = m.nivel;
     document.getElementById('mov-vol').textContent = `volatilidad ${f1(num(m.volatilidad))}× la habitual`;
-    document.getElementById('mov-prob').textContent = `${f0(num(m.prob_fuerte))}%`;
-    document.getElementById('mov-base').textContent = `en una hora cualquiera: ${f0(num(m.prob_normal))}%`;
+    document.getElementById('mov-prob').textContent = `${f0(prob)}%`;
+    document.getElementById('mov-base').textContent = mod
+      ? `en una hora cualquiera: ${f0(num(m.modelo_base_1h))}% · próximas 4 h: ${f0(num(m.modelo_4h))}%`
+      : `en una hora cualquiera: ${f0(num(m.prob_normal))}%`;
     const fu = (x) => (num(S.sum && S.sum.precio) >= 1000 ? f0(x) : ar.format(',.2f')(x));
     document.getElementById('mov-rango').textContent = `~${fu(num(m.esperado_usd))}`;
     document.getElementById('mov-normal').textContent = `USD de punta a punta · normal ~${fu(num(m.normal_usd))} (${f1(num(m.normal_pct))}%)`;
@@ -1165,7 +1170,9 @@
       dv.append(el('i', '', '📅'), t); dv.classList.toggle('ab-pronto', pronto);
       if (pronto) box.classList.add('ab-mov-on');
     }
-    document.getElementById('mov-txt').textContent = `"Movimiento fuerte" = la próxima hora se mueve más del doble de lo normal. Probabilidades medidas con ${MON()} 2021–2026 según qué tan agitado está el mercado; se mantuvieron iguales en 2025–26. Dice cuánto se puede mover, no para dónde.`;
+    document.getElementById('mov-txt').textContent = mod
+      ? `"Movimiento fuerte" = se mueve más del doble de lo habitual, para cualquier lado. La chance la calcula un modelo de árboles entrenado con BTC 2021–2026 (velas de 1 hora, volatilidad, volumen, medias, hora del día y datos de EE.UU.). Probado sin mirar el futuro: en las horas que marca como más peligrosas fue fuerte 35–37% de las veces (una hora cualquiera: 12%), y cuando marca 40% o más, 40–49%. No dice para dónde.`
+      : `"Movimiento fuerte" = la próxima hora se mueve más del doble de lo normal. Probabilidades medidas con ${MON()} 2021–2026 según qué tan agitado está el mercado; se mantuvieron iguales en 2025–26. Dice cuánto se puede mover, no para dónde.`;
   }
 
   // ---------- cabecera y precio ----------

@@ -42,6 +42,7 @@ import aprendizaje as apr
 import avisos
 import backtest_grid as bg
 import indicadores as ind
+import fuerte
 import noticias
 
 SYMBOL = "BTC/USDT:USDT"
@@ -1008,6 +1009,15 @@ def analyze():
 
     mov = movimiento(candles["5m"], price)
     if mov:
+        # movimiento fuerte segun el modelo de arboles (fuerte.py): mucho mejor que la tabla (ver README)
+        try:
+            pf = fuerte.prever(candles["1h"], [r["t"] for r in rows if r.get("tabla") == "evento"])
+        except Exception as e:
+            print(f"(modelo de movimiento fuerte no disponible: {type(e).__name__}: {e})")
+            pf = None
+        if pf:
+            mov.update(modelo_1h=pf["1h"], modelo_4h=pf["4h"], modelo_base_1h=pf["base_1h"], modelo_base_4h=pf["base_4h"],
+                       modelo_hasta=candles["1h"][-1][0] + 2 * 3600000)
         rows.append(mov)
     explanation = [e for spec in PLAZOS for e in explain(rows, price, spec)]
     rows += explanation

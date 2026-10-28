@@ -2,7 +2,9 @@
 Avisos al celular (WhatsApp y notificacion) desde el servidor de Render, que mira el mercado las 24 horas.
 
 Que avisa (solo lo que se probo con velas reales de BTC):
-- "Se viene movimiento fuerte": cuando el mercado se despierta (la volatilidad de las ultimas velas de 5 min pasa
+- "Se viene movimiento fuerte": cuando el modelo de arboles (fuerte.py) da 40% o mas de chance de que la proxima hora
+  se mueva mas del doble de lo habitual (probado sin mirar el futuro: ~2 avisos por semana, acierta 40-49%; una hora
+  cualquiera, 12%). Si el modelo no esta, el aviso viejo: cuando el mercado se despierta (la volatilidad de las ultimas velas de 5 min pasa
   1,8 veces la habitual). Probado 2021-2026: la hora siguiente se mueve 2,3 veces lo normal (mediana) y mas del
   doble de lo normal el 59% de las veces (en una hora cualquiera, 15%). Unos 3 o 4 avisos por semana. No dice para
   donde: eso no se pudo predecir.
@@ -39,7 +41,8 @@ import time
 import urllib.parse
 import urllib.request
 
-DESPIERTA = 1.8            # volatilidad rapida / lenta para "se viene movimiento"
+DESPIERTA = 1.8            # volatilidad rapida / lenta para "se viene movimiento" (si no hay modelo)
+MODELO_AVISO = 40.0        # chance (%) del modelo de movimiento fuerte para avisar
 ESPERA_MOV = 4 * 3600      # no repetir el aviso de movimiento antes de 4 horas
 CERCA_LIQ = 0.004          # 0,4% de la zona de liquidaciones
 RANGO_LIQ = 0.03           # zonas dentro de 3% del precio
@@ -351,9 +354,25 @@ def revisar(rows, velas=None):
     except Exception as e:
         print(f"(movimiento ZEC: {type(e).__name__}: {e})", flush=True)
 
-    # 1) se viene movimiento fuerte (velas de 5 min cerradas)
+    # 1) se viene movimiento fuerte: con el modelo de arboles (fuerte.py) cuando marca 40% o mas para la proxima hora.
+    # Probado sin mirar el futuro: ~2 avisos por semana y 40-49% de las veces la hora se movio mas del doble de lo
+    # habitual (el aviso viejo, por volatilidad: 31-32% con la misma vara). Sin modelo, queda el aviso viejo.
+    mv = next((r for r in rows if r["tabla"] == "movimiento"), None)
     velas = [(r["o"], r["h"], r["l"], r["c"]) for r in rows if r["tabla"] == "vela" and r["tf"] == "5m" and not r["en_curso"]]
-    if len(velas) >= 250:
+    if mv and mv.get("modelo_1h") is not None:
+        p1, prev = mv["modelo_1h"], _estado.get("p_mod", 0.0)
+        _estado["p_mod"] = p1
+        if p1 >= MODELO_AVISO and prev < MODELO_AVISO and ahora - _estado["mov"] > ESPERA_MOV:
+            _estado["mov"] = ahora
+            hasta = time.strftime("%H:%M", time.gmtime(mv["modelo_hasta"] / 1000 - 3 * 3600))
+            txt = (f"BTC en {_ar(price, 1)}. El modelo da {_ar(p1)}% de chance de que hasta las {hasta} h se mueva más del doble "
+                   f"de lo habitual (una hora cualquiera: {_ar(mv['modelo_base_1h'])}%); próximas 4 h: {_ar(mv['modelo_4h'])}%. "
+                   f"Cuando marcó 40% o más, pasó 40–49% de las veces (probado 2023–2026). No indica para dónde: ojo con stops cerca.")
+            cerca = _zonas(liq, price)
+            if cerca:
+                txt += " Liquidaciones grandes: " + "; ".join(cerca) + "."
+            enviar("⚡ Se viene movimiento fuerte", txt, urgente=True)
+    elif len(velas) >= 250:
         v = volatilidad(velas)
         if v[-1] > DESPIERTA and v[-7] < DESPIERTA and ahora - _estado["mov"] > ESPERA_MOV:
             _estado["mov"] = ahora

@@ -34,9 +34,10 @@ En el dashboard: sección "Cómo viene aprendiendo".
 ### Avisos al celular (WhatsApp y notificación)
 
 El servidor de Render mira el mercado las 24 horas (se mantiene despierto solo) y avisa:
-- **Se viene movimiento fuerte**: cuando la volatilidad de las velas de 5 min pasa 1,8 veces la habitual. Probado
-  2021–2026: la hora siguiente se mueve 2,3 veces lo normal y más del doble el 59% de las veces (15% en una hora
-  cualquiera). No dice para dónde.
+- **Se viene movimiento fuerte**: cuando el modelo de movimiento fuerte (abajo) da 40% o más para la próxima hora.
+  Probado sin mirar el futuro (2023–2026): unos 2 avisos por semana y en 40–49% de los casos la hora se movió más del
+  doble de lo habitual (una hora cualquiera: 12%; el aviso anterior, por volatilidad, acertaba 31–32% con la misma
+  vara). No dice para dónde.
 - **Zona grande de liquidaciones cerca**: el precio a menos de 0,4% de la zona más grande de cada lado.
 - **Setups de entrada (largo o corto) en BTC, ETH y ZEC**, con entrada, stop, objetivo e historial: ruptura de 55
   velas de 1 hora a favor de la tendencia de 4 horas, con el mercado despierto; cierre a las 72 h. Elegidos con
@@ -94,6 +95,26 @@ TradingView. Investing.com solo respondió algunos meses a la lectura automátic
 23–29% de las veces (10–12% en las demás horas), parejo todos los años. Para predecir la dirección no sirvió, así que
 no entra en la probabilidad de subir o bajar. Se muestra en "Movimiento en la próxima hora" (próximo dato y cuánto
 falta), en "Qué está pasando" si un movimiento fuerte coincide con un dato, y por Telegram 30 minutos antes.
+
+### Modelo de movimiento fuerte
+
+¿La próxima hora (o las próximas 4) BTC se va a mover más del doble de lo habitual, para cualquier lado? Lo calcula un
+modelo de árboles (LightGBM) con 39 señales de las velas de 1 hora cerradas (retornos, volatilidad corta y larga,
+volumen, medias, RSI, MACD, posición en el rango, hora del día, fin de semana) y del calendario de datos fuertes de
+EE.UU. Entrenado con BTC 2021–2026 y probado sin mirar el futuro (cada trimestre se predice con un modelo entrenado
+solo con lo anterior):
+
+| | 2023–24 | 2025 | 2026 |
+|---|---|---|---|
+| Ventaja sobre la tasa base, próxima hora — tabla anterior (solo volatilidad) | 3,7% | 4,3% | 4,2% |
+| Ventaja sobre la tasa base, próxima hora — modelo | **9,2%** | **11,0%** | **11,8%** |
+| El 10% de horas que más marca: fue fuerte… (tabla / modelo) | 27% / 36% | 27% / 35% | 26% / 37% |
+| Próximas 4 horas — modelo | 7,2% | 7,3% | 8,6% |
+
+En una hora cualquiera es fuerte el 12%. Para predecir si sube o baja, el mismo modelo no sirvió (igual que todo lo
+demás que se probó). Las cuentas están en `fuerte.py` y `JavascriptVersion/fuerte.js` (mismos números, probado en 300
+momentos), y los árboles en `JavascriptVersion/modelo_fuerte.json`, que arma `entrenar_fuerte.py` (necesita numpy y
+lightgbm; conviene reentrenarlo cada algunos meses). Se usa solo para BTC; ZEC sigue con la tabla.
 
 ### Volatilidad prevista
 
@@ -172,6 +193,8 @@ python JavascriptVersion/generar_pagina.py
 |---|---|
 | `analisis_btc.py` | Baja los datos, calcula todo y sirve el dashboard (`--vivo`, `--vivo --servidor`) |
 | `indicadores.py` | Indicadores, patrones de velas, figuras (triángulos, cuñas, canales, rangos, dobles, HCH), Wyckoff, divergencias, ondas de Elliott, FVG y liquidaciones |
+| `fuerte.py`, `entrenar_fuerte.py` | Modelo de movimiento fuerte (próxima hora y próximas 4): señales, árboles y entrenamiento |
+| `noticias.py` | Noticias, ETF, prima de Coinbase y calendario económico de EE.UU. |
 | `aprendizaje.py` | Aprendizaje automático: equipo de expertos (recetas, modelo en línea, tasa base), pesos y confianza aprendidos, medición contra la tasa base |
 | `dashboard/index.html` | La página del dashboard |
 | `render.yaml` | Configuración para Render |

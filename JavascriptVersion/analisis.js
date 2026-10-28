@@ -692,7 +692,14 @@
         aciertos: rnd((hits / n) * 100, 1), brier: rnd(brier / n, 3) }));
 
     const mov = movimiento(candles['5m'], price, input.moneda || 'BTC');
-    if (mov) rows.push(mov);
+    if (mov) {
+      // movimiento fuerte segun el modelo de arboles (fuerte.js, como fuerte.py). Entrenado con BTC: solo para BTC
+      const pf = (input.moneda || 'BTC') === 'BTC' && root.Fuerte
+        ? root.Fuerte.prever(root.MODELO_FUERTE, candles['1h'], rows.filter((r) => r.tabla === 'evento').map((r) => r.t)) : null;
+      if (pf) Object.assign(mov, { modelo_1h: pf['1h'], modelo_4h: pf['4h'], modelo_base_1h: pf.base_1h, modelo_base_4h: pf.base_4h,
+        modelo_hasta: candles['1h'][candles['1h'].length - 1][0] + 2 * 3600000 });
+      rows.push(mov);
+    }
     const explanation = [];
     PLAZOS.forEach((spec) => explain(rows, price, spec).forEach((e) => explanation.push(e)));
     explanation.forEach((e) => rows.push(e));
