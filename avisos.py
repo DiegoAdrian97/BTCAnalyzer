@@ -9,6 +9,7 @@ Que avisa (solo lo que se probo con velas reales de BTC):
 - "Noticia que puede mover a BTC": titulares nuevos de guerras grandes, del gobierno de EE.UU., de gobiernos grandes,
   de ETF o de hackeos que
   se leen como buenos o malos para BTC (lectura automatica del titular, ver noticias.py). Como mucho uno cada 20 min.
+- "La Fed bajo/subio/mantuvo la tasa": apenas sale, comparada con lo previsto (mas baja: bueno para BTC; mas alta: malo).
 - "Dato fuerte de EE.UU. en 30 minutos" (IPC, empleo, Fed...): medido 2021-2026, esa hora BTC se movio 1,7 veces lo normal
   y fue un movimiento fuerte 26% de las veces (11% en una hora cualquiera). No dice para donde.
 - "Zona grande de liquidaciones cerca": cuando el precio queda a menos de 0,4% de la zona mas grande de
@@ -85,7 +86,7 @@ SETUPS = {
 }
 
 _estado = {"mov": 0.0, "liq": {}, "arranque": False, "setup_t": {}, "abierta": {}, "velas": {}, "precio": {},
-           "noti": set(), "noti_t": 0.0, "noti_listo": False, "datos": set()}
+           "noti": set(), "noti_t": 0.0, "noti_listo": False, "datos": set(), "fed": set()}
 
 
 def _ar(x, d=0):
@@ -373,6 +374,12 @@ def revisar(rows, velas=None):
     except Exception as e:
         print(f"(aviso de datos: {type(e).__name__}: {e})", flush=True)
 
+    # 2b) decision de tasas de la Fed (prioridad)
+    try:
+        _fed(rows, price)
+    except Exception as e:
+        print(f"(aviso de la Fed: {type(e).__name__}: {e})", flush=True)
+
     # 2) noticias de peso nuevas
     try:
         _noticias(rows, ahora)
@@ -436,6 +443,31 @@ def _datos(rows, ahora, price):
                    f"{lista} a las {hora} h (Argentina). BTC en {_ar(price, 1)}. En la hora en que salen datos así, BTC se movió "
                    f"1,7 veces lo normal y fue un movimiento fuerte 26% de las veces (11% en una hora cualquiera). "
                    f"Medido 2021–2026. No indica para dónde: ojo con stops muy cerca.", urgente=True)
+
+
+def _fed(rows, price):
+    """Cuando sale la decision de tasas de la Fed: mas baja de lo previsto es bueno para BTC, mas alta es malo."""
+    ahora = time.time()
+    for r in rows:
+        if r.get("tabla") != "evento" or "interest rate decision" not in (r.get("original") or "").lower():
+            continue
+        if r.get("actual") is None or r["t"] in _estado["fed"] or not (0 <= ahora - r["t"] / 1000 <= 3 * 3600):
+            continue
+        _estado["fed"].add(r["t"])
+        act, prev, ant = r["actual"], r.get("previsto"), r.get("anterior")
+        mov = "" if ant is None else "bajó" if act < ant else "subió" if act > ant else "mantuvo"
+        if prev is None:
+            lado, txt = "", "Sin previsión para comparar."
+        elif act < prev:
+            lado, txt = "▲ positivo para BTC", "Más baja de lo que se esperaba: suele ser bueno para BTC."
+        elif act > prev:
+            lado, txt = "▼ negativo para BTC", "Más alta de lo que se esperaba: suele ser malo para BTC."
+        else:
+            lado, txt = "como se esperaba", "Era lo que se esperaba: el mercado ya lo tenía descontado; ojo con lo que diga Powell después."
+        f = lambda v: f"{v:.2f}%".replace(".", ",")
+        enviar(f"🏦 La Fed {mov + ' la tasa' if mov else 'decidió la tasa'}: {f(act)} ({lado})",
+               f"Tasa de la Fed: {f(act)}" + (f", se esperaba {f(prev)}" if prev is not None else "") +
+               (f", antes {f(ant)}" if ant is not None else "") + f". {txt} BTC en {_ar(price, 1)}.", urgente=True)
 
 
 def _zonas(liq, price):

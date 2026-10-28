@@ -28,6 +28,9 @@ const POLITICA = /gobierno|government|presidente|president|primer ministro|prime
 // en las noticias de guerra: si hay ataques es malo para BTC aunque se nombre un alto el fuego; paz sin ataques, bueno
 const VIOLENTO = /ataque|attack|\bstrikes?\b|drones?|misil|missile|bombard|ofensiva|offensive|escalad|invade|invasi|muertos|killed|dead|explosi|disparo|fire[sd]? on|amenaza|threat/;
 const PAZ = /acuerdo de paz|peace (?:deal|agreement|talks)|fin de la guerra|end (?:of )?the war|alto el fuego|ceasefire|tregua|truce|negociaci|negotiat|retirada de tropas|withdraw/;
+// la Fed va primero siempre: si baja las tasas mas de lo previsto es bueno para BTC; si las sube, malo
+const COMO_SE_ESPERABA = /as expected|como se esperaba|como se preve[ií]a|en l[ií]nea con lo (?:esperado|previsto)|in line with expectations/;
+const FED = /reserva federal|federal reserve|\bfed\b|powell|\bfomc\b/;
 const TEMAS = [
   ['Gobierno de EE.UU.', /trump|casa blanca|white house|congreso de (?:ee|estados)|congress|senado de (?:ee|estados)|\bsenate\b|reserva federal|federal reserve|\bfed\b|powell|tesoro de (?:ee|estados)|treasury|bessent|\bsec\b|\bcftc\b|arancel|tariff|shutdown|gobierno de (?:ee\.? ?uu|estados unidos)|biden|vance|orden ejecutiva|executive order|\bcpi\b|payroll|n[oó]minas no agr/],
   ['ETF', /\betfs?\b|blackrock|\bibit\b|fidelity|grayscale|fondos cotizados/],
@@ -35,14 +38,16 @@ const TEMAS = [
 ];
 // si el titular es bueno o malo para BTC: frases fuertes (pesan 2) y palabras (pesan 1), igual que noticias.py
 const SESGO = [
-  [-2, 'fewer rate cuts|menos recortes|sub(?:e|en|ir|a)(?: de)? (?:las |la )?tasas|rate hikes?|hike rates|raises? (?:interest )?rates|eleva(?:n)? (?:las |la )?tasas|declara(?:ci[oó]n de)? (?:la )?guerra|invade|invasi[oó]n|prohibe|proh[ií]be|bans? (?:bitcoin|crypto)|hacke|hacked|robo de|roban|robaron|exploit'],
-  [2, 'recorte de tasas|recorta(?:n)? (?:las |la )?tasas|rate cuts?|cuts? rates|baja(?:n|r)? (?:de )?(?:las |la )?tasas|baja(?:n)? la inflaci|inflaci[oó]n (?:baja|cae|se desacelera|se modera)|inflation (?:cools|eases|slows)|cooler|cut rates|alto el fuego|ceasefire|tregua|acuerdo de paz|peace deal|reserva estrat[eé]gica|strategic reserve|aprueba (?:el |los )?etf|etf approv'],
+  [-2, 'fewer rate cuts|menos recortes|no (?:recorta|baja)|sin recorte|holds? rates|pausa|pause|halc[oó]n|hawkish|m[aá]s alt[ao]s? de lo (?:esperado|previsto)|higher than expected|sube(?:n)? (?:las |la )?tasas m[aá]s|recorte menor|smaller cut|sub(?:e|en|ir|a)(?: de)? (?:las |la )?tasas|rate hikes?|hike rates|raises? (?:interest )?rates|eleva(?:n)? (?:las |la )?tasas|declara(?:ci[oó]n de)? (?:la )?guerra|invade|invasi[oó]n|prohibe|proh[ií]be|bans? (?:bitcoin|crypto)|hacke|hacked|robo de|roban|robaron|exploit'],
+  [2, 'recorte mayor|bigger(?:-than-expected)? cut|m[aá]s baj[ao]s? de lo (?:esperado|previsto)|lower than expected|paloma|dovish|recorte de tasas|recorta(?:n)? (?:las |la )?tasas|rate cuts?|cuts? rates|baja(?:n|r)? (?:de )?(?:las |la )?tasas|baja(?:n)? la inflaci|inflaci[oó]n (?:baja|cae|se desacelera|se modera)|inflation (?:cools|eases|slows)|cooler|cut rates|alto el fuego|ceasefire|tregua|acuerdo de paz|peace deal|reserva estrat[eé]gica|strategic reserve|aprueba (?:el |los )?etf|etf approv'],
   [1, '\\bsube|\\bsuben|subida|se dispar|r[eé]cord|m[aá]ximo hist|rall|surge|soar|jump|rebot|rebound|recupera|entradas|inflows?|aprueb|approv|adopt|compra|\\bbuys?\\b|acumula|dovish|acuerdo|\\bdeal\\b|alivio|optimis'],
   [-1, '\\bcae\\b|\\bcaen\\b|ca[ií]da|desplom|derrumb|hund|pierde|retroced|plunge|\\bdrops?\\b|\\bfalls?\\b|crash|slump|tumble|sell-?off|venta masiva|liquidac|liquidat|quiebra|bankrupt|demanda|lawsuit|investiga|salidas|outflows?|guerra|\\bwar\\b|misil|missile|ataque|attack|\\bstrikes?\\b|bombard|escalad|sanci|arancel|tariff|hawkish|recesi|recession|shutdown|miedo|\\bfear\\b|p[aá]nico|panic|temor|slides?|slips?'],
 ];
-const IMPACTO = { 'Guerras grandes': 3, 'Gobierno de EE.UU.': 3, 'Grandes gobiernos': 2, ETF: 2, 'Hackeo o quiebra': 2, Cripto: 1 };
+const IMPACTO = { 'Fed y tasas': 3, 'Guerras grandes': 3, 'Gobierno de EE.UU.': 3, 'Grandes gobiernos': 2, ETF: 2, 'Hackeo o quiebra': 2, Cripto: 1 };
 function sesgo(titulo, tm = null) {
   let t = titulo.toLowerCase(), score = 0;
+  // la Fed haciendo lo que el mercado ya esperaba no sorprende: neutral
+  if (tm === 'Fed y tasas' && COMO_SE_ESPERABA.test(t)) return 'neutral';
   if (tm === 'Guerras grandes') return VIOLENTO.test(t) || !PAZ.test(t) ? 'bajista' : 'alcista';
   for (const [peso, src] of SESGO) {
     const rx = new RegExp(src, 'g'), n = (t.match(rx) || []).length;
@@ -68,6 +73,7 @@ const unesc = (s) => s.replace(/&(#x?[0-9a-f]+|\w+);/gi, (m, e) => (e[0] === '#'
 
 function tema(titulo, feed) {
   const t = titulo.toLowerCase();
+  if (FED.test(t)) return 'Fed y tasas';
   if (GUERRA.test(t) && ACTOR_GRANDE.test(t)) return 'Guerras grandes';
   for (const [name, rx] of TEMAS) {
     if (rx.test(t)) return name;

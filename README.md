@@ -78,6 +78,14 @@ El servidor de Render las lee cada 10 minutos, las 24 horas, y avisa por Telegra
 Python las lee en `noticias.py`; la versión de Vercel, en la función `JavascriptVersion/api/contexto.js` (el navegador
 no puede leer esas fuentes directo). Mismas fuentes y mismas filas.
 
+### La Fed, primero
+
+Las noticias de la Fed (Reserva Federal, Powell, FOMC) van siempre primero y pesan 3. Cuando sale la decisión de
+tasas, se compara con lo que se esperaba (calendario económico): **más baja de lo previsto es positivo para BTC,
+más alta es negativo** y, si es lo que se esperaba, ya estaba descontado. Se muestra arriba en "Qué está pasando" y
+en la predicción, y llega por Telegram apenas sale. En los titulares, "recorte mayor al esperado" o "dovish" suman;
+"menos recortes", "pausa" o "hawkish" restan; "como se esperaba" es neutral.
+
 ### Datos económicos fuertes de EE.UU.
 
 Calendario de importancia alta (IPC, empleo, decisiones y discursos de la Fed, PCE, ventas minoristas, PIB...), de

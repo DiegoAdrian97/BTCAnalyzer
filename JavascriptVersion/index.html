@@ -628,6 +628,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       <p class="ab-verdict-big" id="verdict-big">—</p>
       <p class="ab-hero-sub dash-skeleton" id="titular" data-source="analisis">—</p>
       <p class="ab-apr-line" id="apr-line"></p>
+      <p class="ab-apr-line" id="fed-line" hidden></p>
       <p class="ab-apr-line" id="news-line" hidden></p>
       <div class="ab-tug-wrap">
         <div class="ab-tug-legend"><span>¿Qué toca primero?</span><span id="first-mg"></span></div>
@@ -1010,7 +1011,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   // Cuando hay una suba o baja fuerte junta lo que coincide en el tiempo: liquidaciones o dinero nuevo en futuros,
   // compras o ventas a mercado, compras desde EE.UU. (prima de Coinbase), entradas o salidas de los ETF y las noticias
   // de esas horas (guerras, la Fed, aranceles, hackeos...). Son coincidencias, no pruebas de la causa.
-  const TEMA_ORDEN = ['Guerras grandes', 'Gobierno de EE.UU.', 'Grandes gobiernos', 'ETF', 'Hackeo o quiebra', 'Cripto'];
+  const TEMA_ORDEN = ['Fed y tasas', 'Guerras grandes', 'Gobierno de EE.UU.', 'Grandes gobiernos', 'ETF', 'Hackeo o quiebra', 'Cripto'];
   const haceTxt = (t) => {
     const m = Math.max(0, Math.round((Date.now() - t) / 60000));
     return m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`;
@@ -1087,7 +1088,9 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
         txt: `ETF de BTC en EE.UU.: ${v >= 0 ? 'entraron' : 'salieron'} ${f0(Math.abs(v))} M USD el ${d[2]}/${d[1]} (en 5 días: ${s5 >= 0 ? '+' : '−'}${f0(Math.abs(s5))} M).`,
         sub: 'Se publican al día siguiente del cierre en EE.UU. (Farside Investors).' });
     }
-    const salio = eventosAgrupados(rows).filter((g) => g.t <= Date.now() && g.t >= Date.now() - (w.h + 1) * 3600000);
+    // la decision de tasas de la Fed tiene su propia linea (abajo): aca no se repite
+    const salio = eventosAgrupados(rows).map((g) => ({ ...g, items: g.items.filter((x) => !(/interest rate decision/i.test(x.original || '') && x.actual !== null && x.actual !== undefined)) }))
+      .map((g) => ({ ...g, nombres: [...new Set(g.items.map((x) => x.titulo))] })).filter((g) => g.items.length && g.t <= Date.now() && g.t >= Date.now() - (w.h + 1) * 3600000);
     if (salio.length) {
       const g = salio[salio.length - 1], e = g.items[0];
       const det = e.actual !== null && e.actual !== undefined ? ` (salió ${e.actual}${e.previsto !== null && e.previsto !== undefined ? `, se esperaba ${e.previsto}` : ''})` : '';
@@ -1113,6 +1116,14 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       document.getElementById('qp-sum').textContent = 'Se mueve dentro de lo normal. Cuando haya una suba o baja fuerte, acá aparece qué la explica.';
     }
     const ul = document.getElementById('qp-fact'); ul.replaceChildren();
+    const fed = decisionFed(rows);
+    if (fed) {
+      const li = el('li', fed.sesgo !== 'neutral' ? 'ab-qp-si' : ''), t = el('span', '', fed.txt);
+      t.append(el('small', '', `Decisión de las ${horaAR(fed.t)} h, ${diaAR(fed.t)}.`));
+      li.append(el('i', '', '🏦'), t);
+      if (fed.sesgo !== 'neutral') li.style.setProperty('--qp-col', fed.sesgo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)');
+      ul.append(li);
+    }
     (strong ? F : F.filter((f) => f.ic === 'E' || f.ic === '$')).forEach((f) => {
       const li = el('li', f.si ? 'ab-qp-si' : ''), t = el('span', '', f.txt);
       if (f.sub) t.append(el('small', '', f.sub));
@@ -1150,6 +1161,21 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     return f(t) === hoy ? 'hoy' : f(t) === man ? 'mañana' : `el ${f(t)}`;
   };
   const faltaTxt = (ms) => { const m = Math.max(0, Math.round(ms / 60000)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`; };
+  // decision de tasas de la Fed: lo que salio contra lo que se esperaba. Mas baja de lo previsto: bueno para BTC;
+  // mas alta: malo; igual: ya estaba descontado
+  function decisionFed(rows, horas = 48) {
+    const now = Date.now();
+    const e = pick(rows, 'evento').filter((x) => /interest rate decision/i.test(x.original || '') && x.actual !== null && x.actual !== undefined
+      && now - num(x.t) <= horas * 3600000 && num(x.t) <= now).sort((a, b) => num(b.t) - num(a.t))[0];
+    if (!e) return null;
+    const act = num(e.actual), prev = e.previsto === null || e.previsto === undefined ? null : num(e.previsto), ant = e.anterior === null || e.anterior === undefined ? null : num(e.anterior);
+    const mov = ant === null ? '' : act < ant ? 'bajó' : act > ant ? 'subió' : 'mantuvo';
+    const sesgo = prev === null ? 'neutral' : act < prev ? 'alcista' : act > prev ? 'bajista' : 'neutral';
+    const pc = (v) => `${ar.format(',.2f')(v)}%`;
+    const txt = `La Fed ${mov ? mov + ' la tasa' : 'decidió la tasa'}: ${pc(act)}${prev !== null ? ` (se esperaba ${pc(prev)})` : ''}. `
+      + (sesgo === 'alcista' ? 'Más baja de lo previsto: positivo para BTC.' : sesgo === 'bajista' ? 'Más alta de lo previsto: negativo para BTC.' : 'Como se esperaba: el mercado ya lo tenía descontado.');
+    return { t: num(e.t), sesgo, txt };
+  }
   /** Datos agrupados por hora: [{t, nombres, items}] */
   function eventosAgrupados(rows) {
     const g = new Map();
@@ -1304,7 +1330,10 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     {
       const cl = climaNoticias(rows), nl = document.getElementById('news-line');
       nl.hidden = !pick(rows, 'noticia').length; nl.replaceChildren();
-      if (!nl.hidden) nl.append(el('b', '', 'Noticias'), el('span', '', `${cl.est === 'alcista' ? 'clima a favor de la suba' : cl.est === 'bajista' ? 'clima a favor de la baja' : 'clima neutral'} (${cl.buenas} buenas, ${cl.malas} malas en 6 h) · todavía no entra en la probabilidad: se está midiendo si ayuda`));
+      const fed = decisionFed(rows), fl = document.getElementById('fed-line');
+      fl.hidden = !fed; fl.replaceChildren();
+      if (fed) { const sp = el('span', '', fed.txt); if (fed.sesgo !== 'neutral') sp.style.color = fed.sesgo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)'; fl.append(el('b', '', '🏦 Fed'), sp); }
+      if (!nl.hidden) nl.append(el('b', '', 'Noticias'), el('span', '', `${cl.est === 'alcista' ? 'clima a favor de la suba' : cl.est === 'bajista' ? 'clima a favor de la baja' : 'clima neutral'} (${cl.buenas} buenas, ${cl.malas} malas en 6 h) · es contexto: medido 2021–2026, no mejoró la predicción`));
     }
     const p = pick(rows, 'plazo').find((r) => r.plazo === S.plazo);
     if (!p) return;
