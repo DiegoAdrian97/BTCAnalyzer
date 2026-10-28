@@ -61,6 +61,8 @@ RIESGO = float(os.environ.get("RIESGO_PCT", "1")) / 100
 # Gestion de riesgo de trader profesional (no mejora las señales: protege la cuenta de las rachas malas)
 # Por Telegram solo las entradas de futuros (y su cierre). AVISOS=todos en Render vuelve a mandar movimiento
 # fuerte, liquidaciones, noticias, datos de EE.UU. y la Fed.
+# Criptos con entradas (ETH queda definido pero apagado): MONEDAS=BTC,ETH,ZEC en Render para cambiarlo
+MONEDAS = [m.strip().upper() for m in os.environ.get("MONEDAS", "BTC,ZEC").split(",") if m.strip()]
 SOLO_ENTRADAS = os.environ.get("AVISOS", "entradas").strip().lower() != "todos"
 RIESGO_MAX_ABIERTO = 0.025    # riesgo total abierto (todas las operaciones juntas): 2,5% del capital
 PERDIDA_DIA_MAX = 0.02        # si en el dia se pierde 2% del capital, no se abren entradas nuevas hasta el dia siguiente
@@ -248,7 +250,7 @@ def _cerrar(nombre, op, salida, motivo, ahora):
     enviar(titulo, f"{txt}\nResultado: {'+' if r >= 0 else ''}{_ar(r, 2)} R ≈ {'+' if usd >= 0 else ''}{_ar(usd)} USDT (con comisiones).\n"
                    f"Registro desde que arrancó el vigía: {len(reg)} operación{"es" if len(reg) > 1 else ""}, ganó {gan} ({_ar(gan / len(reg) * 100)}%), "
                    f"total {'+' if sum(x[3] for x in reg) >= 0 else ''}{_ar(sum(x[3] for x in reg))} USDT. "
-                   f"En las pruebas se esperaba ganar 2 de cada 3 en BTC, 6 de cada 10 en ETH y 1 de cada 2 en ZEC.{nota}")
+                   f"En las pruebas se esperaba ganar 2 de cada 3 en BTC y 1 de cada 2 en ZEC.{nota}")
 
 
 def _seguir(nombre, price, ahora):
@@ -424,6 +426,8 @@ def _entrada(nombre, cfg, got, rows, ahora):
 
 def _setups(velas, price_btc, liq, ahora, rows=()):
     for nombre, cfg in SETUPS.items():
+        if nombre not in MONEDAS and not _estado["abierta"].get(nombre):
+            continue
         try:
             if nombre == "BTC":
                 if not (velas and velas.get("1h") and velas.get("4h")):
@@ -472,7 +476,7 @@ def revisar(rows, velas=None):
         _estado["arranque"] = True
         enviar("Analista BTC: vigía activo",
                f"Te aviso cuando se venga movimiento fuerte, cuando el precio se acerque a una zona grande de "
-               f"liquidaciones, cuando haya un setup de entrada en BTC, ETH o ZEC y cuando salga una noticia de peso "
+               f"liquidaciones, cuando haya un setup de entrada en BTC o ZEC y cuando salga una noticia de peso "
                f"(guerras grandes, gobierno de EE.UU., gobiernos grandes, ETF o hackeos) y media hora antes de los datos "
                f"fuertes de EE.UU. (IPC, empleo, Fed). BTC ahora: {_ar(price, 1)}.")
     liq = [r for r in rows if r["tabla"] == "liquidacion"]
