@@ -58,11 +58,19 @@ CAPITAL = float(os.environ.get("CAPITAL_FUTUROS", "9600"))
 RIESGO = float(os.environ.get("RIESGO_PCT", "1")) / 100
 
 
-def tamano(e, sl, tp):
-    """Cuanto operar: perder RIESGO del capital si toca el stop. Apalancamiento para que la liquidacion quede al
-    menos a 3 veces la distancia del stop (y nunca mas de 10x); margen aislado."""
+# Gestion de riesgo de trader profesional (no mejora las señales: protege la cuenta de las rachas malas)
+RIESGO_MAX_ABIERTO = 0.025    # riesgo total abierto (todas las operaciones juntas): 2,5% del capital
+PERDIDA_DIA_MAX = 0.02        # si en el dia se pierde 2% del capital, no se abren entradas nuevas hasta el dia siguiente
+RACHA_PAUSA = 3               # 3 perdidas seguidas: pausa de 24 h
+COMISION = 0.0005             # comision de mercado por lado (0,05%: BingX/Binance taker)
+DESLIZ_MAX = 0.3              # si al leer el aviso el precio ya se alejo mas de 0,3 R de la entrada, no entrar
+
+
+def tamano(e, sl, tp, riesgo=None):
+    """Cuanto operar: perder `riesgo` (por defecto RIESGO) del capital si toca el stop. Apalancamiento para que la
+    liquidacion quede al menos a 3 veces la distancia del stop (y nunca mas de 10x); margen aislado."""
     capital = float(os.environ.get("CAPITAL_FUTUROS", CAPITAL))
-    riesgo_usd = capital * RIESGO
+    riesgo_usd = capital * (RIESGO if riesgo is None else riesgo)
     dist = abs(e - sl) / e
     qty = riesgo_usd / abs(e - sl)
     nocional = qty * e
@@ -89,6 +97,7 @@ SETUPS = {
 }
 
 _estado = {"mov": 0.0, "liq": {}, "arranque": False, "setup_t": {}, "abierta": {}, "velas": {}, "precio": {},
+           "registro": [], "pausa_hasta": 0.0,
            "noti": set(), "noti_t": 0.0, "noti_listo": False, "datos": set(), "fed": set()}
 
 
@@ -203,25 +212,54 @@ def _precio(nombre, ahora, btc):
     return p
 
 
+def _cerrar(nombre, op, salida, motivo, ahora):
+    """Anota el resultado (en R y en USDT) y avisa con el registro acumulado y la gestion de riesgo."""
+    d, e, sl, tp, t0 = op[:5]
+    riesgo_usd = op[5] if len(op) > 5 else float(os.environ.get("CAPITAL_FUTUROS", CAPITAL)) * RIESGO
+    r = (salida - e) / abs(e - sl) * d
+    usd = r * riesgo_usd - 2 * COMISION * (riesgo_usd / abs(e - sl)) * e
+    reg = _estado["registro"]
+    reg.append((ahora, nombre, r, usd))
+    hoy = time.strftime("%Y-%m-%d", time.gmtime(ahora - 3 * 3600))
+    dia = sum(x[3] for x in reg if time.strftime("%Y-%m-%d", time.gmtime(x[0] - 3 * 3600)) == hoy)
+    gan = sum(1 for x in reg if x[2] > 0)
+    racha = 0
+    for x in reversed(reg):
+        if x[2] > 0:
+            break
+        racha += 1
+    capital = float(os.environ.get("CAPITAL_FUTUROS", CAPITAL))
+    nota = ""
+    if racha >= RACHA_PAUSA:
+        _estado["pausa_hasta"] = ahora + 24 * 3600
+        nota = (f"\n⏸ {racha} pérdidas seguidas: pausa de 24 h sin entradas nuevas. Las rachas malas pasan (el historial las tuvo); "
+                f"un profesional no las persigue para recuperar.")
+    elif dia <= -PERDIDA_DIA_MAX * capital:
+        manana = (int((ahora - 3 * 3600) // 86400) + 1) * 86400 + 3 * 3600
+        _estado["pausa_hasta"] = max(_estado["pausa_hasta"], manana)
+        nota = f"\n⏸ Hoy se perdió {_ar(-dia)} USDT (2% del capital o más): no hay entradas nuevas hasta mañana."
+    titulo = {"tp": f"✅ {nombre}: take profit", "sl": f"❌ {nombre}: stop loss", "tiempo": f"⏱ {nombre}: pasaron 3 días, cerrá"}[motivo]
+    txt = {"tp": f"Tocó {_fmt(tp)} USD: operación cerrada con ganancia.",
+           "sl": f"Tocó {_fmt(sl)} USD: operación cerrada con la pérdida prevista. Es parte del sistema: no la persigas.",
+           "tiempo": f"No tocó ni el stop ni el take profit en 72 h. Cerrala ahora a mercado (~{_fmt(salida)} USD)."}[motivo]
+    enviar(titulo, f"{txt}\nResultado: {'+' if r >= 0 else ''}{_ar(r, 2)} R ≈ {'+' if usd >= 0 else ''}{_ar(usd)} USDT (con comisiones).\n"
+                   f"Registro desde que arrancó el vigía: {len(reg)} operación{"es" if len(reg) > 1 else ""}, ganó {gan} ({_ar(gan / len(reg) * 100)}%), "
+                   f"total {'+' if sum(x[3] for x in reg) >= 0 else ''}{_ar(sum(x[3] for x in reg))} USDT. "
+                   f"En las pruebas se esperaba ganar 2 de cada 3 en BTC, 6 de cada 10 en ETH y 1 de cada 2 en ZEC.{nota}")
+
+
 def _seguir(nombre, price, ahora):
     """Si hay un setup abierto de esa cripto, avisa cuando toca el objetivo o el stop (o vence)."""
     op = _estado["abierta"].get(nombre)
     if not op:
         return
-    d, e, sl, tp, t0 = op
-    lado = "LONG" if d > 0 else "SHORT"
+    d, e, sl, tp, t0 = op[:5]
     if (price >= tp) if d > 0 else (price <= tp):
-        enviar(f"✅ {nombre}: llegó al take profit", f"{nombre} tocó {_fmt(tp)} USD. Operación {lado.lower()} cerrada con ganancia.")
-        _estado["abierta"].pop(nombre)
+        _cerrar(nombre, _estado["abierta"].pop(nombre), tp, "tp", ahora)
     elif (price <= sl) if d > 0 else (price >= sl):
-        enviar(f"❌ {nombre}: tocó el stop loss", f"{nombre} tocó {_fmt(sl)} USD. Operación {lado.lower()} cerrada con pérdida (la prevista).")
-        _estado["abierta"].pop(nombre)
+        _cerrar(nombre, _estado["abierta"].pop(nombre), sl, "sl", ahora)
     elif ahora - t0 > HORAS * 3600:
-        r = (price - e) / abs(e - sl) * d
-        enviar(f"⏱ {nombre}: pasaron 3 días, cerrá la operación",
-               f"No tocó ni el stop loss ni el take profit. Cerrala ahora a mercado (~{_fmt(price)} USD), "
-               f"{'con ganancia' if r >= 0 else 'con pérdida'}.")
-        _estado["abierta"].pop(nombre)
+        _cerrar(nombre, _estado["abierta"].pop(nombre), price, "tiempo", ahora)
 
 
 def niveles(h1, h4, cfg):
@@ -277,7 +315,111 @@ def _mov_zec(ahora):
            f"esperable ahora: ~{_fmt(normal * 2.1)} USD. No indica para dónde.", urgente=True)
 
 
-def _setups(velas, price_btc, liq, ahora):
+def _riesgo(nombre, d, rows, ahora):
+    """Riesgo de esta operacion (fraccion del capital) y los motivos si se achica. Reglas de gestion de riesgo de
+    un trader profesional: no cambian la señal, limitan cuanto se pierde en una mala racha."""
+    r, notas = RIESGO, []
+    otras = {k: v for k, v in _estado["abierta"].items() if k != nombre}
+    if any(v[0] == d for v in otras.values()):
+        r /= 2
+        notas.append(f"ya hay otra operación en la misma dirección ({', '.join(k for k, v in otras.items() if v[0] == d)}): "
+                     f"BTC, ETH y ZEC se mueven juntos, así que es casi la misma apuesta → mitad de riesgo")
+    prox = [x for x in rows if x.get("tabla") == "evento" and 0 < x["t"] / 1000 - ahora <= 3600]
+    if prox:
+        r /= 2
+        hora = time.strftime("%H:%M", time.gmtime(prox[0]["t"] / 1000 - 3 * 3600))
+        notas.append(f"a las {hora} h sale {prox[0]['titulo']}: con un dato fuerte el precio puede saltar el stop → mitad de riesgo")
+    capital = float(os.environ.get("CAPITAL_FUTUROS", CAPITAL))
+    usado = sum((v[5] if len(v) > 5 else capital * RIESGO) for v in otras.values()) / capital
+    if usado + r > RIESGO_MAX_ABIERTO:
+        r = max(0.0, RIESGO_MAX_ABIERTO - usado)
+        notas.append(f"ya tenés {_ar(usado * 100, 1)}% del capital en riesgo abierto; el tope es {_ar(RIESGO_MAX_ABIERTO * 100, 1)}%")
+    return r, notas
+
+
+def _contexto(d, rows):
+    """Chequeo previo como lo haria un trader: que dice el resto del mercado. Es informacion, no filtro: en las
+    pruebas, filtrar el setup con estas cosas no mejoro el resultado de forma confiable."""
+    out = []
+    mv = next((x for x in rows if x.get("tabla") == "movimiento"), None)
+    if mv and mv.get("modelo_1h") is not None:
+        out.append(f"Movimiento fuerte: {_ar(mv['modelo_1h'])}% en la próxima hora, {_ar(mv.get('modelo_4h') or 0)}% en 4 h "
+                   f"(lo normal {_ar(mv.get('modelo_base_1h') or 0)}%)")
+    ev = sorted((x for x in rows if x.get("tabla") == "evento" and x["t"] / 1000 > time.time()), key=lambda x: x["t"])
+    if ev:
+        t = ev[0]["t"] / 1000
+        out.append(f"Próximo dato fuerte de EE.UU.: {ev[0]['titulo']}, {time.strftime('%d/%m %H:%M', time.gmtime(t - 3 * 3600))} h "
+                   f"(en {_ar((t - time.time()) / 3600, 1)} h)")
+    else:
+        out.append("Sin datos fuertes de EE.UU. a la vista")
+    nots = [x for x in rows if x.get("tabla") == "noticia" and x.get("impacto", 0) >= 2 and time.time() - x["t"] / 1000 <= 6 * 3600]
+    if nots:
+        a = sum(1 for x in nots if x["sesgo"] == "alcista"); b = sum(1 for x in nots if x["sesgo"] == "bajista")
+        clima = "a favor" if (a - b) * d > 0 else "en contra" if (a - b) * d < 0 else "neutro"
+        out.append(f"Noticias de peso (6 h): {a} a favor de suba, {b} a favor de baja → clima {clima} de la operación")
+    head = next((x for x in rows if x.get("tabla") == "resumen"), None)
+    if head and head.get("funding") is not None:
+        f = head["funding"]
+        lleno = (f > 0.03 and d > 0) or (f < -0.03 and d < 0)
+        out.append(f"Funding: {_ar(f, 4)}% cada 8 h" + (" (lado lleno: la posición paga y hay riesgo de barrida)" if lleno
+                   else " (vos cobrás)" if f * d < 0 else ""))
+    return out
+
+
+def _entrada(nombre, cfg, got, rows, ahora):
+    """Arma y manda la entrada completa: gestion de riesgo, configuracion paso a paso y chequeo de contexto."""
+    d, e, sl, tp = got
+    lado = "LONG 📈 (compra)" if d > 0 else "SHORT 📉 (venta)"
+    if ahora < _estado["pausa_hasta"]:
+        enviar(f"{nombre}: señal en {lado}, pero NO entres",
+               f"Se activó el setup (entrada {_fmt(e)}), pero estás en pausa por la gestión de riesgo hasta "
+               f"{time.strftime('%d/%m %H:%M', time.gmtime(_estado['pausa_hasta'] - 3 * 3600))} h. "
+               f"Después de una mala racha conviene frenar en vez de buscar recuperar.")
+        return
+    riesgo, notas = _riesgo(nombre, d, rows, ahora)
+    if riesgo < 0.0025:
+        enviar(f"{nombre}: señal en {lado}, pero NO entres", f"Se activó el setup (entrada {_fmt(e)}), pero ya tenés "
+               f"el máximo de riesgo abierto ({_ar(RIESGO_MAX_ABIERTO * 100, 1)}% del capital). Esperá a que cierre otra.")
+        return
+    qty, nocional, lev, margen, perder, ganar, capital = tamano(e, sl, tp, riesgo)
+    _estado["abierta"][nombre] = (d, e, sl, tp, ahora, perder)
+    R = abs(e - sl)
+    liq = e * (1 - d / lev + d * 0.005)                      # aislado, mantenimiento ~0,5%
+    fee = 2 * COMISION * nocional
+    limite = e + d * DESLIZ_MAX * R
+    vence = time.strftime("%d/%m %H:%M", time.gmtime(ahora + HORAS * 3600 - 3 * 3600))
+    q = _ar(qty, 4 if qty < 1 else 2)
+    accion = "Buy / Long (Abrir largo)" if d > 0 else "Sell / Short (Abrir corto)"
+    txt = (f"PLAN\n"
+           f"• Entrada: {_fmt(e)} USD, a mercado ya. No entres si el precio ya pasó {_fmt(limite)} "
+           f"(se comió 0,3 R del recorrido: la relación ganancia/riesgo deja de valer la pena).\n"
+           f"• Stop loss: {_fmt(sl)} USD ({_ar(abs(sl / e - 1) * 100, 2)}%, {_ar(cfg['stop_atr'], 1)} ATR: fuera del ruido normal)\n"
+           f"• Take profit: {_fmt(tp)} USD ({_ar(abs(tp / e - 1) * 100, 2)}%, {_ar(cfg['objetivo_r'], 1)} R)\n"
+           f"• Cierre por tiempo: {vence} h (72 h) si no tocó ninguno\n"
+           f"• Riesgo: {_ar(perder)} USDT ({_ar(riesgo * 100, 2)}% del capital de {_ar(capital)}) · "
+           f"ganancia posible {_ar(ganar)} USDT · comisiones ~{_ar(fee, 1)} USDT\n"
+           + "".join(f"  ⚠ {n}\n" for n in notas) +
+           f"\nCÓMO CONFIGURARLA (BingX o Binance)\n"
+           f"1. Futuros perpetuos → {nombre}USDT.\n"
+           f"2. Modo de margen: Aislado (Isolated). Nunca cruzado: así esta operación no puede tocar el resto de tu cuenta.\n"
+           f"3. Apalancamiento: {lev}x (largo y corto). Es solo para poner menos margen; el riesgo lo fija el stop, no el apalancamiento.\n"
+           f"4. Tipo de orden: Mercado. Cantidad: {q} {nombre} (≈ {_ar(nocional)} USDT de posición; margen ≈ {_ar(margen)} USDT).\n"
+           f"5. Tildá TP/SL en la misma orden: Take profit {_fmt(tp)} · Stop loss {_fmt(sl)}, disparo por «Último precio» (Last), "
+           f"ejecución a mercado.\n"
+           f"6. {accion}. Confirmá.\n"
+           f"7. Revisá en Posiciones que figuren el TP y el SL. Precio de liquidación aprox. {_fmt(liq)} "
+           f"(mucho más lejos que el stop: el stop salta antes).\n"
+           f"8. Poné una alarma para el {vence} h: si sigue abierta, cerrala a mercado.\n"
+           f"\nREGLAS MIENTRAS ESTÁ ABIERTA\n"
+           f"• No muevas el stop en contra ni agregues a una posición perdedora.\n"
+           f"• No cierres antes por miedo: el resultado del sistema depende de dejar correr cada operación hasta TP, SL o 72 h.\n"
+           f"• Te aviso cuando toque el TP o el SL, o cuando venza el tiempo.\n"
+           f"\nCONTEXTO (informativo, no cambia la entrada)\n" + "".join(f"• {c}\n" for c in _contexto(d, rows)) +
+           f"\n{cfg['simple']}")
+    enviar(f"{nombre}: entrada en {lado}", txt, urgente=True)
+
+
+def _setups(velas, price_btc, liq, ahora, rows=()):
     for nombre, cfg in SETUPS.items():
         try:
             if nombre == "BTC":
@@ -309,22 +451,7 @@ def _setups(velas, price_btc, liq, ahora):
                            f"rupturas a favor de la tendencia son las que mejor funcionaron.")
             if not got or _estado["abierta"].get(nombre):
                 continue
-            d, e, sl, tp = got
-            lado = "LONG 📈 (compra)" if d > 0 else "SHORT 📉 (venta)"
-            _estado["abierta"][nombre] = (d, e, sl, tp, ahora)
-            qty, nocional, lev, margen, perder, ganar, capital = tamano(e, sl, tp)
-            txt = (f"Entrada: {_fmt(e)} USD (ya, a mercado)\n"
-                   f"Stop loss: {_fmt(sl)} USD ({_ar(abs(sl / e - 1) * 100, 1)}% de distancia)\n"
-                   f"Take profit: {_fmt(tp)} USD ({_ar(abs(tp / e - 1) * 100, 1)}% de distancia)\n"
-                   f"Si en 3 días no tocó ninguno de los dos, cerrá la operación.\n\n"
-                   f"Cómo entrar (capital {_ar(capital)} USDT):\n"
-                   f"• Apalancamiento: {lev}x, margen aislado\n"
-                   f"• Margen a poner: {_ar(margen)} USDT\n"
-                   f"• Tamaño: {_ar(qty, 4 if qty < 1 else 2)} {nombre} (≈ {_ar(nocional)} USDT de posición)\n"
-                   f"• Si toca el stop perdés ~{_ar(perder)} USDT ({_ar(RIESGO * 100, 0)}% del capital); "
-                   f"si llega al take profit ganás ~{_ar(ganar)} USDT (más o menos comisiones).\n\n"
-                   f"{cfg['simple']}")
-            enviar(f"{nombre}: entrada en {lado} recomendada", txt, urgente=True)
+            _entrada(nombre, cfg, got, rows, ahora)
         except Exception as e:      # una cripto que falla no frena a las otras
             print(f"(setup {nombre}: {type(e).__name__}: {e})", flush=True)
 
@@ -348,7 +475,7 @@ def revisar(rows, velas=None):
     liq = [r for r in rows if r["tabla"] == "liquidacion"]
 
     # 0) setups de entrada (BTC, ETH y ZEC), una vez por vela de 1 hora cerrada, y seguimiento de los abiertos
-    _setups(velas, price, liq, ahora)
+    _setups(velas, price, liq, ahora, rows)
     try:
         _mov_zec(ahora)
     except Exception as e:

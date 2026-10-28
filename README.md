@@ -50,6 +50,18 @@ El servidor de Render mira el mercado las 24 horas (se mantiene despierto solo) 
   SOL y XRP no dieron ventaja con esta regla. Después avisa si tocó el objetivo o el stop. Es estadística del
   pasado, no una garantía.
 
+  **Cada entrada viene como la armaría un trader profesional**: plan (entrada, precio máximo para entrar —0,3 R—,
+  stop, take profit, cierre por tiempo con fecha y hora, riesgo, ganancia y comisiones), configuración paso a paso
+  (perpetuo, margen aislado, apalancamiento, cantidad exacta, TP/SL en la misma orden, precio de liquidación
+  aproximado, alarma de 72 h), reglas mientras está abierta y un chequeo de contexto (modelo de movimiento fuerte,
+  próximo dato de EE.UU., clima de noticias, funding) que es informativo: filtrar el setup con eso no mejoró el
+  resultado en las pruebas. Gestión de riesgo (protege la cuenta, no cambia las señales):
+  - 1% del capital por operación; mitad si ya hay otra abierta en la misma dirección (BTC, ETH y ZEC se mueven
+    juntos) y mitad si en menos de 1 h sale un dato fuerte de EE.UU.
+  - Tope de 2,5% del capital en riesgo abierto entre todas.
+  - 3 pérdidas seguidas → 24 h sin entradas nuevas; 2% de pérdida en el día → nada nuevo hasta mañana.
+  - Al cerrar cada operación avisa el resultado en R y USDT (con comisiones) y el registro acumulado.
+
 Configuración en Render (Environment), nunca en el código: `TELEGRAM_TOKEN` y `TELEGRAM_CHAT` (bot de Telegram),
 o `WHATSAPP_TEL` y `WHATSAPP_CLAVE` (CallMeBot), o `NTFY_TEMA` (app ntfy). Si Binance bloquea la IP, el mapa de liquidaciones sale de Bybit.
 
