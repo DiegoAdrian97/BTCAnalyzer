@@ -33,7 +33,8 @@ En el dashboard: sección "Cómo viene aprendiendo".
 
 ### Avisos al celular (WhatsApp y notificación)
 
-El servidor de Render mira el mercado las 24 horas (se mantiene despierto solo) y avisa:
+El servidor de Render mira el mercado las 24 horas (se mantiene despierto solo). **Por defecto solo manda las entradas
+de futuros** (y su cierre: TP, SL o 72 h); con `AVISOS=todos` en Render vuelve a mandar también:
 - **Se viene movimiento fuerte**: cuando el modelo de movimiento fuerte (abajo) da 40% o más para la próxima hora.
   Probado sin mirar el futuro (2023–2026): unos 2 avisos por semana y en 40–49% de los casos la hora se movió más del
   doble de lo habitual (una hora cualquiera: 12%; el aviso anterior, por volatilidad, acertaba 31–32% con la misma

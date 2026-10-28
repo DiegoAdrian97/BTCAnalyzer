@@ -59,6 +59,9 @@ RIESGO = float(os.environ.get("RIESGO_PCT", "1")) / 100
 
 
 # Gestion de riesgo de trader profesional (no mejora las señales: protege la cuenta de las rachas malas)
+# Por Telegram solo las entradas de futuros (y su cierre). AVISOS=todos en Render vuelve a mandar movimiento
+# fuerte, liquidaciones, noticias, datos de EE.UU. y la Fed.
+SOLO_ENTRADAS = os.environ.get("AVISOS", "entradas").strip().lower() != "todos"
 RIESGO_MAX_ABIERTO = 0.025    # riesgo total abierto (todas las operaciones juntas): 2,5% del capital
 PERDIDA_DIA_MAX = 0.02        # si en el dia se pierde 2% del capital, no se abren entradas nuevas hasta el dia siguiente
 RACHA_PAUSA = 3               # 3 perdidas seguidas: pausa de 24 h
@@ -434,7 +437,7 @@ def _setups(velas, price_btc, liq, ahora, rows=()):
                 continue
             _estado["setup_t"][nombre] = h1[-1][0]
             got = setup(h1, h4, cfg)
-            if not got and not _estado["abierta"].get(nombre):
+            if not got and not _estado["abierta"].get(nombre) and not SOLO_ENTRADAS:
                 pre = niveles(h1, h4, cfg)
                 clave = (nombre, pre[0]) if pre else None
                 if pre and ahora - _estado.setdefault("pre", {}).get(clave, 0) > 12 * 3600:
@@ -465,7 +468,7 @@ def revisar(rows, velas=None):
     if head is None:
         return
     price = head["precio"]
-    if not _estado["arranque"]:
+    if not _estado["arranque"] and not SOLO_ENTRADAS:
         _estado["arranque"] = True
         enviar("Analista BTC: vigía activo",
                f"Te aviso cuando se venga movimiento fuerte, cuando el precio se acerque a una zona grande de "
@@ -476,6 +479,8 @@ def revisar(rows, velas=None):
 
     # 0) setups de entrada (BTC, ETH y ZEC), una vez por vela de 1 hora cerrada, y seguimiento de los abiertos
     _setups(velas, price, liq, ahora, rows)
+    if SOLO_ENTRADAS:
+        return
     try:
         _mov_zec(ahora)
     except Exception as e:
