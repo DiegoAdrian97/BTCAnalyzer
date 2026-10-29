@@ -1011,7 +1011,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   // Cuando hay una suba o baja fuerte junta lo que coincide en el tiempo: liquidaciones o dinero nuevo en futuros,
   // compras o ventas a mercado, compras desde EE.UU. (prima de Coinbase), entradas o salidas de los ETF y las noticias
   // de esas horas (guerras, la Fed, aranceles, hackeos...). Son coincidencias, no pruebas de la causa.
-  const TEMA_ORDEN = ['Fed y tasas', 'Guerras grandes', 'Gobierno de EE.UU.', 'Grandes gobiernos', 'ETF', 'Hackeo o quiebra', 'Cripto'];
+  const TEMA_ORDEN = ['Hackeo de exchange', 'Fed y tasas', 'Guerras grandes', 'Gobierno de EE.UU.', 'Grandes gobiernos', 'ETF', 'Hackeo o quiebra', 'Cripto'];
   const haceTxt = (t) => {
     const m = Math.max(0, Math.round((Date.now() - t) / 60000));
     return m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`;
