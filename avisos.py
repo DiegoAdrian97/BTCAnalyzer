@@ -510,6 +510,10 @@ def revisar(rows, velas=None):
                               "falta OPERAR=demo, BINGX_API_KEY o BINGX_API_SECRET en Render")
             except Exception as ex:
                 lineas.append(f"{nombre}: falló ({type(ex).__name__}: {str(ex)[:200]})")
+        try:
+            lineas.insert(0, f"Cuenta demo (API de prueba VST), saldo: {operador.saldo()}")
+        except Exception as ex:
+            lineas.insert(0, f"Saldo: no pude leerlo ({type(ex).__name__}: {str(ex)[:120]})")
         enviar("🤖 Prueba con la demo de BingX", "\n".join(lineas) + "\nSi salió bien, borrá OPERAR_PRUEBA en Render.")
 
     # 0) setups de entrada (BTC, ETH y ZEC), una vez por vela de 1 hora cerrada, y seguimiento de los abiertos
