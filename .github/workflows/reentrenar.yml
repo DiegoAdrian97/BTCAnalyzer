@@ -1,6 +1,6 @@
 name: Reentrenar modelo de movimiento fuerte
 # Una vez por mes (y a mano desde Actions): baja los datos, reentrena y sube modelo_fuerte.json.
-# La prueba honesta del modelo reentrenaba cada trimestre: asi se mantiene igual que lo medido.
+# La prueba honesta del modelo reentrenaba cada trimestre: asi se mantiene igual que lo medido (minimo: trimestral).
 on:
   schedule:
     - cron: "23 7 2 * *"
