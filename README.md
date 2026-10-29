@@ -74,6 +74,13 @@ y sigue con el cierre de 72 h; las posiciones abiertas a mano no las toca.
 Configuración en Render (Environment), nunca en el código: `TELEGRAM_TOKEN` y `TELEGRAM_CHAT` (bot de Telegram),
 o `WHATSAPP_TEL` y `WHATSAPP_CLAVE` (CallMeBot), o `NTFY_TEMA` (app ntfy). Si Binance bloquea la IP, el mapa de liquidaciones sale de Bybit.
 
+### Reentrenamiento mensual
+
+El día 2 de cada mes una tarea de GitHub (`.github/workflows/reentrenar.yml`) baja las velas de 1 hora de BTC
+(data.binance.vision) y el calendario de EE.UU. (`datos_entrenamiento.py`), reentrena el modelo de movimiento fuerte
+(`entrenar_fuerte.py`, con sus controles de que Python y JavaScript den lo mismo) y sube `modelo_fuerte.json`; Render y
+Vercel lo toman solos. La prueba honesta del modelo reentrenaba cada trimestre, así que en vivo se mantiene igual.
+
 ### Qué está pasando (por qué se mueve fuerte)
 
 Arriba de todo. Cuando BTC sube o baja fuerte (más del doble de lo normal en 1 hora, 4 veces en 4 horas o 5% en el día)
