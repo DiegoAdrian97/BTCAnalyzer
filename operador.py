@@ -65,13 +65,40 @@ def abrir(sym, d, qty, sl, tp, lev):
     minimo = (m.get("limits", {}).get("amount", {}) or {}).get("min") or 0
     if amount <= 0 or amount < minimo:
         raise RuntimeError(f"cantidad {qty} menor que el mínimo del par ({minimo})")
-    gat = {"type": "STOP_MARKET", "triggerPrice": float(ex.price_to_precision(sym, sl)), "workingType": "CONTRACT_PRICE"}
-    obj = {"type": "TAKE_PROFIT_MARKET", "triggerPrice": float(ex.price_to_precision(sym, tp)), "workingType": "CONTRACT_PRICE"}
-    orden = ex.create_order(sym, "market", "buy" if d > 0 else "sell", amount, None,
-                            {"hedged": hedged, "stopLoss": gat, "takeProfit": obj})
+    lado_c = "sell" if d > 0 else "buy"
+    orden = ex.create_order(sym, "market", "buy" if d > 0 else "sell", amount, None, {"hedged": hedged})
     pos = _posiciones(ex, sym)
-    entrada = float(pos[0].get("entryPrice") or 0) if pos else float(orden.get("average") or 0)
-    return {"id": orden.get("id"), "cantidad": amount, "entrada": entrada, "abierta": bool(pos)}
+    if not pos:
+        raise RuntimeError(f"mandé la orden (id {orden.get('id')}) pero no veo la posición")
+    entrada = float(pos[0].get("entryPrice") or 0)
+    # TP y SL como ordenes aparte (reduce only) sobre la posicion ya abierta, y se verifica que esten en BingX
+    puestas = []
+    try:
+        for clave, px in (("stopLossPrice", sl), ("takeProfitPrice", tp)):
+            o = ex.create_order(sym, "market", lado_c, amount, None,
+                                {"hedged": hedged, "reduceOnly": True, clave: float(ex.price_to_precision(sym, px))})
+            puestas.append(o.get("id"))
+        abiertas = {str(o.get("id")) for o in ex.fetch_open_orders(sym)}
+        if not all(str(i) in abiertas for i in puestas):
+            raise RuntimeError("BingX no muestra las órdenes de TP/SL")
+    except Exception as e:              # sin stop no se queda abierta: se cierra por seguridad
+        cerrar(sym)
+        raise RuntimeError(f"no pude poner TP/SL ({type(e).__name__}: {str(e)[:120]}); la cerré por seguridad")
+    return {"id": orden.get("id"), "cantidad": amount, "entrada": entrada, "abierta": True, "tp_sl": puestas}
+
+
+def describir(sym):
+    """Texto con lo que hay abierto en el par (para entender un 'ya hay posicion')."""
+    ex = _bingx()
+    return "; ".join(f"{p.get('side')} {p.get('contracts')} a {p.get('entryPrice')}" for p in _posiciones(ex, sym)) or "nada"
+
+
+def saldo():
+    b = _bingx().fetch_balance()
+    for k in ("VST", "USDT"):
+        if (b.get(k) or {}).get("total") is not None:
+            return f"{b[k]['total']:.2f} {k}"
+    return "?"
 
 
 def cerrar(sym):
@@ -96,12 +123,16 @@ def prueba(sym, d=1):
     minimo = (m.get("limits", {}).get("amount", {}) or {}).get("min") or 0
     costo = (m.get("limits", {}).get("cost", {}) or {}).get("min") or 0
     qty = max(minimo, (max(costo, 6) / p) * 1.2)       # un poco mas que el minimo del par (BingX pide ~5 USDT)
-    r = abrir(sym, d, qty, p * (1 - 0.03 * d), p * (1 + 0.03 * d), 2)
+    try:
+        r = abrir(sym, d, qty, p * (1 - 0.03 * d), p * (1 + 0.03 * d), 2)
+    except RuntimeError as e:
+        if "ya hay" in str(e):
+            return f"{sym}: no probé porque ya hay una posición abierta en la demo ({describir(sym)})"
+        raise
     time.sleep(3)
-    pos = _posiciones(ex, sym)
     ordenes = ex.fetch_open_orders(sym)
     cerro = cerrar(sym)
     time.sleep(2)
     queda = _posiciones(ex, sym)
-    return (f"{sym}: abrió {r['cantidad']} a {r['entrada']}, posición vista: {'sí' if pos else 'NO'}, "
-            f"órdenes TP/SL en BingX: {len(ordenes)}, cerró: {'sí' if cerro and not queda else 'NO, revisá'}")
+    return (f"{sym}: abrió {r['cantidad']} a {r['entrada']} (orden {r['id']}), TP/SL puestos y verificados en BingX "
+            f"({len(ordenes)} órdenes), cerró: {'sí' if cerro and not queda else 'NO, revisá'}")
