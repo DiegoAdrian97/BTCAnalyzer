@@ -1150,8 +1150,9 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       out.push(ul);
       const ult = cs[cs.length - 1], prev = cs.filter((c) => c.meses_alcista_antes).map((c) => c.meses_alcista_antes);
       if (ult && prev.length) {
-        const prom = prev.reduce((a, b) => a + b, 0) / prev.length, mas = (m) => ult.piso_t + m * 30.44 * 86400000;
-        out.push(el('p', 'ab-note', `Los alcistas duraron ~${f0(prom)} meses y cada máximo llegó un poco antes; el último bajista fue más corto (${f1(ult.meses_bajista)} meses). Si el piso de ${fecha(ult.piso_t)} se sostiene, el próximo máximo caería hacia ${fecha(mas(30))} (alcista de 2,5 años) o ${fecha(mas(prom))} (como los anteriores).`));
+        const ul2 = prev[prev.length - 1], mas = (m) => ult.piso_t + m * 30.44 * 86400000;
+        const dur = (m) => { const a = Math.floor(m / 12), r = Math.round(m - a * 12); return `${a} años${r ? ` y ${r} meses` : ''}`; };
+        out.push(el('p', 'ab-note', `Cada alcista fue un poco más corto (${prev.map((m) => f1(m)).join(' → ')} meses; el último, ${dur(ul2)}) y el último bajista también (${f1(ult.meses_bajista)} meses). Si el piso de ${fecha(ult.piso_t)} se sostiene, el próximo máximo caería hacia ${fecha(mas(30))} si el alcista dura 2 años y medio, o ${fecha(mas(ul2))} si dura como el último.`));
       }
     }
     const R = t.reglas || {}, txt = (r) => `12 meses después BTC estuvo más arriba el ${r.sube_365}% de las veces (mediana ${r.mediana_365 > 0 ? '+' : ''}${r.mediana_365}%)`;
