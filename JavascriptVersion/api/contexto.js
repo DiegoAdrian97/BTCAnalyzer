@@ -270,17 +270,14 @@ async function calendario(nowMs) {
   } finally { clearTimeout(tm); }
 }
 
-// ---------- indice de miedo y codicia (alternative.me, gratis). Igual que noticias.py: contexto, no señal ----------
+// ---------- Fear & Greed Index (alternative.me, gratis). Igual que noticias.py ----------
 const FNG_ES = { 'Extreme Fear': 'Miedo extremo', Fear: 'Miedo', Neutral: 'Neutral', Greed: 'Codicia', 'Extreme Greed': 'Codicia extrema' };
 function miedoCodicia(data) {
   const d = data.data, v = parseInt(d[0].value, 10), ayer = d.length > 1 ? parseInt(d[1].value, 10) : null;
-  const clase = FNG_ES[d[0].value_classification] || d[0].value_classification || '';
-  let txt = v < 25 ? 'Mucho miedo: muchos venden por pánico. A veces marca pisos, pero no siempre'
-    : v < 45 ? 'Hay miedo en el mercado' : v <= 55 ? 'Ánimo parejo' : v <= 75 ? 'Hay codicia: el mercado está optimista'
-      : 'Euforia: muchos compran por miedo a quedarse afuera. A veces marca techos, pero no siempre';
-  if (ayer !== null && ayer !== v) txt += ` (ayer ${ayer})`;
-  return { tabla: 'contexto', clave: 'miedo_codicia', titulo: 'Miedo y codicia', valor: `${v} · ${clase}`, senal: 'neutral',
-    detalle: txt + '. Es el ánimo, no una señal: no anticipó la dirección de forma confiable.', fng: v, fng_ayer: ayer };
+  const clase = d[0].value_classification || '';
+  const txt = (FNG_ES[clase] || clase) + (ayer !== null && ayer !== v ? ` (ayer ${ayer})` : '');
+  return { tabla: 'contexto', clave: 'miedo_codicia', titulo: 'Fear & Greed Index', valor: `${v} · ${clase}`, senal: 'neutral',
+    detalle: txt, fng: v, fng_ayer: ayer, fng_clase: clase };
 }
 
 async function externo(nowMs = Date.now()) {

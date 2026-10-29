@@ -123,7 +123,7 @@ junta lo que coincide en el tiempo y lo explica en criollo:
 - **Sin repetidos y en español**: los titulares en inglés se traducen (Google Translate, gratis) y la misma noticia
   contada por varios medios aparece una sola vez (la primera que salió, con "y N medios más"). Se considera la misma
   si comparten la mayoría de sus palabras clave en 12 horas, o si es el mismo exchange hackeado.
-- **Índice de miedo y codicia** (Crypto Fear & Greed, alternative.me): se muestra como termómetro del ánimo. Medido
+- **Fear & Greed Index** (alternative.me): arco clásico con aguja en el panel del termómetro y en "Qué está pasando". Medido
   2018–2026 no anticipa la dirección de forma confiable (la codicia extrema fue alcista en 2018–21 y bajista en
   2024–26), así que es contexto, no señal.
 
