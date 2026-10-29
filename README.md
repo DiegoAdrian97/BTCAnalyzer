@@ -94,6 +94,9 @@ junta lo que coincide en el tiempo y lo explica en criollo:
   Taiwán, Corea del Norte, OTAN), **gobierno de EE.UU.** (Casa Blanca, Congreso, Fed, Tesoro, SEC, aranceles) y
   **gobiernos grandes** (China, Unión Europea y BCE, Japón, Reino Unido, Rusia, India, G7, OPEP), más las de **ETF**,
   **hackeos o quiebras** y las **noticias cripto**. El resto (deportes, policiales, empresas comunes) se descarta.
+  **Hackeo a un exchange grande** (Binance, Coinbase, Kraken, OKX, Bybit, Bitget, BingX, KuCoin, Tether y otros) es un
+  tema aparte, con búsqueda propia en Google Noticias, impacto máximo (3) y siempre bajista aunque el titular diga que
+  los fondos están a salvo. Se avisa por Telegram al instante aunque esté en "solo entradas" (`AVISOS_CRITICOS=0` lo apaga).
 
 Son coincidencias, no pruebas de la causa. Sin movimiento fuerte muestra las noticias del día y los ETF.
 

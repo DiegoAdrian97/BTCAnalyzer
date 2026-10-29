@@ -11,6 +11,7 @@ const FEEDS = [
   ['mundo', GN + 'guerra+OR+misiles+OR+ataque+OR+Trump+OR+%22Casa+Blanca%22+OR+%22Reserva+Federal%22+OR+aranceles+OR+China+OR+Rusia+OR+Ir%C3%A1n+when:1d'],
   ['mundo', GN_EN + 'war+OR+missile+OR+Trump+OR+%22White+House%22+OR+%22Federal+Reserve%22+OR+tariffs+OR+China+when:1d'],
   ['cripto', GN + 'bitcoin+when:1d'],
+  ['cripto', GN_EN + '(hack+OR+hacked+OR+breach+OR+exploit+OR+drained+OR+stolen)+(Binance+OR+Coinbase+OR+Kraken+OR+OKX+OR+Bybit+OR+Bitget+OR+BingX+OR+KuCoin+OR+Tether+OR+exchange)+when:1d'],
   ['cripto', 'https://www.coindesk.com/arc/outboundfeeds/rss/'],
 ];
 const FARSIDE = 'https://farside.co.uk/bitcoin-etf-flow-all-data/';
@@ -29,25 +30,30 @@ const POLITICA = /gobierno|government|presidente|president|primer ministro|prime
 const VIOLENTO = /ataque|attack|\bstrikes?\b|drones?|misil|missile|bombard|ofensiva|offensive|escalad|invade|invasi|muertos|killed|dead|explosi|disparo|fire[sd]? on|amenaza|threat/;
 const PAZ = /acuerdo de paz|peace (?:deal|agreement|talks)|fin de la guerra|end (?:of )?the war|alto el fuego|ceasefire|tregua|truce|negociaci|negotiat|retirada de tropas|withdraw/;
 // la Fed va primero siempre: si baja las tasas mas de lo previsto es bueno para BTC; si las sube, malo
+// hackeos: un exchange grande (o Tether) hackeado: tema propio, impacto maximo y siempre bajista. Igual que noticias.py.
+const HACK_SRC = '\\bhack(?:s|ed|eo|eos|eado|eada|earon|ean)?\\b|hackers? (?:steal|stole|drain|rob)|breach|exploit|drain(?:ed|s|ing)?\\b|stolen|robad|robo de|roban|robaron|comprometid|compromised|security incident|incidente de seguridad|(?:halts?|suspends?|suspende|pausa|pauses?|freezes?) (?:all )?(?:withdrawals|retiros)|retiros (?:suspendidos|congelados)';
+const HACK = new RegExp(HACK_SRC);
+const EXCHANGE = /binance|coinbase|kraken|\bokx\b|bybit|bitget|bingx|kucoin|bitfinex|gemini|crypto\.com|\bhtx\b|huobi|upbit|bitstamp|gate\.io|\bmexc\b|tether|\busdt\b|robinhood/;
 const COMO_SE_ESPERABA = /as expected|como se esperaba|como se preve[ií]a|en l[ií]nea con lo (?:esperado|previsto)|in line with expectations/;
 const FED = /reserva federal|federal reserve|\bfed\b|powell|\bfomc\b/;
 const TEMAS = [
   ['Gobierno de EE.UU.', /trump|casa blanca|white house|congreso de (?:ee|estados)|congress|senado de (?:ee|estados)|\bsenate\b|reserva federal|federal reserve|\bfed\b|powell|tesoro de (?:ee|estados)|treasury|bessent|\bsec\b|\bcftc\b|arancel|tariff|shutdown|gobierno de (?:ee\.? ?uu|estados unidos)|biden|vance|orden ejecutiva|executive order|\bcpi\b|payroll|n[oó]minas no agr/],
   ['ETF', /\betfs?\b|blackrock|\bibit\b|fidelity|grayscale|fondos cotizados/],
-  ['Hackeo o quiebra', /hacke|hacked|robo de|roban|robaron|exploit|quiebra|bankrupt|insolven|congela|freez/],
+  ['Hackeo o quiebra', new RegExp(HACK_SRC + '|quiebra|bankrupt|insolven|congela|freez')],
 ];
 // si el titular es bueno o malo para BTC: frases fuertes (pesan 2) y palabras (pesan 1), igual que noticias.py
 const SESGO = [
-  [-2, 'fewer rate cuts|menos recortes|no (?:recorta|baja)|sin recorte|holds? rates|pausa|pause|halc[oó]n|hawkish|m[aá]s alt[ao]s? de lo (?:esperado|previsto)|higher than expected|sube(?:n)? (?:las |la )?tasas m[aá]s|recorte menor|smaller cut|sub(?:e|en|ir|a)(?: de)? (?:las |la )?tasas|rate hikes?|hike rates|raises? (?:interest )?rates|eleva(?:n)? (?:las |la )?tasas|declara(?:ci[oó]n de)? (?:la )?guerra|invade|invasi[oó]n|prohibe|proh[ií]be|bans? (?:bitcoin|crypto)|hacke|hacked|robo de|roban|robaron|exploit'],
+  [-2, 'fewer rate cuts|menos recortes|no (?:recorta|baja)|sin recorte|holds? rates|pausa|pause|halc[oó]n|hawkish|m[aá]s alt[ao]s? de lo (?:esperado|previsto)|higher than expected|sube(?:n)? (?:las |la )?tasas m[aá]s|recorte menor|smaller cut|sub(?:e|en|ir|a)(?: de)? (?:las |la )?tasas|rate hikes?|hike rates|raises? (?:interest )?rates|eleva(?:n)? (?:las |la )?tasas|declara(?:ci[oó]n de)? (?:la )?guerra|invade|invasi[oó]n|prohibe|proh[ií]be|bans? (?:bitcoin|crypto)|' + HACK_SRC],
   [2, 'recorte mayor|bigger(?:-than-expected)? cut|m[aá]s baj[ao]s? de lo (?:esperado|previsto)|lower than expected|paloma|dovish|recorte de tasas|recorta(?:n)? (?:las |la )?tasas|rate cuts?|cuts? rates|baja(?:n|r)? (?:de )?(?:las |la )?tasas|baja(?:n)? la inflaci|inflaci[oó]n (?:baja|cae|se desacelera|se modera)|inflation (?:cools|eases|slows)|cooler|cut rates|alto el fuego|ceasefire|tregua|acuerdo de paz|peace deal|reserva estrat[eé]gica|strategic reserve|aprueba (?:el |los )?etf|etf approv'],
   [1, '\\bsube|\\bsuben|subida|se dispar|r[eé]cord|m[aá]ximo hist|rall|surge|soar|jump|rebot|rebound|recupera|entradas|inflows?|aprueb|approv|adopt|compra|\\bbuys?\\b|acumula|dovish|acuerdo|\\bdeal\\b|alivio|optimis'],
   [-1, '\\bcae\\b|\\bcaen\\b|ca[ií]da|desplom|derrumb|hund|pierde|retroced|plunge|\\bdrops?\\b|\\bfalls?\\b|crash|slump|tumble|sell-?off|venta masiva|liquidac|liquidat|quiebra|bankrupt|demanda|lawsuit|investiga|salidas|outflows?|guerra|\\bwar\\b|misil|missile|ataque|attack|\\bstrikes?\\b|bombard|escalad|sanci|arancel|tariff|hawkish|recesi|recession|shutdown|miedo|\\bfear\\b|p[aá]nico|panic|temor|slides?|slips?'],
 ];
-const IMPACTO = { 'Fed y tasas': 3, 'Guerras grandes': 3, 'Gobierno de EE.UU.': 3, 'Grandes gobiernos': 2, ETF: 2, 'Hackeo o quiebra': 2, Cripto: 1 };
+const IMPACTO = { 'Hackeo de exchange': 3, 'Fed y tasas': 3, 'Guerras grandes': 3, 'Gobierno de EE.UU.': 3, 'Grandes gobiernos': 2, ETF: 2, 'Hackeo o quiebra': 2, Cripto: 1 };
 function sesgo(titulo, tm = null) {
   let t = titulo.toLowerCase(), score = 0;
   // la Fed haciendo lo que el mercado ya esperaba no sorprende: neutral
   if (tm === 'Fed y tasas' && COMO_SE_ESPERABA.test(t)) return 'neutral';
+  if (tm === 'Hackeo de exchange') return 'bajista';
   if (tm === 'Guerras grandes') return VIOLENTO.test(t) || !PAZ.test(t) ? 'bajista' : 'alcista';
   for (const [peso, src] of SESGO) {
     const rx = new RegExp(src, 'g'), n = (t.match(rx) || []).length;
@@ -73,6 +79,7 @@ const unesc = (s) => s.replace(/&(#x?[0-9a-f]+|\w+);/gi, (m, e) => (e[0] === '#'
 
 function tema(titulo, feed) {
   const t = titulo.toLowerCase();
+  if (HACK.test(t) && EXCHANGE.test(t)) return 'Hackeo de exchange';
   if (FED.test(t)) return 'Fed y tasas';
   if (GUERRA.test(t) && ACTOR_GRANDE.test(t)) return 'Guerras grandes';
   for (const [name, rx] of TEMAS) {

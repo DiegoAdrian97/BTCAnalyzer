@@ -63,6 +63,9 @@ RIESGO = float(os.environ.get("RIESGO_PCT", "1")) / 100
 # fuerte, liquidaciones, noticias, datos de EE.UU. y la Fed.
 # Criptos con entradas (ETH queda definido pero apagado): MONEDAS=BTC,ETH,ZEC en Render para cambiarlo
 MONEDAS = [m.strip().upper() for m in os.environ.get("MONEDAS", "BTC,ZEC").split(",") if m.strip()]
+# Excepcion al "solo entradas": un hackeo a un exchange grande (Binance, Coinbase, Tether...) se avisa siempre.
+# AVISOS_CRITICOS=0 en Render lo apaga.
+CRITICOS = os.environ.get("AVISOS_CRITICOS", "1").strip() != "0"
 SOLO_ENTRADAS = os.environ.get("AVISOS", "entradas").strip().lower() != "todos"
 RIESGO_MAX_ABIERTO = 0.025    # riesgo total abierto (todas las operaciones juntas): 2,5% del capital
 PERDIDA_DIA_MAX = 0.02        # si en el dia se pierde 2% del capital, no se abren entradas nuevas hasta el dia siguiente
@@ -531,6 +534,10 @@ def revisar(rows, velas=None):
 
     # 0) setups de entrada (BTC, ETH y ZEC), una vez por vela de 1 hora cerrada, y seguimiento de los abiertos
     _setups(velas, price, liq, ahora, rows)
+    try:
+        _criticas(rows, ahora, price)
+    except Exception as e:
+        print(f"(aviso crítico: {type(e).__name__}: {e})", flush=True)
     if SOLO_ENTRADAS:
         return
     try:
@@ -602,6 +609,27 @@ def revisar(rows, velas=None):
                    f"BTC en {_ar(price, 1)}. La zona más grande de liquidaciones de {lado} ({sentido}) está en "
                    f"{_ar(top['precio'])}: ~{_ar(top[campo], 1)} M USD estimados. Si el precio la alcanza, el movimiento "
                    f"puede acelerarse. Es una estimación con open interest y long/short, no un pronóstico.")
+
+
+def _criticas(rows, ahora, price):
+    """Hackeo a un exchange grande: aviso inmediato (sin esperar), aunque Telegram este en "solo entradas".
+    Junta los titulares del mismo evento y no repite mas de una vez cada 2 horas."""
+    if not CRITICOS:
+        return
+    vistos = _estado.setdefault("criticas", set())
+    clave = lambda r: (r.get("url") or r["titulo"])[:200]
+    nuevas = [r for r in rows if r.get("tabla") == "noticia" and r.get("tema") == "Hackeo de exchange"
+              and clave(r) not in vistos and ahora - r["t"] / 1000 <= 3 * 3600]
+    if not nuevas or ahora - _estado.get("criticas_t", 0) < 2 * 3600:
+        return
+    nuevas.sort(key=lambda r: -r["t"])
+    vistos.update(clave(r) for r in nuevas)
+    _estado["criticas_t"] = ahora
+    lineas = [f"▼ {r['titulo']} ({r['fuente']}, hace {max(0, int((ahora - r['t'] / 1000) // 60))} min) {r['url']}" for r in nuevas[:3]]
+    enviar("🚨 Hackeo a un exchange grande: muy negativo para BTC",
+           "\n".join(lineas) + f"\nBTC en {_ar(price, 1)}. Un hackeo así suele traer miedo, ventas y retiros masivos; "
+           "ojo con los longs abiertos y con los stops muy cerca. Si tenés plata en ese exchange, considerá sacarla. "
+           "Lectura automática del titular: confirmalo.", urgente=True)
 
 
 def _noticias(rows, ahora):
