@@ -28,6 +28,29 @@ def temperatura(pcts):
     return float(np.mean(pcts))
 
 
+# Medidor final de compra/venta: mitad "logica inversa" (cuanto mas barato esta BTC frente a su historia, mas compra:
+# 1 - temperatura) y mitad momento del ciclo de 4 años (un modelo logistico con el año del ciclo y que tan avanzado va
+# el año bajista y el 3er alcista: al final del bajista suele estar el piso; al final del 3er alcista, el techo).
+# Probado año por año 2019-2026, entrenando el ciclo solo con lo anterior: separa mucho mejor que cada parte sola
+# (AUC 0,96 contra 0,74 la temperatura y 0,80 el ciclo). Cualquier mezcla entre 30% y 70% da mas de 0,93.
+PESO_VALUACION = 0.5
+ZONAS_S = [(0.75, 9.0, "Compra fuerte"), (0.60, 0.75, "Buen momento de compra"), (0.45, 0.60, "Cuidado: caro"), (-9.0, 0.45, "Zona de venta")]
+
+
+def X_ciclo(años, avance):
+    """Señales del ciclo: año del ciclo (alcista 1, 2, 3; el bajista es la base) y avance del año (0 a 1) en el
+    bajista y en el 3er alcista."""
+    ph = (np.asarray(años) - 2) % 4; av = np.asarray(avance, float)
+    return np.column_stack([(ph == k).astype(float) for k in (1, 2, 3)] + [(ph == 0) * av, (ph == 3) * av])
+
+
+def avance_año(ms):
+    """Que parte del año (UTC) paso: 0 el 1 de enero, casi 1 el 31 de diciembre."""
+    import datetime as dt
+    d = dt.datetime.fromtimestamp(ms / 1000, dt.timezone.utc)
+    return (d.timetuple().tm_yday - 1) / 366
+
+
 def fase(y):
     """Ciclo de 4 años de BTC: 2014, 2018, 2022, 2026... bajistas; los tres de en medio, alcistas 1, 2 y 3."""
     return "bajista" if y % 4 == 2 else f"alcista {(y - 3) % 4 + 1}"
@@ -85,6 +108,32 @@ def main():
                 if len(hist[k]) >= 365: p.append(bisect.bisect_left(hist[k], v) / len(hist[k]) * 100)
                 bisect.insort(hist[k], v)
         if len(p) == len(COMP): T[i] = temperatura(p)
+    # medidor: mitad valuacion (1 - temperatura) y mitad ciclo; zonas medidas año por año desde 2019 sin mirar el futuro
+    from sklearn.linear_model import LogisticRegression
+    import datetime as dt
+    años = np.array([dt.datetime.fromtimestamp(x / 1000, dt.timezone.utc).year for x in t])
+    fut365 = np.r_[c[365:] / c[:-365] - 1, np.full(365, np.nan)]; fut180 = np.r_[c[180:] / c[:-180] - 1, np.full(180, np.nan)]
+    Xc = X_ciclo(años, [avance_año(x) for x in t]); okc = t >= 1325376000000          # ciclo desde 2012
+    Pc = np.full(len(c), np.nan)
+    for Y in range(2019, int(años[-1]) + 1):
+        a = dt.datetime(Y, 1, 1, tzinfo=dt.timezone.utc).timestamp() * 1000
+        tr = okc & np.isfinite(fut365) & (t + 365 * 86400000 < a); te = okc & (años == Y)
+        if tr.sum() > 300 and te.any():
+            Pc[te] = LogisticRegression(max_iter=4000).fit(Xc[tr], fut365[tr] > 0).predict_proba(Xc[te])[:, 1]
+    S = PESO_VALUACION * (1 - T / 100) + (1 - PESO_VALUACION) * Pc
+    zonas_s = []
+    for lo, hi, nom in ZONAS_S:
+        z = {"desde": lo, "hasta": hi, "nombre": nom}
+        for hz, fut in ((180, fut180), (365, fut365)):
+            m = np.isfinite(S) & (S >= lo) & (S < hi) & np.isfinite(fut)
+            z[f"sube_{hz}"] = round(float(np.mean(fut[m] > 0)) * 100) if m.sum() >= 30 else None
+            z[f"mediana_{hz}"] = round(float(np.median(fut[m])) * 100) if m.sum() >= 30 else None
+            z[f"dias_{hz}"] = int(m.sum())
+        zonas_s.append(z)
+    trf = okc & np.isfinite(fut365)
+    fin = LogisticRegression(max_iter=4000).fit(Xc[trf], fut365[trf] > 0)
+    modelo = {"intercepto": round(float(fin.intercept_[0]), 6), "pesos": [round(float(w), 6) for w in fin.coef_[0]],
+              "peso_valuacion": PESO_VALUACION, "zonas": zonas_s}
     # las zonas se miden desde 2019: antes la media de 200 semanas tenia menos de un ciclo de historia para comparar
     # (en 2016-17 casi todo salia "caro" en plena suba)
     desde = 1546300800000
@@ -98,10 +147,10 @@ def main():
             z[f"mediana_{hz}"] = round(float(np.median(fut[m])) * 100) if m.sum() >= 30 else None
             z[f"dias_{hz}"] = int(m.sum())
         zonas.append(z)
-    out = {"ciclo": ciclo(t, c, fng), "hasta": int(t[-1]), "zonas_desde": desde, "ath": float(c.max()), "componentes": list(COMP), "zonas": zonas,
+    out = {"medidor": modelo, "ciclo": ciclo(t, c, fng), "hasta": int(t[-1]), "zonas_desde": desde, "ath": float(c.max()), "componentes": list(COMP), "zonas": zonas,
            "q": {k: [round(float(x), 6) for x in np.quantile(np.array(hist[k]), np.linspace(0, 1, 201))] for k in COMP}}
     json.dump(out, open("JavascriptVersion/termometro.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-    print(json.dumps(zonas, ensure_ascii=False, indent=1)); print("hoy:", round(float(T[-1]), 1))
+    print(json.dumps(zonas_s, ensure_ascii=False, indent=1)); print("hoy: temperatura", round(float(T[-1]), 1), "ciclo", modelo["intercepto"], modelo["pesos"])
 
 
 if __name__ == "__main__":

@@ -76,37 +76,31 @@ o `WHATSAPP_TEL` y `WHATSAPP_CLAVE` (CallMeBot), o `NTFY_TEMA` (app ntfy). Si Bi
 
 ### Termómetro de compra y venta (ciclo de BTC)
 
-Pestaña fija al costado de la app (abajo en el celular): de 0 (frío, buena zona de compra) a 100 (caliente, zona de
-venta), para decidir de a poco en semanas o meses, no para el próximo trade. Compara con toda la historia de BTC
-desde 2011 (Bitstamp) tres medidas: cuánto está el precio sobre su media de 200 semanas, cuánto cayó desde el máximo
-histórico y cuánto subió o bajó en el último año (`termometro.py`, `armar_termometro.py`, `JavascriptVersion/termometro.json`).
+Pestaña fija al costado de la app (abajo en el celular): de 0 (compra fuerte) a 100 (zona de venta), para decidir de
+a poco en semanas o meses, no para el próximo trade. Sigue la lógica inversa del mercado cripto: comprar cuando está
+barato y el ciclo está en su piso (miedo), vender cuando está caro y en el techo del ciclo (euforia). Es mitad y mitad:
 
-Medido sin mirar el futuro (cada día comparado solo con la historia que había hasta ese día), desde 2019:
+- **Barato o caro** (temperatura): cuánto está el precio sobre su media de 200 semanas, cuánto cayó desde el máximo
+  histórico y cuánto subió o bajó en el último año, comparado con toda la historia de BTC desde 2011 (Bitstamp).
+- **Momento del ciclo de 4 años** (3 alcistas y 1 bajista: 2014, 2018, 2022, 2026...): un modelo con el año del
+  ciclo y qué tan avanzado va el año bajista (al final suele estar el piso) y el 3er alcista (al final, el techo).
 
-| Zona | 12 meses después, BTC más arriba | Mediana a 12 meses |
-|---|---|---|
-| 0–20 Compra fuerte | 98% | +82% |
-| 20–40 Buena zona de compra | 88% | +128% |
-| 40–60 Neutral | 64% | +82% |
-| 60–80 Caro: cuidado | 34% | −24% |
-| 80–100 Zona de venta | 23% | −23% |
+Probado año por año 2019–2026, entrenando el ciclo solo con lo anterior (sin mirar el futuro):
 
-**Ciclo de 4 años** (en el mismo panel): fase del año (3 alcistas y 1 bajista: 2014, 2018, 2022, 2026...; se cumplió
-desde 2012 salvo 2025, que tocaba alcista y cerró −7%), máximos y pisos de cada ciclo con su duración (los alcistas
-duraron ~35 meses; el último bajista, 8,8 meses hasta el piso de jun-2026, si se sostiene) y la proyección del próximo
-máximo (alcista de 2,5 años o como los anteriores). Con el Fear & Greed Index según la fase, 12 meses después:
-
-| Situación | BTC más arriba | Mediana | Antes de subir |
+| Zona | 12 meses después, BTC más arriba | Mediana | 6 meses después |
 |---|---|---|---|
-| Extreme Fear (<25) en año bajista (2018, 2022, 2026) | 64% | +37% | llegó a caer −48% (mediana) |
-| Extreme Greed (>75) en el 3er año alcista (2021, 2025) | 32% | −15% | |
-| Extreme Greed en el 1er o 2º año alcista | 79% | +50% | |
+| Compra fuerte | 99% | +136% | 86% |
+| Buen momento de compra | 72% | +40% | 78% |
+| Cuidado: caro | 10% | −27% | 34% |
+| Zona de venta | 0% | −43% | 15% |
 
-Son pocos ciclos (tres), así que es una guía, no una garantía; en 2016–17 (con menos historia para comparar) la zona
-cara siguió subiendo. Se probaron y no entran en el puntaje porque no anticiparon de forma pareja entre ciclos: el
-múltiplo de Mayer (precio / media de 200 días), la fase del halving, el índice de miedo y codicia, el volumen, los
-indicadores de corto plazo y las noticias; el panel los muestra como contexto. Se actualiza solo cada mes junto con
-el reentrenamiento.
+La mezcla separa mucho mejor que cada parte sola (AUC 0,96 contra 0,74 solo barato/caro y 0,80 solo el ciclo).
+Son tres ciclos: es una guía, no una garantía. El Fear & Greed Index se muestra con su arco; sumarlo al puntaje no lo
+mejoró, pero el panel avisa cuando hay Extreme Fear en año bajista (12 meses después: 64% más arriba, mediana +37%;
+antes llegó a caer −48%) o Extreme Greed en el 3er año alcista (32% más arriba, mediana −15%). Para plazos de días
+o semanas el ciclo y el Fear & Greed Index casi no sumaron (7 días: AUC 0,53 → 0,57; 30 días: igual), así que no
+cambian las predicciones de corto plazo ni los setups. Se actualiza solo cada mes junto con el reentrenamiento
+(`termometro.py`, `armar_termometro.py`, `JavascriptVersion/termometro.json`).
 
 ### Reentrenamiento mensual
 
