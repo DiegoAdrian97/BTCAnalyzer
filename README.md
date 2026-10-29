@@ -97,6 +97,12 @@ junta lo que coincide en el tiempo y lo explica en criollo:
   **Hackeo a un exchange grande** (Binance, Coinbase, Kraken, OKX, Bybit, Bitget, BingX, KuCoin, Tether y otros) es un
   tema aparte, con búsqueda propia en Google Noticias, impacto máximo (3) y siempre bajista aunque el titular diga que
   los fondos están a salvo. Se avisa por Telegram al instante aunque esté en "solo entradas" (`AVISOS_CRITICOS=0` lo apaga).
+- **Sin repetidos y en español**: los titulares en inglés se traducen (Google Translate, gratis) y la misma noticia
+  contada por varios medios aparece una sola vez (la primera que salió, con "y N medios más"). Se considera la misma
+  si comparten la mayoría de sus palabras clave en 12 horas, o si es el mismo exchange hackeado.
+- **Índice de miedo y codicia** (Crypto Fear & Greed, alternative.me): se muestra como termómetro del ánimo. Medido
+  2018–2026 no anticipa la dirección de forma confiable (la codicia extrema fue alcista en 2018–21 y bajista en
+  2024–26), así que es contexto, no señal.
 
 Son coincidencias, no pruebas de la causa. Sin movimiento fuerte muestra las noticias del día y los ETF.
 
