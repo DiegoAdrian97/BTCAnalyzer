@@ -533,10 +533,16 @@
     background: linear-gradient(to top, var(--color-ok), color-mix(in srgb, var(--color-ok) 35%, var(--soft2)) 30%, var(--soft2) 50%, color-mix(in srgb, var(--color-bad) 35%, var(--soft2)) 70%, var(--color-bad)); }
   .ab-tm-dot { position: absolute; left: 50%; width: 22px; height: 22px; border-radius: 50%; transform: translate(-50%, 50%);
     background: var(--panel); border: 3px solid var(--tm-col, var(--ink)); box-shadow: 0 1px 4px rgba(0,0,0,.25); }
-  .ab-tm-panel { position: fixed; right: 0; top: 0; bottom: 0; z-index: 41; width: min(380px, 100vw); overflow-y: auto; padding: 20px;
+  .ab-tm-back { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.35); }
+  .ab-tm-back[hidden] { display: none; }
+  .ab-tm-panel { position: fixed; right: 0; top: 0; bottom: 0; z-index: 1001; width: min(380px, 100vw); overflow-y: auto; overscroll-behavior: contain;
+    padding: max(20px, calc(env(safe-area-inset-top) + 12px)) max(20px, env(safe-area-inset-right)) max(24px, calc(env(safe-area-inset-bottom) + 16px)) 20px;
     background: var(--panel); border-left: 1px solid var(--line); box-shadow: -8px 0 32px rgba(0,0,0,.18); display: grid; gap: 14px; align-content: start; }
   .ab-tm-panel[hidden], .ab-tm-tab[hidden] { display: none; }
   .ab-tm-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+  #tm-x { min-width: 44px; min-height: 44px; font-size: 18px; flex: none; }
+  .ab-tm-close { width: 100%; min-height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--soft); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+  .ab-fng { width: 100%; max-width: 260px; justify-self: center; display: block; overflow: visible; }
   .ab-tm-big { display: flex; align-items: baseline; gap: 10px; }
   .ab-tm-big b { font-size: 44px; font-weight: 650; letter-spacing: -.03em; line-height: 1; }
   .ab-tm-zona { font-size: 18px; font-weight: 600; color: var(--tm-col, var(--ink)); }
@@ -549,7 +555,7 @@
   .ab-tm-list li em { font-style: normal; color: var(--mute); }
   .ab-tm-sec { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--mute); margin: 4px 0 0; }
   @media (max-width: 700px) {
-    .ab-tm-tab { top: auto; bottom: 14px; transform: none; width: auto; padding: 8px 10px 8px 12px; grid-auto-flow: column; align-items: center; gap: 8px; border-radius: 22px 0 0 22px; }
+    .ab-tm-tab { top: auto; bottom: max(14px, calc(env(safe-area-inset-bottom) + 8px)); transform: none; width: auto; padding: 8px 10px 8px 12px; grid-auto-flow: column; align-items: center; gap: 8px; border-radius: 22px 0 0 22px; }
     .ab-tm-bar { width: 64px; height: 10px; background: linear-gradient(to right, var(--color-ok), var(--soft2) 50%, var(--color-bad)); }
     .ab-tm-dot { width: 16px; height: 16px; top: 50%; transform: translate(-50%, -50%); border-width: 3px; }
     .ab-tm-tab small { max-width: none; white-space: nowrap; }
@@ -588,10 +594,12 @@
   <button type="button" class="ab-tm-tab" id="tm-tab" aria-expanded="false" aria-controls="tm-panel" hidden title="Termómetro de compra y venta">
     <span class="ab-tm-bar"><span class="ab-tm-dot" id="tm-dot"></span></span><b id="tm-num">—</b><small id="tm-zona">—</small>
   </button>
-  <aside class="ab-tm-panel" id="tm-panel" aria-labelledby="tm-t" hidden>
+  <div class="ab-tm-back" id="tm-back" hidden></div>
+  <aside class="ab-tm-panel" id="tm-panel" aria-labelledby="tm-t" role="dialog" aria-modal="true" hidden>
     <div class="ab-tm-head"><div><span class="ab-kicker">Ciclo de BTC · semanas o meses</span><h2 id="tm-t" style="margin:2px 0 0">Termómetro de compra y venta</h2></div>
       <button type="button" class="ab-iconbtn ab-round" id="tm-x" aria-label="Cerrar">✕</button></div>
     <div id="tm-body"></div>
+    <button type="button" class="ab-tm-close" id="tm-x2">Cerrar</button>
   </aside>
   <section class="ab-card ab-qp" id="que-pasa" aria-labelledby="qp-t" data-source="analisis" hidden>
     <div class="ab-card-head"><h2 id="qp-t">Qué está pasando</h2><span class="ab-kicker" id="qp-k"></span></div>
@@ -1032,15 +1040,38 @@
     'color-mix(in srgb, var(--color-bad) 55%, var(--color-fg-muted))', 'var(--color-bad)'];
   (function tmInit() {
     const tab = document.getElementById('tm-tab'), pan = document.getElementById('tm-panel');
-    const set = (open) => { pan.hidden = !open; tab.setAttribute('aria-expanded', String(open)); };
+    const back = document.getElementById('tm-back');
+    const set = (open) => { pan.hidden = !open; back.hidden = !open; tab.setAttribute('aria-expanded', String(open)); document.documentElement.style.overflow = open ? 'hidden' : ''; };
     tab.addEventListener('click', () => set(pan.hidden));
-    document.getElementById('tm-x').addEventListener('click', () => set(false));
+    ['tm-x', 'tm-x2', 'tm-back'].forEach((id) => document.getElementById(id).addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); set(false); }));
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') set(false); });
   })();
+  // Fear & Greed Index: arco clasico de 5 colores y aguja
+  function fngGauge(v, clase, ayer) {
+    const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 220 168'); svg.setAttribute('class', 'ab-fng'); svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', `Fear & Greed Index ${v}, ${clase}`);
+    const cx = 110, cy = 100, r = 86, pt = (val, rr) => { const a = Math.PI * (1 - val / 100); return [cx + rr * Math.cos(a), cy - rr * Math.sin(a)]; };
+    const arc = (a, b, col) => { const [x1, y1] = pt(a, r), [x2, y2] = pt(b, r), p = document.createElementNS(NS, 'path');
+      p.setAttribute('d', `M${x1},${y1} A${r},${r} 0 0 1 ${x2},${y2}`); p.setAttribute('fill', 'none'); p.setAttribute('stroke', col);
+      p.setAttribute('stroke-width', '18'); svg.append(p); };
+    [[0, 25, '#e5484d'], [25.6, 45, '#f5793a'], [45.6, 55, '#f5c84c'], [55.6, 75, '#9bd35a'], [75.6, 100, '#30a46c']].forEach(([a, b, c]) => arc(a, b, c));
+    const [nx, ny] = pt(Math.max(0, Math.min(100, v)), r - 22), nd = document.createElementNS(NS, 'line');
+    nd.setAttribute('x1', cx); nd.setAttribute('y1', cy); nd.setAttribute('x2', nx); nd.setAttribute('y2', ny);
+    nd.setAttribute('stroke', 'currentColor'); nd.setAttribute('stroke-width', '4'); nd.setAttribute('stroke-linecap', 'round'); svg.append(nd);
+    const hub = document.createElementNS(NS, 'circle'); hub.setAttribute('cx', cx); hub.setAttribute('cy', cy); hub.setAttribute('r', '7'); hub.setAttribute('fill', 'currentColor'); svg.append(hub);
+    const tx = (x, y, s, w, txt, fill) => { const e = document.createElementNS(NS, 'text'); e.setAttribute('x', x); e.setAttribute('y', y); e.setAttribute('text-anchor', 'middle');
+      e.setAttribute('font-size', s); e.setAttribute('font-weight', w); e.setAttribute('fill', fill || 'currentColor'); e.textContent = txt; svg.append(e); };
+    tx(cx, cy + 42, 30, 650, String(v)); tx(cx, cy + 62, 13, 600, clase);
+    tx(24, cy + 20, 10, 400, '0', 'var(--color-fg-muted)'); tx(196, cy + 20, 10, 400, '100', 'var(--color-fg-muted)');
+    const box = el('div'); box.style.display = 'grid'; box.style.gap = '2px'; box.style.color = 'var(--ink)'; box.append(svg);
+    if (ayer !== null && ayer !== undefined && Number(ayer) !== v) box.append(el('p', 'ab-note', `Ayer: ${ayer}`));
+    return box;
+  }
   function drawTermometro(rows) {
     const tab = document.getElementById('tm-tab'), body = document.getElementById('tm-body');
     const t = pick(rows, 'termometro')[0];
-    tab.hidden = !t; if (!t) { document.getElementById('tm-panel').hidden = true; return; }
+    tab.hidden = !t; if (!t) { document.getElementById('tm-panel').hidden = true; document.getElementById('tm-back').hidden = true; document.documentElement.style.overflow = ''; return; }
     const v = num(t.temp), zi = Math.max(0, t.zonas.findIndex((z) => v < z[1] || z[1] >= 100)), col = TM_COL[zi];
     tab.style.setProperty('--tm-col', col); document.getElementById('tm-panel').style.setProperty('--tm-col', col);
     const dot = document.getElementById('tm-dot');
@@ -1063,7 +1094,6 @@
     // contexto de corto plazo: se muestra, pero no entra en el termometro (no anticipo la direccion de forma pareja)
     const ctxL = el('ul', 'ab-tm-list'), li2 = (txt) => ctxL.append(el('li', '', txt));
     const fg = pick(rows, 'contexto').find((c) => c.clave === 'miedo_codicia');
-    if (fg) li2(`Miedo y codicia: ${fg.valor}.`);
     const nots = pick(rows, 'noticia').filter((n) => num(n.impacto) >= 2 && Date.now() - n.t <= 6 * 3600000);
     if (nots.length) { const a = nots.filter((n) => n.sesgo === 'alcista').length, b = nots.filter((n) => n.sesgo === 'bajista').length;
       li2(`Noticias de peso (6 h): ${a} a favor de suba, ${b} a favor de baja${nots.some((n) => n.tema === 'Hackeo de exchange') ? ' — ⚠ hackeo a un exchange grande' : ''}.`); }
@@ -1072,8 +1102,9 @@
     const rs = pick(rows, 'resumen')[0];
     if (rs && rs.rating_1d !== undefined) li2(`Sesgo técnico diario: ${num(rs.rating_1d) > 0.1 ? 'compra' : num(rs.rating_1d) < -0.1 ? 'venta' : 'neutral'} (${ar.format('+.2f')(num(rs.rating_1d))}).`);
     body.append(big, sc, pasado, el('p', 'ab-tm-sec', 'Qué lo forma'), comp,
-      el('p', 'ab-tm-sec', 'Corto plazo (contexto, no entra en el termómetro)'), ctxL,
-      el('p', 'ab-foot', 'Mide en qué parte del ciclo está BTC comparado con toda su historia desde 2011. Sirve para decidir de a poco en semanas o meses, no para el próximo trade. El volumen, los indicadores, el miedo y la codicia, la fase del halving y las noticias se midieron y no anticiparon la dirección de forma pareja entre ciclos, por eso quedan como contexto. No es asesoramiento financiero.'));
+      ...(fg ? [el('p', 'ab-tm-sec', 'Fear & Greed Index'), fngGauge(num(fg.fng), fg.fng_clase || String(fg.valor).split(' · ')[1] || '', fg.fng_ayer)] : []),
+      el('p', 'ab-tm-sec', 'Corto plazo (no entra en el termómetro)'), ctxL,
+      el('p', 'ab-foot', 'Mide en qué parte del ciclo está BTC comparado con toda su historia desde 2011. Sirve para decidir de a poco en semanas o meses, no para el próximo trade. No es asesoramiento financiero.'));
   }
   function drawQuePasa(rows, s) {
     const box = document.getElementById('que-pasa');
@@ -1134,7 +1165,7 @@
     }
     const fg = ctx('miedo_codicia'), fv = fg ? num(fg.fng) : null;
     if (fv !== null && fv !== undefined) {
-      F.push({ si: false, ic: '☯', txt: `Ánimo del mercado (índice de miedo y codicia): ${fg.valor}. ${fg.detalle}` });
+      F.push({ si: false, ic: '◔', txt: `Fear & Greed Index: ${fg.valor}${fg.fng_ayer !== null && fg.fng_ayer !== undefined && num(fg.fng_ayer) !== fv ? ` (ayer ${fg.fng_ayer})` : ''}.` });
     }
     // la decision de tasas de la Fed tiene su propia linea (abajo): aca no se repite
     const salio = eventosAgrupados(rows).map((g) => ({ ...g, items: g.items.filter((x) => !(/interest rate decision/i.test(x.original || '') && x.actual !== null && x.actual !== undefined)) }))

@@ -267,7 +267,7 @@ def _prima():
     return prima_coinbase(cb, spot, ut)
 
 
-# ---------- indice de miedo y codicia (Crypto Fear & Greed, alternative.me, gratis) ----------
+# ---------- Fear & Greed Index (alternative.me, gratis) ----------
 # Termometro del animo del mercado (0 = miedo extremo, 100 = codicia extrema). Medido 2018-2026 con BTC: no anticipa
 # la direccion de forma confiable (la codicia extrema fue alcista en 2018-21 y bajista en 2024-26; el miedo extremo,
 # mixto), asi que se muestra como contexto, no como señal.
@@ -275,18 +275,13 @@ FNG_ES = {"Extreme Fear": "Miedo extremo", "Fear": "Miedo", "Neutral": "Neutral"
 
 
 def miedo_codicia(data):
-    """Fila de contexto con el indice de hoy y el de ayer (respuesta de api.alternative.me/fng/?limit=2)."""
+    """Fila de contexto con el Fear & Greed Index de hoy y el de ayer (respuesta de api.alternative.me/fng/?limit=2)."""
     d = data["data"]
     v, ayer = int(d[0]["value"]), (int(d[1]["value"]) if len(d) > 1 else None)
-    clase = FNG_ES.get(d[0].get("value_classification"), d[0].get("value_classification") or "")
-    txt = ("Mucho miedo: muchos venden por pánico. A veces marca pisos, pero no siempre" if v < 25 else
-           "Hay miedo en el mercado" if v < 45 else "Ánimo parejo" if v <= 55 else
-           "Hay codicia: el mercado está optimista" if v <= 75 else "Euforia: muchos compran por miedo a quedarse afuera. A veces marca techos, pero no siempre")
-    if ayer is not None and ayer != v:
-        txt += f" (ayer {ayer})"
-    return {"tabla": "contexto", "clave": "miedo_codicia", "titulo": "Miedo y codicia", "valor": f"{v} · {clase}",
-            "senal": "neutral", "detalle": txt + ". Es el ánimo, no una señal: no anticipó la dirección de forma confiable.",
-            "fng": v, "fng_ayer": ayer}
+    clase = d[0].get("value_classification") or ""
+    txt = FNG_ES.get(clase, clase) + (f" (ayer {ayer})" if ayer is not None and ayer != v else "")
+    return {"tabla": "contexto", "clave": "miedo_codicia", "titulo": "Fear & Greed Index", "valor": f"{v} · {clase}",
+            "senal": "neutral", "detalle": txt, "fng": v, "fng_ayer": ayer, "fng_clase": clase}
 
 
 # ---------- calendario economico de EE.UU. (importancia alta) ----------
