@@ -152,9 +152,20 @@ def update_candles(ex, tf, days):
     return candles
 
 
+def dec_precio(x):
+    """Decimales para guardar un precio: 1 para BTC (desde 1.000), 2 desde 100, 3 desde 10 y 4 debajo (XRP)."""
+    x = abs(x)
+    return 1 if x >= 1000 else 2 if x >= 100 else 3 if x >= 10 else 4
+
+
+def rp(x):
+    """Precio redondeado con los decimales que pide su tamaño."""
+    return None if x is None else round(x, dec_precio(x))
+
+
 def ap(x):
-    """Precio: sin decimales desde 1.000 (BTC) y con dos debajo (ZEC)."""
-    return ar(x, 0 if abs(x) >= 1000 else 2)
+    """Precio: sin decimales desde 1.000 (BTC), dos desde 10 (ZEC, SOL) y cuatro debajo (XRP)."""
+    return ar(x, 0 if abs(x) >= 1000 else 2 if abs(x) >= 10 else 4)
 
 
 def ar(x, d=0):
@@ -206,7 +217,9 @@ def similar(st, last, warmup):
 # 2021-2026: la tabla casi no cambio entre 2021-24 y 2025-26.
 MOV_CORTES = (0.8, 1.0, 1.3, 1.6, 2.0, 2.5)
 MOV_TABLA = {"BTC": {"prob": (8, 12, 19, 32, 43, 60, 68), "veces": (0.8, 0.96, 1.18, 1.53, 1.75, 2.3, 3.0), "base": 14},
-             "ZEC": {"prob": (7, 8, 14, 24, 35, 50, 69), "veces": (0.87, 0.94, 1.11, 1.38, 1.6, 2.0, 3.7), "base": 11}}
+             "ZEC": {"prob": (7, 8, 14, 24, 35, 50, 69), "veces": (0.87, 0.94, 1.11, 1.38, 1.6, 2.0, 3.7), "base": 11},
+             "SOL": {"prob": (7, 9, 16, 26, 40, 61, 76), "veces": (0.84, 0.94, 1.14, 1.41, 1.77, 2.39, 3.52), "base": 12},
+             "XRP": {"prob": (9, 11, 18, 29, 39, 53, 87), "veces": (0.84, 0.94, 1.13, 1.43, 1.68, 2.15, 4.96), "base": 14}}
 
 
 def movimiento(c5, price, moneda="BTC"):
@@ -237,8 +250,8 @@ def movimiento(c5, price, moneda="BTC"):
     nivel = "Calma" if vol < 0.8 else "Normal" if vol < 1.3 else "Agitado" if vol < 1.8 else "Se despertó"
     return {"tabla": "movimiento", "volatilidad": round(vol, 2), "nivel": nivel, "prob_fuerte": t["prob"][k],
             "prob_normal": t["base"], "veces": t["veces"][k], "normal_pct": round(normal * 100, 2),
-            "esperado_pct": round(normal * t["veces"][k] * 100, 2), "normal_usd": round(normal * price, 1),
-            "esperado_usd": round(normal * t["veces"][k] * price, 1), "despierto": vol > 1.8 and serie[-7] <= 1.8}
+            "esperado_pct": round(normal * t["veces"][k] * 100, 2), "normal_usd": rp(normal * price),
+            "esperado_usd": rp(normal * t["veces"][k] * price), "despierto": vol > 1.8 and serie[-7] <= 1.8}
 
 
 # ---------- volatilidad prevista ----------
@@ -320,13 +333,13 @@ def scenarios(bars, idxs, price, tf_ms, F=None):
         for k in range(1, SCENARIO_STEPS + 1):
             _, o, h, l, c, _ = bars[j + k]
             candles.append({"tabla": "escenario", "tf": None, "escenario": name, "paso": k, "t": t0 + k * tf_ms,
-                            "o": round(z(o), 1), "h": round(z(h), 1), "l": round(z(l), 1), "c": round(z(c), 1),
+                            "o": rp(z(o)), "h": rp(z(h)), "l": rp(z(l)), "c": rp(z(c)),
                             "desde": datetime.fromtimestamp(bars[j][0] / 1000, timezone.utc).strftime("%Y-%m-%d")})
     p10, p50, p90 = q(0.1), q(0.5), q(0.9)
     for k in range(SCENARIO_STEPS):
         cone.append({"tabla": "cono", "tf": None, "paso": k + 1, "t": t0 + (k + 1) * tf_ms,
-                     "p10": round(price * (1 + p10[k]), 1), "p50": round(price * (1 + p50[k]), 1),
-                     "p90": round(price * (1 + p90[k]), 1)})
+                     "p10": rp(price * (1 + p10[k])), "p50": rp(price * (1 + p50[k])),
+                     "p90": rp(price * (1 + p90[k]))})
     return candles, cone
 
 
@@ -366,8 +379,8 @@ def targets(bars, idxs, price, h, when, f=1.0, unit=None, pf_ap=None, F=None):
     if unit >= 10:
         up_lvl, dn_lvl = round(price + unit, -1), round(price - unit, -1)
     else:                       # criptos de precio chico: se redondea a la decima parte del escalon
-        q = unit / 10
-        up_lvl, dn_lvl = round((price + unit) / q) * q, round((price - unit) / q) * q
+        paso = unit / 10
+        up_lvl, dn_lvl = round((price + unit) / paso) * paso, round((price - unit) / paso) * paso
     rel = unit / price
     first = []
     for j in usable:
@@ -377,8 +390,8 @@ def targets(bars, idxs, price, h, when, f=1.0, unit=None, pf_ap=None, F=None):
                 first.append(0.5 if a and b else 1.0 if a else 0.0)
                 break
     pf = sum(first) / len(first) if first else None
-    close = {"mediana": round(price * (1 + q(0.5)), 1), "p25": round(price * (1 + q(0.25)), 1),
-             "p75": round(price * (1 + q(0.75)), 1), "hora": when,
+    close = {"mediana": rp(price * (1 + q(0.5))), "p25": rp(price * (1 + q(0.25))),
+             "p75": rp(price * (1 + q(0.75))), "hora": when,
              "obj_arriba": up_lvl, "obj_abajo": dn_lvl, "distancia": unit,
              "toca_arriba": round(sum(x >= rel for x in highs) / len(usable) * 100, 1),
              "toca_abajo": round(sum(x <= -rel for x in lows) / len(usable) * 100, 1),
@@ -480,7 +493,7 @@ def horizon_stats(tf, s, h, price, fit):
              "sube_crudo": round(o["up"], 1), "receta": fit["receta"], "factor": f,
              "veredicto": verdict, "n": o["n"], "dias": s["days"], "hora": when, "t_hasta": when_ms,
              "margen": round(margin, 1), "pocos_casos": o["n"] < 100,
-             "min": round(price * (1 + o["p10"] / 100), 1), "max": round(price * (1 + o["p90"] / 100), 1),
+             "min": rp(price * (1 + o["p10"] / 100)), "max": rp(price * (1 + o["p90"] / 100)),
              **(close or {"mediana": None, "p25": None, "p75": None, "obj_arriba": None, "obj_abajo": None,
                           "distancia": None, "toca_arriba": None, "toca_abajo": None,
                           "primero_arriba": None, "primero_crudo": None, "margen_primero": None, "ninguno": None})}, tg)
@@ -668,9 +681,9 @@ def patterns(tf, bars, pivots, e20, horizon, tf_min, partial=False):
             continue
         lines = dict(NO_LINES)
         for n_, ln in enumerate(g["lineas"][:2], start=1):
-            lines.update({f"l{n_}_t": ln[0], f"l{n_}_p": round(ln[1], 1), f"l{n_}_m": ln[2], f"l{n_}_nombre": ln[3]})
+            lines.update({f"l{n_}_t": ln[0], f"l{n_}_p": rp(ln[1]), f"l{n_}_m": ln[2], f"l{n_}_nombre": ln[3]})
         for n_, pt in enumerate(g["puntos"][:5], start=1):
-            lines.update({f"pt{n_}_t": pt[0], f"pt{n_}_p": round(pt[1], 1), f"pt{n_}_nombre": pt[2]})
+            lines.update({f"pt{n_}_t": pt[0], f"pt{n_}_p": rp(pt[1]), f"pt{n_}_nombre": pt[2]})
         rows.append({"tabla": "patron", "tf": tf, "clase": "grafico", "nombre": g["nombre"], "sesgo": g["sesgo"],
                      "t": bars[i][0], "estado": g["estado"], "objetivo": g["objetivo"], "exito": None, "casos": None,
                      "plazo": None, "descripcion": g["descripcion"], **lines})
@@ -821,7 +834,7 @@ def log_and_score(entries, closes_by_tf):
         with open(LOG_FILE) as f:
             rows = [r for r in csv.reader(f) if len(r) == 5]
     seen = {(r[0], r[1], r[2]) for r in rows}
-    rows += [[str(t), tf, str(h), f"{p:.1f}", f"{pr:.1f}"] for t, tf, h, p, pr in entries if (str(t), tf, str(h)) not in seen]
+    rows += [[str(t), tf, str(h), f"{p:.{dec_precio(p)}f}", f"{pr:.1f}"] for t, tf, h, p, pr in entries if (str(t), tf, str(h)) not in seen]
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(LOG_FILE, "w", newline="") as f:
         csv.writer(f).writerows(rows)
@@ -898,20 +911,20 @@ def analyze():
                    for k in (i, i - 1))
         cross = next((x for x in crosses if x), None)
         rows.append({"tabla": "marco", "tf": tf, "tendencia": trend, **summary, "macd_cruce": cross,
-                     "ema50": round(e50[i], 1), "ema200": round(e200[i], 1), "similares": len(idxs),
+                     "ema50": rp(e50[i]), "ema200": rp(e200[i]), "similares": len(idxs),
                      "criterio": apr.receta_txt(main_fit["receta"], keep) if keep else "",
-                     "elliott": wave_desc, "elliott_objetivo": None if wave_target is None else round(wave_target, 1),
+                     "elliott": wave_desc, "elliott_objetivo": rp(wave_target),
                      "elliott_curso": wave_now, "elliott_corto": wave_short})
         rows += [{"tabla": "indicador", "tf": tf, **r} for r in ind_rows]
         tail = pivots[-10:]
         offset = len(tail) - len(wave_labels)
         for n, (kind, k, p) in enumerate(tail):
-            rows.append({"tabla": "giro", "tf": tf, "t": bars[k][0], "precio": round(p, 1), "tipo": kind,
+            rows.append({"tabla": "giro", "tf": tf, "t": bars[k][0], "precio": rp(p), "tipo": kind,
                          "onda": wave_labels[n - offset] if n >= offset else "", "en_curso": n == len(tail) - 1})
-        rows += [{"tabla": "fvg", "tf": tf, "tipo": z["tipo"], "t": z["t"], "bajo": round(z["bajo"], 1),
-                  "alto": round(z["alto"], 1)} for z in ind.fvg(bars)]
+        rows += [{"tabla": "fvg", "tf": tf, "tipo": z["tipo"], "t": z["t"], "bajo": rp(z["bajo"]),
+                  "alto": rp(z["alto"])} for z in ind.fvg(bars)]
         rows += patterns(tf, bars, pivots, e20, horizons[0], tf_min, partial)
-        rows += [{"tabla": "divergencia", "tf": tf, **d, "p1": round(d["p1"], 1), "p2": round(d["p2"], 1)}
+        rows += [{"tabla": "divergencia", "tf": tf, **d, "p1": rp(d["p1"]), "p2": rp(d["p2"])}
                  for d in ind.divergencias(bars, pivots)]
 
         for h in horizons:
@@ -928,11 +941,11 @@ def analyze():
             t, o_, h_, l_, c_, v_ = bars[k]
             rows.append({"tabla": "vela", "tf": tf, "t": t, "o": o_, "h": h_, "l": l_, "c": c_, "v": round(v_, 2),
                          "en_curso": partial and k == i,
-                         "ema20": round(overlays["ema20"][k], 1), "ema50": round(overlays["ema50"][k], 1),
-                         "bb_up": None if overlays["bb_up"][k] is None else round(overlays["bb_up"][k], 1),
-                         "bb_lo": None if overlays["bb_lo"][k] is None else round(overlays["bb_lo"][k], 1),
-                         "rsi": None if rsi[k] is None else round(rsi[k], 1), "macd": round(ml[k], 2),
-                         "macd_senal": round(ms[k], 2), "macd_hist": round(mh[k], 2)})
+                         "ema20": rp(overlays["ema20"][k]), "ema50": rp(overlays["ema50"][k]),
+                         "bb_up": rp(overlays["bb_up"][k]),
+                         "bb_lo": rp(overlays["bb_lo"][k]),
+                         "rsi": None if rsi[k] is None else round(rsi[k], 1), "macd": round(ml[k], dec_precio(price) + 1),
+                         "macd_senal": round(ms[k], dec_precio(price) + 1), "macd_hist": round(mh[k], dec_precio(price) + 1)})
 
     # una prediccion por plazo, cada una con la temporalidad que mas casos tiene para ese plazo
     for name, tf, h, *_ in PLAZOS:
@@ -956,7 +969,7 @@ def analyze():
     sma200d = sum(closes_d[-200:]) / 200
     levels += [("Media 200 días", sma200d), ("EMA 200 diaria", ind.ema(closes_d, 200)[-1])]
     for name, v in levels:
-        rows.append({"tabla": "nivel", "nombre": name, "precio": round(v, 1),
+        rows.append({"tabla": "nivel", "nombre": name, "precio": rp(v),
                      "tipo": "resistencia" if v > price else "soporte", "distancia": round(pct(v, price), 2)})
 
     try:
@@ -1032,10 +1045,10 @@ def analyze():
     takeaway = next(e["texto"] for e in explanation if e["plazo"] == "1 hora" and e["tipo"] == "titular")
     local = datetime.fromtimestamp(now_ms / 1000, LOCAL_TZ)
     rows.insert(0, {"tabla": "resumen", "fecha": datetime.now(LOCAL_TZ).isoformat(timespec="milliseconds"),
-                    "hora_local": local.strftime("%d/%m %H:%M"), "precio": round(price, 1),
+                    "hora_local": local.strftime("%d/%m %H:%M"), "precio": rp(price),
                     "cambio_24h": round2(change_since(candles["5m"], now_ms, price, 24)),
                     "cambio_7d": round2(change_since(candles["5m"], now_ms, price, 168)),
-                    "sma200d": round(sma200d, 1), "sma200d_dist": round(pct(price, sma200d), 2),
+                    "sma200d": rp(sma200d), "sma200d_dist": round(pct(price, sma200d), 2),
                     "funding": None if funding is None else round(funding * 100, 4),
                     "rating_1h": by_tf["1h"]["summary"]["rating"], "rating_1d": by_tf["1d"]["summary"]["rating"],
                     "lectura": takeaway, "nota_claude": ""})

@@ -25,8 +25,8 @@
     return x.toFixed(d);
   }
   /** Numero con formato argentino: 80.757,25 */
-  /** Precio: sin decimales desde 1.000 (BTC) y con dos debajo (ZEC). */
-  const ap = (x) => ar(x, Math.abs(x) >= 1000 ? 0 : 2);
+  /** Precio: sin decimales desde 1.000 (BTC), dos desde 10 (ZEC, SOL) y cuatro debajo (XRP). */
+  const ap = (x) => ar(x, Math.abs(x) >= 1000 ? 0 : Math.abs(x) >= 10 ? 2 : 4);
   function ar(x, d = 0) {
     const s = fixedLikePython(Math.abs(x), d);
     const [int, dec] = s.split('.');

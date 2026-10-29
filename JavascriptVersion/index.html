@@ -624,7 +624,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       <h1 class="ab-title" id="ab-title">Analista BTC</h1>
       <!-- version JS (Vercel): que cripto se analiza -->
       <div class="ab-appmode" id="app-moneda" role="group" aria-label="Cripto" hidden>
-        <button type="button" data-m="BTC" aria-pressed="true">BTC</button><button type="button" data-m="ZEC" aria-pressed="false">ZEC</button>
+        <button type="button" data-m="BTC" aria-pressed="true">BTC</button><button type="button" data-m="ZEC" aria-pressed="false">ZEC</button><button type="button" data-m="SOL" aria-pressed="false">SOL</button><button type="button" data-m="XRP" aria-pressed="false">XRP</button>
       </div>
       <!-- interruptor de la version JS (Vercel): Web | Holograma -->
       <div class="ab-appmode" id="app-modo" role="group" aria-label="Modo de la app" hidden>
@@ -1022,7 +1022,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 
   // la cripto que se analiza (la version JS puede elegir ZEC) y precio con los decimales que hacen falta
   function MON() { return window.abMoneda || 'BTC'; }
-  function fp(x) { return x === null || x === undefined ? '—' : Math.abs(x) >= 1000 ? f0(x) : ar.format(',.2f')(x); }
+  function fp(x) { return x === null || x === undefined ? '—' : Math.abs(x) >= 1000 ? f0(x) : Math.abs(x) >= 10 ? ar.format(',.2f')(x) : ar.format(',.4f')(x); }
 
   function draw() {
     const res = dash.data('analisis');
@@ -1479,7 +1479,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       const b = el('button', 'ab-plazo ab-' + bias); b.type = 'button'; b.setAttribute('aria-pressed', String(p.plazo === S.plazo));
       const word = bias === 'alcista' ? `▲ Sube ${f0(pu)}%` : bias === 'bajista' ? `▼ Baja ${f0(100 - pu)}%` : '◆ Lateral';
       b.append(el('small', '', `En ${p.plazo}`), el('b', '', word),
-        el('span', '', `${f0(num(p.obj_abajo))} – ${f0(num(p.obj_arriba))} · hasta ${p.hora.slice(-5)} h`));
+        el('span', '', `${fp(num(p.obj_abajo))} – ${fp(num(p.obj_arriba))} · hasta ${p.hora.slice(-5)} h`));
       b.addEventListener('click', () => setPlazo(p.plazo));
       nav.append(b);
     });
@@ -1544,8 +1544,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     const tug = document.getElementById('first-split'); tug.replaceChildren();
     if (pu !== null) {
       const d = el('div', 'ab-tug-d'), u = el('div', 'ab-tug-u');
-      d.append(el('b', '', `${f0(100 - pu)}%`), el('span', '', `▼ baja a ${f0(num(p.obj_abajo))}`));
-      u.append(el('span', '', `sube a ${f0(num(p.obj_arriba))} ▲`), el('b', '', `${f0(pu)}%`));
+      d.append(el('b', '', `${f0(100 - pu)}%`), el('span', '', `▼ baja a ${fp(num(p.obj_abajo))}`));
+      u.append(el('span', '', `sube a ${fp(num(p.obj_arriba))} ▲`), el('b', '', `${f0(pu)}%`));
       d.style.flexBasis = '50%'; u.style.flexBasis = '50%';
       tug.append(d, u, el('i', 'ab-tug-mid'));
       later(() => { d.style.flexBasis = (100 - pu) + '%'; u.style.flexBasis = pu + '%'; });
@@ -1553,8 +1553,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     }
     const lo = num(p.min), hi = num(p.max), span = hi - lo || 1;
     const at = (v) => Math.max(0, Math.min(100, (v - lo) / span * 100));
-    document.getElementById('likely').textContent = p.mediana === null ? '—' : f0(num(p.mediana));
-    document.getElementById('r-lo').textContent = f0(lo); document.getElementById('r-hi').textContent = f0(hi);
+    document.getElementById('likely').textContent = p.mediana === null ? '—' : fp(num(p.mediana));
+    document.getElementById('r-lo').textContent = fp(lo); document.getElementById('r-hi').textContent = fp(hi);
     const iqr = document.getElementById('iqr'), med = document.getElementById('rmed'), now = document.getElementById('rnow');
     iqr.style.left = '50%'; iqr.style.width = '0'; med.style.left = '50%'; now.style.left = '50%';
     later(() => {
@@ -1960,15 +1960,15 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       handleScroll: { vertTouchDrag: !!S.fs }, kineticScroll: { touch: true, mouse: false },
     });
     const quiet = { lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false };
-    G.bbU = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.01 }, ...quiet, color: alpha(P.mute, 0.4), lineWidth: 1 });
-    G.bbL = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.01 }, ...quiet, color: alpha(P.mute, 0.4), lineWidth: 1 });
+    G.bbU = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet, color: alpha(P.mute, 0.4), lineWidth: 1 });
+    G.bbL = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet, color: alpha(P.mute, 0.4), lineWidth: 1 });
     G.vol = chart.addSeries(LW.HistogramSeries, { ...quiet, priceScaleId: 'vol', priceFormat: { type: 'volume' } });
     chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.84, bottom: 0 }, visible: false });
-    G.e20 = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.01 }, ...quiet, color: P.c0, lineWidth: 1 });
-    G.e50 = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.01 }, ...quiet, color: P.c1, lineWidth: 1 });
-    G.ghost = chart.addSeries(LW.CandlestickSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.01 }, ...quiet, upColor: alpha(P.up, 0.25), downColor: alpha(P.dn, 0.25), borderVisible: true,
+    G.e20 = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet, color: P.c0, lineWidth: 1 });
+    G.e50 = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet, color: P.c1, lineWidth: 1 });
+    G.ghost = chart.addSeries(LW.CandlestickSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet, upColor: alpha(P.up, 0.25), downColor: alpha(P.dn, 0.25), borderVisible: true,
       borderUpColor: alpha(P.up, 0.85), borderDownColor: alpha(P.dn, 0.85), wickUpColor: alpha(P.up, 0.6), wickDownColor: alpha(P.dn, 0.6) });
-    G.c = chart.addSeries(LW.CandlestickSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.01 }, upColor: P.up, downColor: P.dn, borderVisible: false, wickUpColor: P.up, wickDownColor: P.dn,
+    G.c = chart.addSeries(LW.CandlestickSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, upColor: P.up, downColor: P.dn, borderVisible: false, wickUpColor: P.up, wickDownColor: P.dn,
       priceLineStyle: LW.LineStyle.Dotted, priceLineWidth: 1 });
     G.markers = LW.createSeriesMarkers(G.c, []);
     G.under = new Capa(drawUnder, 'bottom');
@@ -1986,9 +1986,9 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
         autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }) }, 1);
       [70, 30].forEach((v) => G.rsi.createPriceLine({ price: v, color: alpha(P.mute, 0.5), lineWidth: 1, lineStyle: LW.LineStyle.Dashed, axisLabelVisible: false }));
       G.rsi.attachPrimitive(new Capa(drawOsc('RSI', G.rsi), 'bottom'));
-      G.hist = chart.addSeries(LW.HistogramSeries, { priceFormat: { type: 'custom', formatter: (v) => (Math.abs(v) >= 100 ? f0(v) : f1(v)), minMove: 0.1 }, ...quiet }, 2);
-      G.macd = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => (Math.abs(v) >= 100 ? f0(v) : f1(v)), minMove: 0.1 }, color: P.c0, lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false }, 2);
-      G.sig = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => (Math.abs(v) >= 100 ? f0(v) : f1(v)), minMove: 0.1 }, color: P.c1, lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false }, 2);
+      G.hist = chart.addSeries(LW.HistogramSeries, { priceFormat: { type: 'custom', formatter: (v) => (Math.abs(v) >= 100 ? f0(v) : Math.abs(v) >= 1 ? f1(v) : ar.format(',.4f')(v)), minMove: 0.0001 }, ...quiet }, 2);
+      G.macd = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => (Math.abs(v) >= 100 ? f0(v) : Math.abs(v) >= 1 ? f1(v) : ar.format(',.4f')(v)), minMove: 0.0001 }, color: P.c0, lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false }, 2);
+      G.sig = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => (Math.abs(v) >= 100 ? f0(v) : Math.abs(v) >= 1 ? f1(v) : ar.format(',.4f')(v)), minMove: 0.0001 }, color: P.c1, lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false }, 2);
       G.macd.attachPrimitive(new Capa(drawOsc('MACD', G.macd), 'top'));
       const pn = chart.panes(); pn[0].setStretchFactor(3.2); pn[1].setStretchFactor(1); pn[2].setStretchFactor(1);
     }
@@ -2026,13 +2026,13 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     const head = fut ? `Futura ${b.k} · ${SCEN_TXT[S.scen]}` : `${MON()}USDT · ${TF_TXT[S.tf]}`;
     row1.append(el('span', 'ab-ohlc-t', head));
     const ch = el('b', '', sg((b.c / b.o - 1) * 100)); ch.style.color = col;
-    if (d.narrow) row1.append(kv('C', f0(b.c)), ch);
-    else row1.append(kv('A', f0(b.o)), kv('Máx', f0(b.h)), kv('Mín', f0(b.l)), kv('C', f0(b.c)), ch);
+    if (d.narrow) row1.append(kv('C', fp(b.c)), ch);
+    else row1.append(kv('A', fp(b.o)), kv('Máx', fp(b.h)), kv('Mín', fp(b.l)), kv('C', fp(b.c)), ch);
     const rows = [row1];
-    if (d.narrow && !fut) { const r = el('div', 'ab-ohlc-r'); r.append(kv('Máx', f0(b.h)), kv('Mín', f0(b.l))); rows.push(r); }
+    if (d.narrow && !fut) { const r = el('div', 'ab-ohlc-r'); r.append(kv('Máx', fp(b.h)), kv('Mín', fp(b.l))); rows.push(r); }
     if (!fut) {
       const r2 = el('div', 'ab-ohlc-r');
-      if (S.layers.ema && b.e20 !== null) r2.append(kv('EMA 20 ', f0(b.e20), P.c0), kv('EMA 50 ', b.e50 === null ? '—' : f0(b.e50), P.c1));
+      if (S.layers.ema && b.e20 !== null) r2.append(kv('EMA 20 ', fp(b.e20), P.c0), kv('EMA 50 ', b.e50 === null ? '—' : fp(b.e50), P.c1));
       r2.append(kv('Vol ', `${f1(b.v)}`, alpha(col, 1)));
       rows.push(r2);
     }
@@ -2049,7 +2049,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
           e.replaceChildren(el('span', 'ab-ohlc-t', 'RSI 14'), kv('', rv === null ? '—' : f1(rv), P.c2),
             el('span', '', rv === null ? '' : rv >= 70 ? 'sobrecompra' : rv <= 30 ? 'sobreventa' : ''));
         } else {
-          const fM = (v) => (v === null || v === undefined ? '—' : v === 0 ? '0' : Math.abs(v) >= 100 ? f0(v) : f1(v));
+          const fM = (v) => (v === null || v === undefined ? '—' : v === 0 ? '0' : Math.abs(v) >= 100 ? f0(v) : Math.abs(v) >= 1 ? f1(v) : ar.format(',.4f')(v));
           const parts = [el('span', 'ab-ohlc-t', 'MACD 12 26 9')];
           if (ob) parts.push(kv('', fM(ob.macd), P.c0), kv('', fM(ob.sig), P.c1), kv('', fM(ob.hist), ob.hist >= 0 ? P.up : P.dn));
           if (ob === d.lastOsc && d.cruce) parts.push(el('span', '', d.cruce));
@@ -2072,7 +2072,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       if (r && Math.abs(r.p - pr) / pr < 0.004) {
         const g = el('div', 'ab-tip-g');
         g.append(el('span', 'ab-tip-d', 'Longs que se liquidan'), el('span', '', M(r.l)), el('span', 'ab-tip-d', 'Shorts que se liquidan'), el('span', '', M(r.s)));
-        G.tip.replaceChildren(el('div', 'ab-tip-d', `Si ${MON()} llega a ≈ ${f0(r.p)} (${sg((r.p / d.price - 1) * 100, 1)})`), g,
+        G.tip.replaceChildren(el('div', 'ab-tip-d', `Si ${MON()} llega a ≈ ${fp(r.p)} (${sg((r.p / d.price - 1) * 100, 1)})`), g,
           el('div', 'ab-tip-d', 'Estimación con open interest de la última semana'));
         G.tip.hidden = false;
         G.tip.style.left = `${Math.max(4, p.point.x - G.tip.offsetWidth - 14)}px`; G.tip.style.top = `${Math.max(4, p.point.y - 30)}px`;
@@ -2230,8 +2230,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     d.figs.forEach((p) => item(`pat-grafico-${p.nombre}`, p.estado === 'confirmado' ? CC(colOf(p.sesgo)) : DD(colOf(p.sesgo)),
       `${p.estado === 'confirmado' ? '✓' : 'Posible'} ${p.nombre.toLowerCase()}:`, p.descripcion));
     if (L.patrones) d.divs.forEach((v) => item(v.key, CC(v.tipo === 'alcista' ? P.up : P.dn), `Divergencia ${v.tipo} (${v.names.join(' + ')}):`,
-      v.tipo === 'bajista' ? `el precio hizo un máximo más alto (${f0(v.p1)} → ${f0(v.p2)}) pero ${v.names.join(' y ')} no acompañó: la suba pierde fuerza.`
-        : `el precio hizo un mínimo más bajo (${f0(v.p1)} → ${f0(v.p2)}) pero ${v.names.join(' y ')} no acompañó: la baja pierde fuerza.`));
+      v.tipo === 'bajista' ? `el precio hizo un máximo más alto (${fp(v.p1)} → ${fp(v.p2)}) pero ${v.names.join(' y ')} no acompañó: la suba pierde fuerza.`
+        : `el precio hizo un mínimo más bajo (${fp(v.p1)} → ${fp(v.p2)}) pero ${v.names.join(' y ')} no acompañó: la baja pierde fuerza.`));
     if (L.patrones) pick(rows, 'patron', tf).filter((p) => p.clase === 'vela' && byT.has(num(p.t))).forEach((p) =>
       item(`pat-vela-${p.nombre}`, CC(colOf(p.sesgo)), `Flechita · ${p.nombre}:`, p.descripcion));
     if (G.plines.length) item('sr', DD(P.mute), 'Líneas punteadas con etiqueta en el eje:',
@@ -2306,12 +2306,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       const g = svg.append('g');
       if (it.now) {
         g.append('rect').attr('x', 0).attr('y', yy).attr('width', W).attr('height', rh - 4).attr('rx', 6).style('fill', 'var(--color-fg)');
-        g.append('text').attr('x', 8).attr('y', yy + 15).style('fill', 'var(--color-bg)').style('font-weight', 600).text(f0(it.p));
+        g.append('text').attr('x', 8).attr('y', yy + 15).style('fill', 'var(--color-bg)').style('font-weight', 600).text(fp(it.p));
         g.append('text').attr('x', lx).attr('y', yy + 15).style('fill', 'var(--color-bg)').text(`${MON()} ahora`);
         return;
       }
       const col = it.up ? 'var(--color-ok)' : 'var(--color-bad)';
-      g.append('text').attr('x', 8).attr('y', yy + 15).style('fill', col).text(`${it.up ? '▲' : '▼'} ${f0(it.p)}`);
+      g.append('text').attr('x', 8).attr('y', yy + 15).style('fill', col).text(`${it.up ? '▲' : '▼'} ${fp(it.p)}`);
       g.append('rect').attr('x', lx).attr('y', yy + 5).attr('width', rx - lx - 8).attr('height', 10).attr('rx', 5).style('fill', 'var(--color-bg)');
       const bar = g.append('rect').attr('class', 'ab-lv-bar').attr('x', lx).attr('y', yy + 5).attr('height', 10).attr('rx', 5).style('fill', col)
         .style('fill-opacity', .35 + it.prob / 160).attr('width', 0).style('width', '0px');
@@ -2319,7 +2319,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       g.append('text').attr('x', W - 4).attr('y', yy + 15).attr('text-anchor', 'end').style('font-weight', 600).text(`${f0(it.prob)}%`);
     });
     document.getElementById('prob-foot').textContent = `Probabilidad de que ${MON()} toque cada precio antes de esa hora, según ${f0(num(p.n))} casos parecidos de los últimos ${num(p.dias)} días.`
-      + (med === null ? '' : ` Precio más probable al cierre: ${f0(med)}.`) + ` El 80% terminó entre ${f0(num(p.min))} y ${f0(num(p.max))}.`;
+      + (med === null ? '' : ` Precio más probable al cierre: ${fp(med)}.`) + ` El 80% terminó entre ${fp(num(p.min))} y ${fp(num(p.max))}.`;
   }
 
   // ---------- senales ----------
@@ -2371,7 +2371,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
         const tg = svg.append('g');
         tg.append('path').attr('d', `M${axisX},${it.y} L${axisX},${it.ly}`).style('stroke', 'var(--color-fg)');
         tg.append('rect').attr('x', axisX - 50).attr('y', it.ly - 11).attr('width', 100).attr('height', 22).attr('rx', 11).style('fill', 'var(--color-fg)');
-        tg.append('text').attr('x', axisX).attr('y', it.ly).attr('dy', '.34em').attr('text-anchor', 'middle').style('fill', 'var(--color-bg)').style('font-weight', 600).text(`Ahora ${f0(price)}`);
+        tg.append('text').attr('x', axisX).attr('y', it.ly).attr('dy', '.34em').attr('text-anchor', 'middle').style('fill', 'var(--color-bg)').style('font-weight', 600).text(`Ahora ${fp(price)}`);
         return;
       }
       const col = it.p > price ? 'var(--color-ok)' : 'var(--color-bad)';
@@ -2380,7 +2380,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       g.append('path').attr('d', `M${axisX - 6},${it.y} L${axisX - 16},${it.ly} L${axisX - 22},${it.ly}`).style('fill', 'none').style('stroke', 'var(--color-border-line)');
       g.append('text').attr('x', axisX - 26).attr('y', it.ly).attr('dy', '.34em').attr('text-anchor', 'end').style('fill', 'var(--color-fg)').text(it.name.replace(/ \(estimada\)/, ''))
         .each(function () { const max = axisX - 30; let s = this.textContent; while (this.getComputedTextLength() > max && s.length > 4) { s = s.slice(0, -2); this.textContent = s + '…'; } });
-      g.append('text').attr('x', axisX + 12).attr('y', it.ly).attr('dy', '.34em').style('fill', col).style('font-weight', 600).text(f0(it.p));
+      g.append('text').attr('x', axisX + 12).attr('y', it.ly).attr('dy', '.34em').style('fill', col).style('font-weight', 600).text(fp(it.p));
       g.append('text').attr('x', W - 2).attr('y', it.ly).attr('dy', '.34em').attr('text-anchor', 'end').style('fill', 'var(--color-fg-muted)').text(sg(it.d, 1));
     });
   }
@@ -2397,7 +2397,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       const chip = el('span', 'ab-sigchip ab-' + (p.sesgo === 'alcista' ? 'compra' : p.sesgo === 'bajista' ? 'venta' : 'neutral'),
         `${p.sesgo === 'alcista' ? '▲' : p.sesgo === 'bajista' ? '▼' : '◆'} ${p.clase === 'grafico' ? 'Figura' : 'Vela'} · ${p.estado}`);
       top.append(el('b', '', p.nombre), chip); card.append(top);
-      if (p.objetivo !== null) card.append(el('span', 'ab-target', `Objetivo ${f0(num(p.objetivo))} (${sg((num(p.objetivo) / num(pick(rows, 'resumen')[0].precio) - 1) * 100, 1)})`));
+      if (p.objetivo !== null) card.append(el('span', 'ab-target', `Objetivo ${fp(num(p.objetivo))} (${sg((num(p.objetivo) / num(pick(rows, 'resumen')[0].precio) - 1) * 100, 1)})`));
       card.append(el('p', '', p.descripcion));
       if (p.exito !== null) {
         const r = el('div', 'ab-pat-rate'); const tr = el('span'); const i = el('i');
@@ -2415,20 +2415,20 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       const card = el('div', 'ab-pat'); const top = el('div', 'ab-pat-top');
       top.append(el('b', '', `Divergencia ${d.tipo}`), el('span', 'ab-sigchip ab-' + (d.tipo === 'alcista' ? 'compra' : 'venta'), d.names.join(' + ')));
       const hiLo = d.tipo === 'bajista' ? 'máximo más alto' : 'mínimo más bajo', mom = d.tipo === 'bajista' ? 'la suba pierde fuerza' : 'la baja pierde fuerza';
-      card.append(top, el('p', '', `El precio hizo un ${hiLo} (${f0(num(d.p1))} → ${f0(num(d.p2))}) pero ${d.names.join(' y ')} no acompañó: ${mom}.`));
+      card.append(top, el('p', '', `El precio hizo un ${hiLo} (${fp(num(d.p1))} → ${fp(num(d.p2))}) pero ${d.names.join(' y ')} no acompañó: ${mom}.`));
       pats.append(card);
     });
     const w = document.getElementById('wave'); w.setAttribute('data-where', `tabla=marco&tf=${S.tf}`);
     w.textContent = cur ? cur.elliott : '—';
     const tg = document.getElementById('wave-target'); tg.replaceChildren();
-    if (cur && cur.elliott_objetivo !== null) tg.append('Objetivo de la onda', el('b', '', f0(num(cur.elliott_objetivo))));
+    if (cur && cur.elliott_objetivo !== null) tg.append('Objetivo de la onda', el('b', '', fp(num(cur.elliott_objetivo))));
     const box = document.getElementById('fvgs'); box.replaceChildren();
     const zones = pick(rows, 'fvg', S.tf);
     if (!zones.length) { box.append(el('p', 'ab-note', 'Sin zonas FVG abiertas cerca del precio.')); return; }
     zones.forEach((z) => {
       const r = el('div', 'ab-fvg'); const i = el('i');
       i.style.background = z.tipo === 'alcista' ? 'color-mix(in srgb, var(--color-ok) 45%, transparent)' : 'color-mix(in srgb, var(--color-bad) 45%, transparent)';
-      r.append(i, el('span', '', `${f0(num(z.bajo))} – ${f0(num(z.alto))}`), el('span', '', z.tipo)); box.append(r);
+      r.append(i, el('span', '', `${fp(num(z.bajo))} – ${fp(num(z.alto))}`), el('span', '', z.tipo)); box.append(r);
     });
   }
 

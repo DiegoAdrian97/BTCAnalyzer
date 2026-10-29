@@ -12,8 +12,8 @@ import math
 
 
 def _ap(x):
-    """Precio en formato argentino: sin decimales desde 1.000 (BTC) y con dos debajo (ZEC)."""
-    return _ar(x, 0 if abs(x) >= 1000 else 2)
+    """Precio en formato argentino: sin decimales desde 1.000 (BTC), dos desde 10 (ZEC, SOL) y cuatro debajo (XRP)."""
+    return _ar(x, 0 if abs(x) >= 1000 else 2 if abs(x) >= 10 else 4)
 
 
 def _ar(x, d=0):
