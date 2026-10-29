@@ -68,8 +68,8 @@ cada entrada se abre sola en la cuenta demo (VST): margen aislado, el apalancami
 SL puestos en BingX; a las 72 h el vigía la cierra. El aviso de Telegram dice si la abrió o por qué no (por ejemplo, si
 el precio ya pasó la entrada + 0,3 R). El módulo fuerza siempre el modo demo y no tiene modo real. `OPERAR_PRUEBA=1`
 hace, al arrancar, una operación mínima de prueba en BTC y ZEC (abre, revisa TP/SL y cierra) y avisa el resultado.
-Si el servidor se reinicia con una operación abierta, el TP y el SL siguen en BingX, pero el cierre de 72 h hay que
-hacerlo a mano.
+Si el servidor se reinicia, retoma sola las operaciones que abrió (las reconoce por el id de sus órdenes de TP/SL)
+y sigue con el cierre de 72 h; las posiciones abiertas a mano no las toca.
 
 Configuración en Render (Environment), nunca en el código: `TELEGRAM_TOKEN` y `TELEGRAM_CHAT` (bot de Telegram),
 o `WHATSAPP_TEL` y `WHATSAPP_CLAVE` (CallMeBot), o `NTFY_TEMA` (app ntfy). Si Binance bloquea la IP, el mapa de liquidaciones sale de Bybit.
