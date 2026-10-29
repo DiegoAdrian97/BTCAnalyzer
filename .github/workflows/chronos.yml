@@ -23,5 +23,5 @@ jobs:
           git config user.name "medicion-bot"; git config user.email "noreply@github.com"
           tail -c 4000 medir/monedas/${{ matrix.modelo }}.log > medir/monedas/${{ matrix.modelo }}.tail.txt
           [ -f medir/monedas/${{ matrix.modelo }}.csv ] && gzip -9 medir/monedas/${{ matrix.modelo }}.csv
-          git add medir/monedas/${{ matrix.modelo }}.tail.txt medir/monedas/${{ matrix.modelo }}.csv.gz 2>/dev/null; git add medir/monedas/${{ matrix.modelo }}.tail.txt; git commit -q -m "chronos ${{ matrix.modelo }}" || exit 0
+          rm -f medir/monedas/*.log; git add medir/monedas; git commit -q -m "chronos ${{ matrix.modelo }}" || exit 0
           for i in 1 2 3 4 5 6; do git pull --rebase -q && git push -q && break; sleep $((RANDOM % 20 + 5)); done
