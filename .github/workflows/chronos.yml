@@ -1,0 +1,26 @@
+name: Chronos BTC
+on:
+  push:
+    branches: [medicion-monedas]
+    paths: [".github/workflows/chronos.yml", "medir/chronos_btc.py"]
+permissions:
+  contents: write
+jobs:
+  chronos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        modelo: [chronos-bolt-small, chronos-bolt-base]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install --index-url https://download.pytorch.org/whl/cpu torch && pip install chronos-forecasting numpy
+      - run: python medir/chronos_btc.py ${{ matrix.modelo }} medir/monedas/${{ matrix.modelo }}.csv
+      - run: |
+          git config user.name "medicion-bot"; git config user.email "noreply@github.com"
+          gzip -9 medir/monedas/${{ matrix.modelo }}.csv
+          git add medir/monedas/${{ matrix.modelo }}.csv.gz && git commit -q -m "chronos ${{ matrix.modelo }}" || exit 0
+          for i in 1 2 3 4 5 6; do git pull --rebase -q && git push -q && break; sleep $((RANDOM % 20 + 5)); done

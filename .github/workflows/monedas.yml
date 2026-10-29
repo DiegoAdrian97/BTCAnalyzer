@@ -13,7 +13,7 @@ jobs:
       fail-fast: false
       max-parallel: 6
       matrix:
-        sym: [BTCUSDT, ZECUSDT, SOLUSDT, XRPUSDT]
+        sym: [ETHUSDT, DOGEUSDT, BNBUSDT, LINKUSDT, AVAXUSDT, LTCUSDT, ADAUSDT, BCHUSDT, DOTUSDT, TRXUSDT, ETCUSDT, XLMUSDT, ATOMUSDT, NEARUSDT, XMRUSDT, DASHUSDT, FILUSDT, UNIUSDT, AAVEUSDT, ICPUSDT]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
