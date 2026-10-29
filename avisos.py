@@ -403,7 +403,7 @@ def _entrada(nombre, cfg, got, rows, ahora):
             p = operador.precio(cfg["simbolo"])
             if (p - limite) * d > 0:
                 raise RuntimeError(f"el precio ya pasó {_fmt(limite)} (está en {_fmt(p)})")
-            r = operador.abrir(cfg["simbolo"], d, qty, sl, tp, lev)
+            r = operador.abrir(cfg["simbolo"], d, qty, sl, tp, lev, ahora)
             sym = cfg["simbolo"]
             auto = (f"🤖 DEMO BingX: la abrí sola. {r['cantidad']} {nombre} a {_fmt(r['entrada'] or p)}, {lev}x aislado, "
                     f"TP y SL puestos en BingX" + ("" if r["abierta"] else " (no veo la posición: revisala)") + ".\n\n")
@@ -500,6 +500,19 @@ def revisar(rows, velas=None):
                f"(guerras grandes, gobierno de EE.UU., gobiernos grandes, ETF o hackeos) y media hora antes de los datos "
                f"fuertes de EE.UU. (IPC, empleo, Fed). BTC ahora: {_ar(price, 1)}.")
     liq = [r for r in rows if r["tabla"] == "liquidacion"]
+    if not _estado.get("recuperado"):
+        _estado["recuperado"] = True    # tras un reinicio: retoma las operaciones que el vigia dejo abiertas en la demo
+        import operador
+        if operador.activo():
+            for nombre in SETUPS:
+                try:
+                    rec = operador.recuperar(SETUPS[nombre]["simbolo"])
+                    if rec and nombre not in _estado["abierta"]:
+                        d, e, sl, tp, t0, qty = rec
+                        _estado["abierta"][nombre] = (d, e, sl, tp, t0, qty * abs(e - sl), SETUPS[nombre]["simbolo"])
+                        print(f"(retomé {nombre} abierta en la demo desde {time.strftime('%d/%m %H:%M', time.gmtime(t0 - 3 * 3600))})", flush=True)
+                except Exception as ex:
+                    print(f"(recuperar {nombre}: {type(ex).__name__}: {ex})", flush=True)
     if os.environ.get("OPERAR_PRUEBA") and not _estado.get("prueba"):
         _estado["prueba"] = True        # una vez por arranque: prueba la conexion con la demo de BingX
         import operador

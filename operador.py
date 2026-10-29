@@ -47,7 +47,7 @@ def precio(sym):
     return float(_bingx().fetch_ticker(sym)["last"])
 
 
-def abrir(sym, d, qty, sl, tp, lev):
+def abrir(sym, d, qty, sl, tp, lev, t0=None):
     """Abre la posicion. Devuelve dict con lo ejecutado; lanza excepcion con el motivo si no se pudo."""
     ex = _bingx()
     if _posiciones(ex, sym):
@@ -75,8 +75,9 @@ def abrir(sym, d, qty, sl, tp, lev):
     puestas = []
     try:
         for clave, px in (("stopLossPrice", sl), ("takeProfitPrice", tp)):
+            extra = {} if t0 is None else {"clientOrderId": _marca(sym, clave[0], t0)}
             o = ex.create_order(sym, "market", lado_c, amount, None,
-                                {"hedged": hedged, "reduceOnly": True, clave: float(ex.price_to_precision(sym, px))})
+                                {"hedged": hedged, "reduceOnly": True, clave: float(ex.price_to_precision(sym, px)), **extra})
             puestas.append(o.get("id"))
         abiertas = {str(o.get("id")) for o in ex.fetch_open_orders(sym)}
         if not all(str(i) in abiertas for i in puestas):
@@ -85,6 +86,37 @@ def abrir(sym, d, qty, sl, tp, lev):
         cerrar(sym)
         raise RuntimeError(f"no pude poner TP/SL ({type(e).__name__}: {str(e)[:120]}); la cerré por seguridad")
     return {"id": orden.get("id"), "cantidad": amount, "entrada": entrada, "abierta": True, "tp_sl": puestas}
+
+
+def _marca(sym, tipo, t0):
+    """Id propio de las ordenes de TP/SL del vigia: permite reconocer sus operaciones despues de un reinicio."""
+    return f"ab{sym.split('/')[0].lower()}{tipo}{int(t0)}"
+
+
+def recuperar(sym):
+    """Despues de un reinicio: si hay una operacion abierta por el vigia en el par, (d, entrada, sl, tp, t0, qty).
+    Las posiciones abiertas a mano (sin las ordenes marcadas) no se tocan."""
+    ex = _bingx()
+    pos = _posiciones(ex, sym)
+    if not pos:
+        return None
+    pre = f"ab{sym.split('/')[0].lower()}"
+    sl = tp = t0 = None
+    for o in ex.fetch_open_orders(sym):
+        cid = str(o.get("clientOrderId") or (o.get("info") or {}).get("clientOrderID") or (o.get("info") or {}).get("clientOrderId") or "")
+        if not cid.startswith(pre) or not cid[len(pre) + 1:].isdigit():
+            continue
+        t0 = int(cid[len(pre) + 1:])
+        px = o.get("stopLossPrice") or o.get("takeProfitPrice") or o.get("triggerPrice") or (o.get("info") or {}).get("stopPrice")
+        if cid[len(pre)] == "s":
+            sl = float(px)
+        else:
+            tp = float(px)
+    if t0 is None or sl is None or tp is None:
+        return None
+    p = pos[0]
+    d = 1 if str(p.get("side")).lower() == "long" else -1
+    return d, float(p.get("entryPrice")), sl, tp, t0, abs(float(p.get("contracts")))
 
 
 def describir(sym):
