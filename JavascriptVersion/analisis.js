@@ -7,6 +7,9 @@
   const Ind = root.Ind || (typeof require !== 'undefined' ? require('./indicadores.js') : null);
   const Apr = root.Apr || (typeof require !== 'undefined' ? require('./aprendizaje.js') : null);
   const { ar, rnd, roundEven } = Ind;
+  // precio redondeado con los decimales que pide su tamaño (como analisis_btc.py): 1 BTC, 2 desde 100, 3 desde 10, 4 XRP
+  const decPrecio = (x) => { const a = Math.abs(x); return a >= 1000 ? 1 : a >= 100 ? 2 : a >= 10 ? 3 : 4; };
+  const rp = (x) => (x === null || x === undefined ? null : rnd(x, decPrecio(x)));
 
   const MIN_SAMPLES = 40;
   const CHART_BARS = 300;
@@ -21,7 +24,7 @@
   for (let k = -4; k < 6; k++) for (const m of [1, 2.5, 5]) NICE_STEPS.push(m * 10 ** k);
 
   // ---------- formato ----------
-  const ap = (x) => ar(x, Math.abs(x) >= 1000 ? 0 : 2);     // precio: con decimales si vale menos de 1.000
+  const ap = (x) => ar(x, Math.abs(x) >= 1000 ? 0 : Math.abs(x) >= 10 ? 2 : 4);     // precio: con decimales si vale menos de 1.000 (4 debajo de 10)
   const arp = (x, d = 1) => (x > 0 ? '+' : '') + ar(x, d) + '%';
   const pct = (a, b) => (a / b - 1) * 100;
   const lc1 = (s) => s.slice(0, 1).toLowerCase() + s.slice(1);   // sin tocar siglas como R1 u onda C
@@ -69,7 +72,9 @@
   // ---------- movimiento fuerte en la proxima hora (como movimiento() de Python) ----------
   const MOV_CORTES = [0.8, 1.0, 1.3, 1.6, 2.0, 2.5];
   const MOV_TABLA = { BTC: { prob: [8, 12, 19, 32, 43, 60, 68], veces: [0.8, 0.96, 1.18, 1.53, 1.75, 2.3, 3.0], base: 14 },
-    ZEC: { prob: [7, 8, 14, 24, 35, 50, 69], veces: [0.87, 0.94, 1.11, 1.38, 1.6, 2.0, 3.7], base: 11 } };
+    ZEC: { prob: [7, 8, 14, 24, 35, 50, 69], veces: [0.87, 0.94, 1.11, 1.38, 1.6, 2.0, 3.7], base: 11 },
+    SOL: { prob: [7, 9, 16, 26, 40, 61, 76], veces: [0.84, 0.94, 1.14, 1.41, 1.77, 2.39, 3.52], base: 12 },
+    XRP: { prob: [9, 11, 18, 29, 39, 53, 87], veces: [0.84, 0.94, 1.13, 1.43, 1.68, 2.15, 4.96], base: 14 } };
   function percentil(v, q) {
     if (v <= q[0]) return 0;
     if (v >= q[q.length - 1]) return 100;
@@ -134,8 +139,8 @@
     const normal = rangos[Math.floor(rangos.length / 2)], k = MOV_CORTES.filter((x) => vol >= x).length, t = MOV_TABLA[moneda];
     const nivel = vol < 0.8 ? 'Calma' : vol < 1.3 ? 'Normal' : vol < 1.8 ? 'Agitado' : 'Se despertó';
     return { tabla: 'movimiento', volatilidad: rnd(vol, 2), nivel, prob_fuerte: t.prob[k], prob_normal: t.base, veces: t.veces[k],
-      normal_pct: rnd(normal * 100, 2), esperado_pct: rnd(normal * t.veces[k] * 100, 2), normal_usd: rnd(normal * price, 1),
-      esperado_usd: rnd(normal * t.veces[k] * price, 1), despierto: vol > 1.8 && serie[serie.length - 7] <= 1.8 };
+      normal_pct: rnd(normal * 100, 2), esperado_pct: rnd(normal * t.veces[k] * 100, 2), normal_usd: rp(normal * price),
+      esperado_usd: rp(normal * t.veces[k] * price), despierto: vol > 1.8 && serie[serie.length - 7] <= 1.8 };
   }
 
   // ---------- volatilidad prevista (ver vol_escala en analisis_btc.py) ----------
@@ -205,13 +210,13 @@
       for (let k = 1; k <= SCENARIO_STEPS; k++) {
         const [, o, h, l, c] = bars[best + k];
         candles.push({ tabla: 'escenario', tf: null, escenario: name, paso: k, t: t0 + k * tfMs,
-          o: rnd(z(o), 1), h: rnd(z(h), 1), l: rnd(z(l), 1), c: rnd(z(c), 1), desde: utcDate(bars[best][0]) });
+          o: rp(z(o)), h: rp(z(h)), l: rp(z(l)), c: rp(z(c)), desde: utcDate(bars[best][0]) });
       }
     });
     const p10 = q(0.1), p50 = q(0.5), p90 = q(0.9);
     for (let k = 0; k < SCENARIO_STEPS; k++) {
       cone.push({ tabla: 'cono', tf: null, paso: k + 1, t: t0 + (k + 1) * tfMs,
-        p10: rnd(price * (1 + p10[k]), 1), p50: rnd(price * (1 + p50[k]), 1), p90: rnd(price * (1 + p90[k]), 1) });
+        p10: rp(price * (1 + p10[k])), p50: rp(price * (1 + p50[k])), p90: rp(price * (1 + p90[k])) });
     }
     return [candles, cone];
   }
@@ -254,7 +259,7 @@
     });
     const pf = first.length ? first.reduce((s, x) => s + x, 0) / first.length : null;
     const close = {
-      mediana: rnd(price * (1 + q(0.5)), 1), p25: rnd(price * (1 + q(0.25)), 1), p75: rnd(price * (1 + q(0.75)), 1), hora: when,
+      mediana: rp(price * (1 + q(0.5))), p25: rp(price * (1 + q(0.25))), p75: rp(price * (1 + q(0.75))), hora: when,
       obj_arriba: upLvl, obj_abajo: dnLvl, distancia: unit,
       toca_arriba: rnd((highs.filter((x) => x >= rel).length / usable.length) * 100, 1),
       toca_abajo: rnd((lows.filter((x) => x <= -rel).length / usable.length) * 100, 1),
@@ -333,7 +338,7 @@
       tf, horizonte: label(h * s.tfMin), velas: h, sube: rnd(up, 1), baja: rnd(100 - up, 1), base: rnd(b.up, 1),
       sube_crudo: rnd(o.up, 1), receta: fit.receta, factor: f,
       veredicto: verdict, n: o.n, dias: s.days, hora: when, t_hasta: whenMs, margen: rnd(margin, 1), pocos_casos: o.n < 100,
-      min: rnd(price * (1 + o.p10 / 100), 1), max: rnd(price * (1 + o.p90 / 100), 1), ...(close || NO_CLOSE),
+      min: rp(price * (1 + o.p10 / 100)), max: rp(price * (1 + o.p90 / 100)), ...(close || NO_CLOSE),
     }, tg];
   }
 
@@ -444,8 +449,8 @@
     [Ind.patronGrafico(bars, pivots, atr[i]), Ind.wyckoff(bars, pivots, atr[i])].forEach((g) => {
       if (!g) return;
       const lines = { ...NO_LINES };
-      g.lineas.slice(0, 2).forEach((ln, n) => Object.assign(lines, { [`l${n + 1}_t`]: ln[0], [`l${n + 1}_p`]: rnd(ln[1], 1), [`l${n + 1}_m`]: ln[2], [`l${n + 1}_nombre`]: ln[3] }));
-      g.puntos.slice(0, 5).forEach((pt, n) => Object.assign(lines, { [`pt${n + 1}_t`]: pt[0], [`pt${n + 1}_p`]: rnd(pt[1], 1), [`pt${n + 1}_nombre`]: pt[2] }));
+      g.lineas.slice(0, 2).forEach((ln, n) => Object.assign(lines, { [`l${n + 1}_t`]: ln[0], [`l${n + 1}_p`]: rp(ln[1]), [`l${n + 1}_m`]: ln[2], [`l${n + 1}_nombre`]: ln[3] }));
+      g.puntos.slice(0, 5).forEach((pt, n) => Object.assign(lines, { [`pt${n + 1}_t`]: pt[0], [`pt${n + 1}_p`]: rp(pt[1]), [`pt${n + 1}_nombre`]: pt[2] }));
       rows.push({ tabla: 'patron', tf, clase: 'grafico', nombre: g.nombre, sesgo: g.sesgo, t: bars[i][0], estado: g.estado, objetivo: g.objetivo,
         exito: null, casos: null, plazo: null, descripcion: g.descripcion, ...lines });
     });
@@ -574,7 +579,7 @@
   function logAndScore(log, entries, closesByTf) {
     const seen = new Set(log.map((r) => `${r[0]}|${r[1]}|${r[2]}`));
     entries.forEach(([t, tf, h, p, pr]) => {
-      if (!seen.has(`${t}|${tf}|${h}`)) log.push([t, tf, h, rnd(p, 1), rnd(pr, 1)]);
+      if (!seen.has(`${t}|${tf}|${h}`)) log.push([t, tf, h, rp(p), rnd(pr, 1)]);
     });
     const score = new Map();
     log.forEach(([t, tf, h, p, pr]) => {
@@ -629,18 +634,18 @@
       const [waveLabels, waveDesc, waveTarget, waveNow, waveShort] = Ind.elliott(pivots, bars);
       // cruce del MACD con su senal en la ultima o la anteultima vela
       const cross = [i, i - 1].map((k) => (mh[k] > 0 && mh[k - 1] <= 0 ? 'alcista' : mh[k] < 0 && mh[k - 1] >= 0 ? 'bajista' : null)).find((x) => x) || null;
-      rows.push({ tabla: 'marco', tf, tendencia: trend, ...summary, ema50: rnd(e50[i], 1), ema200: rnd(e200[i], 1), similares: idxs.length,
+      rows.push({ tabla: 'marco', tf, tendencia: trend, ...summary, ema50: rp(e50[i]), ema200: rp(e200[i]), similares: idxs.length,
         criterio: keep ? Apr.recetaTxt(mainFit.receta, keep) : '',
-        elliott: waveDesc, elliott_objetivo: waveTarget === null ? null : rnd(waveTarget, 1), elliott_curso: waveNow, elliott_corto: waveShort,
+        elliott: waveDesc, elliott_objetivo: rp(waveTarget), elliott_curso: waveNow, elliott_corto: waveShort,
         macd_cruce: cross });
       indRows.forEach((r) => rows.push({ tabla: 'indicador', tf, ...r }));
       const tail = pivots.slice(-10);
       const offset = tail.length - waveLabels.length;
-      tail.forEach(([kind, k, p], n) => rows.push({ tabla: 'giro', tf, t: bars[k][0], precio: rnd(p, 1), tipo: kind,
+      tail.forEach(([kind, k, p], n) => rows.push({ tabla: 'giro', tf, t: bars[k][0], precio: rp(p), tipo: kind,
         onda: n >= offset ? waveLabels[n - offset] : '', en_curso: n === tail.length - 1 }));
-      Ind.fvg(bars).forEach((z) => rows.push({ tabla: 'fvg', tf, tipo: z.tipo, t: z.t, bajo: rnd(z.bajo, 1), alto: rnd(z.alto, 1) }));
+      Ind.fvg(bars).forEach((z) => rows.push({ tabla: 'fvg', tf, tipo: z.tipo, t: z.t, bajo: rp(z.bajo), alto: rp(z.alto) }));
       patterns(tf, bars, pivots, e20, horizons[0], tfMin, partial).forEach((r) => rows.push(r));
-      Ind.divergencias(bars, pivots).forEach((d) => rows.push({ tabla: 'divergencia', tf, ...d, p1: rnd(d.p1, 1), p2: rnd(d.p2, 1) }));
+      Ind.divergencias(bars, pivots).forEach((d) => rows.push({ tabla: 'divergencia', tf, ...d, p1: rp(d.p1), p2: rp(d.p2) }));
 
       horizons.forEach((h) => {
         const [prob, tg] = horizonStats(tf, series[tf], h, price, tune(tf, series[tf], h));
@@ -654,8 +659,8 @@
       for (let k = Math.max(0, i - CHART_BARS + 1); k <= i; k++) {
         const [t, o, h, l, c, v] = bars[k];
         rows.push({ tabla: 'vela', tf, t, o, h, l, c, v: rnd(v, 2), en_curso: partial && k === i,
-          ema20: rnd(overlays.ema20[k], 1), ema50: rnd(overlays.ema50[k], 1), bb_up: rnd(overlays.bb_up[k], 1), bb_lo: rnd(overlays.bb_lo[k], 1),
-          rsi: rnd(rsi[k], 1), macd: rnd(ml[k], 2), macd_senal: rnd(ms[k], 2), macd_hist: rnd(mh[k], 2) });
+          ema20: rp(overlays.ema20[k]), ema50: rp(overlays.ema50[k]), bb_up: rp(overlays.bb_up[k]), bb_lo: rp(overlays.bb_lo[k]),
+          rsi: rnd(rsi[k], 1), macd: rnd(ml[k], decPrecio(price) + 1), macd_senal: rnd(ms[k], decPrecio(price) + 1), macd_hist: rnd(mh[k], decPrecio(price) + 1) });
       }
     });
 
@@ -686,7 +691,7 @@
     const sma200d = closesD.slice(-200).reduce((s, x) => s + x, 0) / 200;
     const ema200d = Ind.ema(closesD, 200);
     levels.push(['Media 200 días', sma200d], ['EMA 200 diaria', ema200d[ema200d.length - 1]]);
-    levels.forEach(([name, v]) => rows.push({ tabla: 'nivel', nombre: name, precio: rnd(v, 1), tipo: v > price ? 'resistencia' : 'soporte', distancia: rnd(pct(v, price), 2) }));
+    levels.forEach(([name, v]) => rows.push({ tabla: 'nivel', nombre: name, precio: rp(v), tipo: v > price ? 'resistencia' : 'soporte', distancia: rnd(pct(v, price), 2) }));
 
     let funding = null;
     if (input.ctxRaw) {
@@ -753,9 +758,9 @@
     PLAZOS.forEach((spec) => explain(rows, price, spec).forEach((e) => explanation.push(e)));
     explanation.forEach((e) => rows.push(e));
     const takeaway = explanation.find((e) => e.plazo === '1 hora' && e.tipo === 'titular').texto;
-    rows.unshift({ tabla: 'resumen', fecha: isoLocal(now), hora_local: fmtLocal(now), precio: rnd(price, 1),
+    rows.unshift({ tabla: 'resumen', fecha: isoLocal(now), hora_local: fmtLocal(now), precio: rp(price),
       cambio_24h: rnd(changeSince(candles['5m'], now, price, 24), 2), cambio_7d: rnd(changeSince(candles['5m'], now, price, 168), 2),
-      sma200d: rnd(sma200d, 1), sma200d_dist: rnd(pct(price, sma200d), 2), funding: funding === null ? null : rnd(funding * 100, 4),
+      sma200d: rp(sma200d), sma200d_dist: rnd(pct(price, sma200d), 2), funding: funding === null ? null : rnd(funding * 100, 4),
       rating_1h: byTf['1h'].summary.rating, rating_1d: byTf['1d'].summary.rating, lectura: takeaway, nota_claude: '' });
     return { rows, log };
   }

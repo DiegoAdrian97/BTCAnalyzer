@@ -31,6 +31,14 @@ verificaron con 2025–2026; el modelo le gana a la tasa base en los 5 plazos, p
 y las recetas solas casi nunca. Todo sale de las velas, así que no se pierde cuando Render borra el disco.
 En el dashboard: sección "Cómo viene aprendiendo".
 
+### Criptos en la app: BTC, ZEC, SOL y XRP
+
+La app (versión JavaScript) analiza BTC, ZEC, SOL y XRP con las mismas cuentas: gráfico, predicciones, niveles,
+patrones y movimiento fuerte (tabla propia de cada cripto, medida con velas de 5 min de Binance 2021–2026). Los
+precios se guardan y muestran con los decimales que pide su tamaño (XRP con 4). El modelo de movimiento fuerte, el
+termómetro y la prima de Coinbase son de BTC. Las entradas del bot siguen siendo solo BTC y ZEC: en SOL y XRP la
+regla del setup no ganó en 2020–2026.
+
 ### Avisos al celular (WhatsApp y notificación)
 
 El servidor de Render mira el mercado las 24 horas (se mantiene despierto solo). **Por defecto solo manda las entradas

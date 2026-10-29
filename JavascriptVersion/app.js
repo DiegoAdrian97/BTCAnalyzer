@@ -6,9 +6,10 @@
   'use strict';
   let rows = null;
   const fns = [];
-  // la cripto que se analiza: BTC o ZEC (cada una con su ultimo analisis guardado para volver enseguida)
+  // la cripto que se analiza: BTC, ZEC, SOL o XRP (cada una con su ultimo analisis guardado para volver enseguida)
+  const MONEDAS = ['BTC', 'ZEC', 'SOL', 'XRP'];
   let moneda = 'BTC';
-  try { moneda = localStorage.getItem('app-moneda') === 'ZEC' ? 'ZEC' : 'BTC'; } catch (e) { /* sin almacenamiento */ }
+  try { const g = localStorage.getItem('app-moneda'); moneda = MONEDAS.includes(g) ? g : 'BTC'; } catch (e) { /* sin almacenamiento */ }
   window.abMoneda = moneda;
   const porMoneda = {};
   const redraw = () => fns.forEach((f) => f());
