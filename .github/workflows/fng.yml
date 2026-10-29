@@ -1,0 +1,17 @@
+name: Bajar fear and greed
+on:
+  push:
+    branches: [medicion-monedas]
+    paths: [".github/workflows/fng.yml"]
+permissions:
+  contents: write
+jobs:
+  bajar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          curl -sS --retry 3 "https://api.alternative.me/fng/?limit=0&format=json" -o medir/monedas/fng.json
+          head -c 300 medir/monedas/fng.json
+          git config user.name "medicion-bot"; git config user.email "noreply@github.com"
+          git add medir/monedas/fng.json && git commit -q -m "fear and greed" && git push -q
