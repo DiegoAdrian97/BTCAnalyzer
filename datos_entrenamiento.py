@@ -91,4 +91,8 @@ if __name__ == "__main__":
     L = diario_largo()
     assert len(L) > 5000, f"pocas velas diarias: {len(L)}"
     json.dump(L, open("btc_diario.json", "w"))
+    fg = json.loads(urllib.request.urlopen(urllib.request.Request("https://api.alternative.me/fng/?limit=0&format=json",
+                                                                  headers={"User-Agent": UA}), timeout=60).read())
+    assert len(fg["data"]) > 2000, "historial del Fear & Greed Index incompleto"
+    json.dump(fg, open("fng.json", "w"))
     print(f"velas {len(B)} hasta {datetime.fromtimestamp(B[-1][0] / 1000, timezone.utc)} · eventos {len(E)}")

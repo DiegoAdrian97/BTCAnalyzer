@@ -546,6 +546,11 @@
   .ab-tm-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; position: sticky; top: calc(-1 * max(20px, calc(env(safe-area-inset-top) + 12px))); z-index: 2;
     margin: calc(-1 * max(20px, calc(env(safe-area-inset-top) + 12px))) -20px 0; padding: max(20px, calc(env(safe-area-inset-top) + 12px)) 20px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
   #tm-x { min-width: 44px; min-height: 44px; font-size: 18px; flex: none; }
+  .ab-cyc { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+  .ab-cyc div { display: grid; gap: 2px; justify-items: center; font-size: 10px; color: var(--mute); }
+  .ab-cyc i { display: block; width: 100%; height: 8px; border-radius: 3px; }
+  .ab-cyc .now i { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .ab-tm-call { margin: 0; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--tm-col2, var(--ink)) 12%, transparent); border-left: 3px solid var(--tm-col2, var(--ink)); font-size: var(--cds-font-size-body); line-height: 1.45; }
   .ab-fng { width: 100%; max-width: 260px; justify-self: center; display: block; overflow: visible; }
   .ab-tm-big { display: flex; align-items: baseline; gap: 10px; }
   .ab-tm-big b { font-size: 44px; font-weight: 650; letter-spacing: -.03em; line-height: 1; }
@@ -1082,6 +1087,37 @@
     if (ayer !== null && ayer !== undefined && Number(ayer) !== v) box.append(el('p', 'ab-note', `Ayer: ${ayer}`));
     return box;
   }
+  // ciclo de 4 años: fase del año, maximos y pisos de cada ciclo, y la regla de Fear & Greed Index segun la fase
+  function cicloBloque(t, fv) {
+    const out = [], MES = 'ene feb mar abr may jun jul ago sep oct nov dic'.split(' ');
+    const fecha = (ms) => { const d = new Date(ms); return `${MES[d.getUTCMonth()]}-${d.getUTCFullYear()}`; };
+    const strip = el('div', 'ab-cyc');
+    for (let y = t.año - 3; y <= t.año + 3; y++) {
+      const f = y % 4 === 2 ? 'bajista' : 'alcista', d = el('div', y === t.año ? 'now' : ''), b = el('i');
+      b.style.background = f === 'bajista' ? 'var(--color-bad)' : 'var(--color-ok)'; b.style.opacity = y > t.año ? '.35' : '1';
+      d.append(b, el('span', '', String(y))); strip.append(d);
+    }
+    out.push(strip, el('p', 'ab-hero-sub', `${t.año}: año ${t.fase} del ciclo (3 años alcistas y 1 bajista). Desde 2012 se cumplió en todos los años menos 2025, que tocaba alcista y cerró ${(t.años.find((a) => a[0] === 2025) || [0, 0, 0])[2]}%.`));
+    const cs = t.ciclos || [];
+    if (cs.length) {
+      const ul = el('ul', 'ab-tm-list');
+      cs.forEach((c) => ul.append(el('li', '', `Máximo ${fecha(c.pico_t)} (${f0(c.pico)}) → piso ${fecha(c.piso_t)} (${f0(c.piso)})${c.confirmado ? '' : ' por ahora'}: ${c.caida}% en ${f1(c.meses_bajista)} meses${c.meses_alcista_antes ? ` · alcista previo: ${f1(c.meses_alcista_antes)} meses` : ''}.`)));
+      out.push(ul);
+      const ult = cs[cs.length - 1], prev = cs.filter((c) => c.meses_alcista_antes).map((c) => c.meses_alcista_antes);
+      if (ult && prev.length) {
+        const prom = prev.reduce((a, b) => a + b, 0) / prev.length, mas = (m) => ult.piso_t + m * 30.44 * 86400000;
+        out.push(el('p', 'ab-note', `Los alcistas duraron ~${f0(prom)} meses y cada máximo llegó un poco antes; el último bajista fue más corto (${f1(ult.meses_bajista)} meses). Si el piso de ${fecha(ult.piso_t)} se sostiene, el próximo máximo caería hacia ${fecha(mas(30))} (alcista de 2,5 años) o ${fecha(mas(prom))} (como los anteriores).`));
+      }
+    }
+    const R = t.reglas || {}, txt = (r) => `12 meses después BTC estuvo más arriba el ${r.sube_365}% de las veces (mediana ${r.mediana_365 > 0 ? '+' : ''}${r.mediana_365}%)`;
+    const call = (cls, s) => { const p = el('p', 'ab-tm-call', s); p.style.setProperty('--tm-col2', cls); return p; };
+    if (t.regla === 'miedo_bajista' && R.miedo_bajista) out.push(call('var(--color-ok)', `Extreme Fear en año bajista (${R.miedo_bajista.años.join(', ')}): ${txt(R.miedo_bajista)}; antes de subir llegó a caer ${R.miedo_bajista.caida_mediana}% (mediana).`));
+    else if (t.regla === 'codicia_alcista3' && R.codicia_alcista3) out.push(call('var(--color-bad)', `Extreme Greed en el 3er año alcista (${R.codicia_alcista3.años.join(', ')}): ${txt(R.codicia_alcista3)}. Zona de venta.`));
+    else if (t.regla === 'codicia_alcista12' && R.codicia_alcista12) out.push(call('var(--color-fg-muted)', `Extreme Greed en el 1er o 2º año alcista: ${txt(R.codicia_alcista12)}: en esta fase siguió subiendo.`));
+    else if (t.fase === 'bajista' && R.miedo_bajista) out.push(el('p', 'ab-note', `Si aparece Extreme Fear (<25) en este año bajista: ${txt(R.miedo_bajista)}; antes llegó a caer ${R.miedo_bajista.caida_mediana}% (mediana).`));
+    else if (t.fase === 'alcista 3' && R.codicia_alcista3) out.push(el('p', 'ab-note', `Si aparece Extreme Greed (>75) en este 3er año alcista: ${txt(R.codicia_alcista3)}.`));
+    return out;
+  }
   function drawTermometro(rows) {
     const tab = document.getElementById('tm-tab'), body = document.getElementById('tm-body');
     const t = pick(rows, 'termometro')[0];
@@ -1116,6 +1152,7 @@
     const rs = pick(rows, 'resumen')[0];
     if (rs && rs.rating_1d !== undefined) li2(`Sesgo técnico diario: ${num(rs.rating_1d) > 0.1 ? 'compra' : num(rs.rating_1d) < -0.1 ? 'venta' : 'neutral'} (${ar.format('+.2f')(num(rs.rating_1d))}).`);
     body.append(big, sc, pasado, el('p', 'ab-tm-sec', 'Qué lo forma'), comp,
+      el('p', 'ab-tm-sec', 'Ciclo de 4 años'), ...cicloBloque(t, fg ? num(fg.fng) : null),
       ...(fg ? [el('p', 'ab-tm-sec', 'Fear & Greed Index'), fngGauge(num(fg.fng), fg.fng_clase || String(fg.valor).split(' · ')[1] || '', fg.fng_ayer)] : []),
       el('p', 'ab-tm-sec', 'Corto plazo (no entra en el termómetro)'), ctxL,
       el('p', 'ab-foot', 'Mide en qué parte del ciclo está BTC comparado con toda su historia desde 2011. Sirve para decidir de a poco en semanas o meses, no para el próximo trade. No es asesoramiento financiero.'));

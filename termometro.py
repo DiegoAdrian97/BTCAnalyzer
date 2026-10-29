@@ -35,8 +35,14 @@ def percentil(v, q):
     return 100.0
 
 
-def termometro(closes_d, price, T=None):
-    """Fila del termometro. closes_d: cierres diarios (al menos 1400). None si falta historia."""
+def fase(y):
+    """Ciclo de 4 años: 2014, 2018, 2022, 2026... bajistas; los tres de en medio, alcistas 1, 2 y 3."""
+    return "bajista" if y % 4 == 2 else f"alcista {(y - 3) % 4 + 1}"
+
+
+def termometro(closes_d, price, T=None, fng=None, now_ms=None):
+    """Fila del termometro. closes_d: cierres diarios (al menos 1400); fng: Fear & Greed Index de hoy; now_ms: ahora.
+    None si falta historia."""
     T = T or _datos()
     if len(closes_d) < 1400 or price <= 0:
         return None
@@ -46,7 +52,16 @@ def termometro(closes_d, price, T=None):
     p = {k: percentil(med[k], T["q"][k]) for k in T["componentes"]}
     temp = sum(p.values()) / len(p)
     z = next(z for z in T["zonas"] if temp < z["hasta"] or z["hasta"] >= 100)
-    return {"tabla": "termometro", "temp": round(temp, 1), "zona": z["nombre"],
+    import time
+    y = time.gmtime((now_ms or time.time() * 1000) / 1000).tm_year
+    fs = fase(y)
+    regla = None
+    if fng is not None:
+        regla = ("miedo_bajista" if fng < 25 and fs == "bajista" else "codicia_alcista3" if fng > 75 and fs == "alcista 3"
+                 else "codicia_alcista12" if fng > 75 and fs in ("alcista 1", "alcista 2") else None)
+    cic = T.get("ciclo") or {}
+    return {"tabla": "termometro", "temp": round(temp, 1), "zona": z["nombre"], "año": y, "fase": fs, "fng": fng, "regla": regla,
+            "reglas": cic.get("reglas") or {}, "años": cic.get("años") or [], "ciclos": cic.get("ciclos") or [],
             "p_wma200": round(p["wma200"], 1), "p_dd_ath": round(p["dd_ath"], 1), "p_ret365": round(p["ret365"], 1),
             "wma200": round(wma, 1), "sobre_wma": round((price / wma - 1) * 100, 1), "caida_ath": round(med["dd_ath"] * 100, 1),
             "ath": round(ath, 1), "ret_anual": round((price / closes_d[-365] - 1) * 100, 1),
