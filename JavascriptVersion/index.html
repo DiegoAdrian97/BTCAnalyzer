@@ -584,7 +584,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     padding: max(20px, calc(env(safe-area-inset-top) + 12px)) max(20px, env(safe-area-inset-right)) max(24px, calc(env(safe-area-inset-bottom) + 16px)) 20px;
     background: var(--panel); border-left: 1px solid var(--line); box-shadow: -8px 0 32px rgba(0,0,0,.18); display: grid; gap: 14px; align-content: start; }
   .ab-tm-panel[hidden], .ab-tm-tab[hidden] { display: none; }
-  .ab-tm-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+  .ab-tm-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; position: sticky; top: calc(-1 * max(20px, calc(env(safe-area-inset-top) + 12px))); z-index: 2;
+    margin: calc(-1 * max(20px, calc(env(safe-area-inset-top) + 12px))) -20px 0; padding: max(20px, calc(env(safe-area-inset-top) + 12px)) 20px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
   #tm-x { min-width: 44px; min-height: 44px; font-size: 18px; flex: none; }
   .ab-tm-close { width: 100%; min-height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--soft); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
   .ab-fng { width: 100%; max-width: 260px; justify-self: center; display: block; overflow: visible; }
