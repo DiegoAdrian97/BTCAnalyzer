@@ -243,6 +243,13 @@ def _cerrar(nombre, op, salida, motivo, ahora):
         manana = (int((ahora - 3 * 3600) // 86400) + 1) * 86400 + 3 * 3600
         _estado["pausa_hasta"] = max(_estado["pausa_hasta"], manana)
         nota = f"\n⏸ Hoy se perdió {_ar(-dia)} USDT (2% del capital o más): no hay entradas nuevas hasta mañana."
+    if len(op) > 6 and op[6]:
+        try:
+            import operador
+            nota += ("\n🤖 DEMO BingX: la cerré a mercado." if operador.cerrar(op[6])
+                     else "\n🤖 DEMO BingX: ya estaba cerrada (TP o SL de BingX); borré las órdenes que quedaban.")
+        except Exception as ex:
+            nota += f"\n🤖 DEMO BingX: no pude cerrarla ({type(ex).__name__}: {str(ex)[:120]}). Cerrala a mano."
     titulo = {"tp": f"✅ {nombre}: take profit", "sl": f"❌ {nombre}: stop loss", "tiempo": f"⏱ {nombre}: pasaron 3 días, cerrá"}[motivo]
     txt = {"tp": f"Tocó {_fmt(tp)} USD: operación cerrada con ganancia.",
            "sl": f"Tocó {_fmt(sl)} USD: operación cerrada con la pérdida prevista. Es parte del sistema: no la persigas.",
@@ -387,15 +394,28 @@ def _entrada(nombre, cfg, got, rows, ahora):
                f"el máximo de riesgo abierto ({_ar(RIESGO_MAX_ABIERTO * 100, 1)}% del capital). Esperá a que cierre otra.")
         return
     qty, nocional, lev, margen, perder, ganar, capital = tamano(e, sl, tp, riesgo)
-    _estado["abierta"][nombre] = (d, e, sl, tp, ahora, perder)
     R = abs(e - sl)
+    limite = e + d * DESLIZ_MAX * R
+    auto, sym = "", None
+    import operador
+    if operador.activo():               # prueba en la cuenta demo de BingX (VST): la abre sola
+        try:
+            p = operador.precio(cfg["simbolo"])
+            if (p - limite) * d > 0:
+                raise RuntimeError(f"el precio ya pasó {_fmt(limite)} (está en {_fmt(p)})")
+            r = operador.abrir(cfg["simbolo"], d, qty, sl, tp, lev)
+            sym = cfg["simbolo"]
+            auto = (f"🤖 DEMO BingX: la abrí sola. {r['cantidad']} {nombre} a {_fmt(r['entrada'] or p)}, {lev}x aislado, "
+                    f"TP y SL puestos en BingX" + ("" if r["abierta"] else " (no veo la posición: revisala)") + ".\n\n")
+        except Exception as ex:
+            auto = f"🤖 DEMO BingX: NO la pude abrir ({type(ex).__name__}: {str(ex)[:160]}).\n\n"
+    _estado["abierta"][nombre] = (d, e, sl, tp, ahora, perder, sym)
     liq = e * (1 - d / lev + d * 0.005)                      # aislado, mantenimiento ~0,5%
     fee = 2 * COMISION * nocional
-    limite = e + d * DESLIZ_MAX * R
     vence = time.strftime("%d/%m %H:%M", time.gmtime(ahora + HORAS * 3600 - 3 * 3600))
     q = _ar(qty, 4 if qty < 1 else 2)
     accion = "Buy / Long (Abrir largo)" if d > 0 else "Sell / Short (Abrir corto)"
-    txt = (f"PLAN\n"
+    txt = (auto + f"PLAN\n"
            f"• Entrada: {_fmt(e)} USD, a mercado ya. No entres si el precio ya pasó {_fmt(limite)} "
            f"(se comió 0,3 R del recorrido: la relación ganancia/riesgo deja de valer la pena).\n"
            f"• Stop loss: {_fmt(sl)} USD ({_ar(abs(sl / e - 1) * 100, 2)}%, {_ar(cfg['stop_atr'], 1)} ATR: fuera del ruido normal)\n"
@@ -421,7 +441,7 @@ def _entrada(nombre, cfg, got, rows, ahora):
            f"• Te aviso cuando toque el TP o el SL, o cuando venza el tiempo.\n"
            f"\nCONTEXTO (informativo, no cambia la entrada)\n" + "".join(f"• {c}\n" for c in _contexto(d, rows)) +
            f"\n{cfg['simple']}")
-    enviar(f"{nombre}: entrada en {lado}", txt, urgente=True)
+    enviar(f"{'🤖 ' if sym else ''}{nombre}: entrada en {lado}" + (" (abierta en demo)" if sym else ""), txt, urgente=True)
 
 
 def _setups(velas, price_btc, liq, ahora, rows=()):
@@ -480,6 +500,17 @@ def revisar(rows, velas=None):
                f"(guerras grandes, gobierno de EE.UU., gobiernos grandes, ETF o hackeos) y media hora antes de los datos "
                f"fuertes de EE.UU. (IPC, empleo, Fed). BTC ahora: {_ar(price, 1)}.")
     liq = [r for r in rows if r["tabla"] == "liquidacion"]
+    if os.environ.get("OPERAR_PRUEBA") and not _estado.get("prueba"):
+        _estado["prueba"] = True        # una vez por arranque: prueba la conexion con la demo de BingX
+        import operador
+        lineas = []
+        for nombre in MONEDAS:
+            try:
+                lineas.append(operador.prueba(SETUPS[nombre]["simbolo"]) if operador.activo() else
+                              "falta OPERAR=demo, BINGX_API_KEY o BINGX_API_SECRET en Render")
+            except Exception as ex:
+                lineas.append(f"{nombre}: falló ({type(ex).__name__}: {str(ex)[:200]})")
+        enviar("🤖 Prueba con la demo de BingX", "\n".join(lineas) + "\nSi salió bien, borrá OPERAR_PRUEBA en Render.")
 
     # 0) setups de entrada (BTC, ETH y ZEC), una vez por vela de 1 hora cerrada, y seguimiento de los abiertos
     _setups(velas, price, liq, ahora, rows)

@@ -63,6 +63,14 @@ de futuros de BTC y ZEC** (ETH apagado; `MONEDAS=BTC,ETH,ZEC` lo vuelve a prende
   - 3 pérdidas seguidas → 24 h sin entradas nuevas; 2% de pérdida en el día → nada nuevo hasta mañana.
   - Al cerrar cada operación avisa el resultado en R y USDT (con comisiones) y el registro acumulado.
 
+**Operar solo en la demo de BingX** (`operador.py`): con `OPERAR=demo`, `BINGX_API_KEY` y `BINGX_API_SECRET` en Render,
+cada entrada se abre sola en la cuenta demo (VST): margen aislado, el apalancamiento del aviso, orden a mercado con TP y
+SL puestos en BingX; a las 72 h el vigía la cierra. El aviso de Telegram dice si la abrió o por qué no (por ejemplo, si
+el precio ya pasó la entrada + 0,3 R). El módulo fuerza siempre el modo demo y no tiene modo real. `OPERAR_PRUEBA=1`
+hace, al arrancar, una operación mínima de prueba en BTC y ZEC (abre, revisa TP/SL y cierra) y avisa el resultado.
+Si el servidor se reinicia con una operación abierta, el TP y el SL siguen en BingX, pero el cierre de 72 h hay que
+hacerlo a mano.
+
 Configuración en Render (Environment), nunca en el código: `TELEGRAM_TOKEN` y `TELEGRAM_CHAT` (bot de Telegram),
 o `WHATSAPP_TEL` y `WHATSAPP_CLAVE` (CallMeBot), o `NTFY_TEMA` (app ntfy). Si Binance bloquea la IP, el mapa de liquidaciones sale de Bybit.
 
