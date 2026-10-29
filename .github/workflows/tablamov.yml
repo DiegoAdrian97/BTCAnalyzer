@@ -1,0 +1,24 @@
+name: Tabla movimiento
+on:
+  push:
+    branches: [medicion-monedas]
+    paths: [".github/workflows/tablamov.yml", "medir/tabla_mov.py"]
+permissions:
+  contents: write
+jobs:
+  tabla:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        sym: [BTCUSDT, ZECUSDT, SOLUSDT, XRPUSDT]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: mkdir -p medir/monedas && python medir/tabla_mov.py ${{ matrix.sym }} medir/monedas/mov_${{ matrix.sym }}.json
+      - run: |
+          git config user.name "medicion-bot"; git config user.email "noreply@github.com"
+          git add medir/monedas/mov_${{ matrix.sym }}.json && git commit -q -m "tabla mov ${{ matrix.sym }}" || exit 0
+          for i in 1 2 3 4 5 6; do git pull --rebase -q && git push -q && break; sleep $((RANDOM % 20 + 5)); done
