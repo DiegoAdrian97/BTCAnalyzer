@@ -1,0 +1,27 @@
+name: Bajar monedas
+on:
+  push:
+    branches: [medicion-monedas]
+    paths: [".github/workflows/monedas.yml", "medir/bajar_monedas.py"]
+permissions:
+  contents: write
+jobs:
+  bajar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        sym: [BTCUSDT, ETHUSDT, ZECUSDT, SOLUSDT, XRPUSDT, DOGEUSDT, BNBUSDT, LINKUSDT, AVAXUSDT, LTCUSDT, ADAUSDT, BCHUSDT, DOTUSDT, TRXUSDT, ETCUSDT, XLMUSDT, ATOMUSDT, NEARUSDT, XMRUSDT, DASHUSDT]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: python medir/bajar_monedas.py ${{ matrix.sym }} medir/monedas
+      - name: Guardar
+        run: |
+          git config user.name "medicion-bot"; git config user.email "noreply@github.com"
+          gzip -9 medir/monedas/${{ matrix.sym }}.json
+          git add medir/monedas/${{ matrix.sym }}.json.gz && git commit -q -m "velas ${{ matrix.sym }}" || exit 0
+          for i in 1 2 3 4 5 6 7 8; do git pull --rebase -q && git push -q && break; sleep $((RANDOM % 20 + 5)); done
