@@ -62,6 +62,24 @@ def eventos():
     return sorted(out)
 
 
+def diario_largo():
+    """BTC diario desde 2011 (Bitstamp, API publica): para el termometro de compra/venta (armar_termometro.py)."""
+    out, start = {}, 1315000000
+    while True:
+        u = f"https://www.bitstamp.net/api/v2/ohlc/btcusd/?step=86400&limit=1000&start={start}"
+        d = json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": UA}), timeout=60).read())["data"]["ohlc"]
+        if not d:
+            break
+        for x in d:
+            out[int(x["timestamp"])] = [int(x["timestamp"]) * 1000, float(x["open"]), float(x["high"]), float(x["low"]), float(x["close"]), float(x["volume"])]
+        nxt = max(int(x["timestamp"]) for x in d) + 86400
+        if nxt <= start or len(d) < 1000:
+            break
+        start = nxt
+        time.sleep(1)
+    return [out[k] for k in sorted(out)]
+
+
 if __name__ == "__main__":
     B, E = velas(), eventos()
     assert len(B) > 40000, f"pocas velas: {len(B)}"
@@ -70,4 +88,7 @@ if __name__ == "__main__":
     assert hueco <= 6 * 3600000, f"hueco de {hueco / 3600000:.0f} h en las velas"
     json.dump(B, open("velas_1h.json", "w"), separators=(",", ":"))
     json.dump(E, open("eventos.json", "w"))
+    L = diario_largo()
+    assert len(L) > 5000, f"pocas velas diarias: {len(L)}"
+    json.dump(L, open("btc_diario.json", "w"))
     print(f"velas {len(B)} hasta {datetime.fromtimestamp(B[-1][0] / 1000, timezone.utc)} · eventos {len(E)}")

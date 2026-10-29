@@ -568,6 +568,38 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   @keyframes ab-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
   @keyframes ab-pulse { from { transform: scale(.7); opacity: .5; } to { transform: scale(3); opacity: 0; } }
   @keyframes ab-live { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-ok) 55%, transparent); } 100% { box-shadow: 0 0 0 8px transparent; } }
+  /* termometro de compra/venta (ciclo de BTC): pestaña fija al costado y panel que se despliega */
+  .ab-tm-tab { position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: 40; display: grid; justify-items: center; gap: 6px;
+    width: 58px; padding: 12px 6px; border: 1px solid var(--line); border-right: 0; border-radius: 16px 0 0 16px; background: var(--panel);
+    box-shadow: 0 6px 24px rgba(0,0,0,.12); cursor: pointer; color: var(--ink); font: inherit; }
+  .ab-tm-tab b { font-size: 17px; font-weight: 650; letter-spacing: -.02em; line-height: 1; }
+  .ab-tm-tab small { font-size: 10px; color: var(--mute); text-align: center; line-height: 1.15; max-width: 52px; }
+  .ab-tm-bar { position: relative; width: 12px; height: 132px; border-radius: 6px;
+    background: linear-gradient(to top, var(--color-ok), color-mix(in srgb, var(--color-ok) 35%, var(--soft2)) 30%, var(--soft2) 50%, color-mix(in srgb, var(--color-bad) 35%, var(--soft2)) 70%, var(--color-bad)); }
+  .ab-tm-dot { position: absolute; left: 50%; width: 22px; height: 22px; border-radius: 50%; transform: translate(-50%, 50%);
+    background: var(--panel); border: 3px solid var(--tm-col, var(--ink)); box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+  .ab-tm-panel { position: fixed; right: 0; top: 0; bottom: 0; z-index: 41; width: min(380px, 100vw); overflow-y: auto; padding: 20px;
+    background: var(--panel); border-left: 1px solid var(--line); box-shadow: -8px 0 32px rgba(0,0,0,.18); display: grid; gap: 14px; align-content: start; }
+  .ab-tm-panel[hidden], .ab-tm-tab[hidden] { display: none; }
+  .ab-tm-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+  .ab-tm-big { display: flex; align-items: baseline; gap: 10px; }
+  .ab-tm-big b { font-size: 44px; font-weight: 650; letter-spacing: -.03em; line-height: 1; }
+  .ab-tm-zona { font-size: 18px; font-weight: 600; color: var(--tm-col, var(--ink)); }
+  .ab-tm-scale { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; }
+  .ab-tm-scale i { display: block; height: 10px; border-radius: 3px; opacity: .35; }
+  .ab-tm-scale i.on { opacity: 1; outline: 2px solid var(--ink); outline-offset: 1px; }
+  .ab-tm-scale span { font-size: 10px; color: var(--mute); text-align: center; line-height: 1.2; }
+  .ab-tm-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+  .ab-tm-list li { font-size: var(--cds-font-size-body); line-height: 1.45; }
+  .ab-tm-list li em { font-style: normal; color: var(--mute); }
+  .ab-tm-sec { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--mute); margin: 4px 0 0; }
+  @media (max-width: 700px) {
+    .ab-tm-tab { top: auto; bottom: 14px; transform: none; width: auto; padding: 8px 10px 8px 12px; grid-auto-flow: column; align-items: center; gap: 8px; border-radius: 22px 0 0 22px; }
+    .ab-tm-bar { width: 64px; height: 10px; background: linear-gradient(to right, var(--color-ok), var(--soft2) 50%, var(--color-bad)); }
+    .ab-tm-dot { width: 16px; height: 16px; top: 50%; transform: translate(-50%, -50%); border-width: 3px; }
+    .ab-tm-tab small { max-width: none; white-space: nowrap; }
+    .ab-tm-panel { width: 100vw; }
+  }
 </style>
 
 <div class="ab ab-first" id="analista" data-source="analisis">
@@ -598,6 +630,14 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     </div>
   </header>
 
+  <button type="button" class="ab-tm-tab" id="tm-tab" aria-expanded="false" aria-controls="tm-panel" hidden title="Termómetro de compra y venta">
+    <span class="ab-tm-bar"><span class="ab-tm-dot" id="tm-dot"></span></span><b id="tm-num">—</b><small id="tm-zona">—</small>
+  </button>
+  <aside class="ab-tm-panel" id="tm-panel" aria-labelledby="tm-t" hidden>
+    <div class="ab-tm-head"><div><span class="ab-kicker">Ciclo de BTC · semanas o meses</span><h2 id="tm-t" style="margin:2px 0 0">Termómetro de compra y venta</h2></div>
+      <button type="button" class="ab-iconbtn ab-round" id="tm-x" aria-label="Cerrar">✕</button></div>
+    <div id="tm-body"></div>
+  </aside>
   <section class="ab-card ab-qp" id="que-pasa" aria-labelledby="qp-t" data-source="analisis" hidden>
     <div class="ab-card-head"><h2 id="qp-t">Qué está pasando</h2><span class="ab-kicker" id="qp-k"></span></div>
     <p class="ab-qp-big" id="qp-big"></p>
@@ -992,6 +1032,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     drawPrediction(rows, sum);
     drawMovimiento(rows);
     drawQuePasa(rows, sum);
+    drawTermometro(rows);
     drawLearning(rows);
     drawGauge(rows);
     drawChart(rows, sum);
@@ -1031,6 +1072,54 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     return { n: ns.length, score, est, buenas: buenas.length, malas: malas.length, tb: temas(buenas), tm: temas(malas) };
   }
 
+  // ---------- termometro de compra/venta (ciclo de BTC) ----------
+  const TM_COL = ['var(--color-ok)', 'color-mix(in srgb, var(--color-ok) 55%, var(--color-fg-muted))', 'var(--color-fg-muted)',
+    'color-mix(in srgb, var(--color-bad) 55%, var(--color-fg-muted))', 'var(--color-bad)'];
+  (function tmInit() {
+    const tab = document.getElementById('tm-tab'), pan = document.getElementById('tm-panel');
+    const set = (open) => { pan.hidden = !open; tab.setAttribute('aria-expanded', String(open)); };
+    tab.addEventListener('click', () => set(pan.hidden));
+    document.getElementById('tm-x').addEventListener('click', () => set(false));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') set(false); });
+  })();
+  function drawTermometro(rows) {
+    const tab = document.getElementById('tm-tab'), body = document.getElementById('tm-body');
+    const t = pick(rows, 'termometro')[0];
+    tab.hidden = !t; if (!t) { document.getElementById('tm-panel').hidden = true; return; }
+    const v = num(t.temp), zi = Math.max(0, t.zonas.findIndex((z) => v < z[1] || z[1] >= 100)), col = TM_COL[zi];
+    tab.style.setProperty('--tm-col', col); document.getElementById('tm-panel').style.setProperty('--tm-col', col);
+    const dot = document.getElementById('tm-dot');
+    if (matchMedia('(max-width: 700px)').matches) { dot.style.left = `${v}%`; dot.style.bottom = ''; } else { dot.style.bottom = `${v}%`; dot.style.left = ''; }
+    document.getElementById('tm-num').textContent = f0(v);
+    document.getElementById('tm-zona').textContent = t.zona;
+    body.replaceChildren();
+    const big = el('div', 'ab-tm-big'); big.append(el('b', '', f0(v)), el('span', 'ab-note', '/ 100'), el('span', 'ab-tm-zona', t.zona));
+    const sc = el('div', 'ab-tm-scale');
+    t.zonas.forEach((z, i) => { const c = el('div'); const bar = el('i', i === zi ? 'on' : ''); bar.style.background = TM_COL[i]; c.append(bar, el('span', '', z[2])); sc.append(c); });
+    const pasado = el('p', 'ab-hero-sub');
+    pasado.textContent = t.sube_365 === null ? 'Todavía no hay suficientes casos en esta zona para medir qué pasó después.'
+      : `Cuando estuvo en esta zona (desde 2019), 12 meses después BTC estaba más arriba el ${t.sube_365}% de las veces (mediana ${t.mediana_365 > 0 ? '+' : ''}${t.mediana_365}%); 6 meses después, el ${t.sube_180}% (mediana ${t.mediana_180 > 0 ? '+' : ''}${t.mediana_180}%).`;
+    const caro = (p) => (p >= 50 ? `más caro que el ${f0(p)}% de la historia` : `más barato que el ${f0(100 - p)}% de la historia`);
+    const comp = el('ul', 'ab-tm-list');
+    const li = (txt, sub) => { const x = el('li', '', txt); if (sub) x.append(' ', el('em', '', sub)); comp.append(x); };
+    li(`Precio vs media de 200 semanas (${f0(num(t.wma200))}): ${sg(num(t.sobre_wma), 1)}.`, caro(num(t.p_wma200)) + '.');
+    li(`Caída desde el máximo histórico (${f0(num(t.ath))}): ${sg(num(t.caida_ath), 1)}.`, num(t.p_dd_ath) >= 50 ? `el ${f0(num(t.p_dd_ath))}% del tiempo estuvo todavía más lejos del máximo.` : `solo el ${f0(num(t.p_dd_ath))}% del tiempo estuvo tan lejos del máximo.`);
+    li(`Último año: ${sg(num(t.ret_anual), 1)}.`, caro(num(t.p_ret365)) + '.');
+    // contexto de corto plazo: se muestra, pero no entra en el termometro (no anticipo la direccion de forma pareja)
+    const ctxL = el('ul', 'ab-tm-list'), li2 = (txt) => ctxL.append(el('li', '', txt));
+    const fg = pick(rows, 'contexto').find((c) => c.clave === 'miedo_codicia');
+    if (fg) li2(`Miedo y codicia: ${fg.valor}.`);
+    const nots = pick(rows, 'noticia').filter((n) => num(n.impacto) >= 2 && Date.now() - n.t <= 6 * 3600000);
+    if (nots.length) { const a = nots.filter((n) => n.sesgo === 'alcista').length, b = nots.filter((n) => n.sesgo === 'bajista').length;
+      li2(`Noticias de peso (6 h): ${a} a favor de suba, ${b} a favor de baja${nots.some((n) => n.tema === 'Hackeo de exchange') ? ' — ⚠ hackeo a un exchange grande' : ''}.`); }
+    const mv = pick(rows, 'movimiento')[0];
+    if (mv && mv.modelo_1h !== undefined && mv.modelo_1h !== null) li2(`Chance de movimiento fuerte en 4 h: ${f0(num(mv.modelo_4h))}% (lo normal ${f0(num(mv.modelo_base_4h))}%).`);
+    const rs = pick(rows, 'resumen')[0];
+    if (rs && rs.rating_1d !== undefined) li2(`Sesgo técnico diario: ${num(rs.rating_1d) > 0.1 ? 'compra' : num(rs.rating_1d) < -0.1 ? 'venta' : 'neutral'} (${ar.format('+.2f')(num(rs.rating_1d))}).`);
+    body.append(big, sc, pasado, el('p', 'ab-tm-sec', 'Qué lo forma'), comp,
+      el('p', 'ab-tm-sec', 'Corto plazo (contexto, no entra en el termómetro)'), ctxL,
+      el('p', 'ab-foot', 'Mide en qué parte del ciclo está BTC comparado con toda su historia desde 2011. Sirve para decidir de a poco en semanas o meses, no para el próximo trade. El volumen, los indicadores, el miedo y la codicia, la fase del halving y las noticias se midieron y no anticiparon la dirección de forma pareja entre ciclos, por eso quedan como contexto. No es asesoramiento financiero.'));
+  }
   function drawQuePasa(rows, s) {
     const box = document.getElementById('que-pasa');
     const price = num(s.precio), mov = pick(rows, 'movimiento')[0];

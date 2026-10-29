@@ -70,6 +70,27 @@
   const MOV_CORTES = [0.8, 1.0, 1.3, 1.6, 2.0, 2.5];
   const MOV_TABLA = { BTC: { prob: [8, 12, 19, 32, 43, 60, 68], veces: [0.8, 0.96, 1.18, 1.53, 1.75, 2.3, 3.0], base: 14 },
     ZEC: { prob: [7, 8, 14, 24, 35, 50, 69], veces: [0.87, 0.94, 1.11, 1.38, 1.6, 2.0, 3.7], base: 11 } };
+  function percentil(v, q) {
+    if (v <= q[0]) return 0;
+    if (v >= q[q.length - 1]) return 100;
+    for (let i = 1; i < q.length; i++) {
+      if (v <= q[i]) { const lo = q[i - 1], hi = q[i], f = hi === lo ? 0 : (v - lo) / (hi - lo); return ((i - 1 + f) / (q.length - 1)) * 100; }
+    }
+    return 100;
+  }
+  function termometro(closesD, price, T) {
+    if (closesD.length < 1400 || price <= 0) return null;
+    let s = 0; for (const x of closesD.slice(-1400)) s += x;
+    const wma = s / 1400, ath = Math.max(T.ath, Math.max(...closesD), price), c365 = closesD[closesD.length - 365];
+    const med = { wma200: Math.log(price / wma), dd_ath: price / ath - 1, ret365: Math.log(price / c365) };
+    const p = {}; T.componentes.forEach((k) => { p[k] = percentil(med[k], T.q[k]); });
+    const temp = T.componentes.reduce((a, k) => a + p[k], 0) / T.componentes.length;
+    const z = T.zonas.find((x) => temp < x.hasta || x.hasta >= 100);
+    return { tabla: 'termometro', temp: rnd(temp, 1), zona: z.nombre, p_wma200: rnd(p.wma200, 1), p_dd_ath: rnd(p.dd_ath, 1), p_ret365: rnd(p.ret365, 1),
+      wma200: rnd(wma, 1), sobre_wma: rnd((price / wma - 1) * 100, 1), caida_ath: rnd(med.dd_ath * 100, 1), ath: rnd(ath, 1),
+      ret_anual: rnd((price / c365 - 1) * 100, 1), sube_180: z.sube_180, mediana_180: z.mediana_180, sube_365: z.sube_365, mediana_365: z.mediana_365,
+      zonas: T.zonas.map((x) => [x.desde, x.hasta, x.nombre, x.sube_365, x.mediana_365]) };
+  }
   function movimiento(c5, price, moneda = 'BTC') {
     if (c5.length < 300) return null;
     const af = 2 / 21, as = 2 / 201;
@@ -700,6 +721,11 @@
         modelo_hasta: candles['1h'][candles['1h'].length - 1][0] + 2 * 3600000 });
       rows.push(mov);
     }
+    // termometro de compra/venta del ciclo de BTC (como termometro.py). Solo BTC
+    if ((input.moneda || 'BTC') === 'BTC' && root.TERMOMETRO) {
+      const tm = termometro(candles['1d'].map((b) => b[4]), price, root.TERMOMETRO);
+      if (tm) rows.push(tm);
+    }
     const explanation = [];
     PLAZOS.forEach((spec) => explain(rows, price, spec).forEach((e) => explanation.push(e)));
     explanation.forEach((e) => rows.push(e));
@@ -711,7 +737,7 @@
     return { rows, log };
   }
 
-  const Analisis = { analizar, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, similar, outcomes, horizonStats, scenarios, targets };
+  const Analisis = { analizar, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, similar, outcomes, horizonStats, scenarios, targets, termometro, percentil };
   root.Analisis = Analisis;
   if (typeof module !== 'undefined' && module.exports) module.exports = Analisis;
 })(typeof self !== 'undefined' ? self : globalThis);

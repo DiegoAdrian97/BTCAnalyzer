@@ -25,6 +25,7 @@ async function ciclo(nueva = false) {
   const t0 = Date.now(), sym = SYM, mon = sym.replace('USDT', '');
   try {
     // los arboles del modelo de movimiento fuerte se bajan una vez
+    if (!self.TERMOMETRO) { try { self.TERMOMETRO = await (await fetch('termometro.json')).json(); } catch (e) { /* sin termometro */ } }
     if (!self.MODELO_FUERTE) { try { self.MODELO_FUERTE = await (await fetch('modelo_fuerte.json')).json(); } catch (e) { /* sin modelo: queda la tabla */ } }
     const input = await Datos.recolectar((texto) => postMessage({ tipo: 'progreso', texto, sym }), sym);
     input.moneda = mon;

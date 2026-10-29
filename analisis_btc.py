@@ -43,6 +43,7 @@ import avisos
 import backtest_grid as bg
 import indicadores as ind
 import fuerte
+import termometro
 import noticias
 
 SYMBOL = "BTC/USDT:USDT"
@@ -1019,6 +1020,12 @@ def analyze():
             mov.update(modelo_1h=pf["1h"], modelo_4h=pf["4h"], modelo_base_1h=pf["base_1h"], modelo_base_4h=pf["base_4h"],
                        modelo_hasta=candles["1h"][-1][0] + 2 * 3600000)
         rows.append(mov)
+    try:                                   # termometro de compra/venta del ciclo de BTC (termometro.py)
+        tm = termometro.termometro([b[4] for b in candles["1d"]], price)
+        if tm:
+            rows.append(tm)
+    except Exception as e:
+        print(f"(termometro no disponible: {type(e).__name__}: {e})")
     explanation = [e for spec in PLAZOS for e in explain(rows, price, spec)]
     rows += explanation
     takeaway = next(e["texto"] for e in explanation if e["plazo"] == "1 hora" and e["tipo"] == "titular")
