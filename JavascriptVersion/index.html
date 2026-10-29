@@ -1089,7 +1089,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   }
 
   // ---------- termometro de compra/venta (ciclo de BTC) ----------
-  const TM_COL = ['var(--color-ok)', 'color-mix(in srgb, var(--color-ok) 55%, var(--color-fg-muted))', 'var(--color-fg-muted)',
+  const TM_COL = ['var(--color-ok)', 'color-mix(in srgb, var(--color-ok) 55%, var(--color-fg-muted))',
     'color-mix(in srgb, var(--color-bad) 55%, var(--color-fg-muted))', 'var(--color-bad)'];
   (function tmInit() {
     const tab = document.getElementById('tm-tab'), pan = document.getElementById('tm-panel');
@@ -1133,6 +1133,13 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     return box;
   }
   // ciclo de 4 años: fase del año, maximos y pisos de cada ciclo, y la regla de Fear & Greed Index segun la fase
+  function reglaFng(t) {
+    const R = t.reglas || {}, txt = (r) => `12 meses después BTC estuvo más arriba el ${r.sube_365}% de las veces (mediana ${r.mediana_365 > 0 ? '+' : ''}${r.mediana_365}%)`;
+    const call = (col, s) => { const p = el('p', 'ab-tm-call', s); p.style.setProperty('--tm-col2', col); return p; };
+    if (t.regla === 'miedo_bajista' && R.miedo_bajista) return [call('var(--color-ok)', `Extreme Fear en año bajista: el miedo de los demás es oportunidad. ${txt(R.miedo_bajista)}; antes llegó a caer ${R.miedo_bajista.caida_mediana}% (mediana): conviene comprar de a partes.`)];
+    if (t.regla === 'codicia_alcista3' && R.codicia_alcista3) return [call('var(--color-bad)', `Extreme Greed en el 3er año alcista: demasiada codicia, aviso de venta. ${txt(R.codicia_alcista3)}.`)];
+    return [];
+  }
   function cicloBloque(t, fv) {
     const out = [], MES = 'ene feb mar abr may jun jul ago sep oct nov dic'.split(' ');
     const fecha = (ms) => { const d = new Date(ms); return `${MES[d.getUTCMonth()]}-${d.getUTCFullYear()}`; };
@@ -1168,25 +1175,29 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     const tab = document.getElementById('tm-tab'), body = document.getElementById('tm-body');
     const t = pick(rows, 'termometro')[0];
     tab.hidden = !t; if (!t) { document.getElementById('tm-panel').hidden = true; document.getElementById('tm-back').hidden = true; document.documentElement.style.overflow = ''; return; }
-    const v = num(t.temp), zi = Math.max(0, t.zonas.findIndex((z) => v < z[1] || z[1] >= 100)), col = TM_COL[zi];
+    const v = num(t.medidor), zi = Math.max(0, t.m_zonas.findIndex((z) => z[0] === t.medidor_zona)), col = TM_COL[zi];
     tab.style.setProperty('--tm-col', col); document.getElementById('tm-panel').style.setProperty('--tm-col', col);
     const dot = document.getElementById('tm-dot');
     if (matchMedia('(max-width: 700px)').matches) { dot.style.left = `${v}%`; dot.style.bottom = ''; } else { dot.style.bottom = `${v}%`; dot.style.left = ''; }
     document.getElementById('tm-num').textContent = f0(v);
-    document.getElementById('tm-zona').textContent = t.zona;
+    document.getElementById('tm-zona').textContent = t.medidor_zona;
     body.replaceChildren();
-    const big = el('div', 'ab-tm-big'); big.append(el('b', '', f0(v)), el('span', 'ab-note', '/ 100'), el('span', 'ab-tm-zona', t.zona));
-    const sc = el('div', 'ab-tm-scale');
-    t.zonas.forEach((z, i) => { const c = el('div'); const bar = el('i', i === zi ? 'on' : ''); bar.style.background = TM_COL[i]; c.append(bar, el('span', '', z[2])); sc.append(c); });
-    const pasado = el('p', 'ab-hero-sub');
-    pasado.textContent = t.sube_365 === null ? 'Todavía no hay suficientes casos en esta zona para medir qué pasó después.'
-      : `Cuando estuvo en esta zona (desde 2019), 12 meses después BTC estaba más arriba el ${t.sube_365}% de las veces (mediana ${t.mediana_365 > 0 ? '+' : ''}${t.mediana_365}%); 6 meses después, el ${t.sube_180}% (mediana ${t.mediana_180 > 0 ? '+' : ''}${t.mediana_180}%).`;
+    const big = el('div', 'ab-tm-big'); big.append(el('b', '', f0(v)), el('span', 'ab-note', '/ 100'), el('span', 'ab-tm-zona', t.medidor_zona));
+    const sc = el('div', 'ab-tm-scale'); sc.style.gridTemplateColumns = `repeat(${t.m_zonas.length}, minmax(0, 1fr))`;
+    t.m_zonas.forEach((z, i) => { const c = el('div'); const bar = el('i', i === zi ? 'on' : ''); bar.style.background = TM_COL[i]; c.append(bar, el('span', '', z[0])); sc.append(c); });
+    const pasado = el('p', 'ab-hero-sub'), pm = (x) => `${x > 0 ? '+' : ''}${x}%`;
+    pasado.textContent = t.m_sube_365 === null ? 'Todavía no hay suficientes casos en esta zona para medir qué pasó después.'
+      : `Cuando estuvo en esta zona (2019–2026), 12 meses después BTC estaba más arriba el ${t.m_sube_365}% de las veces (mediana ${pm(t.m_mediana_365)}); 6 meses después, el ${t.m_sube_180}% (mediana ${pm(t.m_mediana_180)}).`;
+    const FASE = { bajista: (a) => (a >= 60 ? 'final del año bajista: en esta parte del ciclo suele formarse el piso' : 'año bajista: el miedo todavía puede llevar el precio más abajo'),
+      'alcista 1': () => '1er año alcista: recuperación después del piso', 'alcista 2': () => '2º año alcista: suele ser el tramo más fuerte',
+      'alcista 3': (a) => (a >= 60 ? 'final del 3er año alcista: en esta parte del ciclo suele formarse el techo' : '3er año alcista: la euforia se acerca al techo del ciclo') };
     const caro = (p) => (p >= 50 ? `más caro que el ${f0(p)}% de la historia` : `más barato que el ${f0(100 - p)}% de la historia`);
     const comp = el('ul', 'ab-tm-list');
     const li = (txt, sub) => { const x = el('li', '', txt); if (sub) x.append(' ', el('em', '', sub)); comp.append(x); };
-    li(`Precio vs media de 200 semanas (${f0(num(t.wma200))}): ${sg(num(t.sobre_wma), 1)}.`, caro(num(t.p_wma200)) + '.');
-    li(`Caída desde el máximo histórico (${f0(num(t.ath))}): ${sg(num(t.caida_ath), 1)}.`, num(t.p_dd_ath) >= 50 ? `el ${f0(num(t.p_dd_ath))}% del tiempo estuvo todavía más lejos del máximo.` : `solo el ${f0(num(t.p_dd_ath))}% del tiempo estuvo tan lejos del máximo.`);
-    li(`Último año: ${sg(num(t.ret_anual), 1)}.`, caro(num(t.p_ret365)) + '.');
+    li(`Barato o caro (la mitad del medidor: cuanto más barato, más compra): ${f0(num(t.temp))}/100, ${t.zona.toLowerCase()}.`);
+    li(`  · Precio vs media de 200 semanas (${f0(num(t.wma200))}): ${sg(num(t.sobre_wma), 1)}.`, caro(num(t.p_wma200)) + '.');
+    li(`  · Caída desde el máximo histórico (${f0(num(t.ath))}): ${sg(num(t.caida_ath), 1)}.`, num(t.p_dd_ath) >= 50 ? `el ${f0(num(t.p_dd_ath))}% del tiempo estuvo todavía más lejos del máximo.` : `solo el ${f0(num(t.p_dd_ath))}% del tiempo estuvo tan lejos del máximo.`);
+    li(`  · Último año: ${sg(num(t.ret_anual), 1)}.`, caro(num(t.p_ret365)) + '.');
     // contexto de corto plazo: se muestra, pero no entra en el termometro (no anticipo la direccion de forma pareja)
     const ctxL = el('ul', 'ab-tm-list'), li2 = (txt) => ctxL.append(el('li', '', txt));
     const fg = pick(rows, 'contexto').find((c) => c.clave === 'miedo_codicia');
@@ -1198,10 +1209,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     const rs = pick(rows, 'resumen')[0];
     if (rs && rs.rating_1d !== undefined) li2(`Sesgo técnico diario: ${num(rs.rating_1d) > 0.1 ? 'compra' : num(rs.rating_1d) < -0.1 ? 'venta' : 'neutral'} (${ar.format('+.2f')(num(rs.rating_1d))}).`);
     body.append(big, sc, pasado, el('p', 'ab-tm-sec', 'Qué lo forma'), comp,
-      el('p', 'ab-tm-sec', 'Ciclo de 4 años'), ...cicloBloque(t, fg ? num(fg.fng) : null),
+      el('p', 'ab-tm-sec', 'Momento del ciclo (la otra mitad)'), el('p', 'ab-hero-sub', `${t.año}, ${(FASE[t.fase] || (() => t.fase))(t.avance)}.`),
+      ...reglaFng(t),
       ...(fg ? [el('p', 'ab-tm-sec', 'Fear & Greed Index'), fngGauge(num(fg.fng), fg.fng_clase || String(fg.valor).split(' · ')[1] || '', fg.fng_ayer)] : []),
       el('p', 'ab-tm-sec', 'Corto plazo (no entra en el termómetro)'), ctxL,
-      el('p', 'ab-foot', 'Mide en qué parte del ciclo está BTC comparado con toda su historia desde 2011. Sirve para decidir de a poco en semanas o meses, no para el próximo trade. No es asesoramiento financiero.'));
+      el('p', 'ab-foot', 'Lógica inversa: cuando BTC está barato y el ciclo está en su piso, comprar de a poco; cuando está caro y en el techo del ciclo, vender de a poco. Para semanas o meses, no para el próximo trade. No es asesoramiento financiero.'));
   }
   function drawQuePasa(rows, s) {
     const box = document.getElementById('que-pasa');

@@ -94,7 +94,20 @@
         : fng > 75 && (fs === 'alcista 1' || fs === 'alcista 2') ? 'codicia_alcista12' : null;
     }
     const cic = T.ciclo || {};
-    return { tabla: 'termometro', temp: rnd(temp, 1), zona: z.nombre, año: y, fase: fs, fng: fng === undefined ? null : fng, regla,
+    const d0 = new Date(nowMs), av = (Math.floor((d0 - Date.UTC(y, 0, 1)) / 86400000)) / 366, md = T.medidor;
+    let posM = null, zm = null, prob = null;
+    if (md) {
+      const ph = (((y - 2) % 4) + 4) % 4, x = [+(ph === 1), +(ph === 2), +(ph === 3), (ph === 0) * av, (ph === 3) * av];
+      let lg = md.intercepto; md.pesos.forEach((w, i) => { lg += w * x[i]; });
+      prob = 1 / (1 + Math.exp(-lg));
+      const S = md.peso_valuacion * (1 - temp / 100) + (1 - md.peso_valuacion) * prob;
+      zm = md.zonas.find((q) => q.desde <= S && S < q.hasta);
+      posM = Math.min(100, Math.max(0, (1 - S) * 100));
+    }
+    return { tabla: 'termometro', medidor: posM === null ? null : rnd(posM, 1), medidor_zona: zm ? zm.nombre : null,
+      m_sube_180: zm ? zm.sube_180 : null, m_mediana_180: zm ? zm.mediana_180 : null, m_sube_365: zm ? zm.sube_365 : null, m_mediana_365: zm ? zm.mediana_365 : null,
+      avance: Math.round(av * 100), p_ciclo: prob === null ? null : Math.round(prob * 100), m_zonas: md ? md.zonas.map((q) => [q.nombre, q.sube_365, q.mediana_365]) : [],
+      temp: rnd(temp, 1), zona: z.nombre, año: y, fase: fs, fng: fng === undefined ? null : fng, regla,
       reglas: cic.reglas || {}, años: cic.años || [], ciclos: cic.ciclos || [], p_wma200: rnd(p.wma200, 1), p_dd_ath: rnd(p.dd_ath, 1), p_ret365: rnd(p.ret365, 1),
       wma200: rnd(wma, 1), sobre_wma: rnd((price / wma - 1) * 100, 1), caida_ath: rnd(med.dd_ath * 100, 1), ath: rnd(ath, 1),
       ret_anual: rnd((price / c365 - 1) * 100, 1), sube_180: z.sube_180, mediana_180: z.mediana_180, sube_365: z.sube_365, mediana_365: z.mediana_365,

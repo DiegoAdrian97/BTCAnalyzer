@@ -60,7 +60,22 @@ def termometro(closes_d, price, T=None, fng=None, now_ms=None):
         regla = ("miedo_bajista" if fng < 25 and fs == "bajista" else "codicia_alcista3" if fng > 75 and fs == "alcista 3"
                  else "codicia_alcista12" if fng > 75 and fs in ("alcista 1", "alcista 2") else None)
     cic = T.get("ciclo") or {}
-    return {"tabla": "termometro", "temp": round(temp, 1), "zona": z["nombre"], "año": y, "fase": fs, "fng": fng, "regla": regla,
+    # medidor de compra/venta: mitad logica inversa (1 - temperatura) y mitad momento del ciclo (armar_termometro.py)
+    av = (time.gmtime((now_ms or time.time() * 1000) / 1000).tm_yday - 1) / 366
+    md = T.get("medidor")
+    pos_m = prob = zm = None
+    if md:
+        ph = (y - 2) % 4
+        x = [float(ph == 1), float(ph == 2), float(ph == 3), (ph == 0) * av, (ph == 3) * av]
+        prob = 1 / (1 + math.exp(-(md["intercepto"] + sum(w * v for w, v in zip(md["pesos"], x)))))
+        S = md["peso_valuacion"] * (1 - temp / 100) + (1 - md["peso_valuacion"]) * prob
+        zm = next(q for q in md["zonas"] if q["desde"] <= S < q["hasta"])
+        pos_m = min(100.0, max(0.0, (1 - S) * 100))
+    return {"tabla": "termometro", "medidor": None if pos_m is None else round(pos_m, 1), "medidor_zona": zm["nombre"] if zm else None,
+            "m_sube_180": zm["sube_180"] if zm else None, "m_mediana_180": zm["mediana_180"] if zm else None,
+            "m_sube_365": zm["sube_365"] if zm else None, "m_mediana_365": zm["mediana_365"] if zm else None,
+            "avance": round(av * 100), "p_ciclo": None if prob is None else round(prob * 100), "m_zonas": [[q["nombre"], q["sube_365"], q["mediana_365"]] for q in md["zonas"]] if md else [],
+            "temp": round(temp, 1), "zona": z["nombre"], "año": y, "fase": fs, "fng": fng, "regla": regla,
             "reglas": cic.get("reglas") or {}, "años": cic.get("años") or [], "ciclos": cic.get("ciclos") or [],
             "p_wma200": round(p["wma200"], 1), "p_dd_ath": round(p["dd_ath"], 1), "p_ret365": round(p["ret365"], 1),
             "wma200": round(wma, 1), "sobre_wma": round((price / wma - 1) * 100, 1), "caida_ath": round(med["dd_ath"] * 100, 1),
