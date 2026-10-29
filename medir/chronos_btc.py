@@ -16,7 +16,7 @@ with open(out, "w", newline="") as f:
     for k in range(0, len(idx), 256):
         lote = idx[k:k + 256]
         ctx = [torch.tensor(c[i - 511:i + 1]) for i in lote]
-        qs, _ = pipe.predict_quantiles(context=ctx, prediction_length=4, quantile_levels=Q)
+        qs, _ = pipe.predict_quantiles(ctx, prediction_length=4, quantile_levels=Q)
         qs = qs.numpy()                                      # [n, 4, 9]
         for j, i in enumerate(lote):
             w.writerow([int(t[i]), float(c[i])] + [round(float(x / c[i]), 6) for h in (0, 3) for x in qs[j, h]])
