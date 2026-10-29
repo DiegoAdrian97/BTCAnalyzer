@@ -9,3 +9,5 @@ data/*
 !data/predicciones_btc.csv
 !data/analisis_btc.json
 reporte_btc.html
+velas_1h.json
+eventos.json

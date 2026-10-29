@@ -1,0 +1,29 @@
+name: Reentrenar modelo de movimiento fuerte
+# Una vez por mes (y a mano desde Actions): baja los datos, reentrena y sube modelo_fuerte.json.
+# La prueba honesta del modelo reentrenaba cada trimestre: asi se mantiene igual que lo medido.
+on:
+  schedule:
+    - cron: "23 7 2 * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/reentrenar.yml", "datos_entrenamiento.py", "entrenar_fuerte.py"]
+permissions:
+  contents: write
+jobs:
+  reentrenar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install numpy lightgbm
+      - run: python datos_entrenamiento.py
+      - run: python entrenar_fuerte.py velas_1h.json eventos.json
+      - name: Subir el modelo nuevo
+        run: |
+          git config user.name "reentrenar-bot"; git config user.email "noreply@github.com"
+          git add JavascriptVersion/modelo_fuerte.json
+          git commit -q -m "Modelo de movimiento fuerte reentrenado ($(date -u +%Y-%m))" || exit 0
+          for i in 1 2 3; do git pull --rebase -q && git push -q && break; sleep 10; done
