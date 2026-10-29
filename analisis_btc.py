@@ -1021,7 +1021,8 @@ def analyze():
                        modelo_hasta=candles["1h"][-1][0] + 2 * 3600000)
         rows.append(mov)
     try:                                   # termometro de compra/venta del ciclo de BTC (termometro.py)
-        tm = termometro.termometro([b[4] for b in candles["1d"]], price)
+        fg = next((r for r in rows if r.get("tabla") == "contexto" and r.get("clave") == "miedo_codicia"), None)
+        tm = termometro.termometro([b[4] for b in candles["1d"]], price, fng=fg["fng"] if fg else None, now_ms=now_ms)
         if tm:
             rows.append(tm)
     except Exception as e:

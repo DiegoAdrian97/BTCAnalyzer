@@ -78,7 +78,8 @@
     }
     return 100;
   }
-  function termometro(closesD, price, T) {
+  function fase(y) { return y % 4 === 2 ? 'bajista' : `alcista ${(((y - 3) % 4) + 4) % 4 + 1}`; }
+  function termometro(closesD, price, T, fng = null, nowMs = Date.now()) {
     if (closesD.length < 1400 || price <= 0) return null;
     let s = 0; for (const x of closesD.slice(-1400)) s += x;
     const wma = s / 1400, ath = Math.max(T.ath, Math.max(...closesD), price), c365 = closesD[closesD.length - 365];
@@ -86,7 +87,15 @@
     const p = {}; T.componentes.forEach((k) => { p[k] = percentil(med[k], T.q[k]); });
     const temp = T.componentes.reduce((a, k) => a + p[k], 0) / T.componentes.length;
     const z = T.zonas.find((x) => temp < x.hasta || x.hasta >= 100);
-    return { tabla: 'termometro', temp: rnd(temp, 1), zona: z.nombre, p_wma200: rnd(p.wma200, 1), p_dd_ath: rnd(p.dd_ath, 1), p_ret365: rnd(p.ret365, 1),
+    const y = new Date(nowMs).getUTCFullYear(), fs = fase(y);
+    let regla = null;
+    if (fng !== null && fng !== undefined) {
+      regla = fng < 25 && fs === 'bajista' ? 'miedo_bajista' : fng > 75 && fs === 'alcista 3' ? 'codicia_alcista3'
+        : fng > 75 && (fs === 'alcista 1' || fs === 'alcista 2') ? 'codicia_alcista12' : null;
+    }
+    const cic = T.ciclo || {};
+    return { tabla: 'termometro', temp: rnd(temp, 1), zona: z.nombre, año: y, fase: fs, fng: fng === undefined ? null : fng, regla,
+      reglas: cic.reglas || {}, años: cic.años || [], ciclos: cic.ciclos || [], p_wma200: rnd(p.wma200, 1), p_dd_ath: rnd(p.dd_ath, 1), p_ret365: rnd(p.ret365, 1),
       wma200: rnd(wma, 1), sobre_wma: rnd((price / wma - 1) * 100, 1), caida_ath: rnd(med.dd_ath * 100, 1), ath: rnd(ath, 1),
       ret_anual: rnd((price / c365 - 1) * 100, 1), sube_180: z.sube_180, mediana_180: z.mediana_180, sube_365: z.sube_365, mediana_365: z.mediana_365,
       zonas: T.zonas.map((x) => [x.desde, x.hasta, x.nombre, x.sube_365, x.mediana_365]) };
@@ -723,7 +732,8 @@
     }
     // termometro de compra/venta del ciclo de BTC (como termometro.py). Solo BTC
     if ((input.moneda || 'BTC') === 'BTC' && root.TERMOMETRO) {
-      const tm = termometro(candles['1d'].map((b) => b[4]), price, root.TERMOMETRO);
+      const fg = rows.find((r) => r.tabla === 'contexto' && r.clave === 'miedo_codicia');
+      const tm = termometro(candles['1d'].map((b) => b[4]), price, root.TERMOMETRO, fg ? fg.fng : null, now);
       if (tm) rows.push(tm);
     }
     const explanation = [];

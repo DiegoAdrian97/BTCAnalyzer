@@ -91,6 +91,17 @@ Medido sin mirar el futuro (cada día comparado solo con la historia que había 
 | 60–80 Caro: cuidado | 34% | −24% |
 | 80–100 Zona de venta | 23% | −23% |
 
+**Ciclo de 4 años** (en el mismo panel): fase del año (3 alcistas y 1 bajista: 2014, 2018, 2022, 2026...; se cumplió
+desde 2012 salvo 2025, que tocaba alcista y cerró −7%), máximos y pisos de cada ciclo con su duración (los alcistas
+duraron ~35 meses; el último bajista, 8,8 meses hasta el piso de jun-2026, si se sostiene) y la proyección del próximo
+máximo (alcista de 2,5 años o como los anteriores). Con el Fear & Greed Index según la fase, 12 meses después:
+
+| Situación | BTC más arriba | Mediana | Antes de subir |
+|---|---|---|---|
+| Extreme Fear (<25) en año bajista (2018, 2022, 2026) | 64% | +37% | llegó a caer −48% (mediana) |
+| Extreme Greed (>75) en el 3er año alcista (2021, 2025) | 32% | −15% | |
+| Extreme Greed en el 1er o 2º año alcista | 79% | +50% | |
+
 Son pocos ciclos (tres), así que es una guía, no una garantía; en 2016–17 (con menos historia para comparar) la zona
 cara siguió subiendo. Se probaron y no entran en el puntaje porque no anticiparon de forma pareja entre ciclos: el
 múltiplo de Mayer (precio / media de 200 días), la fase del halving, el índice de miedo y codicia, el volumen, los
