@@ -1,0 +1,18 @@
+name: BTC largo
+on:
+  push:
+    branches: [medicion-monedas]
+    paths: [".github/workflows/btclargo.yml", "medir/btc_largo.py"]
+permissions:
+  contents: write
+jobs:
+  bajar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: python medir/btc_largo.py
+      - run: |
+          git config user.name "medicion-bot"; git config user.email "noreply@github.com"
+          git add medir/monedas/btc_bitstamp_1d.json && git commit -q -m "btc diario largo" && git push -q
