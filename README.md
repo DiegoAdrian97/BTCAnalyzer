@@ -74,6 +74,29 @@ y sigue con el cierre de 72 h; las posiciones abiertas a mano no las toca.
 Configuración en Render (Environment), nunca en el código: `TELEGRAM_TOKEN` y `TELEGRAM_CHAT` (bot de Telegram),
 o `WHATSAPP_TEL` y `WHATSAPP_CLAVE` (CallMeBot), o `NTFY_TEMA` (app ntfy). Si Binance bloquea la IP, el mapa de liquidaciones sale de Bybit.
 
+### Termómetro de compra y venta (ciclo de BTC)
+
+Pestaña fija al costado de la app (abajo en el celular): de 0 (frío, buena zona de compra) a 100 (caliente, zona de
+venta), para decidir de a poco en semanas o meses, no para el próximo trade. Compara con toda la historia de BTC
+desde 2011 (Bitstamp) tres medidas: cuánto está el precio sobre su media de 200 semanas, cuánto cayó desde el máximo
+histórico y cuánto subió o bajó en el último año (`termometro.py`, `armar_termometro.py`, `JavascriptVersion/termometro.json`).
+
+Medido sin mirar el futuro (cada día comparado solo con la historia que había hasta ese día), desde 2019:
+
+| Zona | 12 meses después, BTC más arriba | Mediana a 12 meses |
+|---|---|---|
+| 0–20 Compra fuerte | 98% | +82% |
+| 20–40 Buena zona de compra | 88% | +128% |
+| 40–60 Neutral | 64% | +82% |
+| 60–80 Caro: cuidado | 34% | −24% |
+| 80–100 Zona de venta | 23% | −23% |
+
+Son pocos ciclos (tres), así que es una guía, no una garantía; en 2016–17 (con menos historia para comparar) la zona
+cara siguió subiendo. Se probaron y no entran en el puntaje porque no anticiparon de forma pareja entre ciclos: el
+múltiplo de Mayer (precio / media de 200 días), la fase del halving, el índice de miedo y codicia, el volumen, los
+indicadores de corto plazo y las noticias; el panel los muestra como contexto. Se actualiza solo cada mes junto con
+el reentrenamiento.
+
 ### Reentrenamiento mensual
 
 El día 2 de cada mes una tarea de GitHub (`.github/workflows/reentrenar.yml`) baja las velas de 1 hora de BTC
