@@ -12,6 +12,8 @@ import html
 import json
 import re
 import time
+import unicodedata
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
@@ -140,16 +142,85 @@ def parse_rss(xml, feed, now_ms, horas=24):
     return out
 
 
+# ---------- misma noticia en varios medios: se muestra una sola vez ----------
+VACIAS = set("""el la los las lo un una unos unas de del al y o e u en por para con sin que se su sus es son fue ser
+tras sobre como mas pero ya le les hay entre hasta desde ante segun este esta estos estas ese esa eso the of to and in
+for on with as after is are was were be been says said over from by at its it will amid into new than more about up
+out could would has have had this that what why how a an or not no but can may might just now today vs bitcoin btc
+cripto crypto criptomoneda criptomonedas dolar dolares dollar dollars usd precio price""".split())
+EVENTO = {"Hackeo de exchange": EXCHANGE}           # mismo exchange hackeado en 12 h: es el mismo hecho
+
+
+def claves(titulo):
+    """Palabras que importan de un titular, sin tildes ni palabras vacias, recortadas a 5 letras (raiz)."""
+    t = "".join(c for c in unicodedata.normalize("NFD", titulo.lower()) if unicodedata.category(c) != "Mn")
+    t = re.sub(r"(?<=\d)[.,](?=\d)", "", t)
+    return {w if w.isdigit() else w[:5] for w in re.findall(r"[a-z0-9]+", t) if w not in VACIAS and (len(w) > 2 or w.isdigit())}
+
+
+def misma_noticia(a, b):
+    """True si dos titulares cuentan el mismo hecho (en 12 horas)."""
+    if abs(a["t"] - b["t"]) > 12 * 3_600_000:
+        return False
+    if a.get("tema") == b.get("tema") and a.get("tema") in EVENTO:
+        ea, eb = re.findall(EVENTO[a["tema"]], a.get("original", a["titulo"]).lower()), re.findall(EVENTO[b["tema"]], b.get("original", b["titulo"]).lower())
+        if set(ea) & set(eb):
+            return True
+    ka, kb = claves(a["titulo"]), claves(b["titulo"])
+    comun = len(ka & kb)
+    if not ka or not kb:
+        return False
+    if comun >= 3 and comun / min(len(ka), len(kb)) >= 0.5:
+        return True
+    return a.get("tema") == b.get("tema") and comun >= 2 and comun / min(len(ka), len(kb)) >= 0.6
+
+
 def juntar(listas, maximo=30):
-    """Une titulares de varias fuentes: sin repetidos, los mas nuevos primero."""
-    seen, out = set(), []
-    for r in sorted((x for xs in listas for x in xs), key=lambda x: -x["t"]):
-        k = re.sub(r"[^a-z0-9áéíóúñ]+", "", r["titulo"].lower())[:60]
-        if k in seen:
-            continue
-        seen.add(k)
-        out.append(r)
-    return out[:maximo]
+    """Une titulares de varias fuentes: la misma noticia en distintos medios aparece una sola vez (la primera que
+    salio, con la cantidad de medios), los mas nuevos primero."""
+    out = []
+    for r in sorted((x for xs in listas for x in xs), key=lambda x: (x["t"], x["titulo"])):
+        igual = next((o for o in out if misma_noticia(o, r)), None)
+        if igual is None:
+            out.append(dict(r, medios=1))
+        else:
+            igual["medios"] += 1
+    return sorted(out, key=lambda x: -x["t"])[:maximo]
+
+
+# ---------- traduccion de los titulares en ingles (Google Translate, gratis, sin clave) ----------
+INGLES = set("the of to and in for on with as after is are says over from by at its will amid into than about could would has have this what why how approves approved hacked hack falls fell rises rose surges surged drops dropped plunges jumps hits record inflows outflows breaks slips soars tumbles rally rallies crash crashes sees amid week weeks year high low".split())
+ESPANOL = set("el la los las de del y en por para con que se un una sus es son tras sobre como pero".split())
+_TRAD = {}
+
+
+def en_ingles(titulo):
+    w = re.findall(r"[a-z']+", titulo.lower())
+    en, es = sum(x in INGLES for x in w), sum(x in ESPANOL for x in w)
+    return en >= 1 and en > es
+
+
+def traducir(rows):
+    """Pasa al español los titulares en ingles (guarda el original). Si el traductor falla, quedan en ingles."""
+    pend = list(dict.fromkeys(r["titulo"] for r in rows if en_ingles(r["titulo"]) and r["titulo"] not in _TRAD))
+    for i in range(0, len(pend), 25):
+        lote = pend[i:i + 25]
+        try:
+            data = urllib.parse.urlencode({"q": "\n".join(lote)}).encode()
+            req = urllib.request.Request("https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=es&dt=t",
+                                         data=data, headers={"User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                partes = json.loads(resp.read().decode("utf-8"))[0]
+            lineas = "".join(p[0] for p in partes if p and p[0]).split("\n")
+            if len(lineas) == len(lote):
+                _TRAD.update({o: tr.strip() for o, tr in zip(lote, lineas) if tr.strip()})
+        except Exception as e:
+            print(f"(traductor no disponible: {type(e).__name__})")
+            break
+    for r in rows:
+        if r["titulo"] in _TRAD:
+            r["original"], r["titulo"] = r["titulo"], _TRAD[r["titulo"]]
+    return rows
 
 
 MESES = {m: i + 1 for i, m in enumerate("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split())}
@@ -194,6 +265,28 @@ def _prima():
     by = json.loads(_get("https://api.bybit.com/v5/market/tickers?category=spot&symbol=BTCUSDT"))
     spot = float(by["result"]["list"][0]["lastPrice"])
     return prima_coinbase(cb, spot, ut)
+
+
+# ---------- indice de miedo y codicia (Crypto Fear & Greed, alternative.me, gratis) ----------
+# Termometro del animo del mercado (0 = miedo extremo, 100 = codicia extrema). Medido 2018-2026 con BTC: no anticipa
+# la direccion de forma confiable (la codicia extrema fue alcista en 2018-21 y bajista en 2024-26; el miedo extremo,
+# mixto), asi que se muestra como contexto, no como señal.
+FNG_ES = {"Extreme Fear": "Miedo extremo", "Fear": "Miedo", "Neutral": "Neutral", "Greed": "Codicia", "Extreme Greed": "Codicia extrema"}
+
+
+def miedo_codicia(data):
+    """Fila de contexto con el indice de hoy y el de ayer (respuesta de api.alternative.me/fng/?limit=2)."""
+    d = data["data"]
+    v, ayer = int(d[0]["value"]), (int(d[1]["value"]) if len(d) > 1 else None)
+    clase = FNG_ES.get(d[0].get("value_classification"), d[0].get("value_classification") or "")
+    txt = ("Mucho miedo: muchos venden por pánico. A veces marca pisos, pero no siempre" if v < 25 else
+           "Hay miedo en el mercado" if v < 45 else "Ánimo parejo" if v <= 55 else
+           "Hay codicia: el mercado está optimista" if v <= 75 else "Euforia: muchos compran por miedo a quedarse afuera. A veces marca techos, pero no siempre")
+    if ayer is not None and ayer != v:
+        txt += f" (ayer {ayer})"
+    return {"tabla": "contexto", "clave": "miedo_codicia", "titulo": "Miedo y codicia", "valor": f"{v} · {clase}",
+            "senal": "neutral", "detalle": txt + ". Es el ánimo, no una señal: no anticipó la dirección de forma confiable.",
+            "fng": v, "fng_ayer": ayer}
 
 
 # ---------- calendario economico de EE.UU. (importancia alta) ----------
@@ -280,9 +373,12 @@ def externo(now_ms=None, moneda="BTC"):
         etf = pool.submit(intento, "flujos de ETF", lambda: parse_farside(_get(FARSIDE)))
         pr = pool.submit(intento, "prima de Coinbase", _prima) if moneda == "BTC" else None
         cal = pool.submit(intento, "calendario economico", lambda: _calendario(now_ms))
-        rows = juntar([x.result() or [] for x in feeds]) + (etf.result() or []) + (cal.result() or [])
+        fng = pool.submit(intento, "miedo y codicia", lambda: miedo_codicia(json.loads(_get("https://api.alternative.me/fng/?limit=2"))))
+        rows = juntar([traducir(x.result() or []) for x in feeds]) + (etf.result() or []) + (cal.result() or [])
         if pr and pr.result():
             rows.append(pr.result())
+        if fng.result():
+            rows.append(fng.result())
     return rows
 
 

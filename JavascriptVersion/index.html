@@ -1088,6 +1088,10 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
         txt: `ETF de BTC en EE.UU.: ${v >= 0 ? 'entraron' : 'salieron'} ${f0(Math.abs(v))} M USD el ${d[2]}/${d[1]} (en 5 días: ${s5 >= 0 ? '+' : '−'}${f0(Math.abs(s5))} M).`,
         sub: 'Se publican al día siguiente del cierre en EE.UU. (Farside Investors).' });
     }
+    const fg = ctx('miedo_codicia'), fv = fg ? num(fg.fng) : null;
+    if (fv !== null && fv !== undefined) {
+      F.push({ si: false, ic: '☯', txt: `Ánimo del mercado (índice de miedo y codicia): ${fg.valor}. ${fg.detalle}` });
+    }
     // la decision de tasas de la Fed tiene su propia linea (abajo): aca no se repite
     const salio = eventosAgrupados(rows).map((g) => ({ ...g, items: g.items.filter((x) => !(/interest rate decision/i.test(x.original || '') && x.actual !== null && x.actual !== undefined)) }))
       .map((g) => ({ ...g, nombres: [...new Set(g.items.map((x) => x.titulo))] })).filter((g) => g.items.length && g.t <= Date.now() && g.t >= Date.now() - (w.h + 1) * 3600000);
@@ -1143,7 +1147,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       const a = el('a', 'ab-qp-n'); a.href = n.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
       const meta = el('span');
       if (n.sesgo === 'alcista' || n.sesgo === 'bajista') meta.append(el('i', 'ab-qp-s ab-' + n.sesgo, n.sesgo === 'alcista' ? '▲ buena para BTC' : '▼ mala para BTC'));
-      meta.append(el('i', 'ab-qp-tag' + (n.tema !== 'Cripto' ? ' ab-qp-hot' : ''), n.tema), `${n.fuente} · ${haceTxt(n.t)}`);
+      meta.append(el('i', 'ab-qp-tag' + (n.tema !== 'Cripto' ? ' ab-qp-hot' : ''), n.tema), `${n.fuente}${n.medios > 1 ? ` y ${n.medios - 1} medio${n.medios > 2 ? 's' : ''} más` : ''} · ${haceTxt(n.t)}`);
       a.append(el('b', '', n.titulo), meta); nb.append(a);
     });
     document.getElementById('qp-note').textContent = strong

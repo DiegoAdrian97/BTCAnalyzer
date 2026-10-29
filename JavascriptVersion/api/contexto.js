@@ -110,14 +110,75 @@ function parseRss(xml, feed, nowMs, horas = 24) {
   return out;
 }
 
-function juntar(listas, maximo = 30) {
-  const seen = new Set(), out = [];
-  for (const r of listas.flat().sort((a, b) => b.t - a.t)) {
-    const k = r.titulo.toLowerCase().replace(/[^a-z0-9áéíóúñ]+/g, '').slice(0, 60);
-    if (seen.has(k)) continue;
-    seen.add(k); out.push(r);
+// ---------- misma noticia en varios medios: se muestra una sola vez (igual que noticias.py) ----------
+const VACIAS = new Set(`el la los las lo un una unos unas de del al y o e u en por para con sin que se su sus es son fue ser
+tras sobre como mas pero ya le les hay entre hasta desde ante segun este esta estos estas ese esa eso the of to and in
+for on with as after is are was were be been says said over from by at its it will amid into new than more about up
+out could would has have had this that what why how a an or not no but can may might just now today vs bitcoin btc
+cripto crypto criptomoneda criptomonedas dolar dolares dollar dollars usd precio price`.split(/\s+/));
+const EVENTO = { 'Hackeo de exchange': EXCHANGE };
+
+function claves(titulo) {
+  const t = titulo.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/(?<=\d)[.,](?=\d)/g, '');
+  const out = new Set();
+  for (const w of t.match(/[a-z0-9]+/g) || []) {
+    if (VACIAS.has(w)) continue;
+    const dig = /^\d+$/.test(w);
+    if (w.length > 2 || dig) out.add(dig ? w : w.slice(0, 5));
   }
-  return out.slice(0, maximo);
+  return out;
+}
+
+function mismaNoticia(a, b) {
+  if (Math.abs(a.t - b.t) > 12 * 3600000) return false;
+  if (a.tema === b.tema && EVENTO[a.tema]) {
+    const g = new RegExp(EVENTO[a.tema].source, 'g');
+    const ea = new Set(((a.original || a.titulo).toLowerCase().match(g)) || []);
+    const eb = ((b.original || b.titulo).toLowerCase().match(g)) || [];
+    if (eb.some((x) => ea.has(x))) return true;
+  }
+  const ka = claves(a.titulo), kb = claves(b.titulo);
+  if (!ka.size || !kb.size) return false;
+  let comun = 0; for (const x of ka) if (kb.has(x)) comun++;
+  const m = Math.min(ka.size, kb.size);
+  if (comun >= 3 && comun / m >= 0.5) return true;
+  return a.tema === b.tema && comun >= 2 && comun / m >= 0.6;
+}
+
+function juntar(listas, maximo = 30) {
+  const out = [];
+  const todos = listas.flat().sort((a, b) => a.t - b.t || (a.titulo < b.titulo ? -1 : a.titulo > b.titulo ? 1 : 0));
+  for (const r of todos) {
+    const igual = out.find((o) => mismaNoticia(o, r));
+    if (igual) igual.medios += 1; else out.push({ ...r, medios: 1 });
+  }
+  return out.sort((a, b) => b.t - a.t).slice(0, maximo);
+}
+
+// ---------- traduccion de los titulares en ingles (Google Translate, gratis, sin clave) ----------
+const INGLES = new Set('the of to and in for on with as after is are says over from by at its will amid into than about could would has have this what why how approves approved hacked hack falls fell rises rose surges surged drops dropped plunges jumps hits record inflows outflows breaks slips soars tumbles rally rallies crash crashes sees amid week weeks year high low'.split(' '));
+const ESPANOL = new Set('el la los las de del y en por para con que se un una sus es son tras sobre como pero'.split(' '));
+const TRAD = new Map();
+function enIngles(titulo) {
+  const w = titulo.toLowerCase().match(/[a-z']+/g) || [];
+  const en = w.filter((x) => INGLES.has(x)).length, es = w.filter((x) => ESPANOL.has(x)).length;
+  return en >= 1 && en > es;
+}
+async function traducir(rows) {
+  const pend = [...new Set(rows.filter((r) => enIngles(r.titulo) && !TRAD.has(r.titulo)).map((r) => r.titulo))];
+  for (let i = 0; i < pend.length; i += 25) {
+    const lote = pend.slice(i, i + 25);
+    try {
+      const r = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=es&dt=t', {
+        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA },
+        body: new URLSearchParams({ q: lote.join('\n') }), signal: AbortSignal.timeout(10000) });
+      const partes = (await r.json())[0];
+      const lineas = partes.filter((p) => p && p[0]).map((p) => p[0]).join('').split('\n');
+      if (lineas.length === lote.length) lote.forEach((o, k) => { if (lineas[k].trim()) TRAD.set(o, lineas[k].trim()); });
+    } catch (e) { break; }
+  }
+  for (const r of rows) if (TRAD.has(r.titulo)) { r.original = r.titulo; r.titulo = TRAD.get(r.titulo); }
+  return rows;
 }
 
 function parseFarside(page, dias = 10) {
@@ -209,13 +270,27 @@ async function calendario(nowMs) {
   } finally { clearTimeout(tm); }
 }
 
+// ---------- indice de miedo y codicia (alternative.me, gratis). Igual que noticias.py: contexto, no señal ----------
+const FNG_ES = { 'Extreme Fear': 'Miedo extremo', Fear: 'Miedo', Neutral: 'Neutral', Greed: 'Codicia', 'Extreme Greed': 'Codicia extrema' };
+function miedoCodicia(data) {
+  const d = data.data, v = parseInt(d[0].value, 10), ayer = d.length > 1 ? parseInt(d[1].value, 10) : null;
+  const clase = FNG_ES[d[0].value_classification] || d[0].value_classification || '';
+  let txt = v < 25 ? 'Mucho miedo: muchos venden por pánico. A veces marca pisos, pero no siempre'
+    : v < 45 ? 'Hay miedo en el mercado' : v <= 55 ? 'Ánimo parejo' : v <= 75 ? 'Hay codicia: el mercado está optimista'
+      : 'Euforia: muchos compran por miedo a quedarse afuera. A veces marca techos, pero no siempre';
+  if (ayer !== null && ayer !== v) txt += ` (ayer ${ayer})`;
+  return { tabla: 'contexto', clave: 'miedo_codicia', titulo: 'Miedo y codicia', valor: `${v} · ${clase}`, senal: 'neutral',
+    detalle: txt + '. Es el ánimo, no una señal: no anticipó la dirección de forma confiable.', fng: v, fng_ayer: ayer };
+}
+
 async function externo(nowMs = Date.now()) {
-  const listas = await Promise.all(FEEDS.map(([feed, url]) => get(url).then((x) => parseRss(x, feed, nowMs)).catch(() => [])));
+  const listas = await Promise.all(FEEDS.map(([feed, url]) => get(url).then((x) => traducir(parseRss(x, feed, nowMs))).catch(() => [])));
   const rows = juntar(listas);
-  const [etf, pr, cal] = await Promise.all([get(FARSIDE).then(parseFarside).catch(() => []), prima().catch(() => null),
-    calendario(nowMs).catch(() => [])]);
+  const [etf, pr, cal, fng] = await Promise.all([get(FARSIDE).then(parseFarside).catch(() => []), prima().catch(() => null),
+    calendario(nowMs).catch(() => []), get('https://api.alternative.me/fng/?limit=2').then((x) => miedoCodicia(JSON.parse(x))).catch(() => null)]);
   rows.push(...etf, ...cal);
   if (pr) rows.push(pr);
+  if (fng) rows.push(fng);
   return rows;
 }
 
@@ -230,6 +305,10 @@ module.exports.externo = externo;
 module.exports.parseRss = parseRss;
 module.exports.parseFarside = parseFarside;
 module.exports.juntar = juntar;
+module.exports.claves = claves;
+module.exports.mismaNoticia = mismaNoticia;
+module.exports.enIngles = enIngles;
+module.exports.miedoCodicia = miedoCodicia;
 module.exports.primaCoinbase = primaCoinbase;
 module.exports.sesgo = sesgo;
 module.exports.tema = tema;
