@@ -578,16 +578,19 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     background: linear-gradient(to top, var(--color-ok), color-mix(in srgb, var(--color-ok) 35%, var(--soft2)) 30%, var(--soft2) 50%, color-mix(in srgb, var(--color-bad) 35%, var(--soft2)) 70%, var(--color-bad)); }
   .ab-tm-dot { position: absolute; left: 50%; width: 22px; height: 22px; border-radius: 50%; transform: translate(-50%, 50%);
     background: var(--panel); border: 3px solid var(--tm-col, var(--ink)); box-shadow: 0 1px 4px rgba(0,0,0,.25); }
-  .ab-tm-back { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.35); }
+  .ab-tm-back { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.35); opacity: 0; transition: opacity .25s ease; }
+  .ab-tm-back.on { opacity: 1; }
   .ab-tm-back[hidden] { display: none; }
   .ab-tm-panel { position: fixed; right: 0; top: 0; bottom: 0; z-index: 1001; width: min(380px, 100vw); overflow-y: auto; overscroll-behavior: contain;
     padding: max(20px, calc(env(safe-area-inset-top) + 12px)) max(20px, env(safe-area-inset-right)) max(24px, calc(env(safe-area-inset-bottom) + 16px)) 20px;
-    background: var(--panel); border-left: 1px solid var(--line); box-shadow: -8px 0 32px rgba(0,0,0,.18); display: grid; gap: 14px; align-content: start; }
+    background: var(--panel); border-left: 1px solid var(--line); box-shadow: -8px 0 32px rgba(0,0,0,.18); display: grid; gap: 14px; align-content: start;
+    transform: translateX(100%); transition: transform .3s cubic-bezier(.2, .8, .2, 1); }
+  .ab-tm-panel.on { transform: none; }
+  @media (prefers-reduced-motion: reduce) { .ab-tm-panel, .ab-tm-back { transition: none; } }
   .ab-tm-panel[hidden], .ab-tm-tab[hidden] { display: none; }
   .ab-tm-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; position: sticky; top: calc(-1 * max(20px, calc(env(safe-area-inset-top) + 12px))); z-index: 2;
     margin: calc(-1 * max(20px, calc(env(safe-area-inset-top) + 12px))) -20px 0; padding: max(20px, calc(env(safe-area-inset-top) + 12px)) 20px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
   #tm-x { min-width: 44px; min-height: 44px; font-size: 18px; flex: none; }
-  .ab-tm-close { width: 100%; min-height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--soft); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
   .ab-fng { width: 100%; max-width: 260px; justify-self: center; display: block; overflow: visible; }
   .ab-tm-big { display: flex; align-items: baseline; gap: 10px; }
   .ab-tm-big b { font-size: 44px; font-weight: 650; letter-spacing: -.03em; line-height: 1; }
@@ -645,7 +648,6 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     <div class="ab-tm-head"><div><span class="ab-kicker">Ciclo de BTC · semanas o meses</span><h2 id="tm-t" style="margin:2px 0 0">Termómetro de compra y venta</h2></div>
       <button type="button" class="ab-iconbtn ab-round" id="tm-x" aria-label="Cerrar">✕</button></div>
     <div id="tm-body"></div>
-    <button type="button" class="ab-tm-close" id="tm-x2">Cerrar</button>
   </aside>
   <section class="ab-card ab-qp" id="que-pasa" aria-labelledby="qp-t" data-source="analisis" hidden>
     <div class="ab-card-head"><h2 id="qp-t">Qué está pasando</h2><span class="ab-kicker" id="qp-k"></span></div>
@@ -1087,9 +1089,20 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   (function tmInit() {
     const tab = document.getElementById('tm-tab'), pan = document.getElementById('tm-panel');
     const back = document.getElementById('tm-back');
-    const set = (open) => { pan.hidden = !open; back.hidden = !open; tab.setAttribute('aria-expanded', String(open)); document.documentElement.style.overflow = open ? 'hidden' : ''; };
-    tab.addEventListener('click', () => set(pan.hidden));
-    ['tm-x', 'tm-x2', 'tm-back'].forEach((id) => document.getElementById(id).addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); set(false); }));
+    let cierre = null;
+    const set = (open) => {
+      clearTimeout(cierre);
+      tab.setAttribute('aria-expanded', String(open)); document.documentElement.style.overflow = open ? 'hidden' : '';
+      if (open) {
+        pan.hidden = false; back.hidden = false;
+        requestAnimationFrame(() => requestAnimationFrame(() => { pan.classList.add('on'); back.classList.add('on'); }));
+      } else {
+        pan.classList.remove('on'); back.classList.remove('on');
+        cierre = setTimeout(() => { pan.hidden = true; back.hidden = true; }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 320);
+      }
+    };
+    tab.addEventListener('click', () => set(!pan.classList.contains('on')));
+    ['tm-x', 'tm-back'].forEach((id) => document.getElementById(id).addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); set(false); }));
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') set(false); });
   })();
   // Fear & Greed Index: arco clasico de 5 colores y aguja
