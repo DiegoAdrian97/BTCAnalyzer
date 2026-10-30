@@ -342,34 +342,47 @@
     }, tg];
   }
 
-  // ---------- contexto actual (datos crudos de Binance) ----------
-  function context(raw, closes1h) {
+  // ---------- contexto actual (Bybit, OKX y BingX, como analisis_btc.py) ----------
+  function context(raw, h1) {
     const rows = [];
     const add = (key, title, value, signal, detail, num = {}) => rows.push({ tabla: 'contexto', clave: key, titulo: title, valor: value, senal: signal, detalle: detail, ...num });
-    const oi = raw.oi;
-    [1, 4, 24].forEach((hrs) => {
-      const dOi = pct(oi[oi.length - 1], oi[oi.length - 1 - hrs]);
-      const dPx = pct(closes1h[closes1h.length - 1], closes1h[closes1h.length - 1 - hrs]);
-      let why, sig;
-      if (Math.abs(dOi) < 0.5) [why, sig] = ['Posicionamiento estable', 'neutral'];
-      else if (dPx >= 0) [why, sig] = dOi > 0 ? ['Entran longs nuevos: suba con fuerza', 'alcista'] : ['Cierran shorts: suba sin dinero nuevo', 'neutral'];
-      else [why, sig] = dOi > 0 ? ['Entran shorts nuevos: baja con fuerza', 'bajista'] : ['Cierran o liquidan longs: baja por descarga', 'neutral'];
-      add(`oi_${hrs}h`, `Open interest ${hrs} h`, `${arp(dOi)} con precio ${arp(dPx)}`, sig, why, { d_oi: rnd(dOi, 2), d_px: rnd(dPx, 2) });
-    });
-    const buy = raw.taker.reduce((s, x) => s + x.buy, 0), sell = raw.taker.reduce((s, x) => s + x.sell, 0);
-    [['1 h', raw.taker[raw.taker.length - 1].ratio], ['4 h', buy / sell]].forEach(([name, r]) => {
-      const sig = r > 1.1 ? 'alcista' : r < 0.9 ? 'bajista' : 'neutral';
-      add(`flujo_${name}`, `Compras vs ventas a mercado ${name}`, ar(r, 2), sig,
-        sig === 'alcista' ? 'Dominan los compradores agresivos' : sig === 'bajista' ? 'Dominan los vendedores agresivos' : 'Flujo equilibrado', { ratio: rnd(r, 3) });
-    });
-    const nowLs = raw.ls[raw.ls.length - 1], prevLs = raw.ls[0];
-    let crowd, sig;
-    if (nowLs > 2) [crowd, sig] = ['Mayoría long: si cae, puede haber cascada de liquidaciones', 'bajista'];
-    else if (nowLs < 0.9) [crowd, sig] = ['Mayoría short: si sube, puede haber squeeze', 'alcista'];
-    else [crowd, sig] = ['Posicionamiento parejo', 'neutral'];
-    add('long_short', 'Cuentas long / short', `${ar(nowLs, 2)} (24 h antes ${ar(prevLs, 2)}, top traders ${ar(raw.top, 2)})`, sig, crowd);
-    const fr = raw.funding || 0;
-    add('funding', 'Funding Binance', arp(fr * 100, 4) + ' cada 8 h', fr > 0.0003 ? 'bajista' : fr < 0 ? 'alcista' : 'neutral',
+    const closes1h = h1.map((b) => b[4]);
+    if (raw.oi) {   // open interest en monedas: se pasa a USD con el cierre de cada hora
+      const closeAt = new Map(h1.map((b) => [b[0] + HOUR_MS, b[4]]));
+      const oi = raw.oi.filter((x) => closeAt.has(x[0])).map((x) => x[1] * closeAt.get(x[0]));
+      if (oi.length > 25) {
+        [1, 4, 24].forEach((hrs) => {
+          const dOi = pct(oi[oi.length - 1], oi[oi.length - 1 - hrs]);
+          const dPx = pct(closes1h[closes1h.length - 1], closes1h[closes1h.length - 1 - hrs]);
+          let why, sig;
+          if (Math.abs(dOi) < 0.5) [why, sig] = ['Posicionamiento estable', 'neutral'];
+          else if (dPx >= 0) [why, sig] = dOi > 0 ? ['Entran longs nuevos: suba con fuerza', 'alcista'] : ['Cierran shorts: suba sin dinero nuevo', 'neutral'];
+          else [why, sig] = dOi > 0 ? ['Entran shorts nuevos: baja con fuerza', 'bajista'] : ['Cierran o liquidan longs: baja por descarga', 'neutral'];
+          add(`oi_${hrs}h`, `Open interest ${hrs} h`, `${arp(dOi)} con precio ${arp(dPx)}`, sig, why, { d_oi: rnd(dOi, 2), d_px: rnd(dPx, 2) });
+        });
+      }
+    }
+    if (raw.taker && raw.taker.length) {
+      const last = raw.taker[raw.taker.length - 1];
+      const buy = raw.taker.reduce((s, x) => s + x.buy, 0), sell = raw.taker.reduce((s, x) => s + x.sell, 0);
+      [['1 h', last.buy / last.sell], ['4 h', buy / sell]].forEach(([name, r]) => {
+        const sig = r > 1.1 ? 'alcista' : r < 0.9 ? 'bajista' : 'neutral';
+        add(`flujo_${name}`, `Compras vs ventas a mercado ${name}`, ar(r, 2), sig,
+          sig === 'alcista' ? 'Dominan los compradores agresivos' : sig === 'bajista' ? 'Dominan los vendedores agresivos' : 'Flujo equilibrado', { ratio: rnd(r, 3) });
+      });
+    }
+    if (raw.ls && raw.ls.length) {
+      const nowLs = raw.ls[raw.ls.length - 1], prevLs = raw.ls[0];
+      let crowd, sig;
+      if (nowLs > 2) [crowd, sig] = ['Mayoría long: si cae, puede haber cascada de liquidaciones', 'bajista'];
+      else if (nowLs < 0.9) [crowd, sig] = ['Mayoría short: si sube, puede haber squeeze', 'alcista'];
+      else [crowd, sig] = ['Posicionamiento parejo', 'neutral'];
+      const top = raw.top == null || Number.isNaN(raw.top) ? '' : `, top traders ${ar(raw.top, 2)}`;
+      add('long_short', 'Cuentas long / short', `${ar(nowLs, 2)} (24 h antes ${ar(prevLs, 2)}${top})`, sig, crowd);
+    }
+    if (raw.funding == null || Number.isNaN(raw.funding)) return [rows, null];
+    const fr = raw.funding;
+    add('funding', `Funding ${raw.fundingFuente || 'BingX'}`, arp(fr * 100, 4) + ' cada 8 h', fr > 0.0003 ? 'bajista' : fr < 0 ? 'alcista' : 'neutral',
       fr > 0.0003 ? 'Longs pagando caro: euforia' : fr < 0 ? 'Shorts pagan: miedo' : 'Normal');
     return [rows, fr];
   }
@@ -408,7 +421,9 @@
       lo = Math.min(lo, bars[k][3]); hi = Math.max(hi, bars[k][2]);
     }
     const after = (t) => [sufLo.has(t - HOUR_MS) ? sufLo.get(t - HOUR_MS) : Infinity, sufHi.has(t - HOUR_MS) ? sufHi.get(t - HOUR_MS) : 0];
-    return Ind.mapaLiquidaciones(priceByHour, raw.oi, new Map(raw.ls), after);
+    // open interest de Bybit en monedas: a USD con el cierre de cada hora (como liquidation_map_bybit)
+    const oi = raw.oi.filter((x) => priceByHour.has(x[0])).map((x) => [x[0], x[1] * priceByHour.get(x[0])]).slice(-hours);
+    return Ind.mapaLiquidaciones(priceByHour, oi, new Map(raw.ls), after);
   }
 
   /** Vela en curso de cualquier temporalidad, armada con las velas de 5m desde que abrio. */
@@ -695,11 +710,11 @@
 
     let funding = null;
     if (input.ctxRaw) {
-      const [ctx, fr] = context(input.ctxRaw, h1.map((b) => b[4]));
+      const [ctx, fr] = context(input.ctxRaw, h1);
       ctx.forEach((r) => rows.push(r));
       funding = fr;
     } else {
-      rows.push({ tabla: 'contexto', clave: 'error', titulo: 'Contexto no disponible', valor: '', senal: 'neutral', detalle: 'No se pudo leer: Binance no respondió' });
+      rows.push({ tabla: 'contexto', clave: 'error', titulo: 'Contexto no disponible', valor: '', senal: 'neutral', detalle: 'No se pudo leer: Bybit, OKX y BingX no respondieron' });
     }
     // noticias, ETF y prima de Coinbase (las trae api/contexto.js): para explicar los movimientos fuertes
     if (input.externo && Array.isArray(input.externo.rows)) {
@@ -765,7 +780,7 @@
     return { rows, log };
   }
 
-  const Analisis = { analizar, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, similar, outcomes, horizonStats, scenarios, targets, termometro, percentil };
+  const Analisis = { analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, similar, outcomes, horizonStats, scenarios, targets, termometro, percentil };
   root.Analisis = Analisis;
   if (typeof module !== 'undefined' && module.exports) module.exports = Analisis;
 })(typeof self !== 'undefined' ? self : globalThis);
