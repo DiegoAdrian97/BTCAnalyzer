@@ -1188,6 +1188,10 @@ def write_local_html(data, path=LOCAL_HTML, live=False):
     """La misma pagina del dashboard, con los datos de este analisis adentro."""
     with open(PAGE_FILE, encoding="utf-8") as f:
         page = f.read()
+    plan = os.path.join(os.path.dirname(os.path.abspath(__file__)), "plan_compras.json")   # seccion Proximas compras
+    if os.path.exists(plan):
+        with open(plan, encoding="utf-8") as f:
+            page = page.replace("/*PLAN*/null/*FIN*/", json.dumps(json.load(f), ensure_ascii=False).replace("</", "<\\/"))
     rows = json.dumps(data["rows"], ensure_ascii=False).replace("</", "<\\/")
     html = (LOCAL_SHELL.replace("__DATA__", rows).replace("__LIVE__", "true" if live else "false")
             .replace("__PAGEV__", json.dumps(page_version())).replace("__PAGE__", page))

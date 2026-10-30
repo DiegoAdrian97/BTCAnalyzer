@@ -2,6 +2,7 @@
 
 Correrlo cada vez que cambie dashboard/index.html:  python JavascriptVersion/generar_pagina.py
 """
+import json
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -75,6 +76,10 @@ def main():
         if old not in page:
             raise SystemExit(f"No encontre en dashboard/index.html el texto a cambiar: {old[:60]}...")
         page = page.replace(old, new)
+    plan = os.path.join(HERE, "..", "plan_compras.json")      # el plan de compras de Diego (seccion Proximas compras)
+    if os.path.exists(plan):
+        with open(plan, encoding="utf-8") as f:
+            page = page.replace("/*PLAN*/null/*FIN*/", json.dumps(json.load(f), ensure_ascii=False).replace("</", "<\\/"))
     with open(OUT, "w", encoding="utf-8", newline="\n") as f:
         f.write(SHELL.replace("__PAGE__", page))
     print("listo:", OUT)
