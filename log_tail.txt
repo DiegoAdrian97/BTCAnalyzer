@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/home/runner/work/BTCAnalyzer/BTCAnalyzer/datos_entrenamiento.py", line 112, in <module>
+    assert hueco <= 6 * 3600000, f"hueco de {hueco / 3600000:.0f} h en las velas"
+           ^^^^^^^^^^^^^^^^^^^^
+AssertionError: hueco de 25 h en las velas
