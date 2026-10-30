@@ -118,8 +118,23 @@ def configurado():
                 or (os.environ.get("TELEGRAM_TOKEN") and os.environ.get("TELEGRAM_CHAT")))
 
 
+_ENVIADOS = {}               # (titulo, texto) -> cuando se mando: el mismo mensaje no sale dos veces en 12 h
+
+
 def enviar(titulo, texto, urgente=False):
-    """Manda el aviso por los canales configurados. Un canal que falla no frena al otro."""
+    """Manda el aviso por los canales configurados. Un canal que falla no frena al otro.
+    Despues de un reinicio (deploy, Render que se durmio) la primera revision es muda: solo anota lo que ya se
+    habia avisado antes de reiniciar, para no repetirlo."""
+    ahora = time.time()
+    if _estado.get("mudo"):
+        print(f"(tras reinicio, no repito: {titulo})", flush=True)
+        return
+    clave = (titulo, texto)
+    if ahora - _ENVIADOS.get(clave, 0) < 12 * 3600:
+        return
+    _ENVIADOS[clave] = ahora
+    for k in [k for k, t in _ENVIADOS.items() if ahora - t > 12 * 3600]:
+        del _ENVIADOS[k]
     tema = os.environ.get("NTFY_TEMA")
     if tema:
         try:
@@ -463,6 +478,8 @@ def _setups(velas, price_btc, liq, ahora, rows=()):
             if not h1 or h1[-1][0] == _estado["setup_t"].get(nombre):
                 continue
             _estado["setup_t"][nombre] = h1[-1][0]
+            if _estado.get("mudo"):     # tras un reinicio esa vela ya se miro antes: no se repite la entrada ni se reabre
+                continue
             got = setup(h1, h4, cfg)
             if not got and not _estado["abierta"].get(nombre) and not SOLO_ENTRADAS:
                 pre = niveles(h1, h4, cfg)
@@ -487,9 +504,20 @@ def _setups(velas, price_btc, liq, ahora, rows=()):
 
 
 def revisar(rows, velas=None):
-    """Mira el ultimo analisis y manda los avisos que correspondan. velas: velas cerradas por temporalidad."""
+    """Mira el ultimo analisis y manda los avisos que correspondan. velas: velas cerradas por temporalidad.
+    La primera vez tras arrancar es muda (ver enviar): asi un reinicio no repite avisos ni entradas."""
     if not configurado():
         return
+    _estado["mudo"] = not _estado.get("calentado")
+    try:
+        _revisar(rows, velas)
+    finally:
+        if _estado["mudo"] and next((r for r in rows if r["tabla"] == "resumen"), None) is not None:
+            _estado["calentado"] = True
+        _estado["mudo"] = False
+
+
+def _revisar(rows, velas=None):
     ahora = time.time()
     head = next((r for r in rows if r["tabla"] == "resumen"), None)
     if head is None:
@@ -672,14 +700,14 @@ def _compras(ahora):
 
 def _criticas(rows, ahora, price):
     """Hackeo a un exchange grande: aviso inmediato (sin esperar), aunque Telegram este en "solo entradas".
-    Junta los titulares del mismo evento y no repite mas de una vez cada 2 horas."""
+    Junta los titulares del mismo evento y no repite en 12 horas."""
     if not CRITICOS:
         return
     vistos = _estado.setdefault("criticas", set())
     clave = lambda r: (r.get("url") or r["titulo"])[:200]
     nuevas = [r for r in rows if r.get("tabla") == "noticia" and r.get("tema") == "Hackeo de exchange"
               and clave(r) not in vistos and ahora - r["t"] / 1000 <= 3 * 3600]
-    if not nuevas or ahora - _estado.get("criticas_t", 0) < 2 * 3600:
+    if not nuevas or ahora - _estado.get("criticas_t", 0) < 12 * 3600:   # el mismo hackeo sale en muchos titulares
         return
     nuevas.sort(key=lambda r: -r["t"])
     vistos.update(clave(r) for r in nuevas)
