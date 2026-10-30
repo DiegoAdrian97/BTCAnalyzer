@@ -28,7 +28,7 @@
    "orden": 767,
    "extra": 196,
    "cargada": true,
-   "extra_agregado": false
+   "extra_agregado": true
   },
   {
    "moneda": "BTC",
@@ -37,7 +37,7 @@
    "orden": 767,
    "extra": 196,
    "cargada": true,
-   "extra_agregado": false
+   "extra_agregado": true
   },
   {
    "moneda": "BTC",
@@ -46,7 +46,7 @@
    "orden": 767,
    "extra": 196,
    "cargada": true,
-   "extra_agregado": false
+   "extra_agregado": true
   },
   {
    "moneda": "SOL",
@@ -73,7 +73,7 @@
    "orden": 377,
    "extra": 98,
    "cargada": true,
-   "extra_agregado": false
+   "extra_agregado": true
   },
   {
    "moneda": "SOL",
@@ -82,7 +82,7 @@
    "orden": 377,
    "extra": 98,
    "cargada": true,
-   "extra_agregado": false
+   "extra_agregado": true
   },
   {
    "moneda": "SOL",
@@ -91,7 +91,7 @@
    "orden": 377,
    "extra": 98,
    "cargada": true,
-   "extra_agregado": false
+   "extra_agregado": true
   },
   {
    "moneda": "XRP",
@@ -118,7 +118,7 @@
    "orden": 508,
    "extra": 228,
    "cargada": true,
-   "extra_agregado": false
+   "extra_agregado": true
   },
   {
    "moneda": "ZEC",
@@ -145,7 +145,7 @@
    "orden": 289,
    "extra": 130,
    "cargada": true,
-   "extra_agregado": false
+   "extra_agregado": true
   },
   {
    "moneda": "ZEC",
@@ -154,7 +154,7 @@
    "orden": 289,
    "extra": 130,
    "cargada": true,
-   "extra_agregado": false
+   "extra_agregado": true
   },
   {
    "moneda": "ZEC",
@@ -163,7 +163,7 @@
    "orden": 289,
    "extra": 130,
    "cargada": true,
-   "extra_agregado": false
+   "extra_agregado": true
   }
  ]
 }
