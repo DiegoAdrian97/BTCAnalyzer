@@ -84,7 +84,12 @@
     return 100;
   }
   function fase(y) { return y % 4 === 2 ? 'bajista' : `alcista ${(((y - 3) % 4) + 4) % 4 + 1}`; }
-  function termometro(closesD, price, T, fng = null, nowMs = Date.now()) {
+  function ajusteFunding(md, f7) {   // +1 funding de 7 dias negativo (miedo), -1 si es 0,03% o mas (euforia), 0 si no
+    const fu = md && md.funding;
+    if (!fu || f7 === null || f7 === undefined || Number.isNaN(f7)) return 0;
+    return f7 < fu.bajo ? 1 : f7 >= fu.alto ? -1 : 0;
+  }
+  function termometro(closesD, price, T, fng = null, nowMs = Date.now(), f7 = null) {
     if (closesD.length < 1400 || price <= 0) return null;
     let s = 0; for (const x of closesD.slice(-1400)) s += x;
     const wma = s / 1400, ath = Math.max(T.ath, Math.max(...closesD), price), c365 = closesD[closesD.length - 365];
@@ -101,17 +106,18 @@
     const cic = T.ciclo || {};
     const d0 = new Date(nowMs), av = (Math.floor((d0 - Date.UTC(y, 0, 1)) / 86400000)) / 366, md = T.medidor;
     let posM = null, zm = null, prob = null;
+    const adj = ajusteFunding(md, f7);
     if (md) {
       const ph = (((y - 2) % 4) + 4) % 4, x = [+(ph === 1), +(ph === 2), +(ph === 3), (ph === 0) * av, (ph === 3) * av];
       let lg = md.intercepto; md.pesos.forEach((w, i) => { lg += w * x[i]; });
       prob = 1 / (1 + Math.exp(-lg));
-      const S = md.peso_valuacion * (1 - temp / 100) + (1 - md.peso_valuacion) * prob;
+      const S = md.peso_valuacion * (1 - temp / 100) + (1 - md.peso_valuacion) * prob + ((md.funding && md.funding.peso) || 0) * adj;
       zm = md.zonas.find((q) => q.desde <= S && S < q.hasta);
       posM = Math.min(100, Math.max(0, (1 - S) * 100));
     }
     return { tabla: 'termometro', medidor: posM === null ? null : rnd(posM, 1), medidor_zona: zm ? zm.nombre : null,
       m_sube_180: zm ? zm.sube_180 : null, m_mediana_180: zm ? zm.mediana_180 : null, m_sube_365: zm ? zm.sube_365 : null, m_mediana_365: zm ? zm.mediana_365 : null,
-      avance: Math.round(av * 100), p_ciclo: prob === null ? null : Math.round(prob * 100), m_zonas: md ? md.zonas.map((q) => [q.nombre, q.sube_365, q.mediana_365]) : [],
+      avance: Math.round(av * 100), funding7: f7 === null || f7 === undefined ? null : rnd(f7 * 100, 4), funding_ajuste: adj, p_ciclo: prob === null ? null : Math.round(prob * 100), m_zonas: md ? md.zonas.map((q) => [q.nombre, q.sube_365, q.mediana_365]) : [],
       temp: rnd(temp, 1), zona: z.nombre, año: y, fase: fs, fng: fng === undefined ? null : fng, regla,
       reglas: cic.reglas || {}, años: cic.años || [], ciclos: cic.ciclos || [], p_wma200: rnd(p.wma200, 1), p_dd_ath: rnd(p.dd_ath, 1), p_ret365: rnd(p.ret365, 1),
       wma200: rnd(wma, 1), sobre_wma: rnd((price / wma - 1) * 100, 1), caida_ath: rnd(med.dd_ath * 100, 1), ath: rnd(ath, 1),
@@ -381,9 +387,9 @@
       add('long_short', 'Cuentas long / short', `${ar(nowLs, 2)} (24 h antes ${ar(prevLs, 2)}${top})`, sig, crowd);
     }
     if (raw.funding == null || Number.isNaN(raw.funding)) return [rows, null];
-    const fr = raw.funding;
-    add('funding', `Funding ${raw.fundingFuente || 'BingX'}`, arp(fr * 100, 4) + ' cada 8 h', fr > 0.0003 ? 'bajista' : fr < 0 ? 'alcista' : 'neutral',
-      fr > 0.0003 ? 'Longs pagando caro: euforia' : fr < 0 ? 'Shorts pagan: miedo' : 'Normal');
+    const fr = raw.funding, f7 = raw.funding7 == null || Number.isNaN(raw.funding7) ? null : raw.funding7;
+    add('funding', `Funding ${raw.fundingFuente || 'BingX'}`, arp(fr * 100, 4) + ' cada 8 h' + (f7 === null ? '' : ` (7 días ${arp(f7 * 100, 4)})`), fr > 0.0003 ? 'bajista' : fr < 0 ? 'alcista' : 'neutral',
+      fr > 0.0003 ? 'Longs pagando caro: euforia' : fr < 0 ? 'Shorts pagan: miedo' : 'Normal', f7 === null ? {} : { f7 });
     return [rows, fr];
   }
 
@@ -766,7 +772,8 @@
     // termometro de compra/venta del ciclo de BTC (como termometro.py). Solo BTC
     if ((input.moneda || 'BTC') === 'BTC' && root.TERMOMETRO) {
       const fg = rows.find((r) => r.tabla === 'contexto' && r.clave === 'miedo_codicia');
-      const tm = termometro(candles['1d'].map((b) => b[4]), price, root.TERMOMETRO, fg ? fg.fng : null, now);
+      const fr = rows.find((r) => r.tabla === 'contexto' && r.clave === 'funding');
+      const tm = termometro(candles['1d'].map((b) => b[4]), price, root.TERMOMETRO, fg ? fg.fng : null, now, fr && fr.f7 !== undefined ? fr.f7 : null);
       if (tm) rows.push(tm);
     }
     const explanation = [];

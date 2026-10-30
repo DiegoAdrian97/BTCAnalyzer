@@ -34,6 +34,10 @@ def temperatura(pcts):
 # Probado año por año 2019-2026, entrenando el ciclo solo con lo anterior: separa mucho mejor que cada parte sola
 # (AUC 0,96 contra 0,74 la temperatura y 0,80 el ciclo). Cualquier mezcla entre 30% y 70% da mas de 0,93.
 PESO_VALUACION = 0.5
+# Funding promedio de 7 dias (BTCUSDT perpetuo, 2020-2026): negativo (miedo) suma 0,03 al medidor de compra y 0,03% o
+# mas cada 8 h (euforia) resta 0,03. Medido: dentro de cada zona, con funding negativo BTC subio mas a 1-3 meses
+# (Compra fuerte 95% contra 63% a 30 dias); con funding alto, menos. AUC a 30/90/180 dias +0,005; a 12 meses -0,007.
+FUNDING = {"peso": 0.03, "bajo": 0.0, "alto": 0.0003}
 ZONAS_S = [(0.75, 9.0, "Compra fuerte"), (0.60, 0.75, "Buen momento de compra"), (0.45, 0.60, "Cuidado: caro"), (-9.0, 0.45, "Zona de venta")]
 
 
@@ -133,7 +137,7 @@ def main():
     trf = okc & np.isfinite(fut365)
     fin = LogisticRegression(max_iter=4000).fit(Xc[trf], fut365[trf] > 0)
     modelo = {"intercepto": round(float(fin.intercept_[0]), 6), "pesos": [round(float(w), 6) for w in fin.coef_[0]],
-              "peso_valuacion": PESO_VALUACION, "zonas": zonas_s}
+              "peso_valuacion": PESO_VALUACION, "funding": FUNDING, "zonas": zonas_s}
     # las zonas se miden desde 2019: antes la media de 200 semanas tenia menos de un ciclo de historia para comparar
     # (en 2016-17 casi todo salia "caro" en plena suba)
     desde = 1546300800000

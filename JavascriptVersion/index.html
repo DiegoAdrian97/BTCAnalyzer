@@ -1275,6 +1275,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     li(`  · Precio vs media de 200 semanas (${f0(num(t.wma200))}): ${sg(num(t.sobre_wma), 1)}.`, caro(num(t.p_wma200)) + '.');
     li(`  · Caída desde el máximo histórico (${f0(num(t.ath))}): ${sg(num(t.caida_ath), 1)}.`, num(t.p_dd_ath) >= 50 ? `el ${f0(num(t.p_dd_ath))}% del tiempo estuvo todavía más lejos del máximo.` : `solo el ${f0(num(t.p_dd_ath))}% del tiempo estuvo tan lejos del máximo.`);
     li(`  · Último año: ${sg(num(t.ret_anual), 1)}.`, caro(num(t.p_ret365)) + '.');
+    if (t.funding7 !== null && t.funding7 !== undefined) {
+      const fa = num(t.funding_ajuste), fv = `${num(t.funding7) > 0 ? '+' : ''}${num(t.funding7).toFixed(4).replace('.', ',')}% cada 8 h`;
+      li(`Funding promedio 7 días: ${fv}.`, fa > 0 ? 'negativo (miedo, los shorts pagan): baja el medidor 3 puntos, hacia compra.'
+        : fa < 0 ? 'alto (euforia, los longs pagan caro): sube el medidor 3 puntos, hacia venta.' : 'normal: no mueve el medidor.');
+    }
     // contexto de corto plazo: se muestra, pero no entra en el termometro (no anticipo la direccion de forma pareja)
     const ctxL = el('ul', 'ab-tm-list'), li2 = (txt) => ctxL.append(el('li', '', txt));
     const fg = pick(rows, 'contexto').find((c) => c.clave === 'miedo_codicia');

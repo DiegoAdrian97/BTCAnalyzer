@@ -102,6 +102,10 @@ barato y el ciclo está en su piso (miedo), vender cuando está caro y en el tec
   histórico y cuánto subió o bajó en el último año, comparado con toda la historia de BTC desde 2011 (Bitstamp).
 - **Momento del ciclo de 4 años** (3 alcistas y 1 bajista: 2014, 2018, 2022, 2026...): un modelo con el año del
   ciclo y qué tan avanzado va el año bajista (al final suele estar el piso) y el 3er alcista (al final, el techo).
+- **Ajuste por funding** (promedio de 7 días de BingX): si es negativo (miedo, los shorts pagan) el medidor baja 3
+  puntos hacia compra; si es 0,03% o más cada 8 h (euforia) sube 3 hacia venta. Medido 2020–2026: dentro de cada zona,
+  con funding negativo BTC subió más a 1–3 meses (Compra fuerte: 95% contra 63% a 30 días); con funding alto, menos.
+  Mejora un poco el medidor a 1–6 meses (AUC +0,005) y lo empeora apenas a 12 meses (−0,007): por eso pesa poco.
 
 Probado año por año 2019–2026, entrenando el ciclo solo con lo anterior (sin mirar el futuro):
 

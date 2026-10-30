@@ -137,13 +137,20 @@
     .result.list.filter((x) => +x.sellRatio > 0).map((x) => [+x.timestamp, +x.buyRatio / +x.sellRatio]).sort((x, y) => x[0] - y[0]);
   const intento = (p) => p.catch(() => null);
 
+  // funding actual y promedio de los ultimos 7 dias (21 cobros de 8 h): el promedio entra en el termometro
+  const prom = (xs) => (xs.length >= 15 ? xs.reduce((a, x) => a + x, 0) / xs.length : null);
   async function fundingRaw() {
     try {
-      const j = await pedir('bingx', `https://open-api.bingx.com/openApi/swap/v2/quote/premiumIndex?symbol=${SYM.replace('USDT', '-USDT')}`);
-      return { tasa: +j.data.lastFundingRate, fuente: 'BingX' };
+      const s = SYM.replace('USDT', '-USDT');
+      const [j, h] = await Promise.all([
+        pedir('bingx', `https://open-api.bingx.com/openApi/swap/v2/quote/premiumIndex?symbol=${s}`),
+        pedir('bingx', `https://open-api.bingx.com/openApi/swap/v2/quote/fundingRate?symbol=${s}&limit=21`).catch(() => null)]);
+      return { tasa: +j.data.lastFundingRate, f7: h && Array.isArray(h.data) ? prom(h.data.slice(0, 21).map((x) => +x.fundingRate)) : null, fuente: 'BingX' };
     } catch (e) {   // si el navegador no puede leer BingX: el de Bybit
-      const t = (await pedir('bybit', `https://api.bybit.com/v5/market/tickers?category=linear&symbol=${SYM}`)).result.list[0];
-      return { tasa: +t.fundingRate, fuente: 'Bybit' };
+      const [t, h] = await Promise.all([
+        pedir('bybit', `https://api.bybit.com/v5/market/tickers?category=linear&symbol=${SYM}`),
+        pedir('bybit', `https://api.bybit.com/v5/market/funding/history?category=linear&symbol=${SYM}&limit=21`).catch(() => null)]);
+      return { tasa: +t.result.list[0].fundingRate, f7: h ? prom(h.result.list.map((x) => +x.fundingRate)) : null, fuente: 'Bybit' };
     }
   }
 
@@ -157,7 +164,7 @@
       intento(cached(`${pre()}funding`, 3 * 3600000, fundingRaw)),
     ]);
     if (!oi && !ls && !taker && !fr) throw new Error('sin datos del momento');
-    return { oi, ls: ls && ls.map((x) => x[1]), taker, top, funding: fr ? fr.tasa : null, fundingFuente: fr ? fr.fuente : null };
+    return { oi, ls: ls && ls.map((x) => x[1]), taker, top, funding: fr ? fr.tasa : null, funding7: fr ? fr.f7 : null, fundingFuente: fr ? fr.fuente : null };
   }
 
   async function liqRaw() {
