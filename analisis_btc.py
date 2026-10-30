@@ -8,9 +8,9 @@ Uso:
     .venv\\Scripts\\python.exe analisis_btc.py --nota nota.txt # agrega la lectura de noticias al ultimo analisis
 
 Fuentes:
-- Binance Futures: velas (mas historia y menos limites que BingX), open interest, flujo de
-  compras/ventas agresivas y ratio long/short.
-- BingX: precio, funding y libro de ordenes del perpetuo donde operas.
+- Bybit: velas, open interest y ratio long/short. OKX: flujo de compras/ventas agresivas y top traders.
+- Binance: solo el funding, cada 3 h (bloquea la IP de Render si se le pide mucho).
+- BingX: precio y libro de ordenes del perpetuo donde operas (y funding si Binance falla).
 
 Que calcula, por temporalidad (5m, 15m, 30m, 1h, 4h, 1d):
 1. Calificacion tipo TradingView: ~20 medias y osciladores votan compra/venta/neutral, mas
@@ -121,8 +121,18 @@ def replace_file(tmp, path):
 
 
 def candle_source():
-    """Binance Futures; si bloqueo la IP (pasa en servidores con IP compartida), Bybit hasta que se libere."""
-    return exchange("bybit") if banned("binanceusdm") else exchange("binanceusdm")
+    """Bybit. A Binance solo se le pide el funding cada 3 h (FUNDING_TTL): bloquea la IP de Render si se le pide mucho."""
+    return exchange("bybit")
+
+
+FUNDING_TTL = 3 * 3600
+
+
+def funding_binance():
+    """Funding actual del perpetuo de Binance: un solo pedido publico, sin cargar sus mercados."""
+    ex = _EXCHANGES.get("binance_crudo") or ccxt.binanceusdm({"enableRateLimit": True})
+    _EXCHANGES["binance_crudo"] = ex
+    return float(api("binanceusdm", ex.fapiPublicGetPremiumIndex, {"symbol": "BTCUSDT"})["lastFundingRate"])
 
 
 def update_candles(ex, tf, days):
@@ -500,48 +510,82 @@ def horizon_stats(tf, s, h, price, fit):
 
 
 # ---------- contexto actual ----------
-def context(bnc, bgx, closes_1h):
+def context(bgx, h1):
+    """Open interest y long/short de Bybit, flujo y top traders de OKX, funding de Binance (cada 3 h; si falla, BingX)."""
     rows = []
+    closes_1h = [b[4] for b in h1]
 
     def add(key, title, value, signal, detail, **num):
         rows.append({"tabla": "contexto", "clave": key, "titulo": title, "valor": value, "senal": signal, "detalle": detail, **num})
 
-    oi = [x["openInterestValue"] for x in api("binanceusdm", bnc.fetch_open_interest_history, SYMBOL, "1h", limit=25)]
-    for hrs in (1, 4, 24):
-        d_oi, d_px = pct(oi[-1], oi[-1 - hrs]), pct(closes_1h[-1], closes_1h[-1 - hrs])
-        if abs(d_oi) < 0.5:
-            why, sig = "Posicionamiento estable", "neutral"
-        elif d_px >= 0:
-            why, sig = (("Entran longs nuevos: suba con fuerza", "alcista") if d_oi > 0 else
-                        ("Cierran shorts: suba sin dinero nuevo", "neutral"))
+    byb, okx = exchange("bybit"), exchange("okx")
+    try:
+        close_at = {b[0] + bg.HOUR_MS: b[4] for b in h1}
+        raw = api("bybit", byb.publicGetV5MarketOpenInterest,
+                  {"category": "linear", "symbol": "BTCUSDT", "intervalTime": "1h", "limit": 30})["result"]["list"]
+        oi = [v for _, v in sorted((int(x["timestamp"]), float(x["openInterest"]) * close_at[int(x["timestamp"])])
+                                   for x in raw if int(x["timestamp"]) in close_at)]
+        for hrs in (1, 4, 24):
+            d_oi, d_px = pct(oi[-1], oi[-1 - hrs]), pct(closes_1h[-1], closes_1h[-1 - hrs])
+            if abs(d_oi) < 0.5:
+                why, sig = "Posicionamiento estable", "neutral"
+            elif d_px >= 0:
+                why, sig = (("Entran longs nuevos: suba con fuerza", "alcista") if d_oi > 0 else
+                            ("Cierran shorts: suba sin dinero nuevo", "neutral"))
+            else:
+                why, sig = (("Entran shorts nuevos: baja con fuerza", "bajista") if d_oi > 0 else
+                            ("Cierran o liquidan longs: baja por descarga", "neutral"))
+            add(f"oi_{hrs}h", f"Open interest {hrs} h", f"{arp(d_oi)} con precio {arp(d_px)}", sig, why,
+                d_oi=round(d_oi, 2), d_px=round(d_px, 2))
+    except Exception as e:
+        print(f"(open interest no disponible: {type(e).__name__})")
+
+    try:   # OKX: [ts, ventas, compras] a mercado por hora, de la mas nueva a la mas vieja
+        tk = api("okx", okx.publicGetRubikStatTakerVolumeContract,
+                 {"instId": "BTC-USDT-SWAP", "period": "1H", "limit": "4"})["data"][:4]
+        sell1, buy1 = float(tk[0][1]), float(tk[0][2])
+        buy, sell = sum(float(x[2]) for x in tk), sum(float(x[1]) for x in tk)
+        for name, r in (("1 h", buy1 / sell1), ("4 h", buy / sell)):
+            sig = "alcista" if r > 1.1 else "bajista" if r < 0.9 else "neutral"
+            add(f"flujo_{name}", f"Compras vs ventas a mercado {name}", ar(r, 2), sig,
+                "Dominan los compradores agresivos" if sig == "alcista" else
+                "Dominan los vendedores agresivos" if sig == "bajista" else "Flujo equilibrado", ratio=round(r, 3))
+    except Exception as e:
+        print(f"(flujo no disponible: {type(e).__name__})")
+
+    try:
+        ls = api("bybit", byb.publicGetV5MarketAccountRatio,
+                 {"category": "linear", "symbol": "BTCUSDT", "period": "1h", "limit": 25})["result"]["list"]
+        ls = [float(x["buyRatio"]) / float(x["sellRatio"]) for x in sorted(ls, key=lambda x: int(x["timestamp"]))
+              if float(x["sellRatio"]) > 0]
+        now_ls, prev_ls = ls[-1], ls[0]
+        try:
+            top = float(api("okx", okx.publicGetRubikStatContractsLongShortPositionRatioContractTopTrader,
+                            {"instId": "BTC-USDT-SWAP", "period": "1H", "limit": "1"})["data"][0][1])
+            top_txt = f", top traders {ar(top, 2)}"
+        except Exception:
+            top_txt = ""
+        if now_ls > 2:
+            crowd, sig = "Mayoría long: si cae, puede haber cascada de liquidaciones", "bajista"
+        elif now_ls < 0.9:
+            crowd, sig = "Mayoría short: si sube, puede haber squeeze", "alcista"
         else:
-            why, sig = (("Entran shorts nuevos: baja con fuerza", "bajista") if d_oi > 0 else
-                        ("Cierran o liquidan longs: baja por descarga", "neutral"))
-        add(f"oi_{hrs}h", f"Open interest {hrs} h", f"{arp(d_oi)} con precio {arp(d_px)}", sig, why,
-            d_oi=round(d_oi, 2), d_px=round(d_px, 2))
+            crowd, sig = "Posicionamiento parejo", "neutral"
+        add("long_short", "Cuentas long / short", f"{ar(now_ls, 2)} (24 h antes {ar(prev_ls, 2)}{top_txt})", sig, crowd)
+    except Exception as e:
+        print(f"(long/short no disponible: {type(e).__name__})")
 
-    taker = api("binanceusdm", bnc.fapiDataGetTakerlongshortRatio, {"symbol": "BTCUSDT", "period": "1h", "limit": 4})
-    buy, sell = sum(float(x["buyVol"]) for x in taker), sum(float(x["sellVol"]) for x in taker)
-    for name, r in (("1 h", float(taker[-1]["buySellRatio"])), ("4 h", buy / sell)):
-        sig = "alcista" if r > 1.1 else "bajista" if r < 0.9 else "neutral"
-        add(f"flujo_{name}", f"Compras vs ventas a mercado {name}", ar(r, 2), sig,
-            "Dominan los compradores agresivos" if sig == "alcista" else
-            "Dominan los vendedores agresivos" if sig == "bajista" else "Flujo equilibrado", ratio=round(r, 3))
-
-    ls = api("binanceusdm", bnc.fetch_long_short_ratio_history, SYMBOL, "1h", limit=25)
-    now_ls, prev_ls = ls[-1]["longShortRatio"], ls[0]["longShortRatio"]
-    top = float(api("binanceusdm", bnc.fapiDataGetTopLongShortPositionRatio, {"symbol": "BTCUSDT", "period": "1h", "limit": 1})[-1]["longShortRatio"])
-    if now_ls > 2:
-        crowd, sig = "Mayoría long: si cae, puede haber cascada de liquidaciones", "bajista"
-    elif now_ls < 0.9:
-        crowd, sig = "Mayoría short: si sube, puede haber squeeze", "alcista"
-    else:
-        crowd, sig = "Posicionamiento parejo", "neutral"
-    add("long_short", "Cuentas long / short", f"{ar(now_ls, 2)} (24 h antes {ar(prev_ls, 2)}, top traders {ar(top, 2)})", sig, crowd)
-
-    fr = api("bingx", bgx.fetch_funding_rate, SYMBOL).get("fundingRate") or 0.0
+    def binance_o_nada():           # si falla tambien se guarda: no se le vuelve a pedir hasta dentro de 3 h
+        try:
+            return funding_binance()
+        except Exception as e:
+            print(f"(funding de Binance no disponible: {type(e).__name__}; uso BingX)")
+            return None
+    fr, fuente = cached("funding_binance", FUNDING_TTL, binance_o_nada), "Binance"
+    if fr is None:
+        fr, fuente = api("bingx", bgx.fetch_funding_rate, SYMBOL).get("fundingRate") or 0.0, "BingX"
     sig = "bajista" if fr > 0.0003 else "alcista" if fr < 0 else "neutral"
-    add("funding", "Funding BingX", arp(fr * 100, 4) + " cada 8 h", sig,
+    add("funding", f"Funding {fuente}", arp(fr * 100, 4) + " cada 8 h", sig,
         "Longs pagando caro: euforia" if fr > 0.0003 else "Shorts pagan: miedo" if fr < 0 else "Normal")
 
     return rows, fr
@@ -549,7 +593,7 @@ def context(bnc, bgx, closes_1h):
 
 # exchange: niveles a pedir. BingX va aparte: su libro publica 10-15 veces mas BTC que Binance en el mismo
 # rango y dominaria cualquier total.
-BOOKS = {"binanceusdm": 1000, "bybit": 500, "okx": 400, "bitget": 150, "bingx": 1000}
+BOOKS = {"bybit": 500, "okx": 400, "bitget": 150, "bingx": 1000}
 BOOK_BAND = 0.001      # +/-0.1%: el rango que cubren todos los libros publicos
 WALL_BIN = 25.0        # USD por escalon al buscar muros
 
@@ -604,22 +648,6 @@ def forming_from_5m(closed_5m, live_5m, tf, last_closed_t):
 
 
 # ---------- registro de pronosticos ----------
-
-
-def liquidation_map(bnc, h1, hours=168):
-    """Liquidaciones pendientes estimadas con open interest nuevo y ratio long/short de la ultima semana."""
-    oi = [(int(x["timestamp"]), x["openInterestValue"])
-          for x in api("binanceusdm", bnc.fetch_open_interest_history, SYMBOL, "1h", limit=hours)]
-    ls = {int(x["timestamp"]): x["longShortRatio"]
-          for x in api("binanceusdm", bnc.fetch_long_short_ratio_history, SYMBOL, "1h", limit=hours)}
-    bars = h1[-(hours + 2):]
-    price_by_hour = {b[0] + bg.HOUR_MS: b[4] for b in bars}   # precio al cierre de cada hora
-    suffix_lo, suffix_hi, lo, hi = {}, {}, float("inf"), 0.0
-    for b in reversed(bars):
-        suffix_lo[b[0]], suffix_hi[b[0]] = lo, hi
-        lo, hi = min(lo, b[3]), max(hi, b[2])
-    after = lambda t: (suffix_lo.get(t - bg.HOUR_MS, float("inf")), suffix_hi.get(t - bg.HOUR_MS, 0.0))
-    return ind.mapa_liquidaciones(price_by_hour, oi, ls, after)
 
 
 def liquidation_map_bybit(h1, hours=168):
@@ -853,10 +881,6 @@ def log_and_score(entries, closes_by_tf):
 
 # ---------- analisis completo ----------
 def analyze():
-    try:
-        bnc = exchange("binanceusdm")
-    except (ccxt.DDoSProtection, ccxt.RateLimitExceeded):
-        bnc = None          # Binance bloqueo la IP: velas de Bybit y, por ahora, sin los datos que solo da Binance
     bgx, src = exchange("bingx"), candle_source()
     # los pedidos de red van en paralelo: velas de todas las temporalidades a la vez, y los libros de ordenes
     # (que se piden como mucho cada 20 s) se bajan mientras se calcula lo demas
@@ -973,9 +997,7 @@ def analyze():
                      "tipo": "resistencia" if v > price else "soporte", "distancia": round(pct(v, price), 2)})
 
     try:
-        if bnc is None:
-            raise ccxt.DDoSProtection("Binance bloqueado")
-        ctx, funding = cached("contexto", 60, lambda: context(bnc, bgx, [b[4] for b in h1]))
+        ctx, funding = cached("contexto", 60, lambda: context(bgx, h1))
         rows += ctx
     except Exception as e:  # el contexto es complementario: si una fuente falla, el resto sirve
         funding = None
@@ -1003,8 +1025,8 @@ def analyze():
                 rows.append({"tabla": "nivel", "nombre": f"Muro de {side} ({ar(q)} BTC en libros)", "precio": p,
                              "tipo": kind, "distancia": round(pct(p, price), 2)})
     try:
-        # Binance suele bloquear la IP de Render: entonces se arma con open interest y long/short de Bybit
-        heat = cached("liquidaciones", 300, lambda: liquidation_map(bnc, h1) if bnc is not None else liquidation_map_bybit(h1))
+        # con open interest y long/short de Bybit (a Binance solo se le pide el funding)
+        heat = cached("liquidaciones", 300, lambda: liquidation_map_bybit(h1))
         rows += [{"tabla": "liquidacion", **x} for x in heat]
         for side, kind in (("longs", "soporte"), ("shorts", "resistencia")):
             near = [x for x in heat if (x["precio"] < price) == (side == "longs") and x[side] > 0]

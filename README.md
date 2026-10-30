@@ -90,7 +90,7 @@ Si el servidor se reinicia, retoma sola las operaciones que abrió (las reconoce
 y sigue con el cierre de 72 h; las posiciones abiertas a mano no las toca.
 
 Configuración en Render (Environment), nunca en el código: `TELEGRAM_TOKEN` y `TELEGRAM_CHAT` (bot de Telegram),
-o `WHATSAPP_TEL` y `WHATSAPP_CLAVE` (CallMeBot), o `NTFY_TEMA` (app ntfy). Si Binance bloquea la IP, el mapa de liquidaciones sale de Bybit.
+o `WHATSAPP_TEL` y `WHATSAPP_CLAVE` (CallMeBot), o `NTFY_TEMA` (app ntfy).
 
 ### Termómetro de compra y venta (ciclo de BTC)
 
@@ -230,8 +230,9 @@ Con el plan gratis el servicio se duerme a los 15 minutos sin visitas: al abrirl
 minuto en despertar. En Render el análisis completo se recalcula cada 20 segundos (el precio llega al
 instante por WebSocket). Cada push a `main` se publica solo.
 
-La IP de salida de Render es compartida: si Binance la limita por exceso de pedidos, el análisis
-respeta la pausa y mientras tanto toma las velas de Bybit, sin cortarse.
+La IP de salida de Render es compartida y Binance la limita seguido: por eso el servidor ya no le pide
+velas, libro ni posicionamiento. Velas, open interest, long/short y liquidaciones salen de Bybit; flujo de
+compras/ventas y top traders, de OKX. A Binance solo se le pide el funding, una vez cada 3 h (si falla, BingX).
 
 ## En el iPhone, sin servidor: versión JavaScript (Vercel)
 
