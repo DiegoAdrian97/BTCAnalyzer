@@ -535,6 +535,10 @@ def revisar(rows, velas=None):
     # 0) setups de entrada (BTC, ETH y ZEC), una vez por vela de 1 hora cerrada, y seguimiento de los abiertos
     _setups(velas, price, liq, ahora, rows)
     try:
+        _compras(ahora)
+    except Exception as e:
+        print(f"(compras: {type(e).__name__}: {e})", flush=True)
+    try:
         _criticas(rows, ahora, price)
     except Exception as e:
         print(f"(aviso crítico: {type(e).__name__}: {e})", flush=True)
@@ -609,6 +613,61 @@ def revisar(rows, velas=None):
                    f"BTC en {_ar(price, 1)}. La zona más grande de liquidaciones de {lado} ({sentido}) está en "
                    f"{_ar(top['precio'])}: ~{_ar(top[campo], 1)} M USD estimados. Si el precio la alcanza, el movimiento "
                    f"puede acelerarse. Es una estimación con open interest y long/short, no un pronóstico.")
+
+
+PLAN_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "plan_compras.json")
+CERCA_COMPRA = 0.03          # recordar cargar la orden cuando el precio esta a 3% o menos
+
+
+def _plan():
+    try:
+        with open(PLAN_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def _compras(ahora):
+    """Plan de compras escalonadas de Diego (plan_compras.json): avisa cuando el precio se acerca a una compra que
+    todavia no cargo, y cuando una compra se ejecuto (para sumar el margen extra). Cada 5 minutos."""
+    plan = _plan()
+    if not plan or ahora - _estado.get("compras_t", 0) < 300:
+        return
+    _estado["compras_t"] = ahora
+    avisados = _estado.setdefault("compras", set())
+    ex = _bybit()
+    for m in sorted({c["moneda"] for c in plan["compras"]}):
+        try:
+            k = ex.fetch_ohlcv(f"{m}/USDT:USDT", "1h", since=int(plan["desde"]), limit=1000)
+        except Exception as e:
+            print(f"(compras {m}: {type(e).__name__})", flush=True)
+            continue
+        if not k:
+            continue
+        precio = k[-1][4]
+        corte = (ahora - 3 * 3600) * 1000
+        bajo_antes = min([b[3] for b in k if b[0] < corte] or [float("inf")])
+        bajo_ahora = min([b[3] for b in k if b[0] >= corte] or [float("inf")])
+        for c in plan["compras"]:
+            if c["moneda"] != m:
+                continue
+            clave = (m, c["n"])
+            nombre = f"{m} compra #{c['n']} en {_fmt(c['precio'])}"
+            if bajo_ahora <= c["precio"] < bajo_antes and (clave, "hecha") not in avisados:
+                avisados.add((clave, "hecha"))
+                if c.get("cargada"):
+                    falta = "" if c.get("extra_agregado") else f" Ahora agregá {_ar(c['extra'])} USDT de margen (⊕ en Posiciones)."
+                    enviar(f"✅ Se ejecutó tu {nombre}", f"{m} tocó {_fmt(c['precio'])} (ahora {_fmt(precio)}). Verificá en BingX que la orden "
+                           f"de {_ar(c['orden'])} se haya ejecutado.{falta}", urgente=True)
+                else:
+                    enviar(f"⚠ {m} tocó {_fmt(c['precio'])} y no tenías la orden", f"Tu {nombre} no estaba cargada. Si querés comprar "
+                           f"igual: valor de la orden {_ar(c['orden'])} a 5x y después {_ar(c['extra'])} de margen. Ahora {_fmt(precio)}.", urgente=True)
+            elif (not c.get("cargada") and bajo_antes > c["precio"] and bajo_ahora > c["precio"]
+                  and precio <= c["precio"] * (1 + CERCA_COMPRA) and (clave, "cerca") not in avisados):
+                avisados.add((clave, "cerca"))
+                enviar(f"📌 {m} se acerca a tu compra #{c['n']}", f"{m} en {_fmt(precio)}, a {_ar((precio / c['precio'] - 1) * 100, 1)}% de "
+                       f"{_fmt(c['precio'])}. Cargá la orden límite: precio {_fmt(c['precio'])}, valor de la orden {_ar(c['orden'])} a 5x; "
+                       f"cuando se ejecute, agregá {_ar(c['extra'])} de margen.", urgente=True)
 
 
 def _criticas(rows, ahora, price):

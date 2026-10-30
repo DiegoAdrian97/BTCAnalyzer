@@ -523,6 +523,20 @@
   @keyframes ab-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
   @keyframes ab-pulse { from { transform: scale(.7); opacity: .5; } to { transform: scale(3); opacity: 0; } }
   @keyframes ab-live { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-ok) 55%, transparent); } 100% { box-shadow: 0 0 0 8px transparent; } }
+  /* proximas compras (plan de Diego) */
+  .ab-cmp-grid { display: grid; gap: var(--cds-gap-md); grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); }
+  .ab-cmp { border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: grid; gap: 6px; align-content: start; }
+  .ab-cmp-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .ab-cmp-h b { font-size: 16px; } .ab-cmp-h span { font-size: var(--cds-font-size-caption); color: var(--mute); font-variant-numeric: tabular-nums; }
+  .ab-cmp-row { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: var(--cds-font-size-caption);
+    font-variant-numeric: tabular-nums; padding: 6px 8px; border-radius: 8px; background: var(--soft); }
+  .ab-cmp-row b { font-size: 13px; } .ab-cmp-row em { font-style: normal; color: var(--mute); display: block; }
+  .ab-cmp-row .st { text-align: right; font-weight: 600; white-space: nowrap; }
+  .ab-cmp-row.ok { background: color-mix(in srgb, var(--color-ok) 14%, transparent); } .ab-cmp-row.ok .st { color: var(--color-ok); }
+  .ab-cmp-row.carga { outline: 2px solid var(--color-bad); outline-offset: -2px; } .ab-cmp-row.carga .st { color: var(--color-bad); }
+  .ab-cmp-row.prox { outline: 2px solid var(--ink); outline-offset: -2px; }
+  .ab-cmp-now { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 650; color: var(--ink); }
+  .ab-cmp-now::before, .ab-cmp-now::after { content: ""; flex: 1; border-top: 2px dashed var(--ink); opacity: .5; }
   /* termometro de compra/venta (ciclo de BTC): pestaña fija al costado y panel que se despliega */
   .ab-tm-tab { position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: 40; display: grid; justify-items: center; gap: 6px;
     width: 58px; padding: 12px 6px; border: 1px solid var(--line); border-right: 0; border-radius: 16px 0 0 16px; background: var(--panel);
@@ -618,6 +632,13 @@
     <span class="ab-kicker" id="qp-news-t">Noticias</span>
     <div class="ab-qp-news" id="qp-news"></div>
     <p class="ab-note" id="qp-note"></p>
+  </section>
+
+  <section class="ab-card" id="compras" aria-labelledby="cmp-t" hidden>
+    <div class="ab-card-head"><div><span class="ab-kicker">Tu plan · longs a 5x en BingX</span><h2 id="cmp-t">Próximas compras</h2></div>
+      <span class="ab-kicker" id="cmp-hora">—</span></div>
+    <div class="ab-cmp-grid" id="cmp-body"></div>
+    <p class="ab-foot">Valor de la orden: lo que escribís en BingX a 5x (descuenta un quinto). Margen extra: lo que agregás con el ⊕ después. "Se ejecutó" sale de los precios desde que armaste el plan: confirmalo en BingX.</p>
   </section>
 
   <section class="ab-card ab-mov" id="movimiento" aria-labelledby="mov-t" data-source="analisis" hidden>
@@ -1004,6 +1025,7 @@
     drawMovimiento(rows);
     drawQuePasa(rows, sum);
     drawTermometro(rows);
+    drawCompras();
     drawLearning(rows);
     drawGauge(rows);
     drawChart(rows, sum);
@@ -1042,6 +1064,61 @@
     const temas = (xs) => [...new Set(xs.sort((a, b) => num(b.impacto) - num(a.impacto)).map((n) => n.tema.toLowerCase()))].slice(0, 2).join(', ');
     return { n: ns.length, score, est, buenas: buenas.length, malas: malas.length, tb: temas(buenas), tm: temas(malas) };
   }
+
+  // ---------- proximas compras: el plan de plan_compras.json, con donde esta el precio y que ya se ejecuto ----------
+  const PLAN_COMPRAS = /*PLAN*/null/*FIN*/;
+  const CMP = { datos: {}, hora: null };
+  async function cmpPrecios() {
+    if (!PLAN_COMPRAS) return;
+    const mons = [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))];
+    await Promise.all(mons.map(async (m) => {
+      const s = `${m}USDT`;
+      try {
+        const k = await (await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${s}&interval=1h&startTime=${PLAN_COMPRAS.desde}&limit=1500`)).json();
+        if (!Array.isArray(k) || !k.length) throw new Error('vacio');
+        CMP.datos[m] = { bajo: Math.min(...k.map((x) => +x[3])), precio: +k[k.length - 1][4] };
+      } catch (e) {
+        try {
+          const j = await (await fetch(`https://api.bybit.com/v5/market/kline?category=linear&symbol=${s}&interval=60&start=${PLAN_COMPRAS.desde}&limit=1000`)).json();
+          const k = j.result.list;
+          CMP.datos[m] = { bajo: Math.min(...k.map((x) => +x[3])), precio: +k[0][4] };
+        } catch (e2) { /* sin datos de esa cripto: queda lo ultimo */ }
+      }
+    }));
+    CMP.hora = new Date(); drawCompras();
+  }
+  function drawCompras() {
+    const sec = document.getElementById('compras'), body = document.getElementById('cmp-body');
+    if (!PLAN_COMPRAS) { sec.hidden = true; return; }
+    sec.hidden = false; body.replaceChildren();
+    const mons = [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))];
+    mons.forEach((m) => {
+      const d = CMP.datos[m], cs = PLAN_COMPRAS.compras.filter((c) => c.moneda === m).sort((a, b) => b.precio - a.precio);
+      const box = el('div', 'ab-cmp'), h = el('div', 'ab-cmp-h');
+      const hechas = d ? cs.filter((c) => d.bajo <= c.precio).length : 0;
+      h.append(el('b', '', m), el('span', '', d ? `ahora ${fp(d.precio)} · ${hechas}/${cs.length} ejecutadas` : 'cargando precio…'));
+      box.append(h);
+      let marcado = false, prox = false;
+      cs.forEach((c) => {
+        const hecha = d && d.bajo <= c.precio;
+        if (d && !marcado && d.precio > c.precio) { box.append(el('div', 'ab-cmp-now', `ahora ${fp(d.precio)}`)); marcado = true; }
+        const dist = d ? (d.precio / c.precio - 1) * 100 : null;
+        let cls = 'ab-cmp-row', ic = '○', st = '';
+        if (hecha) { cls += ' ok'; ic = '✔'; st = c.cargada ? (c.extra_agregado ? 'Se ejecutó' : `Se ejecutó · sumá ${f0(c.extra)} de margen`) : 'Tocó el precio (sin orden)'; }
+        else if (!c.cargada) { ic = '✎'; st = dist !== null && dist <= 3 ? `¡Cargá la orden! (a ${f1(dist)}%)` : 'Falta cargar la orden'; if (dist !== null && dist <= 3) cls += ' carga'; }
+        else { ic = '⏳'; st = dist === null ? 'Orden puesta' : `Orden puesta · a ${f1(dist)}%`; }
+        if (!hecha && !prox) { cls += ' prox'; prox = true; }
+        const row = el('div', cls), mid = el('div');
+        mid.append(el('b', '', `#${c.n} · ${fp(c.precio)}`), el('em', '', `Orden ${f0(c.orden)} · margen extra ${f0(c.extra)}`));
+        row.append(el('span', '', ic), mid, el('span', 'st', st)); box.append(row);
+      });
+      if (d && !marcado) box.append(el('div', 'ab-cmp-now', `ahora ${fp(d.precio)}`));
+      body.append(box);
+    });
+    const hr = document.getElementById('cmp-hora');
+    hr.textContent = CMP.hora ? `precios ${String(CMP.hora.getHours()).padStart(2, '0')}:${String(CMP.hora.getMinutes()).padStart(2, '0')}` : '—';
+  }
+  if (PLAN_COMPRAS) { setTimeout(cmpPrecios, 500); setInterval(cmpPrecios, 60000); }
 
   // ---------- termometro de compra/venta (ciclo de BTC) ----------
   const TM_COL = ['var(--color-ok)', 'color-mix(in srgb, var(--color-ok) 55%, var(--color-fg-muted))',

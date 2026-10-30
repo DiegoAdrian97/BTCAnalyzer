@@ -1,0 +1,169 @@
+{
+ "nota": "Plan de compras escalonadas de Diego (longs a 5x en BingX, margen aislado). cargada: la orden limite ya esta puesta en BingX; extra_agregado: el margen extra ya se sumo. Se actualiza a mano: cada vez que cambie, correr python JavascriptVersion/generar_pagina.py.",
+ "desde": 1793322000000,
+ "apalancamiento": 5,
+ "compras": [
+  {
+   "moneda": "BTC",
+   "n": 1,
+   "precio": 76502,
+   "orden": 1000,
+   "extra": 256,
+   "cargada": true,
+   "extra_agregado": true
+  },
+  {
+   "moneda": "BTC",
+   "n": 2,
+   "precio": 75087,
+   "orden": 1000,
+   "extra": 256,
+   "cargada": true,
+   "extra_agregado": true
+  },
+  {
+   "moneda": "BTC",
+   "n": 3,
+   "precio": 73700,
+   "orden": 767,
+   "extra": 196,
+   "cargada": false,
+   "extra_agregado": false
+  },
+  {
+   "moneda": "BTC",
+   "n": 4,
+   "precio": 72337,
+   "orden": 767,
+   "extra": 196,
+   "cargada": false,
+   "extra_agregado": false
+  },
+  {
+   "moneda": "BTC",
+   "n": 5,
+   "precio": 71000,
+   "orden": 767,
+   "extra": 196,
+   "cargada": false,
+   "extra_agregado": false
+  },
+  {
+   "moneda": "SOL",
+   "n": 1,
+   "precio": 90.35,
+   "orden": 492,
+   "extra": 128,
+   "cargada": true,
+   "extra_agregado": true
+  },
+  {
+   "moneda": "SOL",
+   "n": 2,
+   "precio": 85.36,
+   "orden": 492,
+   "extra": 128,
+   "cargada": true,
+   "extra_agregado": true
+  },
+  {
+   "moneda": "SOL",
+   "n": 3,
+   "precio": 80.65,
+   "orden": 377,
+   "extra": 98,
+   "cargada": false,
+   "extra_agregado": false
+  },
+  {
+   "moneda": "SOL",
+   "n": 4,
+   "precio": 76.2,
+   "orden": 377,
+   "extra": 98,
+   "cargada": false,
+   "extra_agregado": false
+  },
+  {
+   "moneda": "SOL",
+   "n": 5,
+   "precio": 72.0,
+   "orden": 377,
+   "extra": 98,
+   "cargada": false,
+   "extra_agregado": false
+  },
+  {
+   "moneda": "XRP",
+   "n": 1,
+   "precio": 1.2001,
+   "orden": 663,
+   "extra": 298,
+   "cargada": true,
+   "extra_agregado": true
+  },
+  {
+   "moneda": "XRP",
+   "n": 2,
+   "precio": 1.1641,
+   "orden": 663,
+   "extra": 298,
+   "cargada": true,
+   "extra_agregado": true
+  },
+  {
+   "moneda": "XRP",
+   "n": 3,
+   "precio": 1.1292,
+   "orden": 508,
+   "extra": 228,
+   "cargada": false,
+   "extra_agregado": false
+  },
+  {
+   "moneda": "ZEC",
+   "n": 1,
+   "precio": 1185.5,
+   "orden": 377,
+   "extra": 170,
+   "cargada": true,
+   "extra_agregado": true
+  },
+  {
+   "moneda": "ZEC",
+   "n": 2,
+   "precio": 1150.0,
+   "orden": 377,
+   "extra": 170,
+   "cargada": true,
+   "extra_agregado": true
+  },
+  {
+   "moneda": "ZEC",
+   "n": 3,
+   "precio": 1115.7,
+   "orden": 289,
+   "extra": 130,
+   "cargada": false,
+   "extra_agregado": false
+  },
+  {
+   "moneda": "ZEC",
+   "n": 4,
+   "precio": 1082.3,
+   "orden": 289,
+   "extra": 130,
+   "cargada": false,
+   "extra_agregado": false
+  },
+  {
+   "moneda": "ZEC",
+   "n": 5,
+   "precio": 1050.0,
+   "orden": 289,
+   "extra": 130,
+   "cargada": false,
+   "extra_agregado": false
+  }
+ ]
+}
