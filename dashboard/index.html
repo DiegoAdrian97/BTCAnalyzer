@@ -619,7 +619,7 @@
   </button>
   <div class="ab-tm-back" id="tm-back" hidden></div>
   <aside class="ab-tm-panel" id="tm-panel" aria-labelledby="tm-t" role="dialog" aria-modal="true" hidden>
-    <div class="ab-tm-head"><div><span class="ab-kicker">Ciclo de BTC · semanas o meses</span><h2 id="tm-t" style="margin:2px 0 0">Termómetro de compra y venta</h2></div>
+    <div class="ab-tm-head"><div><span class="ab-kicker" id="tm-kick">Ciclo de BTC · semanas o meses</span><h2 id="tm-t" style="margin:2px 0 0">Termómetro de compra y venta</h2></div>
       <button type="button" class="ab-iconbtn ab-round" id="tm-x" aria-label="Cerrar">✕</button></div>
     <div id="tm-body"></div>
   </aside>
@@ -1213,6 +1213,8 @@
     if (matchMedia('(max-width: 700px)').matches) { dot.style.left = `${v}%`; dot.style.bottom = ''; } else { dot.style.bottom = `${v}%`; dot.style.left = ''; }
     document.getElementById('tm-num').textContent = f0(v);
     document.getElementById('tm-zona').textContent = t.medidor_zona;
+    const mon = t.moneda || 'BTC';
+    document.getElementById('tm-kick').textContent = mon === 'BTC' ? 'Ciclo de BTC · semanas o meses' : `${mon} · su precio frente a su historia y el ciclo de BTC · semanas o meses`;
     body.replaceChildren();
     const big = el('div', 'ab-tm-big'); big.append(el('b', '', f0(v)), el('span', 'ab-note', '/ 100'), el('span', 'ab-tm-zona', t.medidor_zona));
     const sc = el('div', 'ab-tm-scale'); sc.style.gridTemplateColumns = `repeat(${t.m_zonas.length}, minmax(0, 1fr))`;
@@ -1227,8 +1229,8 @@
     const comp = el('ul', 'ab-tm-list');
     const li = (txt, sub) => { const x = el('li', '', txt); if (sub) x.append(' ', el('em', '', sub)); comp.append(x); };
     li(`Barato o caro (la mitad del medidor: cuanto más barato, más compra): ${f0(num(t.temp))}/100, ${t.zona.toLowerCase()}.`);
-    li(`  · Precio vs media de 200 semanas (${f0(num(t.wma200))}): ${sg(num(t.sobre_wma), 1)}.`, caro(num(t.p_wma200)) + '.');
-    li(`  · Caída desde el máximo histórico (${f0(num(t.ath))}): ${sg(num(t.caida_ath), 1)}.`, num(t.p_dd_ath) >= 50 ? `el ${f0(num(t.p_dd_ath))}% del tiempo estuvo todavía más lejos del máximo.` : `solo el ${f0(num(t.p_dd_ath))}% del tiempo estuvo tan lejos del máximo.`);
+    if (t.wma200 !== null && t.wma200 !== undefined) li(`  · Precio vs media de 200 semanas (${fp(num(t.wma200))}): ${sg(num(t.sobre_wma), 1)}.`, caro(num(t.p_wma200)) + '.');
+    li(`  · Caída desde el máximo histórico (${fp(num(t.ath))}): ${sg(num(t.caida_ath), 1)}.`, num(t.p_dd_ath) >= 50 ? `el ${f0(num(t.p_dd_ath))}% del tiempo estuvo todavía más lejos del máximo.` : `solo el ${f0(num(t.p_dd_ath))}% del tiempo estuvo tan lejos del máximo.`);
     li(`  · Último año: ${sg(num(t.ret_anual), 1)}.`, caro(num(t.p_ret365)) + '.');
     if (t.funding7 !== null && t.funding7 !== undefined) {
       const fa = num(t.funding_ajuste), fv = `${num(t.funding7) > 0 ? '+' : ''}${num(t.funding7).toFixed(4).replace('.', ',')}% cada 8 h`;
@@ -1250,7 +1252,7 @@
       ...reglaFng(t),
       ...(fg ? [el('p', 'ab-tm-sec', 'Fear & Greed Index'), fngGauge(num(fg.fng), fg.fng_clase || String(fg.valor).split(' · ')[1] || '', fg.fng_ayer)] : []),
       el('p', 'ab-tm-sec', 'Corto plazo (no entra en el termómetro)'), ctxL,
-      el('p', 'ab-foot', 'Lógica inversa: cuando BTC está barato y el ciclo está en su piso, comprar de a poco; cuando está caro y en el techo del ciclo, vender de a poco. Para semanas o meses, no para el próximo trade. No es asesoramiento financiero.'));
+      el('p', 'ab-foot', (mon === 'BTC' ? '' : `${mon}: mismo medidor que BTC, con su propia historia (desde ${mon === 'XRP' ? '2017' : '2020'}) y el ciclo de 4 años de BTC. `) + 'Lógica inversa: cuando está barato y el ciclo está en su piso, comprar de a poco; cuando está caro y en el techo del ciclo, vender de a poco. Para semanas o meses, no para el próximo trade. No es asesoramiento financiero.'));
   }
   function drawQuePasa(rows, s) {
     const box = document.getElementById('que-pasa');

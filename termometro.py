@@ -40,6 +40,50 @@ def fase(y):
     return "bajista" if y % 4 == 2 else f"alcista {(y - 3) % 4 + 1}"
 
 
+def termometro_alt(moneda, velas_d, price, T=None, now_ms=None):
+    """Medidor de XRP o SOL: su propio barato o caro (con su historia, armar_termometro.py) y el ciclo de BTC.
+    velas_d: velas diarias cerradas [t, o, h, l, c, v]. None si no hay datos para esa moneda."""
+    import time
+    T = T or _datos()
+    A, md = (T.get("alts") or {}).get(moneda), T.get("medidor")
+    if not A or not md or price <= 0:
+        return None
+    now_ms = now_ms or time.time() * 1000
+    hoy = int(now_ms // 86400000)
+    dias = {int(d): c for d, c in A["cierres"]}
+    for b in velas_d:
+        dias[int(b[0] // 86400000)] = b[4]
+    closes = [dias[d] for d in sorted(dias) if d < hoy]
+    comps = A["componentes"]
+    if len(closes) < (1400 if "wma200" in comps else 365):
+        return None
+    wma = sum(closes[-1400:]) / 1400 if "wma200" in comps else None
+    ath = max(A["ath"], max(closes), price)
+    med = {"dd_ath": price / ath - 1, "ret365": math.log(price / closes[-365])}
+    if wma:
+        med["wma200"] = math.log(price / wma)
+    p = {k: percentil(med[k], A["q"][k]) for k in comps}
+    temp = sum(p.values()) / len(p)
+    y = time.gmtime(now_ms / 1000).tm_year
+    av = (time.gmtime(now_ms / 1000).tm_yday - 1) / 366
+    ph = (y - 2) % 4
+    x = [float(ph == 1), float(ph == 2), float(ph == 3), (ph == 0) * av, (ph == 3) * av]
+    prob = 1 / (1 + math.exp(-(md["intercepto"] + sum(w * v for w, v in zip(md["pesos"], x)))))
+    S = md["peso_valuacion"] * (1 - temp / 100) + (1 - md["peso_valuacion"]) * prob
+    zm = next(q for q in A["zonas"] if q["desde"] <= S < q["hasta"])
+    z = next(z for z in T["zonas"] if temp < z["hasta"] or z["hasta"] >= 100)
+    return {"tabla": "termometro", "moneda": moneda, "medidor": round(min(100.0, max(0.0, (1 - S) * 100)), 1),
+            "medidor_zona": zm["nombre"], "m_sube_180": zm["sube_180"], "m_mediana_180": zm["mediana_180"],
+            "m_sube_365": zm["sube_365"], "m_mediana_365": zm["mediana_365"], "avance": round(av * 100),
+            "funding7": None, "funding_ajuste": 0, "p_ciclo": round(prob * 100),
+            "m_zonas": [[q["nombre"], q["sube_365"], q["mediana_365"]] for q in A["zonas"]],
+            "temp": round(temp, 1), "zona": z["nombre"], "año": y, "fase": fase(y), "fng": None, "regla": None,
+            "reglas": {}, "años": [], "ciclos": [], "p_wma200": round(p["wma200"], 1) if wma else None,
+            "p_dd_ath": round(p["dd_ath"], 1), "p_ret365": round(p["ret365"], 1), "wma200": round(wma, 4) if wma else None,
+            "sobre_wma": round((price / wma - 1) * 100, 1) if wma else None, "caida_ath": round(med["dd_ath"] * 100, 1),
+            "ath": round(ath, 4), "ret_anual": round((price / closes[-365] - 1) * 100, 1)}
+
+
 def ajuste_funding(md, f7):
     """+1 si el funding promedio de 7 dias es negativo (miedo: compra), -1 si es 0,03% o mas cada 8 h (euforia), 0 si no."""
     fu = (md or {}).get("funding")

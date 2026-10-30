@@ -84,6 +84,35 @@
     return 100;
   }
   function fase(y) { return y % 4 === 2 ? 'bajista' : `alcista ${(((y - 3) % 4) + 4) % 4 + 1}`; }
+  /** Medidor de XRP o SOL (como termometro_alt de termometro.py): su barato o caro y el ciclo de BTC. */
+  function termometroAlt(moneda, velasD, price, T, nowMs = Date.now()) {
+    const A = T && T.alts && T.alts[moneda], md = T && T.medidor;
+    if (!A || !md || price <= 0) return null;
+    const hoy = Math.floor(nowMs / 86400000), dias = new Map(A.cierres.map(([d, c]) => [d, c]));
+    velasD.forEach((b) => dias.set(Math.floor(b[0] / 86400000), b[4]));
+    const closes = [...dias.keys()].filter((d) => d < hoy).sort((a, b) => a - b).map((d) => dias.get(d));
+    const comps = A.componentes, conWma = comps.includes('wma200');
+    if (closes.length < (conWma ? 1400 : 365)) return null;
+    let s = 0; if (conWma) for (const x of closes.slice(-1400)) s += x;
+    const wma = conWma ? s / 1400 : null;
+    const ath = Math.max(A.ath, Math.max(...closes), price), c365 = closes[closes.length - 365];
+    const med = { dd_ath: price / ath - 1, ret365: Math.log(price / c365) };
+    if (wma) med.wma200 = Math.log(price / wma);
+    const p = {}; comps.forEach((k) => { p[k] = percentil(med[k], A.q[k]); });
+    const temp = comps.reduce((a, k) => a + p[k], 0) / comps.length;
+    const y = new Date(nowMs).getUTCFullYear(), av = (Math.floor((nowMs - Date.UTC(y, 0, 1)) / 86400000)) / 366;
+    const ph = (((y - 2) % 4) + 4) % 4, x = [+(ph === 1), +(ph === 2), +(ph === 3), (ph === 0) * av, (ph === 3) * av];
+    let lg = md.intercepto; md.pesos.forEach((w, i) => { lg += w * x[i]; });
+    const prob = 1 / (1 + Math.exp(-lg));
+    const S = md.peso_valuacion * (1 - temp / 100) + (1 - md.peso_valuacion) * prob;
+    const zm = A.zonas.find((q) => q.desde <= S && S < q.hasta), z = T.zonas.find((q) => temp < q.hasta || q.hasta >= 100);
+    return { tabla: 'termometro', moneda, medidor: rnd(Math.min(100, Math.max(0, (1 - S) * 100)), 1), medidor_zona: zm.nombre,
+      m_sube_180: zm.sube_180, m_mediana_180: zm.mediana_180, m_sube_365: zm.sube_365, m_mediana_365: zm.mediana_365, avance: Math.round(av * 100),
+      funding7: null, funding_ajuste: 0, p_ciclo: Math.round(prob * 100), m_zonas: A.zonas.map((q) => [q.nombre, q.sube_365, q.mediana_365]),
+      temp: rnd(temp, 1), zona: z.nombre, año: y, fase: fase(y), fng: null, regla: null, reglas: {}, años: [], ciclos: [],
+      p_wma200: wma ? rnd(p.wma200, 1) : null, p_dd_ath: rnd(p.dd_ath, 1), p_ret365: rnd(p.ret365, 1), wma200: wma ? rnd(wma, 4) : null,
+      sobre_wma: wma ? rnd((price / wma - 1) * 100, 1) : null, caida_ath: rnd(med.dd_ath * 100, 1), ath: rnd(ath, 4), ret_anual: rnd((price / c365 - 1) * 100, 1) };
+  }
   function ajusteFunding(md, f7) {   // +1 funding de 7 dias negativo (miedo), -1 si es 0,03% o mas (euforia), 0 si no
     const fu = md && md.funding;
     if (!fu || f7 === null || f7 === undefined || Number.isNaN(f7)) return 0;
@@ -775,6 +804,9 @@
       const fr = rows.find((r) => r.tabla === 'contexto' && r.clave === 'funding');
       const tm = termometro(candles['1d'].map((b) => b[4]), price, root.TERMOMETRO, fg ? fg.fng : null, now, fr && fr.f7 !== undefined ? fr.f7 : null);
       if (tm) rows.push(tm);
+    } else if (root.TERMOMETRO && root.TERMOMETRO.alts && root.TERMOMETRO.alts[input.moneda]) {   // XRP y SOL (ZEC no: ver armar_termometro.py)
+      const tm = termometroAlt(input.moneda, candles['1d'], price, root.TERMOMETRO, now);
+      if (tm) rows.push(tm);
     }
     const explanation = [];
     PLAZOS.forEach((spec) => explain(rows, price, spec).forEach((e) => explanation.push(e)));
@@ -787,7 +819,7 @@
     return { rows, log };
   }
 
-  const Analisis = { analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, similar, outcomes, horizonStats, scenarios, targets, termometro, percentil };
+  const Analisis = { analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil };
   root.Analisis = Analisis;
   if (typeof module !== 'undefined' && module.exports) module.exports = Analisis;
 })(typeof self !== 'undefined' ? self : globalThis);

@@ -124,6 +124,13 @@ o semanas el ciclo y el Fear & Greed Index casi no sumaron (7 días: AUC 0,53 �
 cambian las predicciones de corto plazo ni los setups. Se actualiza solo cada mes junto con el reentrenamiento
 (`termometro.py`, `armar_termometro.py`, `JavascriptVersion/termometro.json`).
 
+**XRP y SOL** tienen su propio medidor en la app: su barato o caro comparado con su propia historia (XRP desde 2017
+con las tres medidas; SOL desde 2020 sin la media de 200 semanas, que todavía no tiene historia para comparar) y el
+mismo momento del ciclo de BTC. Medido 2019–2026 sin mirar el futuro: AUC a 12 meses 0,95 en XRP y 0,88 en SOL.
+En "Compra fuerte", 12 meses después XRP estaba más arriba el 100% de las veces y SOL el 89%; en "Zona de venta",
+ninguna de las dos. **ZEC no tiene medidor**: su "barato" siguió abaratándose durante años (2018–2024) y después
+explotó; con esta lógica no se puede anticipar (AUC 0,6).
+
 ### Reentrenamiento mensual
 
 El día 2 de cada mes una tarea de GitHub (`.github/workflows/reentrenar.yml`) baja las velas de 1 hora de BTC

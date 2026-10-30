@@ -21,7 +21,7 @@ jobs:
       - run: pip install numpy lightgbm scikit-learn
       - run: python datos_entrenamiento.py
       - run: python entrenar_fuerte.py velas_1h.json eventos.json
-      - run: python armar_termometro.py btc_diario.json fng.json
+      - run: python armar_termometro.py btc_diario.json fng.json alts_diario.json
       - name: Subir el modelo nuevo
         run: |
           git config user.name "reentrenar-bot"; git config user.email "noreply@github.com"
