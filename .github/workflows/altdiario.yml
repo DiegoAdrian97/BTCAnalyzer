@@ -1,0 +1,20 @@
+name: Bajar alts diario
+on:
+  push:
+    branches: [medicion-monedas]
+    paths: [".github/workflows/altdiario.yml", "medir/alt_diario.py"]
+permissions:
+  contents: write
+jobs:
+  bajar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: mkdir -p medir/monedas && python medir/alt_diario.py medir/monedas
+      - run: |
+          git config user.name "medicion-bot"; git config user.email "noreply@github.com"
+          git add medir/monedas/alt_diario.json && git commit -q -m "velas diarias alts" || exit 0
+          for i in 1 2 3 4; do git pull --rebase -q && git push -q && break; sleep 10; done
