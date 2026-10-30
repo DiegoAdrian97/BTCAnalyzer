@@ -570,13 +570,14 @@ def context(bgx, h1):
 
     # BingX: el exchange donde operas (el funding que pagas vos). Cambia cada 8 h: se pide cada 3 h
     try:
-        fr = cached("funding", FUNDING_TTL, lambda: api("bingx", bgx.fetch_funding_rate, SYMBOL).get("fundingRate") or 0.0)
+        fr, f7 = cached("funding", FUNDING_TTL, lambda: funding_bingx(bgx))
     except Exception as e:
         print(f"(funding no disponible: {type(e).__name__})")
         return rows, None
     sig = "bajista" if fr > 0.0003 else "alcista" if fr < 0 else "neutral"
-    add("funding", "Funding BingX", arp(fr * 100, 4) + " cada 8 h", sig,
-        "Longs pagando caro: euforia" if fr > 0.0003 else "Shorts pagan: miedo" if fr < 0 else "Normal")
+    add("funding", "Funding BingX", arp(fr * 100, 4) + " cada 8 h" + ("" if f7 is None else f" (7 días {arp(f7 * 100, 4)})"), sig,
+        "Longs pagando caro: euforia" if fr > 0.0003 else "Shorts pagan: miedo" if fr < 0 else "Normal",
+        **({} if f7 is None else {"f7": f7}))
 
     return rows, fr
 
@@ -586,6 +587,18 @@ def context(bgx, h1):
 BOOKS = {"bybit": 500, "okx": 400, "bitget": 150, "bingx": 1000}
 BOOK_BAND = 0.001      # +/-0.1%: el rango que cubren todos los libros publicos
 WALL_BIN = 25.0        # USD por escalon al buscar muros
+
+
+def funding_bingx(bgx):
+    """Funding actual de BingX y promedio de los ultimos 7 dias (21 cobros de 8 h; entra en el termometro)."""
+    fr = api("bingx", bgx.fetch_funding_rate, SYMBOL).get("fundingRate") or 0.0
+    try:
+        h = [float(x["fundingRate"]) for x in api("bingx", bgx.fetch_funding_rate_history, SYMBOL, limit=21)][-21:]
+        f7 = sum(h) / len(h) if len(h) >= 15 else None
+    except Exception as e:
+        print(f"(historial de funding no disponible: {type(e).__name__})")
+        f7 = None
+    return fr, f7
 
 
 def order_books():
@@ -1047,7 +1060,9 @@ def analyze():
         rows.append(mov)
     try:                                   # termometro de compra/venta del ciclo de BTC (termometro.py)
         fg = next((r for r in rows if r.get("tabla") == "contexto" and r.get("clave") == "miedo_codicia"), None)
-        tm = termometro.termometro([b[4] for b in candles["1d"]], price, fng=fg["fng"] if fg else None, now_ms=now_ms)
+        fu = next((r for r in rows if r.get("tabla") == "contexto" and r.get("clave") == "funding"), None)
+        tm = termometro.termometro([b[4] for b in candles["1d"]], price, fng=fg["fng"] if fg else None, now_ms=now_ms,
+                                   f7=fu.get("f7") if fu else None)
         if tm:
             rows.append(tm)
     except Exception as e:
