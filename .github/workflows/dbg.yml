@@ -1,0 +1,14 @@
+name: dbg
+on: push
+permissions: {contents: write}
+jobs:
+  r:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: python datos_entrenamiento.py > log.txt 2>&1 || true; tail -c 3000 log.txt > log_tail.txt
+      - run: |
+          git config user.name bot && git config user.email bot@x
+          git add log_tail.txt && git commit -m "log [skip ci]" && git push
