@@ -80,6 +80,30 @@ def diario_largo():
     return [out[k] for k in sorted(out)]
 
 
+def alts_diario(monedas=("XRP", "SOL")):
+    """Velas diarias de XRP y SOL con toda su historia: Bitfinex (desde que cotiza) y Binance spot por encima."""
+    out = {}
+    for m in monedas:
+        d = {}
+        try:   # Bitfinex: [t, o, c, h, l, v]
+            u = f"https://api-pub.bitfinex.com/v2/candles/trade:1D:t{m}USD/hist?limit=10000&sort=1"
+            for k in json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": UA}), timeout=60).read()):
+                d[k[0] // 86400000] = [k[0], k[1], k[3], k[4], k[2], k[5]]
+        except Exception as e:
+            print(f"(Bitfinex {m}: {type(e).__name__})")
+        hoy = date.today()
+        for y in range(2017, hoy.year + 1):
+            for mo in range(1, 13):
+                if (y, mo) >= (hoy.year, hoy.month):
+                    break
+                for r in _zip(f"https://data.binance.vision/data/spot/monthly/klines/{m}USDT/1d/{m}USDT-1d-{y}-{mo:02d}.zip"):
+                    t = r[0] // 1000 if r[0] > 1e14 else r[0]      # desde 2025 los archivos vienen en microsegundos
+                    d[t // 86400000] = [t] + r[1:]
+        out[m] = [d[k] for k in sorted(d)]
+        print(f"{m}: {len(out[m])} días")
+    return out
+
+
 if __name__ == "__main__":
     B, E = velas(), eventos()
     assert len(B) > 40000, f"pocas velas: {len(B)}"
@@ -95,4 +119,5 @@ if __name__ == "__main__":
                                                                   headers={"User-Agent": UA}), timeout=60).read())
     assert len(fg["data"]) > 2000, "historial del Fear & Greed Index incompleto"
     json.dump(fg, open("fng.json", "w"))
+    json.dump(alts_diario(), open("alts_diario.json", "w"))
     print(f"velas {len(B)} hasta {datetime.fromtimestamp(B[-1][0] / 1000, timezone.utc)} · eventos {len(E)}")

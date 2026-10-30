@@ -1,7 +1,8 @@
 """Arma JavascriptVersion/termometro.json: lo que necesita el termometro de compra/venta (ciclo de BTC).
 
-    python armar_termometro.py btc_diario.json [fng.json]   (velas diarias desde 2011, p. ej. Bitstamp; historial del
-                                                             Fear & Greed Index de api.alternative.me/fng/?limit=0)
+    python armar_termometro.py btc_diario.json [fng.json] [alts_diario.json]
+        (velas diarias de BTC desde 2011, p. ej. Bitstamp; historial del Fear & Greed Index de api.alternative.me;
+         velas diarias de XRP y SOL con toda su historia, {"XRP": [[t, o, h, l, c, v], ...], ...})
 
 Medido con BTC 2015-2026 (ver README): lo que mejor marco las buenas zonas de compra a 6-12 meses fue que tan lejos
 esta el precio de su media de 200 semanas, cuanto cayo desde el maximo historico y cuanto subio o bajo en el ultimo
@@ -14,6 +15,12 @@ import numpy as np
 
 COMP = ("wma200", "dd_ath", "ret365")
 ZONAS = [(0, 20, "Compra fuerte"), (20, 40, "Buena zona de compra"), (40, 60, "Neutral"), (60, 80, "Caro: cuidado"), (80, 101, "Zona de venta")]
+
+
+# Termometro de XRP y SOL: su propio "barato o caro" (con su historia) y el mismo momento del ciclo de BTC.
+# Medido 2019-2026 sin mirar el futuro (AUC a 12 meses): XRP 0,95 con las tres medidas; SOL 0,88 sin la media de 200
+# semanas (no tiene historia suficiente para compararla). ZEC no: su "barato" siguio abaratandose años (AUC 0,6).
+ALTS = {"XRP": ("wma200", "dd_ath", "ret365"), "SOL": ("dd_ath", "ret365")}
 
 
 def metricas(c):
@@ -95,6 +102,47 @@ def ciclo(t, c, fng):
     return out
 
 
+def temperatura_historica(c, comps):
+    """Temperatura de cada dia comparando solo con la historia que habia hasta ese dia; y la historia completa."""
+    M = metricas(c); hist = {k: [] for k in comps}; T = np.full(len(c), np.nan)
+    for i in range(len(c)):
+        p = []
+        for k in comps:
+            v = M[k][i]
+            if np.isfinite(v):
+                if len(hist[k]) >= 365: p.append(bisect.bisect_left(hist[k], v) / len(hist[k]) * 100)
+                bisect.insort(hist[k], v)
+        if len(p) == len(comps): T[i] = temperatura(p)
+    return T, hist
+
+
+def zonas_medidor(S, c, ok):
+    zs = []
+    for lo, hi, nom in ZONAS_S:
+        z = {"desde": lo, "hasta": hi, "nombre": nom}
+        for hz in (180, 365):
+            fut = np.r_[c[hz:] / c[:-hz] - 1, np.full(hz, np.nan)]
+            m = ok & np.isfinite(S) & (S >= lo) & (S < hi) & np.isfinite(fut)
+            z[f"sube_{hz}"] = round(float(np.mean(fut[m] > 0)) * 100) if m.sum() >= 30 else None
+            z[f"mediana_{hz}"] = round(float(np.median(fut[m])) * 100) if m.sum() >= 30 else None
+            z[f"dias_{hz}"] = int(m.sum())
+        zs.append(z)
+    return zs
+
+
+def alt(rows, comps, t_btc, Pc):
+    """Termometro de una alt: cuantiles de su historia, zonas del medidor medidas desde 2019 (ciclo de BTC sin mirar el
+    futuro) y sus ultimos 1500 cierres diarios (el analisis en vivo trae menos dias de los que necesita la media)."""
+    t = np.array([b[0] for b in rows], float); c = np.array([b[4] for b in rows], float)
+    T, hist = temperatura_historica(c, comps)
+    pc_dia = {int(x // 86400000): p for x, p in zip(t_btc, Pc)}
+    pc = np.array([pc_dia.get(int(x // 86400000), np.nan) for x in t])
+    S = PESO_VALUACION * (1 - T / 100) + (1 - PESO_VALUACION) * pc
+    return {"componentes": list(comps), "ath": float(c.max()), "zonas": zonas_medidor(S, c, t >= 1546300800000),
+            "q": {k: [round(float(x), 8) for x in np.quantile(np.array(hist[k]), np.linspace(0, 1, 201))] for k in comps},
+            "cierres": [[int(x // 86400000), float(v)] for x, v in zip(t[-1500:], c[-1500:])]}
+
+
 def main():
     B = json.load(open(sys.argv[1])); t = np.array([b[0] for b in B], float); c = np.array([b[4] for b in B], float)
     fng = None
@@ -154,6 +202,12 @@ def main():
     out = {"medidor": modelo, "ciclo": ciclo(t, c, fng), "hasta": int(t[-1]), "zonas_desde": desde, "ath": float(c.max()), "componentes": list(COMP), "zonas": zonas,
            "q": {k: [round(float(x), 6) for x in np.quantile(np.array(hist[k]), np.linspace(0, 1, 201))] for k in COMP}}
     json.dump(out, open("JavascriptVersion/termometro.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    if len(sys.argv) > 3:
+        A = json.load(open(sys.argv[3]))
+        out["alts"] = {m: alt(A[m], comps, t, Pc) for m, comps in ALTS.items() if len(A.get(m) or []) > 1500}
+        json.dump(out, open("JavascriptVersion/termometro.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+        for m, v in out["alts"].items():
+            print(m, [(z["nombre"], z["sube_365"], z["mediana_365"], z["dias_365"]) for z in v["zonas"]])
     print(json.dumps(zonas_s, ensure_ascii=False, indent=1)); print("hoy: temperatura", round(float(T[-1]), 1), "ciclo", modelo["intercepto"], modelo["pesos"])
 
 
