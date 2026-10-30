@@ -52,7 +52,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
-<script src="app.js"></script>
+<script src="app.js?v=__VER__"></script>
 </head><body><div id="dash-root">
 __PAGE__
 </div>
@@ -69,6 +69,16 @@ CAMBIOS = [
 ]
 
 
+def version():
+    """Huella del codigo de la app: va en ?v= de cada archivo, asi el iPhone no se queda con una version vieja guardada."""
+    import hashlib
+    h = hashlib.sha1()
+    for f in ("app.js", "worker.js", "analisis.js", "datos.js", "indicadores.js", "aprendizaje.js", "fuerte.js"):
+        with open(os.path.join(HERE, f), "rb") as fh:
+            h.update(fh.read())
+    return h.hexdigest()[:10]
+
+
 def main():
     with open(PAGE, encoding="utf-8") as f:
         page = f.read()
@@ -81,7 +91,7 @@ def main():
         with open(plan, encoding="utf-8") as f:
             page = page.replace("/*PLAN*/null/*FIN*/", json.dumps(json.load(f), ensure_ascii=False).replace("</", "<\\/"))
     with open(OUT, "w", encoding="utf-8", newline="\n") as f:
-        f.write(SHELL.replace("__PAGE__", page))
+        f.write(SHELL.replace("__PAGE__", page).replace("__VER__", version()))
     print("listo:", OUT)
 
 

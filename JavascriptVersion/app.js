@@ -4,6 +4,8 @@
  */
 (function () {
   'use strict';
+  // ?v= de la pagina (generar_pagina.py): el worker y sus archivos se piden con la misma version
+  const VER = document.currentScript && document.currentScript.src.includes('?') ? document.currentScript.src.slice(document.currentScript.src.indexOf('?')) : '';
   let rows = null;
   const fns = [];
   // la cripto que se analiza: BTC, ZEC, SOL o XRP (cada una con su ultimo analisis guardado para volver enseguida)
@@ -74,7 +76,7 @@
     if (saved === 'holo' || new URLSearchParams(location.search).get('modo') === 'holograma') openHolo();
   });
 
-  const worker = new Worker('worker.js');
+  const worker = new Worker(`worker.js${VER}`);
   const sym = () => `${moneda}USDT`;
   function elegir(m) {
     if (m === moneda) return;
