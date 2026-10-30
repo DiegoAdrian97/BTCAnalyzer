@@ -128,29 +128,41 @@
     return candles;
   }
 
-  // ---------- datos del momento (solo Binance los publica) ----------
+  // ---------- datos del momento: open interest y long/short de Bybit, flujo y top traders de OKX, funding de BingX ----------
+  // (igual que el servidor: a Binance no se le piden). Cada parte que falle se saltea.
+  const okxId = () => SYM.replace('USDT', '-USDT-SWAP');
+  const bybitOi = async (limit) => (await pedir('bybit', `https://api.bybit.com/v5/market/open-interest?category=linear&symbol=${SYM}&intervalTime=1h&limit=${limit}`))
+    .result.list.map((x) => [+x.timestamp, +x.openInterest]).sort((x, y) => x[0] - y[0]);
+  const bybitLs = async (limit) => (await pedir('bybit', `https://api.bybit.com/v5/market/account-ratio?category=linear&symbol=${SYM}&period=1h&limit=${limit}`))
+    .result.list.filter((x) => +x.sellRatio > 0).map((x) => [+x.timestamp, +x.buyRatio / +x.sellRatio]).sort((x, y) => x[0] - y[0]);
+  const intento = (p) => p.catch(() => null);
+
+  async function fundingRaw() {
+    try {
+      const j = await pedir('bingx', `https://open-api.bingx.com/openApi/swap/v2/quote/premiumIndex?symbol=${SYM.replace('USDT', '-USDT')}`);
+      return { tasa: +j.data.lastFundingRate, fuente: 'BingX' };
+    } catch (e) {   // si el navegador no puede leer BingX: el de Bybit
+      const t = (await pedir('bybit', `https://api.bybit.com/v5/market/tickers?category=linear&symbol=${SYM}`)).result.list[0];
+      return { tasa: +t.fundingRate, fuente: 'Bybit' };
+    }
+  }
+
   async function contextRaw() {
-    const q = (path) => pedir('binance', `${BINANCE}${path}`);
-    const [oi, taker, ls, top, prem] = await Promise.all([
-      q('/futures/data/openInterestHist?symbol=${SYM}&period=1h&limit=25'),
-      q('/futures/data/takerlongshortRatio?symbol=${SYM}&period=1h&limit=4'),
-      q('/futures/data/globalLongShortAccountRatio?symbol=${SYM}&period=1h&limit=25'),
-      q('/futures/data/topLongShortPositionRatio?symbol=${SYM}&period=1h&limit=1'),
-      q('/fapi/v1/premiumIndex?symbol=${SYM}'),
+    const [oi, ls, taker, top, fr] = await Promise.all([
+      intento(bybitOi(30)), intento(bybitLs(25)),
+      intento(pedir('okx', `https://www.okx.com/api/v5/rubik/stat/taker-volume-contract?instId=${okxId()}&period=1H&limit=4`)
+        .then((j) => j.data.slice(0, 4).reverse().map((x) => ({ buy: +x[2], sell: +x[1] })))),
+      intento(pedir('okx', `https://www.okx.com/api/v5/rubik/stat/contracts/long-short-position-ratio-contract-top-trader?instId=${okxId()}&period=1H&limit=1`)
+        .then((j) => +j.data[0][1])),
+      intento(cached(`${pre()}funding`, 3 * 3600000, fundingRaw)),
     ]);
-    return {
-      oi: oi.map((x) => +x.sumOpenInterestValue),
-      taker: taker.map((x) => ({ buy: +x.buyVol, sell: +x.sellVol, ratio: +x.buySellRatio })),
-      ls: ls.map((x) => +x.longShortRatio), top: +top[top.length - 1].longShortRatio, funding: +prem.lastFundingRate,
-    };
+    if (!oi && !ls && !taker && !fr) throw new Error('sin datos del momento');
+    return { oi, ls: ls && ls.map((x) => x[1]), taker, top, funding: fr ? fr.tasa : null, fundingFuente: fr ? fr.fuente : null };
   }
 
   async function liqRaw() {
-    const [oi, ls] = await Promise.all([
-      pedir('binance', `${BINANCE}/futures/data/openInterestHist?symbol=${SYM}&period=1h&limit=168`),
-      pedir('binance', `${BINANCE}/futures/data/globalLongShortAccountRatio?symbol=${SYM}&period=1h&limit=168`),
-    ]);
-    return { oi: oi.map((x) => [x.timestamp, +x.sumOpenInterestValue]), ls: ls.map((x) => [x.timestamp, +x.longShortRatio]) };
+    const [oi, ls] = await Promise.all([bybitOi(200), bybitLs(200)]);
+    return { oi, ls };
   }
 
   /** Libros de ordenes de 4 exchanges, en BTC. El que falle se saltea. */
@@ -175,10 +187,10 @@
     const now = Date.now();
     const src = isBanned('binance') ? 'bybit' : 'binance';
     const booksP = cached(`${pre()}libros`, 20000, booksRaw).catch(() => []);
-    const ctxP = src === 'binance' ? cached(`${pre()}contexto`, 60000, contextRaw).catch(() => null) : Promise.resolve(null);
+    const ctxP = cached(`${pre()}contexto`, 60000, contextRaw).catch(() => null);
     // noticias, ETF y prima de Coinbase: las junta la funcion del servidor (las paginas no pueden leer esas fuentes)
     const extP = cached('externo', 600000, async () => { const r = await fetch('api/contexto', { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); return r.json(); }).catch(() => null);
-    const liqP = src === 'binance' ? cached(`${pre()}liquidaciones`, 300000, liqRaw).catch(() => null) : Promise.resolve(null);
+    const liqP = cached(`${pre()}liquidaciones`, 300000, liqRaw).catch(() => null);
     const candles = {};
     let done = 0;
     await Promise.all(Object.entries(TIMEFRAMES).map(async ([tf, [days]]) => {
