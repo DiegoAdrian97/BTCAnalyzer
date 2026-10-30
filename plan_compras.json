@@ -27,7 +27,7 @@
    "precio": 73700,
    "orden": 767,
    "extra": 196,
-   "cargada": false,
+   "cargada": true,
    "extra_agregado": false
   },
   {
@@ -36,7 +36,7 @@
    "precio": 72337,
    "orden": 767,
    "extra": 196,
-   "cargada": false,
+   "cargada": true,
    "extra_agregado": false
   },
   {
@@ -45,7 +45,7 @@
    "precio": 71000,
    "orden": 767,
    "extra": 196,
-   "cargada": false,
+   "cargada": true,
    "extra_agregado": false
   },
   {
@@ -72,7 +72,7 @@
    "precio": 80.65,
    "orden": 377,
    "extra": 98,
-   "cargada": false,
+   "cargada": true,
    "extra_agregado": false
   },
   {
@@ -81,7 +81,7 @@
    "precio": 76.2,
    "orden": 377,
    "extra": 98,
-   "cargada": false,
+   "cargada": true,
    "extra_agregado": false
   },
   {
@@ -90,7 +90,7 @@
    "precio": 72.0,
    "orden": 377,
    "extra": 98,
-   "cargada": false,
+   "cargada": true,
    "extra_agregado": false
   },
   {
@@ -117,7 +117,7 @@
    "precio": 1.1292,
    "orden": 508,
    "extra": 228,
-   "cargada": false,
+   "cargada": true,
    "extra_agregado": false
   },
   {
@@ -144,7 +144,7 @@
    "precio": 1115.7,
    "orden": 289,
    "extra": 130,
-   "cargada": false,
+   "cargada": true,
    "extra_agregado": false
   },
   {
@@ -153,7 +153,7 @@
    "precio": 1082.3,
    "orden": 289,
    "extra": 130,
-   "cargada": false,
+   "cargada": true,
    "extra_agregado": false
   },
   {
@@ -162,7 +162,7 @@
    "precio": 1050.0,
    "orden": 289,
    "extra": 130,
-   "cargada": false,
+   "cargada": true,
    "extra_agregado": false
   }
  ]
