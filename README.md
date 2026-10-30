@@ -232,7 +232,7 @@ instante por WebSocket). Cada push a `main` se publica solo.
 
 La IP de salida de Render es compartida y Binance la limita seguido: por eso el servidor ya no le pide
 velas, libro ni posicionamiento. Velas, open interest, long/short y liquidaciones salen de Bybit; flujo de
-compras/ventas y top traders, de OKX. A Binance solo se le pide el funding, una vez cada 3 h (si falla, BingX).
+compras/ventas y top traders, de OKX. El funding sale de BingX (cada 3 h): a Binance no se le pide nada.
 
 ## En el iPhone, sin servidor: versión JavaScript (Vercel)
 
