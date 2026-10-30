@@ -9,8 +9,7 @@ Uso:
 
 Fuentes:
 - Bybit: velas, open interest y ratio long/short. OKX: flujo de compras/ventas agresivas y top traders.
-- Binance: solo el funding, cada 3 h (bloquea la IP de Render si se le pide mucho).
-- BingX: precio y libro de ordenes del perpetuo donde operas (y funding si Binance falla).
+- BingX: precio, libro de ordenes y funding (cada 3 h) del perpetuo donde operas. A Binance no se le pide nada.
 
 Que calcula, por temporalidad (5m, 15m, 30m, 1h, 4h, 1d):
 1. Calificacion tipo TradingView: ~20 medias y osciladores votan compra/venta/neutral, mas
@@ -121,18 +120,12 @@ def replace_file(tmp, path):
 
 
 def candle_source():
-    """Bybit. A Binance solo se le pide el funding cada 3 h (FUNDING_TTL): bloquea la IP de Render si se le pide mucho."""
+    """Bybit. A Binance no se le pide nada: bloquea la IP de Render si se le pide mucho."""
     return exchange("bybit")
 
 
 FUNDING_TTL = 3 * 3600
 
-
-def funding_binance():
-    """Funding actual del perpetuo de Binance: un solo pedido publico, sin cargar sus mercados."""
-    ex = _EXCHANGES.get("binance_crudo") or ccxt.binanceusdm({"enableRateLimit": True})
-    _EXCHANGES["binance_crudo"] = ex
-    return float(api("binanceusdm", ex.fapiPublicGetPremiumIndex, {"symbol": "BTCUSDT"})["lastFundingRate"])
 
 
 def update_candles(ex, tf, days):
@@ -511,7 +504,7 @@ def horizon_stats(tf, s, h, price, fit):
 
 # ---------- contexto actual ----------
 def context(bgx, h1):
-    """Open interest y long/short de Bybit, flujo y top traders de OKX, funding de Binance (cada 3 h; si falla, BingX)."""
+    """Open interest y long/short de Bybit, flujo y top traders de OKX, funding de BingX (cada 3 h)."""
     rows = []
     closes_1h = [b[4] for b in h1]
 
@@ -575,17 +568,14 @@ def context(bgx, h1):
     except Exception as e:
         print(f"(long/short no disponible: {type(e).__name__})")
 
-    def binance_o_nada():           # si falla tambien se guarda: no se le vuelve a pedir hasta dentro de 3 h
-        try:
-            return funding_binance()
-        except Exception as e:
-            print(f"(funding de Binance no disponible: {type(e).__name__}; uso BingX)")
-            return None
-    fr, fuente = cached("funding_binance", FUNDING_TTL, binance_o_nada), "Binance"
-    if fr is None:
-        fr, fuente = api("bingx", bgx.fetch_funding_rate, SYMBOL).get("fundingRate") or 0.0, "BingX"
+    # BingX: el exchange donde operas (el funding que pagas vos). Cambia cada 8 h: se pide cada 3 h
+    try:
+        fr = cached("funding", FUNDING_TTL, lambda: api("bingx", bgx.fetch_funding_rate, SYMBOL).get("fundingRate") or 0.0)
+    except Exception as e:
+        print(f"(funding no disponible: {type(e).__name__})")
+        return rows, None
     sig = "bajista" if fr > 0.0003 else "alcista" if fr < 0 else "neutral"
-    add("funding", f"Funding {fuente}", arp(fr * 100, 4) + " cada 8 h", sig,
+    add("funding", "Funding BingX", arp(fr * 100, 4) + " cada 8 h", sig,
         "Longs pagando caro: euforia" if fr > 0.0003 else "Shorts pagan: miedo" if fr < 0 else "Normal")
 
     return rows, fr
