@@ -36,7 +36,14 @@ def velas(sym="BTCUSDT"):
         d += timedelta(days=1)
     rows = sorted({r[0]: r for r in rows}.values())
     ahora = time.time() * 1000
-    return [r for r in rows if r[0] + 3600000 <= ahora]         # solo velas cerradas
+    rows = [r for r in rows if r[0] + 3600000 <= ahora]         # solo velas cerradas
+    # Binance a veces tarda en publicar el archivo de algun dia reciente: si falta uno de los ultimos 15 dias, se corta
+    # ahi (el mes siguiente ya va a estar)
+    for i in range(1, len(rows)):
+        if rows[i][0] - rows[i - 1][0] > 6 * 3600000 and rows[i][0] > ahora - 15 * 86400000:
+            print(f"(falta el archivo de {datetime.fromtimestamp(rows[i - 1][0] / 1000 + 3600, timezone.utc):%Y-%m-%d}: corto ahí)")
+            return rows[:i]
+    return rows
 
 
 def eventos():
