@@ -3,7 +3,7 @@
  * Repite cada INTERVALO ms mientras la app esta a la vista; se pausa cuando no.
  * Analiza BTC o ZEC (la app elige): mismas cuentas; en los textos, el nombre de la cripto.
  */
-importScripts('indicadores.js', 'aprendizaje.js', 'fuerte.js', 'analisis.js', 'datos.js');
+importScripts(...['indicadores.js', 'aprendizaje.js', 'fuerte.js', 'analisis.js', 'datos.js'].map((f) => f + self.location.search));
 
 const INTERVALO = 12000;
 let pausado = false, corriendo = false, timer = null, numero = 0, SYM = 'BTCUSDT', otraVez = false;
@@ -25,8 +25,8 @@ async function ciclo(nueva = false) {
   const t0 = Date.now(), sym = SYM, mon = sym.replace('USDT', '');
   try {
     // los arboles del modelo de movimiento fuerte se bajan una vez
-    if (!self.TERMOMETRO) { try { self.TERMOMETRO = await (await fetch('termometro.json')).json(); } catch (e) { /* sin termometro */ } }
-    if (!self.MODELO_FUERTE) { try { self.MODELO_FUERTE = await (await fetch('modelo_fuerte.json')).json(); } catch (e) { /* sin modelo: queda la tabla */ } }
+    if (!self.TERMOMETRO) { try { self.TERMOMETRO = await (await fetch('termometro.json', { cache: 'no-store' })).json(); } catch (e) { /* sin termometro */ } }
+    if (!self.MODELO_FUERTE) { try { self.MODELO_FUERTE = await (await fetch('modelo_fuerte.json', { cache: 'no-store' })).json(); } catch (e) { /* sin modelo: queda la tabla */ } }
     const input = await Datos.recolectar((texto) => postMessage({ tipo: 'progreso', texto, sym }), sym);
     input.moneda = mon;
     const { rows, log } = Analisis.analizar(input);
