@@ -20,7 +20,7 @@ jobs:
       - run: pip install --index-url https://download.pytorch.org/whl/cpu torch && pip install chronos-forecasting numpy
       - run: python medir/chronos_btc.py ${{ matrix.modelo }} medir/monedas/${{ matrix.modelo }}.csv > medir/monedas/${{ matrix.modelo }}.log 2>&1 || true
       - run: |
-          git config user.name "medicion-bot"; git config user.email "noreply@github.com"
+          git config user.name "DiegoAdrian97"; git config user.email "diegojadrian97@gmail.com"
           tail -c 4000 medir/monedas/${{ matrix.modelo }}.log > medir/monedas/${{ matrix.modelo }}.tail.txt
           [ -f medir/monedas/${{ matrix.modelo }}.csv ] && gzip -9 medir/monedas/${{ matrix.modelo }}.csv
           rm -f medir/monedas/*.log; git add medir/monedas; git commit -q -m "chronos ${{ matrix.modelo }}" || exit 0

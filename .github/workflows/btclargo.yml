@@ -14,5 +14,5 @@ jobs:
         with: { python-version: "3.12" }
       - run: python medir/btc_largo.py
       - run: |
-          git config user.name "medicion-bot"; git config user.email "noreply@github.com"
+          git config user.name "DiegoAdrian97"; git config user.email "diegojadrian97@gmail.com"
           git add medir/monedas/btc_bitstamp_1d.json && git commit -q -m "btc diario largo" && git push -q

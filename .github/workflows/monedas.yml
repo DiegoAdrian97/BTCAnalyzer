@@ -21,7 +21,7 @@ jobs:
       - run: mkdir -p medir/monedas && python medir/bajar_monedas.py ${{ matrix.sym }} medir/monedas
       - name: Guardar
         run: |
-          git config user.name "medicion-bot"; git config user.email "noreply@github.com"
+          git config user.name "DiegoAdrian97"; git config user.email "diegojadrian97@gmail.com"
           gzip -9 medir/monedas/${{ matrix.sym }}.json
           git add medir/monedas/${{ matrix.sym }}.json.gz && git commit -q -m "velas ${{ matrix.sym }}" || exit 0
           for i in 1 2 3 4 5 6 7 8; do git pull --rebase -q && git push -q && break; sleep $((RANDOM % 20 + 5)); done
