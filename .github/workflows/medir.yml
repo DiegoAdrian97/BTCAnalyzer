@@ -21,6 +21,6 @@ jobs:
       - name: Guardar
         if: always()
         run: |
-          git config user.name "medicion-bot"; git config user.email "noreply@github.com"
+          git config user.name "DiegoAdrian97"; git config user.email "diegojadrian97@gmail.com"
           git add medir/datos/gdelt_${{ matrix.serie }}.csv && git commit -q -m "GDELT ${{ matrix.serie }}" || exit 0
           for i in 1 2 3 4 5 6; do git pull --rebase -q && git push -q && break; sleep $((RANDOM % 20 + 5)); done
