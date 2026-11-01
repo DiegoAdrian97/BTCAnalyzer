@@ -664,9 +664,15 @@ def _compras(ahora):
     _estado["compras_t"] = ahora
     avisados = _estado.setdefault("compras", set())
     ex = _bybit()
+    # desde el inicio del plan: velas diarias hasta anteayer y de 1 hora desde ahi (con 1 hora desde el inicio, a los
+    # 41 dias el pedido de 1000 velas ya no llegaba a hoy y el precio quedaba viejo)
+    dia = 86_400_000
+    corte_h = (int(ahora * 1000) // dia - 1) * dia
     for m in sorted({c["moneda"] for c in plan["compras"]}):
         try:
-            k = ex.fetch_ohlcv(f"{m}/USDT:USDT", "1h", since=int(plan["desde"]), limit=1000)
+            sym = f"{m}/USDT:USDT"
+            d = [b for b in ex.fetch_ohlcv(sym, "1d", since=int(plan["desde"]) // dia * dia, limit=1000) if b[0] < corte_h]
+            k = d + ex.fetch_ohlcv(sym, "1h", since=corte_h, limit=60)
         except Exception as e:
             print(f"(compras {m}: {type(e).__name__})", flush=True)
             continue

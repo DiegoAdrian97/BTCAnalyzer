@@ -866,6 +866,7 @@ def log_and_score(entries, closes_by_tf):
             rows = [r for r in csv.reader(f) if len(r) == 5]
     seen = {(r[0], r[1], r[2]) for r in rows}
     rows += [[str(t), tf, str(h), f"{p:.{dec_precio(p)}f}", f"{pr:.1f}"] for t, tf, h, p, pr in entries if (str(t), tf, str(h)) not in seen]
+    rows = rows[-20000:]        # como la version JS: el registro no crece sin limite (se lee y se escribe cada analisis)
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(LOG_FILE, "w", newline="") as f:
         csv.writer(f).writerows(rows)
