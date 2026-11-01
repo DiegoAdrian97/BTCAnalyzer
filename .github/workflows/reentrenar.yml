@@ -24,7 +24,7 @@ jobs:
       - run: python armar_termometro.py btc_diario.json fng.json alts_diario.json
       - name: Subir el modelo nuevo
         run: |
-          git config user.name "reentrenar-bot"; git config user.email "noreply@github.com"
+          git config user.name "DiegoAdrian97"; git config user.email "diegojadrian97@gmail.com"
           git add JavascriptVersion/modelo_fuerte.json JavascriptVersion/termometro.json
           git commit -q -m "Modelo de movimiento fuerte reentrenado ($(date -u +%Y-%m))" || exit 0
           for i in 1 2 3; do git pull --rebase -q && git push -q && break; sleep 10; done
