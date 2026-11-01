@@ -105,7 +105,7 @@ SETUPS = {
 }
 
 _estado = {"mov": 0.0, "liq": {}, "arranque": False, "setup_t": {}, "abierta": {}, "velas": {}, "precio": {},
-           "registro": [], "pausa_hasta": 0.0,
+           "registro": [], "pausa_hasta": 0.0, "totales": [0, 0, 0.0],
            "noti": set(), "noti_t": 0.0, "noti_listo": False, "datos": set(), "fed": set()}
 
 
@@ -243,9 +243,11 @@ def _cerrar(nombre, op, salida, motivo, ahora):
     usd = r * riesgo_usd - 2 * COMISION * (riesgo_usd / abs(e - sl)) * e
     reg = _estado["registro"]
     reg.append((ahora, nombre, r, usd))
+    del reg[:-100]                      # para la racha y el dia alcanza con las ultimas; el total va en "totales"
+    tot = _estado["totales"]
+    tot[0] += 1; tot[1] += int(r > 0); tot[2] += usd
     hoy = time.strftime("%Y-%m-%d", time.gmtime(ahora - 3 * 3600))
     dia = sum(x[3] for x in reg if time.strftime("%Y-%m-%d", time.gmtime(x[0] - 3 * 3600)) == hoy)
-    gan = sum(1 for x in reg if x[2] > 0)
     racha = 0
     for x in reversed(reg):
         if x[2] > 0:
@@ -273,8 +275,8 @@ def _cerrar(nombre, op, salida, motivo, ahora):
            "sl": f"Tocó {_fmt(sl)} USD: operación cerrada con la pérdida prevista. Es parte del sistema: no la persigas.",
            "tiempo": f"No tocó ni el stop ni el take profit en 72 h. Cerrala ahora a mercado (~{_fmt(salida)} USD)."}[motivo]
     enviar(titulo, f"{txt}\nResultado: {'+' if r >= 0 else ''}{_ar(r, 2)} R ≈ {'+' if usd >= 0 else ''}{_ar(usd)} USDT (con comisiones).\n"
-                   f"Registro desde que arrancó el vigía: {len(reg)} operación{"es" if len(reg) > 1 else ""}, ganó {gan} ({_ar(gan / len(reg) * 100)}%), "
-                   f"total {'+' if sum(x[3] for x in reg) >= 0 else ''}{_ar(sum(x[3] for x in reg))} USDT. "
+                   f"Registro desde que arrancó el vigía: {tot[0]} operación{"es" if tot[0] > 1 else ""}, ganó {tot[1]} ({_ar(tot[1] / tot[0] * 100)}%), "
+                   f"total {'+' if tot[2] >= 0 else ''}{_ar(tot[2])} USDT. "
                    f"En las pruebas se esperaba ganar 2 de cada 3 en BTC y 1 de cada 2 en ZEC.{nota}")
 
 
@@ -503,11 +505,258 @@ def _setups(velas, price_btc, liq, ahora, rows=()):
             print(f"(setup {nombre}: {type(e).__name__}: {e})", flush=True)
 
 
+# ---------- memoria del vigia entre reinicios ----------
+# Render gratis no guarda archivos entre reinicios: el estado (resultados, pausa, operaciones abiertas, avisos ya
+# mandados) se guarda en un mensaje fijado del chat de Telegram, que el bot edita en silencio.
+ESTADO_TAG = "#estado_vigia"
+_GUARDAR = ("registro", "pausa_hasta", "totales", "abierta", "setup_t", "compras", "criticas", "criticas_t", "pre")
+
+
+def _tg(metodo, datos):
+    token = os.environ.get("TELEGRAM_TOKEN")
+    req = urllib.request.Request(f"https://api.telegram.org/bot{token}/{metodo}", data=json.dumps(datos).encode("utf-8"),
+                                 headers={"Content-Type": "application/json"})
+    return json.loads(urllib.request.urlopen(req, timeout=15).read())["result"]
+
+
+def _a_json(k, v):
+    if isinstance(v, set):
+        return {"_set": [list(x) if isinstance(x, tuple) else x for x in v]}
+    if k == "pre":
+        return [[list(c), t] for c, t in v.items()]
+    return v
+
+
+def _de_json(k, v):
+    if isinstance(v, dict) and "_set" in v:
+        return {tuple(tuple(y) if isinstance(y, list) else y for y in x) if isinstance(x, list) else x for x in v["_set"]}
+    if k == "abierta":
+        return {n: tuple(op) for n, op in v.items()}
+    if k == "registro":
+        return [tuple(x) for x in v]
+    if k == "pre":
+        return {tuple(c): t for c, t in v}
+    return v
+
+
+def _cargar_estado():
+    """Al arrancar: el ultimo estado guardado en el mensaje fijado (si hay)."""
+    _estado["estado_cargado"] = True
+    chat = os.environ.get("TELEGRAM_CHAT")
+    if not (os.environ.get("TELEGRAM_TOKEN") and chat):
+        return
+    try:
+        fijado = _tg("getChat", {"chat_id": chat}).get("pinned_message") or {}
+        txt = fijado.get("text") or ""
+        if not txt.startswith(ESTADO_TAG):
+            return
+        guardado = json.loads(txt[len(ESTADO_TAG):])
+        for k in _GUARDAR:
+            if k in guardado:
+                _estado[k] = _de_json(k, guardado[k])
+        _estado["estado_msg"] = fijado["message_id"]
+        _estado["estado_txt"] = txt
+        print(f"(memoria del vigía recuperada: {len(_estado['registro'])} resultados, {len(_estado['abierta'])} abiertas)", flush=True)
+    except Exception as e:
+        print(f"(no pude leer la memoria del vigía: {type(e).__name__}: {e})", flush=True)
+
+
+def _guardar_estado(ahora):
+    """Si cambio algo, edita el mensaje fijado (como mucho una vez por minuto)."""
+    chat = os.environ.get("TELEGRAM_CHAT")
+    if not (os.environ.get("TELEGRAM_TOKEN") and chat) or ahora - _estado.get("estado_t", 0) < 60:
+        return
+    datos = {k: _a_json(k, _estado[k]) for k in _GUARDAR if k in _estado}
+    for k in ("compras", "criticas"):          # que entre en un mensaje de Telegram (4096 letras)
+        if k in datos:
+            datos[k]["_set"] = datos[k]["_set"][-60:]
+    txt = ESTADO_TAG + json.dumps(datos, ensure_ascii=False, separators=(",", ":"), default=list)
+    if txt == _estado.get("estado_txt") or len(txt) > 4096:
+        return
+    _estado["estado_t"] = ahora
+    try:
+        if _estado.get("estado_msg"):
+            _tg("editMessageText", {"chat_id": chat, "message_id": _estado["estado_msg"], "text": txt})
+        else:
+            m = _tg("sendMessage", {"chat_id": chat, "text": txt, "disable_notification": True})
+            _tg("pinChatMessage", {"chat_id": chat, "message_id": m["message_id"], "disable_notification": True})
+            _estado["estado_msg"] = m["message_id"]
+        _estado["estado_txt"] = txt
+    except Exception as e:
+        cuerpo = ""
+        try:
+            cuerpo = e.read().decode("utf-8", "replace")      # Telegram explica el error en el cuerpo
+        except Exception:
+            pass
+        print(f"(no pude guardar la memoria del vigía: {type(e).__name__} {cuerpo[:120]})", flush=True)
+        if "not found" in cuerpo or "can't be edited" in cuerpo:   # lo borraron: la proxima vez se manda uno nuevo
+            _estado.pop("estado_msg", None)
+
+
+# ---------- comandos de Telegram ----------
+# El bot contesta cuando le preguntas (no manda nada por su cuenta). Solo al chat de TELEGRAM_CHAT.
+AYUDA = ("Comandos:\n/estado: precio, lectura del momento, termómetro, Fear & Greed y funding\n/medidor: termómetro de compra "
+         "de BTC, XRP y SOL\n/compras: próximas compras del plan\n/posiciones: tus posiciones, liquidación, ganancias y "
+         "cuánto podés sumar\n/ayuda: esta lista")
+
+
+def _f(x, d=None):
+    if x is None:
+        return "—"
+    d = d if d is not None else (0 if abs(x) >= 10000 else 1 if abs(x) >= 1000 else 2 if abs(x) >= 10 else 4)
+    return _ar(x, d)
+
+
+def _precios_plan(plan):
+    """Minimo, maximo y precio de cada cripto del plan (lo que junta _compras; si no hay, se pide)."""
+    pp = _estado.setdefault("plan_precios", {})
+    ahora = time.time()
+    for m in sorted({c["moneda"] for c in plan["compras"]}):
+        if m in pp and ahora - pp[m][3] < 600:
+            continue
+        try:
+            k = _velas_plan(_bybit(), plan, m, ahora)
+            pp[m] = (min(b[3] for b in k), max(b[2] for b in k), k[-1][4], ahora)
+        except Exception as e:
+            print(f"(precios del plan {m}: {type(e).__name__})", flush=True)
+    return pp
+
+
+def _cmd_estado():
+    rows = _estado.get("filas") or []
+    s = next((r for r in rows if r.get("tabla") == "resumen"), None)
+    if not s:
+        return "Todavía no terminó el primer análisis. Probá en un minuto."
+    ctx = {r.get("clave"): r for r in rows if r.get("tabla") == "contexto"}
+    tm = next((r for r in rows if r.get("tabla") == "termometro"), None)
+    l = [f"BTC {_f(s['precio'], 1)} · 24 h {'+' if (s.get('cambio_24h') or 0) >= 0 else ''}{_ar(s.get('cambio_24h') or 0, 2)}%",
+         s.get("lectura") or ""]
+    if tm:
+        l.append(f"Termómetro: {_f(tm['medidor'], 0)}/100 · {tm['medidor_zona']}")
+    if ctx.get("miedo_codicia"):
+        l.append(f"Fear & Greed: {ctx['miedo_codicia']['valor']}")
+    if ctx.get("funding"):
+        l.append(f"{ctx['funding']['titulo']}: {ctx['funding']['valor']}")
+    return "\n".join(x for x in l if x)
+
+
+def _cmd_medidor():
+    import termometro
+    rows = _estado.get("filas") or []
+    out = []
+    tm = next((r for r in rows if r.get("tabla") == "termometro"), None)
+    if tm:
+        out.append(f"BTC: {_f(tm['medidor'], 0)}/100 · {tm['medidor_zona']}" + (f" (12 meses después subió {tm['m_sube_365']}% de las veces)" if tm.get("m_sube_365") is not None else ""))
+    for m in ("XRP", "SOL"):
+        try:
+            ex = _bybit()
+            d = [list(x) for x in ex.fetch_ohlcv(f"{m}/USDT:USDT", "1d", limit=1000)]
+            t = termometro.termometro_alt(m, d[:-1], float(ex.fetch_ticker(f"{m}/USDT:USDT")["last"]))
+            if t:
+                out.append(f"{m}: {_f(t['medidor'], 0)}/100 · {t['medidor_zona']}" + (f" (12 meses después subió {t['m_sube_365']}%)" if t.get("m_sube_365") is not None else ""))
+        except Exception as e:
+            out.append(f"{m}: no disponible ({type(e).__name__})")
+    out.append("0 = compra fuerte, 100 = zona de venta. ZEC no tiene: con su historia no se puede anticipar.")
+    return "\n".join(out)
+
+
+def _cmd_compras():
+    plan = _plan()
+    if not plan:
+        return "No hay plan de compras cargado."
+    pp, out = _precios_plan(plan), []
+    for m in sorted({c["moneda"] for c in plan["compras"]}):
+        if m not in pp:
+            out.append(f"{m}: sin precio ahora")
+            continue
+        bajo, _, precio, _ = pp[m]
+        out.append(f"{m} (ahora {_f(precio)}):")
+        for c in [c for c in plan["compras"] if c["moneda"] == m]:
+            st = "✔ ejecutada" if bajo <= c["precio"] else (f"⏳ orden puesta, a {_ar((precio / c['precio'] - 1) * 100, 1)}%" if c.get("cargada")
+                                                            else f"✎ falta cargarla, a {_ar((precio / c['precio'] - 1) * 100, 1)}%")
+            out.append(f"  #{c['n']} {_f(c['precio'])} · {_ar(c['orden'])} USDT · {st}")
+    return "\n".join(out)
+
+
+def _cmd_posiciones():
+    import posiciones
+    plan = _plan()
+    if not plan:
+        return "No hay plan de compras cargado."
+    pp, out = _precios_plan(plan), []
+    for m in sorted({c["moneda"] for c in plan["compras"]}):
+        if m not in pp:
+            continue
+        bajo, alto, precio, _ = pp[m]
+        e = posiciones.estado(plan, m, bajo, alto, precio)
+        if not e["hechas"]:
+            out.append(f"{m}: ninguna compra ejecutada (margen ya puesto {_ar(e['margen'])} USDT)")
+            continue
+        liq = "no se liquida (margen mayor que la posición)" if not e["liquidacion"] else f"{_f(e['liquidacion'])} ({_ar(e['dist_liq'], 0)}% abajo)"
+        out.append(f"{m}: {e['hechas']}/{e['total']} compras · {_f(e['cantidad'], 4)} {m} a {_f(e['promedio'])} promedio · ahora {_f(precio)}\n"
+                   f"  Resultado {'+' if e['pnl'] >= 0 else ''}{_ar(e['pnl'])} USDT · margen {_ar(e['margen'])} · apalancamiento real {_ar(e['apalancamiento_real'], 1)}x\n"
+                   f"  Liquidación: {liq}")
+        g = next((x for x in e.get("ganancias", []) if not x["alcanzado"]), None)
+        if g:
+            out.append(f"  Próxima toma de ganancias: {_f(g['precio'])} (+{_ar(g['k'] * plan['ganancias']['cada'] * 100)}%): pasar {_f(g['vender'], 4)} {m} a spot")
+        pz = e.get("piramidar")
+        if pz and pz["disponible"]:
+            out.append(f"  Piramidar: podés sumar {_ar(pz['sumar'])} USDT de posición sin plata nueva (liquidación quedaría en {_f(pz['liq_nueva'])})")
+    return "\n".join(out) or "Sin datos de precios ahora."
+
+
+COMANDOS = {"/estado": _cmd_estado, "/medidor": _cmd_medidor, "/compras": _cmd_compras, "/posiciones": _cmd_posiciones,
+            "/ayuda": lambda: AYUDA, "/start": lambda: AYUDA, "/help": lambda: AYUDA}
+
+
+def iniciar_comandos():
+    """Escucha los comandos de Telegram en segundo plano (pedido largo a getUpdates: gratis, sin servidor aparte)."""
+    token, chat = os.environ.get("TELEGRAM_TOKEN"), os.environ.get("TELEGRAM_CHAT")
+    if not (token and chat):
+        return
+
+    def loop():
+        off = None
+        try:                                    # lo que quedo pendiente de antes del arranque no se contesta
+            viejos = _tg("getUpdates", {"offset": -1, "timeout": 0})
+            off = viejos[-1]["update_id"] + 1 if viejos else None
+        except Exception:
+            pass
+        while True:
+            try:
+                ups = _tg("getUpdates", {"timeout": 50, "allowed_updates": ["message"], **({"offset": off} if off else {})})
+            except Exception:
+                time.sleep(15)                  # otra instancia escuchando (durante un deploy) o un corte: se reintenta
+                continue
+            for u in ups:
+                off = u["update_id"] + 1
+                msg = u.get("message") or {}
+                if str((msg.get("chat") or {}).get("id")) != str(chat):
+                    continue
+                cmd = (msg.get("text") or "").strip().split()[0].split("@")[0].lower() if msg.get("text") else ""
+                fn = COMANDOS.get(cmd)
+                if not fn:
+                    continue
+                try:
+                    txt = fn()
+                except Exception as e:
+                    txt = f"No pude armar la respuesta ({type(e).__name__}: {str(e)[:120]})"
+                try:
+                    _tg("sendMessage", {"chat_id": chat, "text": txt[:4000], "disable_web_page_preview": True})
+                except Exception as e:
+                    print(f"(comando {cmd}: no pude contestar: {type(e).__name__})", flush=True)
+
+    threading.Thread(target=loop, daemon=True).start()
+
+
 def revisar(rows, velas=None):
     """Mira el ultimo analisis y manda los avisos que correspondan. velas: velas cerradas por temporalidad.
     La primera vez tras arrancar es muda (ver enviar): asi un reinicio no repite avisos ni entradas."""
     if not configurado():
         return
+    if not _estado.get("estado_cargado"):
+        _cargar_estado()
+    _estado["filas"] = rows
     _estado["mudo"] = not _estado.get("calentado")
     try:
         _revisar(rows, velas)
@@ -515,6 +764,7 @@ def revisar(rows, velas=None):
         if _estado["mudo"] and next((r for r in rows if r["tabla"] == "resumen"), None) is not None:
             _estado["calentado"] = True
         _estado["mudo"] = False
+        _guardar_estado(time.time())
 
 
 def _revisar(rows, velas=None):
@@ -655,6 +905,15 @@ def _plan():
         return None
 
 
+def _velas_plan(ex, plan, m, ahora):
+    """Velas desde el inicio del plan: diarias hasta anteayer y de 1 hora desde ahi."""
+    dia = 86_400_000
+    corte_h = (int(ahora * 1000) // dia - 1) * dia
+    sym = f"{m}/USDT:USDT"
+    d = [b for b in ex.fetch_ohlcv(sym, "1d", since=int(plan["desde"]) // dia * dia, limit=1000) if b[0] < corte_h]
+    return d + ex.fetch_ohlcv(sym, "1h", since=corte_h, limit=60)
+
+
 def _compras(ahora):
     """Plan de compras escalonadas de Diego (plan_compras.json): avisa cuando el precio se acerca a una compra que
     todavia no cargo, y cuando una compra se ejecuto (para sumar el margen extra). Cada 5 minutos."""
@@ -666,13 +925,9 @@ def _compras(ahora):
     ex = _bybit()
     # desde el inicio del plan: velas diarias hasta anteayer y de 1 hora desde ahi (con 1 hora desde el inicio, a los
     # 41 dias el pedido de 1000 velas ya no llegaba a hoy y el precio quedaba viejo)
-    dia = 86_400_000
-    corte_h = (int(ahora * 1000) // dia - 1) * dia
     for m in sorted({c["moneda"] for c in plan["compras"]}):
         try:
-            sym = f"{m}/USDT:USDT"
-            d = [b for b in ex.fetch_ohlcv(sym, "1d", since=int(plan["desde"]) // dia * dia, limit=1000) if b[0] < corte_h]
-            k = d + ex.fetch_ohlcv(sym, "1h", since=corte_h, limit=60)
+            k = _velas_plan(ex, plan, m, ahora)
         except Exception as e:
             print(f"(compras {m}: {type(e).__name__})", flush=True)
             continue
@@ -682,6 +937,7 @@ def _compras(ahora):
         corte = (ahora - 3 * 3600) * 1000
         bajo_antes = min([b[3] for b in k if b[0] < corte] or [float("inf")])
         bajo_ahora = min([b[3] for b in k if b[0] >= corte] or [float("inf")])
+        _estado.setdefault("plan_precios", {})[m] = (min(bajo_antes, bajo_ahora), max(b[2] for b in k), precio, ahora)
         for c in plan["compras"]:
             if c["moneda"] != m:
                 continue

@@ -39,7 +39,7 @@ import ccxt
 
 import aprendizaje as apr
 import avisos
-import backtest_grid as bg
+import util as bg   # HOUR_MS, DATA_DIR y reintentar (antes de backtest_grid.py)
 import indicadores as ind
 import fuerte
 import termometro
@@ -72,7 +72,7 @@ def api(eid, fn, *args, **kwargs):
         raise ccxt.DDoSProtection(f"{eid} bloqueado por exceso de pedidos por {(_BANNED[eid] - now) / 60000:.0f} min mas")
     _CALLS[eid] = _CALLS.get(eid, 0) + 1
     try:
-        return bg._retry(fn, *args, **kwargs)
+        return bg.reintentar(fn, *args, **kwargs)
     except (ccxt.DDoSProtection, ccxt.RateLimitExceeded) as e:
         until = re.search(r"banned until (\d+)", str(e))
         _BANNED[eid] = int(until.group(1)) if until else now + 120_000      # sin fecha: dos minutos de pausa
@@ -740,6 +740,24 @@ SHORT_CTX = {"flujo_1 h": "Compras a mercado 1 h", "flujo_4 h": "Compras a merca
              "libros": "Libros de órdenes", "funding": "Funding"}
 
 
+# Fibonacci: solo el swing de 90 dias en velas de 4 h mostro ventaja (medido 2020-2026, BTC): en los toques, el precio
+# reboto 1,5 ATR antes de romper 1,5 ATR el 57% de las veces, contra 49% en niveles al azar del mismo rango (y se
+# repitio en 2020-22 y 2023-26). Con 1 h, diario o semanal no hubo ventaja. Rebote medido de cada nivel:
+FIB_REBOTE = {0.236: 58, 0.382: 59, 0.5: 59, 0.618: 42, 0.786: 62}
+
+
+def fibonacci(h4, velas=540):
+    """Retrocesos del swing de los ultimos 90 dias (540 velas de 4 h): desde el maximo si el tramo fue alcista
+    (el minimo vino antes), desde el minimo si fue bajista. [(nivel, precio)]."""
+    w = h4[-velas:]
+    if len(w) < 100:
+        return []
+    hs, ls = [b[2] for b in w], [b[3] for b in w]
+    hi, lo = max(hs), min(ls)
+    sube = hs.index(hi) > ls.index(lo)
+    return [(f, hi - (hi - lo) * f if sube else lo + (hi - lo) * f) for f in sorted(FIB_REBOTE)]
+
+
 def explain(rows, price, spec):
     """La conclusion de un plazo en pocas palabras: prediccion, hasta 4 razones de cada lado, niveles e invalidacion."""
     name, _, _, sig_tfs, ctx_keys, candle = spec
@@ -784,6 +802,12 @@ def explain(rows, price, spec):
     if m_last["elliott_objetivo"]:
         signals.append((7, "alcista" if m_last["elliott_objetivo"] > price else "bajista",
                         f"Elliott {TF_TXT[sig_tfs[-1]]}: {m_last['elliott_corto'].split(':')[0]} → {ap(m_last['elliott_objetivo'])}"))
+    if "4h" in sig_tfs:     # tocando un Fibonacci de 90 dias que rebota mas que un nivel cualquiera
+        fz = [n for n in get("nivel") if n.get("fib") and n["rebote"] >= 55 and abs(n["distancia"]) <= 0.4]
+        if fz:
+            n = min(fz, key=lambda n: abs(n["distancia"]))
+            signals.append((3, "alcista" if n["tipo"] == "soporte" else "bajista",
+                            f"En el Fibonacci {ar(n['fib'] * 100, 1)}% de 90 días ({ap(n['precio'])}): ahí rebotó {n['rebote']}% de las veces"))
     sma = next((n for n in get("nivel") if n["nombre"] == "Media 200 días"), None)
     if sma and name == "1 día":
         signals.append((6, "alcista" if price > sma["precio"] else "bajista",
@@ -991,14 +1015,17 @@ def analyze():
     for name, n in (("24 h", 24), ("7 días", 168), ("30 días", 720)):
         levels += [(f"Mínimo {name}", min(b[3] for b in h1[-n:])), (f"Máximo {name}", max(b[2] for b in h1[-n:]))]
     levels += [(f"Pivote {k}", v) for k, v in ind.pivotes(d1[-1]).items()]
-    lo30, hi30 = min(b[3] for b in h1[-720:]), max(b[2] for b in h1[-720:])
-    levels += [(f"Fibonacci {ar(f * 100, 1)}% (30 d)", hi30 - (hi30 - lo30) * f) for f in (0.236, 0.382, 0.5, 0.618, 0.786)]
+    fib = fibonacci(candles["4h"])
     closes_d = [b[4] for b in d1]
     sma200d = sum(closes_d[-200:]) / 200
     levels += [("Media 200 días", sma200d), ("EMA 200 diaria", ind.ema(closes_d, 200)[-1])]
     for name, v in levels:
         rows.append({"tabla": "nivel", "nombre": name, "precio": rp(v),
                      "tipo": "resistencia" if v > price else "soporte", "distancia": round(pct(v, price), 2)})
+    for f, v in fib:
+        rows.append({"tabla": "nivel", "nombre": f"Fibonacci {ar(f * 100, 1)}% (90 d) · rebotó {FIB_REBOTE[f]}%", "precio": rp(v),
+                     "tipo": "resistencia" if v > price else "soporte", "distancia": round(pct(v, price), 2),
+                     "fib": f, "rebote": FIB_REBOTE[f]})
 
     try:
         ctx, funding = cached("contexto", 60, lambda: context(bgx, h1))
@@ -1313,6 +1340,7 @@ def run_live(every, public=False):
     first = True
     if public:
         avisos.mantener_despierto()
+        avisos.iniciar_comandos()
     try:
         while True:
             started = time.time()

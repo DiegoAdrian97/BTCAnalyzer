@@ -524,6 +524,31 @@
   @keyframes ab-pulse { from { transform: scale(.7); opacity: .5; } to { transform: scale(3); opacity: 0; } }
   @keyframes ab-live { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-ok) 55%, transparent); } 100% { box-shadow: 0 0 0 8px transparent; } }
   /* proximas compras (plan de Diego) */
+  .ab-pos-kv { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; font-size: var(--cds-font-size-caption); }
+  .ab-pos-kv div { display: grid; } .ab-pos-kv small { color: var(--mute); } .ab-pos-kv b { font-size: 14px; font-variant-numeric: tabular-nums; }
+  .ab-pos-sec { font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; color: var(--mute); margin-top: 6px; }
+  .ab-pos-ok { color: var(--color-ok); } .ab-pos-bad { color: var(--color-bad); }
+  .ab-pos-pz { border-radius: 10px; padding: 8px 10px; font-size: var(--cds-font-size-caption); background: color-mix(in srgb, var(--ink) 6%, transparent); }
+  .ab-pos-pz.on { background: color-mix(in srgb, var(--color-ok) 16%, transparent); }
+  .ab-title-row { display: flex; align-items: center; gap: 10px; position: relative; }
+  .ab-nt-btn { position: relative; flex: none; }
+  .ab-nt-badge { position: absolute; top: -4px; right: -4px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: var(--color-bad);
+    color: #fff; font-size: 10.5px; font-weight: 700; display: grid; place-items: center; line-height: 1; }
+  .ab-nt-badge[hidden], .ab-nt-pop[hidden], .ab-nt-modal[hidden] { display: none; }
+  .ab-nt-pop { position: absolute; top: calc(100% + 8px); left: 0; z-index: 60; width: min(360px, calc(100vw - 32px)); max-height: min(70vh, 520px); overflow-y: auto;
+    background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: 14px; box-shadow: var(--cds-shadow-popover, 0 12px 32px rgba(0,0,0,.18)); padding: 8px; }
+  .ab-nt-pop-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 6px 8px; }
+  .ab-nt-list { display: grid; gap: 2px; }
+  .ab-nt-it { display: grid; grid-template-columns: 22px minmax(0, 1fr) 8px; gap: 8px; align-items: start; text-align: left; width: 100%; font: inherit; color: var(--ink);
+    background: none; border: 0; border-radius: 10px; padding: 8px 6px; cursor: pointer; }
+  .ab-nt-it:hover { background: var(--soft); }
+  .ab-nt-it b { display: block; font-size: 13px; font-weight: 600; } .ab-nt-it small { color: var(--mute); font-size: 11.5px; }
+  .ab-nt-it i { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; background: var(--color-bad); }
+  .ab-nt-it.leida i { background: transparent; } .ab-nt-it.leida b { font-weight: 500; }
+  .ab-nt-vacio { color: var(--mute); font-size: 13px; padding: 12px 6px; }
+  .ab-nt-modal { position: fixed; z-index: 1001; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(440px, calc(100vw - 32px)); max-height: calc(100vh - 64px);
+    overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 16px 48px rgba(0,0,0,.25); padding: 18px; display: grid; gap: 12px; }
+  .ab-nt-modal ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; }
   .ab-cmp-grid { display: grid; gap: var(--cds-gap-md); grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); }
   .ab-cmp { border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: grid; gap: 6px; align-content: start; }
   .ab-cmp-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -590,7 +615,15 @@
   <header class="ab-top" id="resumen">
     <div class="ab-top-l">
       <span class="ab-live"><i></i><span><span id="moneda-lbl">BTC</span>/USDT perpetuo · actualizado <span data-source="analisis" data-field="hora_local" data-where="tabla=resumen">—</span> · <span id="next-run">—</span></span><span class="ab-live-state" id="live-state"></span></span>
-      <h1 class="ab-title" id="ab-title">Analista BTC</h1>
+      <div class="ab-title-row"><h1 class="ab-title" id="ab-title">Analista BTC</h1>
+        <button type="button" class="ab-iconbtn ab-round ab-nt-btn" id="nt-btn" aria-label="Notificaciones" aria-expanded="false" aria-controls="nt-pop">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15L6 16zM10 20a2 2 0 0 0 4 0"/></svg>
+          <span class="ab-nt-badge" id="nt-badge" hidden>0</span></button>
+        <div class="ab-nt-pop" id="nt-pop" role="dialog" aria-label="Notificaciones" hidden>
+          <div class="ab-nt-pop-h"><b>Notificaciones</b><button type="button" class="ab-iconbtn" id="nt-leer">Marcar leídas</button></div>
+          <div class="ab-nt-list" id="nt-list"></div>
+        </div>
+      </div>
       <!-- version JS (Vercel): que cripto se analiza -->
       <div class="ab-appmode" id="app-moneda" role="group" aria-label="Cripto" hidden>
         <button type="button" data-m="BTC" aria-pressed="true">BTC</button><button type="button" data-m="ZEC" aria-pressed="false">ZEC</button><button type="button" data-m="SOL" aria-pressed="false">SOL</button><button type="button" data-m="XRP" aria-pressed="false">XRP</button>
@@ -618,6 +651,12 @@
     <span class="ab-tm-bar"><span class="ab-tm-dot" id="tm-dot"></span></span><b id="tm-num">—</b><small id="tm-zona">—</small>
   </button>
   <div class="ab-tm-back" id="tm-back" hidden></div>
+  <div class="ab-tm-back" id="nt-back" hidden></div>
+  <div class="ab-nt-modal" id="nt-modal" role="dialog" aria-modal="true" aria-labelledby="nt-m-t" hidden>
+    <div class="ab-tm-head"><div><span class="ab-kicker" id="nt-m-k"></span><h2 id="nt-m-t" style="margin:2px 0 0"></h2></div>
+      <button type="button" class="ab-iconbtn ab-round" id="nt-m-x" aria-label="Cerrar">✕</button></div>
+    <div id="nt-m-body"></div>
+  </div>
   <aside class="ab-tm-panel" id="tm-panel" aria-labelledby="tm-t" role="dialog" aria-modal="true" hidden>
     <div class="ab-tm-head"><div><span class="ab-kicker" id="tm-kick">Ciclo de BTC · semanas o meses</span><h2 id="tm-t" style="margin:2px 0 0">Termómetro de compra y venta</h2></div>
       <button type="button" class="ab-iconbtn ab-round" id="tm-x" aria-label="Cerrar">✕</button></div>
@@ -639,6 +678,13 @@
       <span class="ab-kicker" id="cmp-hora">—</span></div>
     <div class="ab-cmp-grid" id="cmp-body"></div>
     <p class="ab-foot">Valor de la orden: lo que escribís en BingX a 5x (descuenta un quinto). Margen extra: lo que agregás con el ⊕ después. "Se ejecutó" sale de los precios desde que armaste el plan: confirmalo en BingX.</p>
+  </section>
+
+  <section class="ab-card" id="posiciones" aria-labelledby="pos-t" hidden>
+    <div class="ab-card-head"><div><span class="ab-kicker">Tu plan · margen aislado</span><h2 id="pos-t">Mis posiciones</h2></div>
+      <span class="ab-kicker" id="pos-hora">—</span></div>
+    <div class="ab-cmp-grid" id="pos-body"></div>
+    <p class="ab-foot">Calculado con las compras del plan que ya tocó el precio y todo el margen que agregaste (en margen aislado, el extra queda en la posición aunque su compra no se haya ejecutado). La liquidación es aproximada (mantenimiento 0,4% BTC, 1% el resto): la exacta la muestra BingX. Toma de ganancias: cada +25% sobre tu promedio, pasar 25% de la posición a spot. Piramidar: cuando sube 15% sobre tu promedio, cuánto podés sumar sin plata nueva con la liquidación como mucho en 75% de tu compra más baja.</p>
   </section>
 
   <section class="ab-card ab-mov" id="movimiento" aria-labelledby="mov-t" data-source="analisis" hidden>
@@ -779,7 +825,7 @@
       <summary><span>Niveles clave a escala</span></summary>
       <div class="ab-more-body">
         <div class="ab-levels" id="levels"></div>
-        <p class="ab-note">Arriba, resistencias; abajo, soportes. Pivotes del día, Fibonacci del mes, medias de 200 días, muros en los libros y zonas de liquidación estimadas.</p>
+        <p class="ab-note">Arriba, resistencias; abajo, soportes. Pivotes del día, Fibonacci de 90 días (4 h, con cuánto rebotó cada nivel), medias de 200 días, muros en los libros y zonas de liquidación estimadas.</p>
       </div>
     </details>
     <details class="ab-more" id="ondas" data-source="analisis">
@@ -1025,6 +1071,7 @@
     drawMovimiento(rows);
     drawQuePasa(rows, sum);
     drawTermometro(rows);
+    if (window.abNotif) window.abNotif.filas(rows);
     drawCompras();
     drawLearning(rows);
     drawGauge(rows);
@@ -1076,16 +1123,16 @@
       try {
         const k = await (await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${s}&interval=1d&startTime=${PLAN_COMPRAS.desde}&limit=1500`)).json();
         if (!Array.isArray(k) || !k.length) throw new Error('vacio');
-        CMP.datos[m] = { bajo: Math.min(...k.map((x) => +x[3])), precio: +k[k.length - 1][4] };
+        CMP.datos[m] = { bajo: Math.min(...k.map((x) => +x[3])), alto: Math.max(...k.map((x) => +x[2])), precio: +k[k.length - 1][4] };
       } catch (e) {
         try {
           const j = await (await fetch(`https://api.bybit.com/v5/market/kline?category=linear&symbol=${s}&interval=D&start=${PLAN_COMPRAS.desde}&limit=1000`)).json();
           const k = j.result.list;
-          CMP.datos[m] = { bajo: Math.min(...k.map((x) => +x[3])), precio: +k[0][4] };
+          CMP.datos[m] = { bajo: Math.min(...k.map((x) => +x[3])), alto: Math.max(...k.map((x) => +x[2])), precio: +k[0][4] };
         } catch (e2) { /* sin datos de esa cripto: queda lo ultimo */ }
       }
     }));
-    CMP.hora = new Date(); drawCompras();
+    CMP.hora = new Date(); drawCompras(); drawPosiciones(); if (window.abNotif) window.abNotif.plan();
   }
   function drawCompras() {
     const sec = document.getElementById('compras'), body = document.getElementById('cmp-body');
@@ -1118,7 +1165,181 @@
     const hr = document.getElementById('cmp-hora');
     hr.textContent = CMP.hora ? `precios ${String(CMP.hora.getHours()).padStart(2, '0')}:${String(CMP.hora.getMinutes()).padStart(2, '0')}` : '—';
   }
+  // ---------- mis posiciones (las mismas cuentas que posiciones.py) ----------
+  function planEstado(m, d) {
+    const P = PLAN_COMPRAS, lev = P.apalancamiento || 5, mt = P.mantenimiento || {}, r = mt[m] !== undefined ? mt[m] : (mt.otras !== undefined ? mt.otras : 0.01);
+    const cs = P.compras.filter((c) => c.moneda === m);
+    const hechas = cs.filter((c) => c.cargada && d && d.bajo <= c.precio);
+    const margen = hechas.reduce((s, c) => s + c.orden / lev, 0) + cs.filter((c) => c.extra_agregado).reduce((s, c) => s + c.extra, 0);
+    const nocional = hechas.reduce((s, c) => s + c.orden, 0), cantidad = hechas.reduce((s, c) => s + c.orden / c.precio, 0);
+    const liqDe = (n, q, mg) => (q > 0 ? Math.max(0, (n - mg) / (q * (1 - r))) : null);
+    const out = { moneda: m, hechas: hechas.length, total: cs.length, precio: d ? d.precio : null, margen };
+    if (!hechas.length || !d) return out;
+    const prom = nocional / cantidad, valor = cantidad * d.precio, liq = liqDe(nocional, cantidad, margen);
+    Object.assign(out, { promedio: prom, cantidad, nocional, valor, pnl: valor - nocional, pnl_pct: (valor - nocional) / margen * 100,
+      apalancamiento_real: valor / (margen + valor - nocional), liquidacion: liq, dist_liq: liq ? (d.precio / liq - 1) * 100 : null });
+    const g = P.ganancias;
+    if (g) out.ganancias = Array.from({ length: g.niveles || 4 }, (_, i) => { const k = i + 1, px = prom * (1 + g.cada * k);
+      return { k, precio: px, vender: cantidad * g.vender, usdt: cantidad * g.vender * px, alcanzado: d.alto !== undefined && d.alto >= px }; });
+    const pz = P.piramidar;
+    if (pz) {
+      const lmax = pz.liq_max * Math.min(...cs.map((c) => c.precio)), k = lmax * (1 - r);
+      let a = d.precio > k ? (k * cantidad - nocional + margen) / (1 - k / d.precio) : 0;
+      a = Math.max(0, Math.min(a, lev * margen - nocional));
+      out.piramidar = { disponible: d.precio >= prom * (1 + pz.cada), desde: prom * (1 + pz.cada), sumar: a, monedas: a / d.precio,
+        liq_nueva: liqDe(nocional + a, cantidad + a / d.precio, margen), liq_max: lmax };
+    }
+    return out;
+  }
+  window.abPlanEstado = planEstado;
+  function drawPosiciones() {
+    const sec = document.getElementById('posiciones'), body = document.getElementById('pos-body');
+    if (!PLAN_COMPRAS) { sec.hidden = true; return; }
+    sec.hidden = false; body.replaceChildren();
+    const sgn = (x, f = f0) => `${x >= 0 ? '+' : '−'}${f(Math.abs(x))}`;
+    [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))].forEach((m) => {
+      const d = CMP.datos[m], e = planEstado(m, d), box = el('div', 'ab-cmp'), h = el('div', 'ab-cmp-h');
+      h.append(el('b', '', m), el('span', '', d ? `ahora ${fp(d.precio)} · ${e.hechas}/${e.total} compras` : 'cargando precio…'));
+      box.append(h);
+      if (!e.hechas) { box.append(el('p', 'ab-note', d ? `Ninguna compra ejecutada todavía. Margen ya puesto: ${f0(e.margen)} USDT.` : '')); body.append(box); return; }
+      const kv = el('div', 'ab-pos-kv'), cell = (k, v, cls = '') => { const c = el('div'); c.append(el('small', '', k), el('b', cls, v)); kv.append(c); };
+      cell('Cantidad', `${ar.format(',.4f')(e.cantidad)} ${m}`); cell('Precio promedio', fp(e.promedio));
+      cell('Resultado', `${sgn(e.pnl)} USDT (${sgn(e.pnl_pct, f1)}%)`, e.pnl >= 0 ? 'ab-pos-ok' : 'ab-pos-bad');
+      cell('Margen', `${f0(e.margen)} USDT`); cell('Posición', `${f0(e.valor)} USDT`); cell('Apalancamiento real', `${f1(e.apalancamiento_real)}x`);
+      cell('Liquidación', e.liquidacion ? `${fp(e.liquidacion)} (${f0(e.dist_liq)}% abajo)` : 'no se liquida', e.liquidacion && e.dist_liq < 15 ? 'ab-pos-bad' : '');
+      box.append(kv);
+      if (e.ganancias) {
+        box.append(el('p', 'ab-pos-sec', 'Toma de ganancias (a spot)'));
+        let prox = false;
+        e.ganancias.forEach((g) => {
+          let cls = 'ab-cmp-row'; if (g.alcanzado) cls += ' ok'; else if (!prox) { cls += ' prox'; prox = true; }
+          const row = el('div', cls), mid = el('div');
+          mid.append(el('b', '', `+${f0(g.k * PLAN_COMPRAS.ganancias.cada * 100)}% · ${fp(g.precio)}`), el('em', '', `Pasar ${ar.format(',.4f')(g.vender)} ${m} (~${f0(g.usdt)} USDT)`));
+          row.append(el('span', '', g.alcanzado ? '✔' : '○'), mid, el('span', 'st', g.alcanzado ? 'Llegó: vendé' : `a ${f1((g.precio / d.precio - 1) * 100)}%`));
+          box.append(row);
+        });
+      }
+      if (e.piramidar) {
+        const z = e.piramidar, pz = el('div', `ab-pos-pz${z.disponible ? ' on' : ''}`);
+        pz.textContent = z.disponible
+          ? `Piramidar: podés sumar ${f0(z.sumar)} USDT de posición (${ar.format(',.4f')(z.monedas)} ${m}) sin plata nueva: sacás margen y abrís más long. La liquidación quedaría en ${fp(z.liq_nueva)}.`
+          : `Piramidar: se habilita cuando ${m} pase ${fp(z.desde)} (+${f0(PLAN_COMPRAS.piramidar.cada * 100)}% sobre tu promedio).`;
+        box.append(el('p', 'ab-pos-sec', 'Piramidar'), pz);
+      }
+      body.append(box);
+    });
+    const hr = document.getElementById('pos-hora');
+    hr.textContent = CMP.hora ? `precios ${String(CMP.hora.getHours()).padStart(2, '0')}:${String(CMP.hora.getMinutes()).padStart(2, '0')}` : '—';
+  }
   if (PLAN_COMPRAS) { setTimeout(cmpPrecios, 500); setInterval(cmpPrecios, 60000); }
+
+  // ---------- notificaciones en la pagina (no por Telegram) ----------
+  // Se arman en este dispositivo cuando cambia algo: zona del termometro, funding de 7 dias extremo, compras del plan
+  // cerca o ejecutadas, liquidacion cerca, toma de ganancias alcanzada y piramidado disponible. Se guardan en este
+  // navegador (las ultimas 60). La primera vez solo se anota como esta todo, sin avisar.
+  window.abNotif = (function () {
+    const LS = 'ab-notifs', LE = 'ab-notif-estado';
+    const leer = (k, def) => { try { return JSON.parse(localStorage.getItem(k)) || def; } catch (e) { return def; } };
+    const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sin almacenamiento */ } };
+    let lista = leer(LS, []), est = leer(LE, {});
+    const btn = document.getElementById('nt-btn'), pop = document.getElementById('nt-pop'), listEl = document.getElementById('nt-list');
+    const badge = document.getElementById('nt-badge'), modal = document.getElementById('nt-modal'), back = document.getElementById('nt-back');
+    const hace = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'recién' : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`; };
+    function pintar() {
+      const n = lista.filter((x) => !x.leida).length;
+      badge.hidden = !n; badge.textContent = n > 9 ? '9+' : String(n);
+      listEl.replaceChildren();
+      if (!lista.length) { listEl.append(el('p', 'ab-nt-vacio', 'Sin notificaciones. Te aviso acá cuando cambie el termómetro, el funding se ponga extremo, se acerque o se ejecute una compra, la liquidación quede cerca, llegue una toma de ganancias o se pueda piramidar.')); return; }
+      lista.forEach((x) => {
+        const b = el('button', `ab-nt-it${x.leida ? ' leida' : ''}`); b.type = 'button';
+        const mid = el('span'); mid.append(el('b', '', x.titulo), el('small', '', `${x.resumen} · ${hace(x.t)}`));
+        b.append(el('span', '', x.icono || '•'), mid, el('i'));
+        b.addEventListener('click', () => abrir(x)); listEl.append(b);
+      });
+    }
+    function nueva(id, icono, titulo, resumen, detalle, ir) {
+      if (lista.some((x) => x.id === id)) return;
+      lista.unshift({ id, icono, titulo, resumen, detalle, ir, t: Date.now(), leida: false });
+      lista = lista.slice(0, 60); guardar(LS, lista); pintar();
+    }
+    // dispara cuando la condicion pasa de falsa a verdadera; la primera vez que se ve, solo se anota
+    function cuando(clave, cond, fn) {
+      const antes = est[clave]; est[clave] = cond ? 1 : 0;
+      if (antes === 0 && cond) fn();
+    }
+    function cambio(clave, valor, fn) {
+      const antes = est[clave]; est[clave] = valor;
+      if (antes !== undefined && antes !== null && valor !== null && antes !== valor) fn(antes);
+    }
+    function abrir(x) {
+      x.leida = true; guardar(LS, lista); pintar(); pop.hidden = true; btn.setAttribute('aria-expanded', 'false');
+      document.getElementById('nt-m-k').textContent = `${x.icono || ''} ${new Date(x.t).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`;
+      document.getElementById('nt-m-t').textContent = x.titulo;
+      const body = document.getElementById('nt-m-body'); body.replaceChildren();
+      const ul = el('ul'); (x.detalle || []).forEach((l) => ul.append(el('li', '', l))); body.append(ul);
+      if (x.ir) {
+        const go = el('button', 'ab-iconbtn', x.ir === 'termometro' ? 'Abrir el termómetro' : x.ir === 'posiciones' ? 'Ver mis posiciones' : 'Ver próximas compras');
+        go.type = 'button'; go.style.justifySelf = 'start';
+        go.addEventListener('click', () => { cerrar(); if (x.ir === 'termometro') document.getElementById('tm-tab').click(); else document.getElementById(x.ir).scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+        body.append(go);
+      }
+      modal.hidden = false; back.hidden = false; back.classList.add('on'); document.documentElement.style.overflow = 'hidden';
+    }
+    function cerrar() { modal.hidden = true; back.classList.remove('on'); back.hidden = true; document.documentElement.style.overflow = ''; }
+    btn.addEventListener('click', (e) => { e.stopPropagation(); pop.hidden = !pop.hidden; btn.setAttribute('aria-expanded', String(!pop.hidden)); if (!pop.hidden) pintar(); });
+    document.addEventListener('click', (e) => { if (!pop.hidden && !pop.contains(e.target) && e.target !== btn) { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); } });
+    document.getElementById('nt-leer').addEventListener('click', () => { lista.forEach((x) => { x.leida = true; }); guardar(LS, lista); pintar(); });
+    ['nt-m-x', 'nt-back'].forEach((id) => document.getElementById(id).addEventListener('click', cerrar));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { cerrar(); pop.hidden = true; } });
+    pintar();
+    return {
+      // con cada analisis: termometro y funding de la cripto que se esta viendo
+      filas(rows) {
+        const mon = window.abMoneda || 'BTC', hoy = new Date().toISOString().slice(0, 10);
+        const t = pick(rows, 'termometro')[0];
+        if (t) cambio(`tm:${mon}`, t.medidor_zona, (antes) => nueva(`tm:${mon}:${t.medidor_zona}:${hoy}`, '🌡', `Termómetro de ${mon}: ${t.medidor_zona}`,
+          `${f0(num(t.medidor))}/100 (antes: ${antes})`, [`El medidor de ${mon} pasó de "${antes}" a "${t.medidor_zona}": ${f0(num(t.medidor))}/100.`,
+            t.m_sube_365 === null ? 'Todavía no hay casos suficientes en esta zona.' : `Cuando estuvo en esta zona, 12 meses después ${mon} estaba más arriba el ${t.m_sube_365}% de las veces (mediana ${t.m_mediana_365 > 0 ? '+' : ''}${t.m_mediana_365}%).`,
+            'Para semanas o meses, no para el próximo trade.'], 'termometro'));
+        const fu = pick(rows, 'contexto').find((c) => c.clave === 'funding');
+        if (fu && fu.f7 !== undefined && fu.f7 !== null) {
+          const f7 = num(fu.f7), cl = f7 < 0 ? 'miedo' : f7 >= 0.0003 ? 'euforia' : 'normal';
+          cambio(`fu:${mon}`, cl, () => { if (cl !== 'normal') nueva(`fu:${mon}:${cl}:${hoy}`, cl === 'miedo' ? '🟢' : '🔴', `Funding de ${mon} en ${cl}`,
+            `promedio 7 días ${(f7 * 100).toFixed(4).replace('.', ',')}%`, [
+              `El funding promedio de los últimos 7 días es ${(f7 * 100).toFixed(4).replace('.', ',')}% cada 8 h.`,
+              cl === 'miedo' ? 'Negativo: los shorts pagan, hay miedo. Históricamente, a 1–3 meses BTC subió más de lo normal con funding negativo.'
+                : 'Alto (0,03% o más): los longs pagan caro, hay euforia. Históricamente, a 1–3 meses BTC subió menos de lo normal.',
+              'Ya está sumado al termómetro (±3 puntos).'], mon === 'BTC' ? 'termometro' : null); });
+        }
+        guardar(LE, est);
+      },
+      // con cada actualizacion de precios del plan: compras, liquidacion, ganancias y piramidado
+      plan() {
+        if (!PLAN_COMPRAS) return;
+        const hoy = new Date().toISOString().slice(0, 10);
+        [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))].forEach((m) => {
+          const d = CMP.datos[m]; if (!d) return;
+          PLAN_COMPRAS.compras.filter((c) => c.moneda === m).forEach((c) => {
+            const dist = (d.precio / c.precio - 1) * 100, hecha = d.bajo <= c.precio;
+            cuando(`cc:${m}:${c.n}`, !hecha && dist <= 3, () => nueva(`cc:${m}:${c.n}:${hoy}`, '📌', `${m} se acerca a tu compra #${c.n}`, `a ${f1(dist)}% de ${fp(c.precio)}`,
+              [`${m} está en ${fp(d.precio)}, a ${f1(dist)}% de tu compra #${c.n} en ${fp(c.precio)}.`, c.cargada ? 'La orden límite ya está cargada.' : `Cargá la orden límite: precio ${fp(c.precio)}, valor de la orden ${f0(c.orden)} a ${PLAN_COMPRAS.apalancamiento || 5}x.`], 'compras'));
+            cuando(`ch:${m}:${c.n}`, hecha, () => nueva(`ch:${m}:${c.n}`, '✅', `Se ejecutó tu compra #${c.n} de ${m}`, `${fp(c.precio)} · orden ${f0(c.orden)}`,
+              [`${m} tocó ${fp(c.precio)}: tu orden de ${f0(c.orden)} USDT debería haberse ejecutado. Confirmalo en BingX.`, c.extra_agregado ? 'El margen extra ya lo tenías agregado.' : `Ahora agregá ${f0(c.extra)} USDT de margen (⊕ en la posición).`], 'posiciones'));
+          });
+          const e = planEstado(m, d);
+          if (!e.hechas) return;
+          cuando(`lq:${m}`, e.liquidacion && e.dist_liq < 10, () => nueva(`lq:${m}:${hoy}`, '⚠️', `${m}: liquidación a ${f1(e.dist_liq)}%`, `liquidación ${fp(e.liquidacion)}`,
+            [`Tu posición de ${m} se liquida en ~${fp(e.liquidacion)} y el precio está en ${fp(d.precio)} (${f1(e.dist_liq)}% arriba).`, 'Si querés alejarla, agregá margen (⊕) en BingX. La liquidación exacta la muestra BingX.'], 'posiciones'));
+          (e.ganancias || []).forEach((g) => cuando(`tp:${m}:${g.k}`, g.alcanzado, () => nueva(`tp:${m}:${g.k}`, '💰', `${m} llegó a tu toma de ganancias +${f0(g.k * PLAN_COMPRAS.ganancias.cada * 100)}%`,
+            `${fp(g.precio)} · pasar ${ar.format(',.4f')(g.vender)} ${m}`, [`${m} llegó a ${fp(g.precio)}, +${f0(g.k * PLAN_COMPRAS.ganancias.cada * 100)}% sobre tu promedio.`, `Según tu plan: pasá ${ar.format(',.4f')(g.vender)} ${m} (~${f0(g.usdt)} USDT) a spot.`], 'posiciones')));
+          if (e.piramidar) cuando(`pz:${m}`, e.piramidar.disponible && e.piramidar.sumar > 0, () => nueva(`pz:${m}:${hoy}`, '📈', `${m}: podés piramidar`, `sumar ~${f0(e.piramidar.sumar)} USDT de posición`,
+            [`${m} pasó ${fp(e.piramidar.desde)}, 15% sobre tu promedio.`, `Podés sumar ${f0(e.piramidar.sumar)} USDT de posición (${ar.format(',.4f')(e.piramidar.monedas)} ${m}) sin plata nueva: sacás margen y abrís más long.`,
+              `La liquidación quedaría en ${fp(e.piramidar.liq_nueva)} (tu límite: ${fp(e.piramidar.liq_max)}).`], 'posiciones'));
+        });
+        guardar(LE, est);
+      },
+    };
+  })();
 
   // ---------- termometro de compra/venta (ciclo de BTC) ----------
   const TM_COL = ['var(--color-ok)', 'color-mix(in srgb, var(--color-ok) 55%, var(--color-fg-muted))',

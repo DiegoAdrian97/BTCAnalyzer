@@ -516,6 +516,15 @@
     ['4 horas', '30m', 8, ['1h', '4h'], ['flujo_4 h', 'oi_4h', 'oi_24h', 'long_short'], '1 hora'],
     ['1 día', '4h', 6, ['4h', '1d'], ['oi_24h', 'long_short', 'funding'], '4 horas'],
   ];
+  // Fibonacci del swing de 90 dias en 4 h (como analisis_btc.py: el unico que mostro ventaja) y su rebote medido
+  const FIB_REBOTE = { 0.236: 58, 0.382: 59, 0.5: 59, 0.618: 42, 0.786: 62 };
+  function fibonacci(h4, velas = 540) {
+    const w = h4.slice(-velas);
+    if (w.length < 100) return [];
+    const hs = w.map((b) => b[2]), ls = w.map((b) => b[3]), hi = Math.max(...hs), lo = Math.min(...ls);
+    const sube = hs.indexOf(hi) > ls.indexOf(lo);
+    return Object.keys(FIB_REBOTE).map(Number).sort((a, b) => a - b).map((f) => [f, sube ? hi - (hi - lo) * f : lo + (hi - lo) * f]);
+  }
   const SHORT_CTX = { 'flujo_1 h': 'Compras a mercado 1 h', 'flujo_4 h': 'Compras a mercado 4 h', oi_1h: 'Open interest 1 h',
     oi_4h: 'Open interest 4 h', oi_24h: 'Open interest 24 h', long_short: 'Long/short', libros: 'Libros de órdenes', funding: 'Funding' };
 
@@ -563,6 +572,13 @@
     if (mLast.elliott_objetivo) {
       signals.push([7, mLast.elliott_objetivo > price ? 'alcista' : 'bajista',
         `Elliott ${TF_TXT[sigTfs[sigTfs.length - 1]]}: ${mLast.elliott_corto.split(':')[0]} → ${ap(mLast.elliott_objetivo)}`]);
+    }
+    if (sigTfs.includes('4h')) {   // tocando un Fibonacci de 90 dias que rebota mas que un nivel cualquiera
+      const fz = get('nivel').filter((n) => n.fib && n.rebote >= 55 && Math.abs(n.distancia) <= 0.4);
+      if (fz.length) {
+        const n = fz.reduce((a, b) => (Math.abs(b.distancia) < Math.abs(a.distancia) ? b : a));
+        signals.push([3, n.tipo === 'soporte' ? 'alcista' : 'bajista', `En el Fibonacci ${ar(n.fib * 100, 1)}% de 90 días (${ap(n.precio)}): ahí rebotó ${n.rebote}% de las veces`]);
+      }
     }
     const sma = get('nivel').find((n) => n.nombre === 'Media 200 días');
     if (sma && name === '1 día') {
@@ -735,13 +751,13 @@
       levels.push([`Mínimo ${n}`, lowOf(h1.slice(-k))], [`Máximo ${n}`, highOf(h1.slice(-k))]);
     });
     Ind.pivotes(d1[d1.length - 1]).forEach(([k, v]) => levels.push([`Pivote ${k}`, v]));
-    const lo30 = lowOf(h1.slice(-720)), hi30 = highOf(h1.slice(-720));
-    [0.236, 0.382, 0.5, 0.618, 0.786].forEach((f) => levels.push([`Fibonacci ${ar(f * 100, 1)}% (30 d)`, hi30 - (hi30 - lo30) * f]));
     const closesD = d1.map((b) => b[4]);
     const sma200d = closesD.slice(-200).reduce((s, x) => s + x, 0) / 200;
     const ema200d = Ind.ema(closesD, 200);
     levels.push(['Media 200 días', sma200d], ['EMA 200 diaria', ema200d[ema200d.length - 1]]);
     levels.forEach(([name, v]) => rows.push({ tabla: 'nivel', nombre: name, precio: rp(v), tipo: v > price ? 'resistencia' : 'soporte', distancia: rnd(pct(v, price), 2) }));
+    fibonacci(candles['4h']).forEach(([f, v]) => rows.push({ tabla: 'nivel', nombre: `Fibonacci ${ar(f * 100, 1)}% (90 d) · rebotó ${FIB_REBOTE[f]}%`, precio: rp(v),
+      tipo: v > price ? 'resistencia' : 'soporte', distancia: rnd(pct(v, price), 2), fib: f, rebote: FIB_REBOTE[f] }));
 
     let funding = null;
     if (input.ctxRaw) {
@@ -819,7 +835,7 @@
     return { rows, log };
   }
 
-  const Analisis = { analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil };
+  const Analisis = { analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci };
   root.Analisis = Analisis;
   if (typeof module !== 'undefined' && module.exports) module.exports = Analisis;
 })(typeof self !== 'undefined' ? self : globalThis);

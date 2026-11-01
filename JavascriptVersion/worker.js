@@ -25,8 +25,12 @@ async function ciclo(nueva = false) {
   const t0 = Date.now(), sym = SYM, mon = sym.replace('USDT', '');
   try {
     // los arboles del modelo de movimiento fuerte se bajan una vez
-    if (!self.TERMOMETRO) { try { self.TERMOMETRO = await (await fetch('termometro.json', { cache: 'no-store' })).json(); } catch (e) { /* sin termometro */ } }
-    if (!self.MODELO_FUERTE) { try { self.MODELO_FUERTE = await (await fetch('modelo_fuerte.json', { cache: 'no-store' })).json(); } catch (e) { /* sin modelo: queda la tabla */ } }
+    // el termometro y el modelo se reentrenan una vez por mes: con la app abierta dias, se vuelven a pedir cada 6 h
+    if (!self.TERMOMETRO || Date.now() - (self.JSON_T || 0) > 6 * 3600000) {
+      try { self.TERMOMETRO = await (await fetch('termometro.json', { cache: 'no-store' })).json(); } catch (e) { /* queda el anterior */ }
+      try { self.MODELO_FUERTE = await (await fetch('modelo_fuerte.json', { cache: 'no-store' })).json(); } catch (e) { /* queda el anterior o la tabla */ }
+      self.JSON_T = Date.now();
+    }
     const input = await Datos.recolectar((texto) => postMessage({ tipo: 'progreso', texto, sym }), sym);
     input.moneda = mon;
     const { rows, log } = Analisis.analizar(input);

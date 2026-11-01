@@ -41,6 +41,40 @@ el precio está a 3% o menos). Telegram avisa aunque esté en "solo entradas": �
 una compra sin orden cargada, ✅ cuando se ejecuta una (con el margen extra a sumar si falta) y ⚠ si tocó un precio
 sin orden. Cuando cambie el plan: editar `plan_compras.json` y correr `python JavascriptVersion/generar_pagina.py`.
 
+### Mis posiciones, toma de ganancias y piramidado
+
+Debajo de "Próximas compras": por cripto, las compras del plan que ya tocó el precio, cantidad, precio promedio,
+resultado, margen (incluye el extra ya agregado), apalancamiento real y liquidación aproximada (`posiciones.py`; la
+página hace las mismas cuentas). Toma de ganancias: cada +25% sobre el promedio, pasar 25% de la posición a spot.
+Piramidar: cuando sube 15% sobre el promedio, cuánto se puede sumar sin plata nueva con la liquidación como mucho en
+75% de la compra más baja. Los porcentajes se cambian en `plan_compras.json` (`ganancias`, `piramidar`).
+
+### Notificaciones en la página
+
+La campanita al lado del título junta los avisos, en el propio dispositivo: cambio de zona del termómetro, funding
+de 7 días extremo, compra del plan a menos de 3% o ejecutada, liquidación a menos de 10%, toma de ganancias alcanzada
+y piramidado disponible. Al tocar una se abre el detalle con un botón a la sección. Se guardan en el navegador
+(las últimas 60) y se generan mientras la página está abierta. La primera vez solo anota cómo está todo.
+
+### Comandos de Telegram
+
+El bot contesta cuando le escribís (no manda nada por su cuenta): `/estado`, `/medidor` (BTC, XRP y SOL),
+`/compras`, `/posiciones` y `/ayuda`. Solo responde al chat de `TELEGRAM_CHAT`. El bot también guarda su memoria
+(resultados, pausa por pérdidas, operaciones abiertas, avisos ya mandados) en un mensaje fijado de ese chat, que edita
+en silencio: así un reinicio de Render no la pierde. No lo borres.
+
+### Fibonacci
+
+Medido con BTC 2020–2026: solo los retrocesos del swing de 90 días en velas de 4 h rebotaron más que un nivel
+cualquiera (57% contra 49%, y se repitió en 2020–22 y 2023–26). En 1 h, diario y semanal no hubo ventaja. Por eso
+el análisis muestra esos niveles con el rebote medido de cada uno (el 61,8% es el peor: 42%) y la explicación lo
+menciona cuando el precio está a menos de 0,4% de uno que rebotó 55% o más.
+
+### Python = JavaScript
+
+`pruebas/paridad.py` corre en GitHub Actions en cada push: los indicadores, Fibonacci, el termómetro (BTC y alts) y el
+modelo de movimiento fuerte tienen que dar lo mismo en las dos versiones.
+
 ### Criptos en la app: BTC, ZEC, SOL y XRP
 
 La app (versión JavaScript) analiza BTC, ZEC, SOL y XRP con las mismas cuentas: gráfico, predicciones, niveles,
