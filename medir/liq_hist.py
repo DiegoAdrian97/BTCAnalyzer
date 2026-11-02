@@ -1,24 +1,25 @@
-"""Busca historia gratis de liquidaciones de BTC. python medir/liq_hist.py carpeta"""
-import json, sys, urllib.request
-UA = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
+"""Que tan atras llega la historia de liquidaciones de OKX (paginando). python medir/liq_hist.py carpeta"""
+import json, sys, time, urllib.request
 def get(u):
-    r = urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=60); return r.status, r.read()
-pruebas = {
- "cm_exasset": "https://community-api.coinmetrics.io/v4/timeseries/exchange-asset-metrics?exchange_assets=binance-btc&metrics=liquidations_reported_future_buy_usd_1d,liquidations_reported_future_sell_usd_1d&frequency=1d&page_size=10000",
- "cm_asset": "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc&metrics=liquidations_reported_future_buy_usd_1d,liquidations_reported_future_sell_usd_1d&frequency=1d&page_size=10000",
- "cm_market": "https://community-api.coinmetrics.io/v4/timeseries/market-metrics?markets=binance-BTCUSDT-future&metrics=liquidations_reported_future_buy_usd_1d,liquidations_reported_future_sell_usd_1d&frequency=1d&page_size=10000",
- "cm_liq_raw": "https://community-api.coinmetrics.io/v4/timeseries/market-liquidations?markets=binance-BTCUSDT-future&page_size=100",
- "cm_catalog": "https://community-api.coinmetrics.io/v4/catalog-all/exchange-asset-metrics?metrics=liquidations_reported_future_buy_usd_1d",
- "coinglass_open": "https://open-api.coinglass.com/public/v2/liquidation_history?time_type=h1&symbol=BTC",
- "coinglass_v4": "https://open-api-v4.coinglass.com/api/futures/liquidation/aggregated-history?symbol=BTC&interval=1d",
- "cmc_data_api": "https://api.coinmarketcap.com/data-api/v3/derivatives/liquidation/chart?range=ALL",
-}
+    return json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"}), timeout=30).read())
 out = {}
-for k, u in pruebas.items():
-    try:
-        st, b = get(u); out[k] = {"status": st, "len": len(b), "inicio": b[:600].decode("utf-8", "replace")}
-        if k.startswith("cm_") and st == 200:
-            out[k]["datos"] = json.loads(b).get("data", [])[-3:] + json.loads(b).get("data", [])[:2]; out[k]["n"] = len(json.loads(b).get("data", []))
-    except Exception as e:
-        out[k] = {"error": f"{type(e).__name__} {str(e)[:200]}"}
-json.dump(out, open(f"{sys.argv[1]}/liq_hist.json", "w"), indent=1)
+for fam in ("BTC-USDT", "BTC-USD"):
+    after, n, filas, err = None, 0, [], None
+    t0 = time.time()
+    while n < 3000 and time.time() - t0 < 900:
+        try:
+            j = get("https://www.okx.com/api/v5/public/liquidation-orders?instType=SWAP&instFamily=" + fam + "&state=filled&limit=100" + (f"&after={after}" if after else ""))
+        except Exception as e:
+            err = f"{type(e).__name__} {e}"; time.sleep(2); n += 1; continue
+        det = [d for g in j.get("data") or [] for d in g.get("details") or []]
+        if not det:
+            err = f"vacio code={j.get('code')} msg={j.get('msg')}"; break
+        filas += [[int(d["ts"]), d["posSide"], float(d["sz"]), float(d["bkPx"])] for d in det]
+        nuevo = min(int(d["ts"]) for d in det)
+        if after and nuevo >= after:
+            err = "no avanza"; break
+        after = nuevo; n += 1; time.sleep(0.25)
+    out[fam] = {"paginas": n, "filas": len(filas), "desde": time.strftime("%Y-%m-%d %H:%M", time.gmtime(min(f[0] for f in filas) / 1000)) if filas else None,
+                "hasta": time.strftime("%Y-%m-%d %H:%M", time.gmtime(max(f[0] for f in filas) / 1000)) if filas else None, "fin": err, "datos": filas}
+    print(fam, {k: v for k, v in out[fam].items() if k != "datos"}, flush=True)
+json.dump(out, open(f"{sys.argv[1]}/liq_hist.json", "w"))
