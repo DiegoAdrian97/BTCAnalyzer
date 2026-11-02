@@ -1,0 +1,24 @@
+name: Juntar liquidaciones OKX
+# OKX publica solo el ultimo dia de liquidaciones: cada 6 horas se suman al archivo para medirlas mas adelante.
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+  push:
+    branches: [medicion-monedas]
+    paths: [".github/workflows/juntarliq.yml", "medir/juntar_liq.py"]
+permissions:
+  contents: write
+jobs:
+  juntar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: mkdir -p medir/monedas && python medir/juntar_liq.py medir/monedas
+      - run: |
+          git config user.name "DiegoAdrian97"; git config user.email "diegojadrian97@gmail.com"
+          git add medir/monedas/liq_okx.csv.gz && git commit -q -m "liquidaciones OKX" || exit 0
+          for i in 1 2 3 4; do git pull --rebase -q && git push -q && break; sleep 10; done
