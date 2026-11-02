@@ -1118,16 +1118,19 @@
   async function cmpPrecios() {
     if (!PLAN_COMPRAS) return;
     const mons = [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))];
+    // desde el inicio del dia del plan: con la hora exacta, el primer dia (vela diaria abierta antes) no venia y quedaba vacio
+    const desde = PLAN_COMPRAS.desde - (PLAN_COMPRAS.desde % 86400000);
     await Promise.all(mons.map(async (m) => {
       const s = `${m}USDT`;
       try {
-        const k = await (await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${s}&interval=1d&startTime=${PLAN_COMPRAS.desde}&limit=1500`)).json();
+        const k = await (await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${s}&interval=1d&startTime=${desde}&limit=1500`)).json();
         if (!Array.isArray(k) || !k.length) throw new Error('vacio');
         CMP.datos[m] = { bajo: Math.min(...k.map((x) => +x[3])), alto: Math.max(...k.map((x) => +x[2])), precio: +k[k.length - 1][4] };
       } catch (e) {
         try {
-          const j = await (await fetch(`https://api.bybit.com/v5/market/kline?category=linear&symbol=${s}&interval=D&start=${PLAN_COMPRAS.desde}&limit=1000`)).json();
+          const j = await (await fetch(`https://api.bybit.com/v5/market/kline?category=linear&symbol=${s}&interval=D&start=${desde}&limit=1000`)).json();
           const k = j.result.list;
+          if (!k || !k.length) throw new Error('vacio');
           CMP.datos[m] = { bajo: Math.min(...k.map((x) => +x[3])), alto: Math.max(...k.map((x) => +x[2])), precio: +k[0][4] };
         } catch (e2) { /* sin datos de esa cripto: queda lo ultimo */ }
       }
