@@ -684,7 +684,7 @@
     <div class="ab-card-head"><div><span class="ab-kicker">Tu plan · margen aislado</span><h2 id="pos-t">Mis posiciones</h2></div>
       <span class="ab-kicker" id="pos-hora">—</span></div>
     <div class="ab-cmp-grid" id="pos-body"></div>
-    <p class="ab-foot">Parte de lo que ya tenías abierto en BingX (cargado del 01/11: cantidad, entrada y margen) y le suma las compras del plan que se ejecuten desde ahí. La liquidación es aproximada (mantenimiento 0,4% BTC, 1% el resto): la exacta la muestra BingX. Toma de ganancias: cada +25% sobre tu promedio, pasar 25% de la posición a spot. Piramidar: cuando sube 15% sobre tu promedio, cuánto podés sumar sin plata nueva con la liquidación como mucho en 75% de tu compra más baja.</p>
+    <p class="ab-foot">Se recalcula cada 15 segundos con el precio de ahora. Parte de lo que ya tenías abierto en BingX (cargado del 01/11: cantidad, entrada y margen) y le suma las compras del plan que se ejecuten desde ahí. La liquidación es aproximada (mantenimiento 0,4% BTC, 1% el resto): la exacta la muestra BingX. Toma de ganancias: cada +25% sobre tu promedio, pasar 25% de la posición a spot. Piramidar: cuando sube 15% sobre tu promedio, cuánto podés sumar sin plata nueva con la liquidación como mucho en 75% de tu compra más baja.</p>
   </section>
 
   <section class="ab-card ab-mov" id="movimiento" aria-labelledby="mov-t" data-source="analisis" hidden>
@@ -1242,9 +1242,9 @@
       body.append(box);
     });
     const hr = document.getElementById('pos-hora');
-    hr.textContent = CMP.hora ? `precios ${String(CMP.hora.getHours()).padStart(2, '0')}:${String(CMP.hora.getMinutes()).padStart(2, '0')}` : '—';
+    hr.textContent = CMP.hora ? `en vivo · ${CMP.hora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : '—';
   }
-  if (PLAN_COMPRAS) { setTimeout(cmpPrecios, 500); setInterval(cmpPrecios, 60000); }
+  if (PLAN_COMPRAS) { setTimeout(cmpPrecios, 500); setInterval(() => { if (!document.hidden) cmpPrecios(); }, 15000); }
 
   // ---------- notificaciones en la pagina (no por Telegram) ----------
   // Se arman en este dispositivo cuando cambia algo: zona del termometro, funding de 7 dias extremo, compras del plan
