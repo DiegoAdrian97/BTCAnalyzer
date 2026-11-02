@@ -84,6 +84,20 @@ def termometro_alt(moneda, velas_d, price, T=None, now_ms=None):
             "ath": round(ath, 4), "ret_anual": round((price / closes[-365] - 1) * 100, 1)}
 
 
+def onchain_hoy(T, price, now_ms=None):
+    """MVRV y Puell de hoy, estimados con lo ultimo de CoinMetrics (armar_termometro.py): el precio realizado (costo
+    promedio de todos los BTC) sigue su tendencia del ultimo mes y los mineros cobran los BTC de cada dia al precio
+    de ahora. {} si el termometro no trae datos on-chain."""
+    import time
+    o = T.get("onchain")
+    if not o or price <= 0:
+        return {}
+    hoy = int((now_ms or time.time() * 1000) // 86400000)
+    rp = o["rp"] + o["rp_pend"] * max(0, min(45, hoy - o["dia"]))
+    iss = o["btc_dia"] * price
+    return {"mvrv": price / rp, "puell": iss / ((o["iss_suma364"] + iss) / 365), "precio_realizado": rp}
+
+
 def ajuste_funding(md, f7):
     """+1 si el funding promedio de 7 dias es negativo (miedo: compra), -1 si es 0,03% o mas cada 8 h (euforia), 0 si no."""
     fu = (md or {}).get("funding")
@@ -101,7 +115,9 @@ def termometro(closes_d, price, T=None, fng=None, now_ms=None, f7=None):
     wma = sum(closes_d[-1400:]) / 1400
     ath = max(T["ath"], max(closes_d), price)
     med = {"wma200": math.log(price / wma), "dd_ath": price / ath - 1, "ret365": math.log(price / closes_d[-365])}
-    p = {k: percentil(med[k], T["q"][k]) for k in T["componentes"]}
+    oc = onchain_hoy(T, price, now_ms)
+    med.update({k: math.log(v) for k, v in oc.items() if k in ("mvrv", "puell")})
+    p = {k: percentil(med[k], T["q"][k]) for k in T["componentes"] if k in med}
     temp = sum(p.values()) / len(p)
     z = next(z for z in T["zonas"] if temp < z["hasta"] or z["hasta"] >= 100)
     import time
@@ -132,6 +148,9 @@ def termometro(closes_d, price, T=None, fng=None, now_ms=None, f7=None):
             "temp": round(temp, 1), "zona": z["nombre"], "año": y, "fase": fs, "fng": fng, "regla": regla,
             "reglas": cic.get("reglas") or {}, "años": cic.get("años") or [], "ciclos": cic.get("ciclos") or [],
             "p_wma200": round(p["wma200"], 1), "p_dd_ath": round(p["dd_ath"], 1), "p_ret365": round(p["ret365"], 1),
+            "p_mvrv": round(p["mvrv"], 1) if "mvrv" in p else None, "p_puell": round(p["puell"], 1) if "puell" in p else None,
+            "mvrv": round(oc["mvrv"], 3) if oc else None, "puell": round(oc["puell"], 3) if oc else None,
+            "precio_realizado": round(oc["precio_realizado"], 1) if oc else None,
             "wma200": round(wma, 1), "sobre_wma": round((price / wma - 1) * 100, 1), "caida_ath": round(med["dd_ath"] * 100, 1),
             "ath": round(ath, 1), "ret_anual": round((price / closes_d[-365] - 1) * 100, 1),
             "sube_180": z["sube_180"], "mediana_180": z["mediana_180"], "sube_365": z["sube_365"], "mediana_365": z["mediana_365"],

@@ -549,6 +549,11 @@
   .ab-nt-modal { position: fixed; z-index: 1001; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(440px, calc(100vw - 32px)); max-height: calc(100vh - 64px);
     overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 16px 48px rgba(0,0,0,.25); padding: 18px; display: grid; gap: 12px; }
   .ab-nt-modal ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; }
+  .ab-cal { display: grid; gap: 6px; margin-top: 4px; }
+  .ab-cal-row { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr) 4.2rem; gap: 10px; align-items: center; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+  .ab-cal-bar { position: relative; height: 10px; border-radius: 5px; background: var(--soft); }
+  .ab-cal-bar i, .ab-cal-bar b { position: absolute; top: -3px; width: 3px; height: 16px; border-radius: 2px; }
+  .ab-cal-bar i { background: var(--mute); } .ab-cal-bar b { background: var(--ink); }
   .ab-cmp-grid { display: grid; gap: var(--cds-gap-md); grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); }
   .ab-cmp { border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: grid; gap: 6px; align-content: start; }
   .ab-cmp-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -796,6 +801,7 @@
     <p class="ab-note" id="apr-txt"></p>
     <div class="ab-apr-chart" id="apr-chart"></div>
     <div class="ab-legend" id="apr-legend"></div>
+    <div id="apr-cal"></div>
     <div class="ab-tbl-box"><table class="ab-tbl" id="apr-tbl"><thead><tr><th>Plazo</th><th class="r">Ventaja</th><th class="r">Original</th><th class="r">Confianza</th></tr></thead><tbody></tbody></table></div>
     <p class="ab-note">Cada vez que cierra una vela, el analista repasa sus últimas 1.000 predicciones de cada plazo (cada una hecha solo con lo que se sabía en ese momento) y las compara con lo que pasó. Trabaja con un equipo: 8 formas de buscar situaciones parecidas, un modelo que aprende solo con cada vela (movimientos, medias, RSI, MACD, Bollinger, volatilidad, volumen y hora del día) y la tasa base, que es decir siempre "lo normal". Con cada resultado baja el peso de los que se equivocaron y sube el de los que acertaron; si las probabilidades del equipo venían exageradas, las modera. Un resultado se usa para aprender recién cuando se conoce, y cada predicción se juzga con lo que había antes, así la medición es honesta. La <b>ventaja</b> es cuánto menos se equivoca que la tasa base (0% = no sabe más que lo normal). El margen de error de los aciertos cuenta que las predicciones que se pisan comparten resultado: a 1 hora, 1.000 predicciones valen como 80 independientes. En BTC, a estos plazos, una ventaja de 1% sostenida ya es mucha.</p>
   </section>
@@ -1314,6 +1320,11 @@
           `${f0(num(t.medidor))}/100 (antes: ${antes})`, [`El medidor de ${mon} pasó de "${antes}" a "${t.medidor_zona}": ${f0(num(t.medidor))}/100.`,
             t.m_sube_365 === null ? 'Todavía no hay casos suficientes en esta zona.' : `Cuando estuvo en esta zona, 12 meses después ${mon} estaba más arriba el ${t.m_sube_365}% de las veces (mediana ${t.m_mediana_365 > 0 ? '+' : ''}${t.m_mediana_365}%).`,
             'Para semanas o meses, no para el próximo trade.'], 'termometro'));
+        const lq = pick(rows, 'contexto').find((c) => c.clave === 'liq_reales');
+        if (lq && lq.barrida) nueva(`lb:${lq.barrida}:${Math.floor(Date.now() / 3600000)}`, '💥', `Barrida de ${lq.barrida} en BTC`,
+          `${f1(num(lq.barrida === 'longs' ? lq.longs_15m : lq.shorts_15m) / 1e6)} M USD en 15 min (OKX)`, [lq.detalle,
+            `Última hora en OKX: longs ${f1(num(lq.longs_1h) / 1e6)} M · shorts ${f1(num(lq.shorts_1h) / 1e6)} M USD liquidados.`,
+            'Son liquidaciones reales (no estimadas). No hay historia gratis para medir qué pasa después: tomalo como contexto.'], null);
         const fu = pick(rows, 'contexto').find((c) => c.clave === 'funding');
         if (fu && fu.f7 !== undefined && fu.f7 !== null) {
           const f7 = num(fu.f7), cl = f7 < 0 ? 'miedo' : f7 >= 0.0003 ? 'euforia' : 'normal';
@@ -1466,6 +1477,8 @@
     if (t.wma200 !== null && t.wma200 !== undefined) li(`  · Precio vs media de 200 semanas (${fp(num(t.wma200))}): ${sg(num(t.sobre_wma), 1)}.`, caro(num(t.p_wma200)) + '.');
     li(`  · Caída desde el máximo histórico (${fp(num(t.ath))}): ${sg(num(t.caida_ath), 1)}.`, num(t.p_dd_ath) >= 50 ? `el ${f0(num(t.p_dd_ath))}% del tiempo estuvo todavía más lejos del máximo.` : `solo el ${f0(num(t.p_dd_ath))}% del tiempo estuvo tan lejos del máximo.`);
     li(`  · Último año: ${sg(num(t.ret_anual), 1)}.`, caro(num(t.p_ret365)) + '.');
+    if (t.mvrv !== null && t.mvrv !== undefined) li(`  · MVRV: ${f2(num(t.mvrv))} (precio contra el costo promedio de todos los BTC, ${fp(num(t.precio_realizado))}; debajo de 1, en pérdida).`, caro(num(t.p_mvrv)) + '.');
+    if (t.puell !== null && t.puell !== undefined) li(`  · Puell: ${f2(num(t.puell))} (lo que cobran los mineros por día contra su promedio del año).`, caro(num(t.p_puell)) + '.');
     if (t.funding7 !== null && t.funding7 !== undefined) {
       const fa = num(t.funding_ajuste), fv = `${num(t.funding7) > 0 ? '+' : ''}${num(t.funding7).toFixed(4).replace('.', ',')}% cada 8 h`;
       li(`Funding promedio 7 días: ${fv}.`, fa > 0 ? 'negativo (miedo, los shorts pagan): baja el medidor 3 puntos, hacia compra.'
@@ -1514,6 +1527,10 @@
     const ctx = (k) => pick(rows, 'contexto').find((c) => c.clave === k);
     // lo que coincide con el movimiento: cada factor dice si empuja para el mismo lado (si) o no
     const F = [];
+    // liquidaciones reales (OKX): una barrida se muestra siempre, haya o no movimiento fuerte
+    const lq = ctx('liq_reales');
+    if (lq && lq.barrida) F.push({ si: (lq.barrida === 'longs') === (dir < 0), siempre: true, ic: '💥', lbl: `una barrida de ${lq.barrida}`,
+      txt: `Liquidaciones reales: ${lq.detalle}`, sub: `Última hora en OKX: longs ${f1(num(lq.longs_1h) / 1e6)} M · shorts ${f1(num(lq.shorts_1h) / 1e6)} M USD.` });
     const oi = ctx(w.oi), dOi = oi ? num(oi.d_oi) : null;
     if (dOi !== null && dOi !== undefined) {
       const down = dir < 0;
@@ -1585,7 +1602,7 @@
       if (fed.sesgo !== 'neutral') li.style.setProperty('--qp-col', fed.sesgo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)');
       ul.append(li);
     }
-    (strong ? F : F.filter((f) => f.ic === 'E' || f.ic === '$')).forEach((f) => {
+    (strong ? F : F.filter((f) => f.ic === 'E' || f.ic === '$' || f.siempre)).forEach((f) => {
       const li = el('li', f.si ? 'ab-qp-si' : ''), t = el('span', '', f.txt);
       if (f.sub) t.append(el('small', '', f.sub));
       li.append(el('i', '', f.ic), t); ul.append(li);
@@ -1845,8 +1862,27 @@
     const v = hab === null ? 'midiendo' : hab >= 0.5 ? `le gana a la tasa base por ${f1(hab)}%` : hab > -0.5 ? 'sin ventaja clara sobre la tasa base' : `peor que la tasa base (${f1(hab)}%)`;
     return ap === null || lo === null ? `Aprendiendo · ${v}` : `Acierta ${f1(ap)}% (entre ${f0(lo)} y ${f0(hi)}%) · ${v}`;
   }
+  // calibracion: si un 60% del repaso paso de verdad ~60% de las veces (solo se muestra: ya salen calibradas)
+  function drawCalibracion(a) {
+    const box = document.getElementById('apr-cal'); box.replaceChildren();
+    const cal = (a && Array.isArray(a.calibracion) ? a.calibracion : []).filter((x) => num(x[2]) >= 20);
+    if (!cal.length) return;
+    const n = cal.reduce((s, x) => s + num(x[2]), 0), err = cal.reduce((s, x) => s + num(x[2]) * Math.abs(num(x[0]) - num(x[1])), 0) / n;
+    const lo = Math.min(40, ...cal.map((x) => Math.min(num(x[0]), num(x[1])))), hi = Math.max(60, ...cal.map((x) => Math.max(num(x[0]), num(x[1]))));
+    const pos = (v) => `calc(${((v - lo) / (hi - lo)) * 100}% - 1.5px)`;
+    box.append(el('p', 'ab-tm-sec', '¿Las probabilidades son honestas?'),
+      el('p', 'ab-note', `En el repaso a ${S.plazo}, agrupando lo que dijo: barra gris = lo que dijo, barra negra = lo que pasó. Error medio ${f1(err)} puntos ${err <= 2 ? '(bien calibradas)' : err <= 4 ? '(aceptable)' : '(ojo: se equivoca en los porcentajes)'}.`));
+    const g = el('div', 'ab-cal');
+    cal.forEach(([p, real, k]) => {
+      const row = el('div', 'ab-cal-row'), bar = el('div', 'ab-cal-bar'), i = el('i'), b = el('b');
+      i.style.left = pos(num(p)); b.style.left = pos(num(real)); bar.append(i, b);
+      row.append(el('span', '', `Dijo ${f0(num(p))}% → ${f0(num(real))}%`), bar, el('span', 'ab-note', `${f0(num(k))} casos`)); g.append(row);
+    });
+    box.append(g);
+  }
   function drawLearning(rows) {
     const all = pick(rows, 'aprendizaje'), a = all.find((r) => r.plazo === S.plazo);
+    drawCalibracion(a);
     const line = document.getElementById('apr-line'); line.replaceChildren();
     if (a) line.append(el('b', '', 'Aprendizaje'), el('span', '', learnLine(a)));
     document.getElementById('apr-k').textContent = `a ${S.plazo}`;

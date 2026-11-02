@@ -451,7 +451,7 @@ def learning_rows(name, tf, h, fit):
              "peso_modelo": None if not L.get("pesos") else round(L["pesos"][apr.MODELO] * 100, 1),
              "peso_base": None if not L.get("pesos") else round(L["pesos"][apr.BASE] * 100, 1),
              "lider": apr.experto_txt(L["ranking"][0]) if L.get("ranking") else "",
-             "ranking": ",".join(str(r) for r in L.get("ranking", []))}]
+             "ranking": ",".join(str(r) for r in L.get("ranking", [])), "calibracion": L.get("calibracion") or []}]
     rows += [{"tabla": "aprendizaje_curva", "plazo": name, "paso": k, "aprendido": None if a is None else round(a, 2),
               "original": None if o is None else round(o, 2)} for k, a, o in L.get("curva", [])]
     return rows
@@ -570,6 +570,12 @@ def context(bgx, h1):
 
     # BingX: el exchange donde operas (el funding que pagas vos). Cambia cada 8 h: se pide cada 3 h
     try:
+        now_ms = int(time.time() * 1000)
+        rows.append(liq_reales(liq_okx(now_ms), now_ms))
+    except Exception as e:
+        print(f"(liquidaciones reales no disponibles: {type(e).__name__})")
+
+    try:
         fr, f7 = cached("funding", FUNDING_TTL, lambda: funding_bingx(bgx))
     except Exception as e:
         print(f"(funding no disponible: {type(e).__name__})")
@@ -587,6 +593,45 @@ def context(bgx, h1):
 BOOKS = {"bybit": 500, "okx": 400, "bitget": 150, "bingx": 1000}
 BOOK_BAND = 0.001      # +/-0.1%: el rango que cubren todos los libros publicos
 WALL_BIN = 25.0        # USD por escalon al buscar muros
+
+
+# Liquidaciones reales: las que publica OKX (BTC-USDT perpetuo), la ultima hora. Bybit solo las da por WebSocket y
+# Binance no las publica por REST. No hay historia gratis para medir si anticipan: se muestran como contexto y para
+# detectar barridas (muchas liquidaciones de un lado en pocos minutos), sin peso en las probabilidades.
+BARRIDA_USD = 2_000_000        # en 15 min y en OKX solo (OKX es ~10-15% del mercado de futuros de BTC)
+
+
+def liq_okx(now_ms):
+    """[(ms, lado, usd)] de la ultima hora (lado: "long" o "short", lo que se liquido). Pagina hasta cubrir la hora."""
+    import urllib.request
+    out, after = [], None
+    for _ in range(6):
+        u = ("https://www.okx.com/api/v5/public/liquidation-orders?instType=SWAP&instFamily=BTC-USDT&state=filled&limit=100"
+             + (f"&after={after}" if after else ""))
+        j = json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"}), timeout=10).read())
+        det = [d for g in j.get("data") or [] for d in g.get("details") or []]
+        if not det:
+            break
+        out += [(int(d["ts"]), d["posSide"], float(d["sz"]) * 0.01 * float(d["bkPx"])) for d in det]
+        after = min(int(d["ts"]) for d in det)
+        if after < now_ms - 3_600_000:
+            break
+    return out
+
+
+def liq_reales(det, now_ms):
+    """Fila de contexto con las liquidaciones reales de la ultima hora y de los ultimos 15 minutos (igual en JS)."""
+    suma = lambda lado, mins: sum(u for t, s, u in det if s == lado and t >= now_ms - mins * 60_000)
+    l60, s60, l15, s15 = suma("long", 60), suma("short", 60), suma("long", 15), suma("short", 15)
+    barrida = "longs" if l15 >= BARRIDA_USD and l15 > 3 * s15 else "shorts" if s15 >= BARRIDA_USD and s15 > 3 * l15 else None
+    m = lambda x: ar(x / 1e6, 1 if x < 1e7 else 0)
+    det_txt = (f"Barrida de {barrida}: {m(l15 if barrida == 'longs' else s15)} M USD liquidados en 15 min solo en OKX. "
+               f"Suele pasar en movimientos bruscos y a veces marca el final del tirón." if barrida else
+               "Más longs liquidados: el precio barrió stops abajo" if l60 > 2 * s60 and l60 > 2e5 else
+               "Más shorts liquidados: el precio barrió stops arriba" if s60 > 2 * l60 and s60 > 2e5 else "Sin barridas")
+    return {"tabla": "contexto", "clave": "liq_reales", "titulo": "Liquidaciones reales 1 h (OKX)",
+            "valor": f"longs {m(l60)} M · shorts {m(s60)} M USD", "senal": "neutral", "detalle": det_txt,
+            "longs_1h": round(l60), "shorts_1h": round(s60), "longs_15m": round(l15), "shorts_15m": round(s15), "barrida": barrida}
 
 
 def funding_bingx(bgx):

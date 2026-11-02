@@ -64,6 +64,20 @@ El bot contesta cuando le escribís (no manda nada por su cuenta): `/estado`, `/
 (resultados, pausa por pérdidas, operaciones abiertas, avisos ya mandados) en un mensaje fijado de ese chat, que edita
 en silencio: así un reinicio de Render no la pierde. No lo borres.
 
+### On-chain, stablecoins, liquidaciones reales y calibración (medidos)
+
+- **MVRV y Puell** (CoinMetrics, gratis) entran en el "barato o caro" del termómetro de BTC. Medido 2019–2026 sin
+  mirar el futuro: a 6 meses el medidor separa mejor en los dos tramos (2019–22: 0,870 → 0,893; 2023–26: 0,841 →
+  0,863), a 12 meses queda igual (0,965 → 0,963). Solo, el MVRV anticipa menos que lo que ya había (0,77 a 12 meses),
+  por eso no pesa más. El de hoy se estima con lo último de CoinMetrics (el reentrenamiento ahora es semanal).
+- **Hash ribbons y emisión de stablecoins:** no anticiparon de forma pareja (en 2023–26, al revés): quedaron afuera.
+- **Liquidaciones reales** (OKX, BTC-USDT, la última hora): en "Qué está pasando" y en la campanita cuando hay una
+  barrida (2 M USD o más de un lado en 15 min solo en OKX). Sin peso en las probabilidades: no hay historia gratis
+  para medir qué pasa después.
+- **Calibración:** las predicciones del repaso ya salen calibradas (lo que dice 60% pasa ~56–60%; error medio 0,5–1,5
+  puntos en 2020–2026). Corregirlas aparte no mejoró fuera de muestra, así que solo se muestra el gráfico "¿Las
+  probabilidades son honestas?" en "Cómo viene aprendiendo".
+
 ### Fibonacci
 
 Medido con BTC 2020–2026: solo los retrocesos del swing de 90 días en velas de 4 h rebotaron más que un nivel
@@ -166,7 +180,7 @@ En "Compra fuerte", 12 meses después XRP estaba más arriba el 100% de las vece
 ninguna de las dos. **ZEC no tiene medidor**: su "barato" siguió abaratándose durante años (2018–2024) y después
 explotó; con esta lógica no se puede anticipar (AUC 0,6).
 
-### Reentrenamiento mensual
+### Reentrenamiento semanal
 
 El día 2 de cada mes una tarea de GitHub (`.github/workflows/reentrenar.yml`) baja las velas de 1 hora de BTC
 (data.binance.vision) y el calendario de EE.UU. (`datos_entrenamiento.py`), reentrena el modelo de movimiento fuerte

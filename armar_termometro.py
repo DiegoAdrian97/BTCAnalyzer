@@ -1,6 +1,6 @@
 """Arma JavascriptVersion/termometro.json: lo que necesita el termometro de compra/venta (ciclo de BTC).
 
-    python armar_termometro.py btc_diario.json [fng.json] [alts_diario.json]
+    python armar_termometro.py btc_diario.json [fng.json] [alts_diario.json] [onchain.json]
         (velas diarias de BTC desde 2011, p. ej. Bitstamp; historial del Fear & Greed Index de api.alternative.me;
          velas diarias de XRP y SOL con toda su historia, {"XRP": [[t, o, h, l, c, v], ...], ...})
 
@@ -14,6 +14,13 @@ import bisect, json, sys
 import numpy as np
 
 COMP = ("wma200", "dd_ath", "ret365")
+# On-chain (CoinMetrics, gratis): MVRV (precio contra el costo promedio de todos los BTC) y Puell (lo que cobran los
+# mineros por dia contra su promedio de un año). Medido 2019-2026 sin mirar el futuro, sumados al "barato o caro":
+# a 6 meses el medidor separa mejor en los dos tramos (2019-22: 0,870 -> 0,893; 2023-26: 0,841 -> 0,863), a 12 meses
+# queda igual (0,965 -> 0,963) y a 3 meses, parejo. Solos anticipan menos que lo que ya habia (MVRV 0,77 a 12 meses;
+# las tres medidas de precio, 0,97 con el ciclo). Hash ribbons y emision de stablecoins no anticiparon de forma
+# pareja (en 2023-26, al reves): quedan afuera.
+ONCHAIN = ("mvrv", "puell")
 ZONAS = [(0, 20, "Compra fuerte"), (20, 40, "Buena zona de compra"), (40, 60, "Neutral"), (60, 80, "Caro: cuidado"), (80, 101, "Zona de venta")]
 
 
@@ -143,6 +150,28 @@ def alt(rows, comps, t_btc, Pc):
             "cierres": [[int(x // 86400000), float(v)] for x, v in zip(t[-1500:], c[-1500:])]}
 
 
+def onchain(t, c, path):
+    """MVRV y Puell de cada dia (log, np.nan si falta) y lo que necesita el analisis en vivo para estimarlos hoy."""
+    import datetime as dt
+    O = json.load(open(path))
+    dia = (t // 86400000).astype(int)
+    def serie(k):
+        m = {int(dt.datetime.fromisoformat(d).replace(tzinfo=dt.timezone.utc).timestamp() // 86400): v for d, v in O.get(k) or []}
+        return np.array([m.get(x, np.nan) for x in dia]), m
+    mvrv, m_mvrv = serie("cm_CapMVRVCur"); iss, m_iss = serie("cm_IssTotUSD")
+    _, m_cap = serie("cm_CapMrktCurUSD"); _, m_sup = serie("cm_SplyCur")
+    ma = np.array([np.nanmean(iss[i - 364:i + 1]) if i >= 364 and np.isfinite(iss[i - 364:i + 1]).sum() > 330 else np.nan for i in range(len(iss))])
+    M = {"mvrv": np.log(mvrv), "puell": np.log(iss / ma)}
+    u = max(d for d in m_mvrv if d in m_cap and d in m_sup and d in m_iss)
+    rp = lambda d: m_cap[d] / m_mvrv[d] / m_sup[d]                 # precio realizado: costo promedio de cada BTC
+    precio = {int(x // 86400000): v for x, v in zip(t, c)}
+    dias_iss = [d for d in range(u - 29, u + 1) if d in m_iss and d in precio]
+    vivo = {"dia": u, "rp": rp(u), "rp_pend": (rp(u) - rp(u - 30)) / 30 if (u - 30) in m_mvrv else 0.0,
+            "btc_dia": float(np.mean([m_iss[d] / precio[d] for d in dias_iss])),
+            "iss_suma364": float(sum(m_iss.get(d, 0.0) for d in range(u - 363, u + 1)))}
+    return M, vivo
+
+
 def main():
     B = json.load(open(sys.argv[1])); t = np.array([b[0] for b in B], float); c = np.array([b[4] for b in B], float)
     fng = None
@@ -150,16 +179,20 @@ def main():
         fv = {int(d["timestamp"]) * 1000: int(d["value"]) for d in json.load(open(sys.argv[2]))["data"]}
         fng = np.array([fv.get(int(x), np.nan) for x in t])
     M = metricas(c)
+    comps, vivo = COMP, None
+    if len(sys.argv) > 4:
+        Mo, vivo = onchain(t, c, sys.argv[4])
+        M.update(Mo); comps = COMP + ONCHAIN
     # temperatura de cada dia con la historia que habia hasta ese dia (sin mirar el futuro), para medir las zonas
-    hist = {k: [] for k in COMP}; T = np.full(len(c), np.nan)
+    hist = {k: [] for k in comps}; T = np.full(len(c), np.nan)
     for i in range(len(c)):
         p = []
-        for k in COMP:
+        for k in comps:
             v = M[k][i]
             if np.isfinite(v):
                 if len(hist[k]) >= 365: p.append(bisect.bisect_left(hist[k], v) / len(hist[k]) * 100)
                 bisect.insort(hist[k], v)
-        if len(p) == len(COMP): T[i] = temperatura(p)
+        if len(p) == len(comps): T[i] = temperatura(p)
     # medidor: mitad valuacion (1 - temperatura) y mitad ciclo; zonas medidas año por año desde 2019 sin mirar el futuro
     from sklearn.linear_model import LogisticRegression
     import datetime as dt
@@ -199,12 +232,14 @@ def main():
             z[f"mediana_{hz}"] = round(float(np.median(fut[m])) * 100) if m.sum() >= 30 else None
             z[f"dias_{hz}"] = int(m.sum())
         zonas.append(z)
-    out = {"medidor": modelo, "ciclo": ciclo(t, c, fng), "hasta": int(t[-1]), "zonas_desde": desde, "ath": float(c.max()), "componentes": list(COMP), "zonas": zonas,
-           "q": {k: [round(float(x), 6) for x in np.quantile(np.array(hist[k]), np.linspace(0, 1, 201))] for k in COMP}}
+    out = {"medidor": modelo, "ciclo": ciclo(t, c, fng), "hasta": int(t[-1]), "zonas_desde": desde, "ath": float(c.max()), "componentes": list(comps), "zonas": zonas,
+           "q": {k: [round(float(x), 6) for x in np.quantile(np.array(hist[k]), np.linspace(0, 1, 201))] for k in comps}}
+    if vivo:
+        out["onchain"] = vivo
     json.dump(out, open("JavascriptVersion/termometro.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     if len(sys.argv) > 3:
         A = json.load(open(sys.argv[3]))
-        out["alts"] = {m: alt(A[m], comps, t, Pc) for m, comps in ALTS.items() if len(A.get(m) or []) > 1500}
+        out["alts"] = {m: alt(A[m], cs, t, Pc) for m, cs in ALTS.items() if len(A.get(m) or []) > 1500}
         json.dump(out, open("JavascriptVersion/termometro.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
         for m, v in out["alts"].items():
             print(m, [(z["nombre"], z["sube_365"], z["mediana_365"], z["dias_365"]) for z in v["zonas"]])

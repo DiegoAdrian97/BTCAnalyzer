@@ -1,9 +1,10 @@
 name: Reentrenar modelo de movimiento fuerte
-# Una vez por mes (y a mano desde Actions): baja los datos, reentrena y sube modelo_fuerte.json.
+# Una vez por semana (y a mano desde Actions): baja los datos, reentrena y sube modelo_fuerte.json y termometro.json
+# (semanal: el MVRV y el Puell de hoy se estiman con lo ultimo de CoinMetrics; cuanto mas fresco, mejor).
 # La prueba honesta del modelo reentrenaba cada trimestre: asi se mantiene igual que lo medido (minimo: trimestral).
 on:
   schedule:
-    - cron: "23 7 2 * *"
+    - cron: "23 7 * * 1"
   workflow_dispatch:
   push:
     branches: [main]
@@ -21,7 +22,7 @@ jobs:
       - run: pip install numpy lightgbm scikit-learn
       - run: python datos_entrenamiento.py
       - run: python entrenar_fuerte.py velas_1h.json eventos.json
-      - run: python armar_termometro.py btc_diario.json fng.json alts_diario.json
+      - run: python armar_termometro.py btc_diario.json fng.json alts_diario.json onchain.json
       - name: Subir el modelo nuevo
         run: |
           git config user.name "DiegoAdrian97"; git config user.email "diegojadrian97@gmail.com"

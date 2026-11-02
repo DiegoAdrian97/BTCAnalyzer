@@ -28,6 +28,7 @@
   const TASA = 0.0005;      // paso de aprendizaje del modelo
   const L2 = 0.001;         // freno del modelo
   const SEGURA = 0.08;      // "se anima": probabilidad al menos 8 puntos lejos del 50%
+  const CAL_CORTES = [0.42, 0.47, 0.53, 0.58];   // calibracion (como aprendizaje.py: solo se muestra)
   const RASGOS = ['precio vs EMA 50', 'precio vs EMA 200', 'RSI', 'movimiento del último día', 'MACD', 'volatilidad', 'Bollinger'];
   const NIVELES = [2, 2, 4, 3, 2, 2, 4];
   const RECETAS = [[0, 1, 2, 3], [0, 2, 4], [1, 3, 5], [2, 6, 5], [4, 6, 0, 3], [3, 5, 2], [0, 1, 5, 6], [2, 4, 3, 5]];
@@ -272,6 +273,7 @@
     let factor = 0, cambios = 0, lider = null, m = 0;
     const pend = new Map();
     const ap = [0, 0, 0, 0], og = [0, 0, 0, 0], bs = [0, 0, 0, 0], seg = [0, 0], sep = [0, 0, 0, 0], serie = [];
+    const cal = CAL_CORTES.concat([null]).map(() => [0, 0, 0]);   // calibracion: casos, suma p, cuantas subieron
 
     const error = (ps, pf, os, of) => {
       let e = (ps - os) * (ps - os);
@@ -313,6 +315,8 @@
         if (m >= ARRANQUE) {
           const f = FACTORES[factor], ps = ajustar(mix[0], f), pf = ajustar(mix[1], f), os = sube[t], of = prim[t];
           const [eAp, hAp] = medir(ap, ps, pf, os, of);
+          const g = CAL_CORTES.filter((x) => ps >= x).length;
+          cal[g][0] += 1; cal[g][1] += ps; cal[g][2] += os;
           const [eOg] = medir(og, preds[0][0], preds[0][1], os, of);
           const [eBs] = medir(bs, preds[BASE][0], preds[BASE][1], os, of);
           if (hAp !== null && (pf - 0.5 >= SEGURA || 0.5 - pf >= SEGURA)) { seg[0] += hAp; seg[1] += 1; }
@@ -370,6 +374,7 @@
       aciertos_seguro: pct(seg[0], seg[1]), decisivas_seguro: seg[1],
       sep_arriba: sepArriba, sep_abajo: sepAbajo, margen_sep: margenSep,
       pesos: pesos.slice(), ranking, medidas: serie.length, curva,
+      calibracion: cal.filter((x) => x[0]).map((x) => [Ind.rnd((x[1] / x[0]) * 100, 1), Ind.rnd((x[2] / x[0]) * 100, 1), x[0]]),
       _estado: { tabs, tot, mSube, mPrim },
     };
   }

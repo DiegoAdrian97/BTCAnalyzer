@@ -113,6 +113,13 @@
       p_wma200: wma ? rnd(p.wma200, 1) : null, p_dd_ath: rnd(p.dd_ath, 1), p_ret365: rnd(p.ret365, 1), wma200: wma ? rnd(wma, 4) : null,
       sobre_wma: wma ? rnd((price / wma - 1) * 100, 1) : null, caida_ath: rnd(med.dd_ath * 100, 1), ath: rnd(ath, 4), ret_anual: rnd((price / c365 - 1) * 100, 1) };
   }
+  /** MVRV y Puell de hoy (como onchain_hoy de termometro.py), con lo ultimo de CoinMetrics. {} si no hay datos. */
+  function onchainHoy(T, price, nowMs = Date.now()) {
+    const o = T.onchain;
+    if (!o || price <= 0) return {};
+    const hoy = Math.floor(nowMs / 86400000), rp = o.rp + o.rp_pend * Math.max(0, Math.min(45, hoy - o.dia)), iss = o.btc_dia * price;
+    return { mvrv: price / rp, puell: iss / ((o.iss_suma364 + iss) / 365), precio_realizado: rp };
+  }
   function ajusteFunding(md, f7) {   // +1 funding de 7 dias negativo (miedo), -1 si es 0,03% o mas (euforia), 0 si no
     const fu = md && md.funding;
     if (!fu || f7 === null || f7 === undefined || Number.isNaN(f7)) return 0;
@@ -123,8 +130,10 @@
     let s = 0; for (const x of closesD.slice(-1400)) s += x;
     const wma = s / 1400, ath = Math.max(T.ath, Math.max(...closesD), price), c365 = closesD[closesD.length - 365];
     const med = { wma200: Math.log(price / wma), dd_ath: price / ath - 1, ret365: Math.log(price / c365) };
-    const p = {}; T.componentes.forEach((k) => { p[k] = percentil(med[k], T.q[k]); });
-    const temp = T.componentes.reduce((a, k) => a + p[k], 0) / T.componentes.length;
+    const oc = onchainHoy(T, price, nowMs);
+    ['mvrv', 'puell'].forEach((k) => { if (oc[k] !== undefined) med[k] = Math.log(oc[k]); });
+    const p = {}; T.componentes.forEach((k) => { if (med[k] !== undefined) p[k] = percentil(med[k], T.q[k]); });
+    const pk = Object.keys(p), temp = pk.reduce((a, k) => a + p[k], 0) / pk.length;
     const z = T.zonas.find((x) => temp < x.hasta || x.hasta >= 100);
     const y = new Date(nowMs).getUTCFullYear(), fs = fase(y);
     let regla = null;
@@ -149,6 +158,9 @@
       avance: Math.round(av * 100), funding7: f7 === null || f7 === undefined ? null : rnd(f7 * 100, 4), funding_ajuste: adj, p_ciclo: prob === null ? null : Math.round(prob * 100), m_zonas: md ? md.zonas.map((q) => [q.nombre, q.sube_365, q.mediana_365]) : [],
       temp: rnd(temp, 1), zona: z.nombre, año: y, fase: fs, fng: fng === undefined ? null : fng, regla,
       reglas: cic.reglas || {}, años: cic.años || [], ciclos: cic.ciclos || [], p_wma200: rnd(p.wma200, 1), p_dd_ath: rnd(p.dd_ath, 1), p_ret365: rnd(p.ret365, 1),
+      p_mvrv: p.mvrv === undefined ? null : rnd(p.mvrv, 1), p_puell: p.puell === undefined ? null : rnd(p.puell, 1),
+      mvrv: oc.mvrv === undefined ? null : rnd(oc.mvrv, 3), puell: oc.puell === undefined ? null : rnd(oc.puell, 3),
+      precio_realizado: oc.precio_realizado === undefined ? null : rnd(oc.precio_realizado, 1),
       wma200: rnd(wma, 1), sobre_wma: rnd((price / wma - 1) * 100, 1), caida_ath: rnd(med.dd_ath * 100, 1), ath: rnd(ath, 1),
       ret_anual: rnd((price / c365 - 1) * 100, 1), sube_180: z.sube_180, mediana_180: z.mediana_180, sube_365: z.sube_365, mediana_365: z.mediana_365,
       zonas: T.zonas.map((x) => [x.desde, x.hasta, x.nombre, x.sube_365, x.mediana_365]) };
@@ -340,7 +352,7 @@
       sep_arriba: r2('sep_arriba', 1), sep_abajo: r2('sep_abajo', 1), margen_sep: r2('margen_sep', 1),
       peso_modelo: L.pesos ? rnd(L.pesos[Apr.MODELO] * 100, 1) : null, peso_base: L.pesos ? rnd(L.pesos[Apr.BASE] * 100, 1) : null,
       lider: L.ranking ? Apr.expertoTxt(L.ranking[0]) : '',
-      ranking: g('ranking', []).join(',') }];
+      ranking: g('ranking', []).join(','), calibracion: g('calibracion', []) }];
     g('curva', []).forEach(([k, a, o]) => rows.push({ tabla: 'aprendizaje_curva', plazo: name, paso: k,
       aprendido: a === null ? null : rnd(a, 2), original: o === null ? null : rnd(o, 2) }));
     return rows;
@@ -377,6 +389,18 @@
     }, tg];
   }
 
+  // liquidaciones reales de OKX (como liq_reales de analisis_btc.py): contexto y barridas, sin peso en las probabilidades
+  const BARRIDA_USD = 2000000;
+  function liqReales(det, now) {
+    const suma = (lado, mins) => det.reduce((a, [t, s, u]) => a + (s === lado && t >= now - mins * 60000 ? u : 0), 0);
+    const l60 = suma('long', 60), s60 = suma('short', 60), l15 = suma('long', 15), s15 = suma('short', 15);
+    const barrida = l15 >= BARRIDA_USD && l15 > 3 * s15 ? 'longs' : s15 >= BARRIDA_USD && s15 > 3 * l15 ? 'shorts' : null;
+    const m = (x) => ar(x / 1e6, x < 1e7 ? 1 : 0);
+    const det_ = barrida ? `Barrida de ${barrida}: ${m(barrida === 'longs' ? l15 : s15)} M USD liquidados en 15 min solo en OKX. Suele pasar en movimientos bruscos y a veces marca el final del tirón.`
+      : l60 > 2 * s60 && l60 > 2e5 ? 'Más longs liquidados: el precio barrió stops abajo' : s60 > 2 * l60 && s60 > 2e5 ? 'Más shorts liquidados: el precio barrió stops arriba' : 'Sin barridas';
+    return { tabla: 'contexto', clave: 'liq_reales', titulo: 'Liquidaciones reales 1 h (OKX)', valor: `longs ${m(l60)} M · shorts ${m(s60)} M USD`, senal: 'neutral', detalle: det_,
+      longs_1h: rnd(l60), shorts_1h: rnd(s60), longs_15m: rnd(l15), shorts_15m: rnd(s15), barrida };
+  }
   // ---------- contexto actual (Bybit, OKX y BingX, como analisis_btc.py) ----------
   function context(raw, h1) {
     const rows = [];
@@ -415,6 +439,7 @@
       const top = raw.top == null || Number.isNaN(raw.top) ? '' : `, top traders ${ar(raw.top, 2)}`;
       add('long_short', 'Cuentas long / short', `${ar(nowLs, 2)} (24 h antes ${ar(prevLs, 2)}${top})`, sig, crowd);
     }
+    if (raw.liq) rows.push(liqReales(raw.liq, raw.liqT));
     if (raw.funding == null || Number.isNaN(raw.funding)) return [rows, null];
     const fr = raw.funding, f7 = raw.funding7 == null || Number.isNaN(raw.funding7) ? null : raw.funding7;
     add('funding', `Funding ${raw.fundingFuente || 'BingX'}`, arp(fr * 100, 4) + ' cada 8 h' + (f7 === null ? '' : ` (7 días ${arp(f7 * 100, 4)})`), fr > 0.0003 ? 'bajista' : fr < 0 ? 'alcista' : 'neutral',
@@ -835,7 +860,7 @@
     return { rows, log };
   }
 
-  const Analisis = { analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci };
+  const Analisis = { analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, liqReales };
   root.Analisis = Analisis;
   if (typeof module !== 'undefined' && module.exports) module.exports = Analisis;
 })(typeof self !== 'undefined' ? self : globalThis);

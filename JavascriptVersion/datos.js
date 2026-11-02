@@ -154,7 +154,23 @@
     }
   }
 
+  // liquidaciones reales de OKX de la ultima hora (como liq_okx de analisis_btc.py): [ms, lado, usd]
+  async function liqOkx(now) {
+    const out = []; let after = null;
+    for (let k = 0; k < 6; k++) {
+      const j = await pedir('okx', `https://www.okx.com/api/v5/public/liquidation-orders?instType=SWAP&instFamily=BTC-USDT&state=filled&limit=100${after ? `&after=${after}` : ''}`);
+      const det = (j.data || []).flatMap((g) => g.details || []);
+      if (!det.length) break;
+      det.forEach((d) => out.push([+d.ts, d.posSide, +d.sz * 0.01 * +d.bkPx]));
+      after = Math.min(...det.map((d) => +d.ts));
+      if (after < now - 3600000) break;
+    }
+    return out;
+  }
+
   async function contextRaw() {
+    const now = Date.now();
+    const liqP = SYM === 'BTCUSDT' ? intento(liqOkx(now)) : Promise.resolve(null);
     const [oi, ls, taker, top, fr] = await Promise.all([
       intento(bybitOi(30)), intento(bybitLs(25)),
       intento(pedir('okx', `https://www.okx.com/api/v5/rubik/stat/taker-volume-contract?instId=${okxId()}&period=1H&limit=4`)
@@ -164,7 +180,8 @@
       intento(cached(`${pre()}funding`, 3 * 3600000, fundingRaw)),
     ]);
     if (!oi && !ls && !taker && !fr) throw new Error('sin datos del momento');
-    return { oi, ls: ls && ls.map((x) => x[1]), taker, top, funding: fr ? fr.tasa : null, funding7: fr ? fr.f7 : null, fundingFuente: fr ? fr.fuente : null };
+    return { oi, ls: ls && ls.map((x) => x[1]), taker, top, funding: fr ? fr.tasa : null, funding7: fr ? fr.f7 : null, fundingFuente: fr ? fr.fuente : null,
+      liq: await liqP, liqT: now };
   }
 
   async function liqRaw() {

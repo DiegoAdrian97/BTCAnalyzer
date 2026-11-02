@@ -111,6 +111,21 @@ def alts_diario(monedas=("XRP", "SOL")):
     return out
 
 
+def onchain():
+    """MVRV, emision diaria en USD, capitalizacion y BTC en circulacion (CoinMetrics community, gratis) para el
+    termometro (armar_termometro.py)."""
+    out = {}
+    for met in ("CapMVRVCur", "IssTotUSD", "CapMrktCurUSD", "SplyCur"):
+        rows, u = [], f"https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc&metrics={met}&frequency=1d&page_size=10000&start_time=2010-07-01"
+        while u:
+            j = json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": UA}), timeout=90).read())
+            rows += [[r["time"][:10], float(r[met])] for r in j.get("data", []) if r.get(met) not in (None, "")]
+            u = j.get("next_page_url")
+        out["cm_" + met] = rows
+        print(f"{met}: {len(rows)} días hasta {rows[-1][0] if rows else '-'}")
+    return out
+
+
 if __name__ == "__main__":
     B, E = velas(), eventos()
     assert len(B) > 40000, f"pocas velas: {len(B)}"
@@ -127,4 +142,7 @@ if __name__ == "__main__":
     assert len(fg["data"]) > 2000, "historial del Fear & Greed Index incompleto"
     json.dump(fg, open("fng.json", "w"))
     json.dump(alts_diario(), open("alts_diario.json", "w"))
+    oc = onchain()
+    assert all(len(v) > 5000 for v in oc.values()), "datos on-chain incompletos"
+    json.dump(oc, open("onchain.json", "w"))
     print(f"velas {len(B)} hasta {datetime.fromtimestamp(B[-1][0] / 1000, timezone.utc)} · eventos {len(E)}")

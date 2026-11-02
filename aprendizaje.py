@@ -50,6 +50,10 @@ REPARTO = 0.05          # parte del peso que se reparte entre todos en cada paso
 TASA = 0.0005          # paso de aprendizaje del modelo (chico: con datos reales, mas grande se cree casualidades)
 L2 = 0.001              # freno del modelo (que no se crea patrones de casualidad)
 SEGURA = 0.08           # "se anima": probabilidad al menos 8 puntos lejos del 50%
+# calibracion: las predicciones "sube" del repaso agrupadas por probabilidad, para ver si un 60% paso el 60% de las
+# veces. Medido 2020-2026 (BTC 1 h y 4 h): ya salen calibradas (error medio 0,5-1,5 puntos); corregirlas aparte no
+# mejoro fuera de muestra, asi que solo se muestran.
+CAL_CORTES = (0.42, 0.47, 0.53, 0.58)
 
 RASGOS = ("precio vs EMA 50", "precio vs EMA 200", "RSI", "movimiento del último día", "MACD", "volatilidad",
           "Bollinger")
@@ -428,6 +432,7 @@ def aprender(bars, combo, h, warmup, X=None):
     # aciertos y decisivas en "que toca primero"
     ap, og, bs = [0.0, 0, 0, 0], [0.0, 0, 0, 0], [0.0, 0, 0, 0]
     seg = [0, 0]                          # aciertos y casos cuando se anima
+    cal = [[0, 0.0, 0] for _ in range(len(CAL_CORTES) + 1)]   # por grupo de probabilidad: casos, suma p, cuantas subieron
     sep = [0, 0.0, 0, 0.0]                # mas chances arriba que lo normal: casos y arriba; menos: casos y arriba
     serie = []                            # por prediccion medida: error aprendido, original y tasa base
 
@@ -482,6 +487,12 @@ def aprender(bars, combo, h, warmup, X=None):
                 ps, pf = ajustar(mix[0], f_), ajustar(mix[1], f_)
                 os_, of = sube[t], prim[t]
                 e_ap, h_ap = medir(ap, ps, pf, os_, of)
+                g = sum(1 for x in CAL_CORTES if ps >= x)
+                cal[g][0] += 1
+                cal[g][1] += ps
+                cal[g][2] += os_
+                if REGISTRO is not None:  # para medir la calibracion afuera (no cambia nada del repaso)
+                    REGISTRO.append((ps, os_, pf, of))
                 e_og, _ = medir(og, preds[0][0], preds[0][1], os_, of)
                 e_bs, _ = medir(bs, preds[BASE][0], preds[BASE][1], os_, of)
                 if h_ap is not None and (pf - 0.5 >= SEGURA or 0.5 - pf >= SEGURA):
@@ -553,10 +564,12 @@ def aprender(bars, combo, h, warmup, X=None):
             "aciertos_seguro": pct(seg[0], seg[1]), "decisivas_seguro": seg[1],
             "sep_arriba": sep_arriba, "sep_abajo": sep_abajo, "margen_sep": margen_sep,
             "pesos": pesos[:], "ranking": ranking, "medidas": len(serie), "curva": curva,
+            "calibracion": [[round(x[1] / x[0] * 100, 1), round(x[2] / x[0] * 100, 1), x[0]] for x in cal if x[0]],
             "_estado": {"tabs": tabs, "tot": tot, "m_sube": m_sube, "m_prim": m_prim}}
 
 
 _CACHE = {}
+REGISTRO = None
 
 
 def aprendido(clave, bars, combo, h, warmup, X=None):
