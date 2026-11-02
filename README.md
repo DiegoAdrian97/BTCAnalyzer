@@ -43,9 +43,10 @@ sin orden. Cuando cambie el plan: editar `plan_compras.json` y correr `python Ja
 
 ### Mis posiciones, toma de ganancias y piramidado
 
-Debajo de "Próximas compras": por cripto, las compras del plan que ya tocó el precio, cantidad, precio promedio,
-resultado, margen (incluye el extra ya agregado), apalancamiento real y liquidación aproximada (`posiciones.py`; la
-página hace las mismas cuentas). Toma de ganancias: cada +25% sobre el promedio, pasar 25% de la posición a spot.
+Debajo de "Próximas compras": por cripto, parte de lo que ya estaba abierto en BingX (`posiciones` en
+`plan_compras.json`: cantidad, entrada y margen) y le suma las compras del plan que se ejecutan después. Muestra
+cantidad, precio promedio, resultado, margen, apalancamiento real y liquidación aproximada (`posiciones.py`; la
+página hace las mismas cuentas). Si cambiás algo en BingX a mano, hay que actualizar `posiciones`. Toma de ganancias: cada +25% sobre el promedio, pasar 25% de la posición a spot.
 Piramidar: cuando sube 15% sobre el promedio, cuánto se puede sumar sin plata nueva con la liquidación como mucho en
 75% de la compra más baja. Los porcentajes se cambian en `plan_compras.json` (`ganancias`, `piramidar`).
 

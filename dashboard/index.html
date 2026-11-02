@@ -684,7 +684,7 @@
     <div class="ab-card-head"><div><span class="ab-kicker">Tu plan · margen aislado</span><h2 id="pos-t">Mis posiciones</h2></div>
       <span class="ab-kicker" id="pos-hora">—</span></div>
     <div class="ab-cmp-grid" id="pos-body"></div>
-    <p class="ab-foot">Calculado con las compras del plan que ya tocó el precio y todo el margen que agregaste (en margen aislado, el extra queda en la posición aunque su compra no se haya ejecutado). La liquidación es aproximada (mantenimiento 0,4% BTC, 1% el resto): la exacta la muestra BingX. Toma de ganancias: cada +25% sobre tu promedio, pasar 25% de la posición a spot. Piramidar: cuando sube 15% sobre tu promedio, cuánto podés sumar sin plata nueva con la liquidación como mucho en 75% de tu compra más baja.</p>
+    <p class="ab-foot">Parte de lo que ya tenías abierto en BingX (cargado del 01/11: cantidad, entrada y margen) y le suma las compras del plan que se ejecuten desde ahí. La liquidación es aproximada (mantenimiento 0,4% BTC, 1% el resto): la exacta la muestra BingX. Toma de ganancias: cada +25% sobre tu promedio, pasar 25% de la posición a spot. Piramidar: cuando sube 15% sobre tu promedio, cuánto podés sumar sin plata nueva con la liquidación como mucho en 75% de tu compra más baja.</p>
   </section>
 
   <section class="ab-card ab-mov" id="movimiento" aria-labelledby="mov-t" data-source="analisis" hidden>
@@ -1142,16 +1142,16 @@
     mons.forEach((m) => {
       const d = CMP.datos[m], cs = PLAN_COMPRAS.compras.filter((c) => c.moneda === m).sort((a, b) => b.precio - a.precio);
       const box = el('div', 'ab-cmp'), h = el('div', 'ab-cmp-h');
-      const hechas = d ? cs.filter((c) => d.bajo <= c.precio).length : 0;
+      const hechas = cs.filter((c) => cmpHecha(c, d)).length;
       h.append(el('b', '', m), el('span', '', d ? `ahora ${fp(d.precio)} · ${hechas}/${cs.length} ejecutadas` : 'cargando precio…'));
       box.append(h);
       let marcado = false, prox = false;
       cs.forEach((c) => {
-        const hecha = d && d.bajo <= c.precio;
+        const hecha = cmpHecha(c, d);
         if (d && !marcado && d.precio > c.precio) { box.append(el('div', 'ab-cmp-now', `ahora ${fp(d.precio)}`)); marcado = true; }
         const dist = d ? (d.precio / c.precio - 1) * 100 : null;
         let cls = 'ab-cmp-row', ic = '○', st = '';
-        if (hecha) { cls += ' ok'; ic = '✔'; st = c.cargada ? (c.extra_agregado ? 'Se ejecutó' : `Se ejecutó · sumá ${f0(c.extra)} de margen`) : 'Tocó el precio (sin orden)'; }
+        if (hecha) { cls += ' ok'; ic = '✔'; st = c.en_posicion ? 'En tu posición' : c.cargada ? (c.extra_agregado ? 'Se ejecutó' : `Se ejecutó · sumá ${f0(c.extra)} de margen`) : 'Tocó el precio (sin orden)'; }
         else if (!c.cargada) { ic = '✎'; st = dist !== null && dist <= 3 ? `¡Cargá la orden! (a ${f1(dist)}%)` : 'Falta cargar la orden'; if (dist !== null && dist <= 3) cls += ' carga'; }
         else { ic = '⏳'; st = dist === null ? 'Orden puesta' : `Orden puesta · a ${f1(dist)}%`; }
         if (!hecha && !prox) { cls += ' prox'; prox = true; }
@@ -1166,18 +1166,28 @@
     hr.textContent = CMP.hora ? `precios ${String(CMP.hora.getHours()).padStart(2, '0')}:${String(CMP.hora.getMinutes()).padStart(2, '0')}` : '—';
   }
   // ---------- mis posiciones (las mismas cuentas que posiciones.py) ----------
+  // la compra ya se ejecuto: estaba en la posicion de BingX o el precio la toco desde que se armo el plan
+  const cmpHecha = (c, d) => !!c.en_posicion || !!(d && d.bajo <= c.precio);
   function planEstado(m, d) {
     const P = PLAN_COMPRAS, lev = P.apalancamiento || 5, mt = P.mantenimiento || {}, r = mt[m] !== undefined ? mt[m] : (mt.otras !== undefined ? mt.otras : 0.01);
-    const cs = P.compras.filter((c) => c.moneda === m);
-    const hechas = cs.filter((c) => c.cargada && d && d.bajo <= c.precio);
-    const margen = hechas.reduce((s, c) => s + c.orden / lev, 0) + cs.filter((c) => c.extra_agregado).reduce((s, c) => s + c.extra, 0);
-    const nocional = hechas.reduce((s, c) => s + c.orden, 0), cantidad = hechas.reduce((s, c) => s + c.orden / c.precio, 0);
+    const cs = P.compras.filter((c) => c.moneda === m), base = (P.posiciones || {})[m];
+    const hechas = cs.filter((c) => cmpHecha(c, d) && (c.en_posicion || c.cargada));
+    const nuevas = base ? hechas.filter((c) => !c.en_posicion) : hechas;
+    const sum = (xs, f) => xs.reduce((s, c) => s + f(c), 0);
+    let margen, nocional, cantidad;
+    if (base) {
+      margen = base.margen + sum(nuevas, (c) => c.orden / lev);
+      nocional = base.cantidad * base.entrada + sum(nuevas, (c) => c.orden); cantidad = base.cantidad + sum(nuevas, (c) => c.orden / c.precio);
+    } else {
+      margen = sum(hechas, (c) => c.orden / lev) + sum(cs.filter((c) => c.extra_agregado), (c) => c.extra);
+      nocional = sum(hechas, (c) => c.orden); cantidad = sum(hechas, (c) => c.orden / c.precio);
+    }
     const liqDe = (n, q, mg) => (q > 0 ? Math.max(0, (n - mg) / (q * (1 - r))) : null);
-    const out = { moneda: m, hechas: hechas.length, total: cs.length, precio: d ? d.precio : null, margen };
-    if (!hechas.length || !d) return out;
+    const out = { moneda: m, hechas: hechas.length, total: cs.length, precio: d ? d.precio : null, margen, base: !!base };
+    if (cantidad <= 0 || !d) return out;
     const prom = nocional / cantidad, valor = cantidad * d.precio, liq = liqDe(nocional, cantidad, margen);
     Object.assign(out, { promedio: prom, cantidad, nocional, valor, pnl: valor - nocional, pnl_pct: (valor - nocional) / margen * 100,
-      apalancamiento_real: valor / (margen + valor - nocional), liquidacion: liq, dist_liq: liq ? (d.precio / liq - 1) * 100 : null });
+      apalancamiento_real: valor / (margen + valor - nocional), liquidacion: liq, dist_liq: liq ? (1 - liq / d.precio) * 100 : null });
     const g = P.ganancias;
     if (g) out.ganancias = Array.from({ length: g.niveles || 4 }, (_, i) => { const k = i + 1, px = prom * (1 + g.cada * k);
       return { k, precio: px, vender: cantidad * g.vender, usdt: cantidad * g.vender * px, alcanzado: d.alto !== undefined && d.alto >= px }; });
@@ -1199,9 +1209,9 @@
     const sgn = (x, f = f0) => `${x >= 0 ? '+' : '−'}${f(Math.abs(x))}`;
     [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))].forEach((m) => {
       const d = CMP.datos[m], e = planEstado(m, d), box = el('div', 'ab-cmp'), h = el('div', 'ab-cmp-h');
-      h.append(el('b', '', m), el('span', '', d ? `ahora ${fp(d.precio)} · ${e.hechas}/${e.total} compras` : 'cargando precio…'));
+      h.append(el('b', '', m), el('span', '', d ? `ahora ${fp(d.precio)} · ${e.hechas}/${e.total} compras del plan` : 'cargando precio…'));
       box.append(h);
-      if (!e.hechas) { box.append(el('p', 'ab-note', d ? `Ninguna compra ejecutada todavía. Margen ya puesto: ${f0(e.margen)} USDT.` : '')); body.append(box); return; }
+      if (e.cantidad === undefined) { box.append(el('p', 'ab-note', d ? `Ninguna compra ejecutada todavía. Margen ya puesto: ${f0(e.margen)} USDT.` : '')); body.append(box); return; }
       const kv = el('div', 'ab-pos-kv'), cell = (k, v, cls = '') => { const c = el('div'); c.append(el('small', '', k), el('b', cls, v)); kv.append(c); };
       cell('Cantidad', `${ar.format(',.4f')(e.cantidad)} ${m}`); cell('Precio promedio', fp(e.promedio));
       cell('Resultado', `${sgn(e.pnl)} USDT (${sgn(e.pnl_pct, f1)}%)`, e.pnl >= 0 ? 'ab-pos-ok' : 'ab-pos-bad');
@@ -1320,16 +1330,16 @@
         [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))].forEach((m) => {
           const d = CMP.datos[m]; if (!d) return;
           PLAN_COMPRAS.compras.filter((c) => c.moneda === m).forEach((c) => {
-            const dist = (d.precio / c.precio - 1) * 100, hecha = d.bajo <= c.precio;
+            const dist = (d.precio / c.precio - 1) * 100, hecha = cmpHecha(c, d);
             cuando(`cc:${m}:${c.n}`, !hecha && dist <= 3, () => nueva(`cc:${m}:${c.n}:${hoy}`, '📌', `${m} se acerca a tu compra #${c.n}`, `a ${f1(dist)}% de ${fp(c.precio)}`,
               [`${m} está en ${fp(d.precio)}, a ${f1(dist)}% de tu compra #${c.n} en ${fp(c.precio)}.`, c.cargada ? 'La orden límite ya está cargada.' : `Cargá la orden límite: precio ${fp(c.precio)}, valor de la orden ${f0(c.orden)} a ${PLAN_COMPRAS.apalancamiento || 5}x.`], 'compras'));
             cuando(`ch:${m}:${c.n}`, hecha, () => nueva(`ch:${m}:${c.n}`, '✅', `Se ejecutó tu compra #${c.n} de ${m}`, `${fp(c.precio)} · orden ${f0(c.orden)}`,
               [`${m} tocó ${fp(c.precio)}: tu orden de ${f0(c.orden)} USDT debería haberse ejecutado. Confirmalo en BingX.`, c.extra_agregado ? 'El margen extra ya lo tenías agregado.' : `Ahora agregá ${f0(c.extra)} USDT de margen (⊕ en la posición).`], 'posiciones'));
           });
           const e = planEstado(m, d);
-          if (!e.hechas) return;
+          if (e.cantidad === undefined) return;
           cuando(`lq:${m}`, e.liquidacion && e.dist_liq < 10, () => nueva(`lq:${m}:${hoy}`, '⚠️', `${m}: liquidación a ${f1(e.dist_liq)}%`, `liquidación ${fp(e.liquidacion)}`,
-            [`Tu posición de ${m} se liquida en ~${fp(e.liquidacion)} y el precio está en ${fp(d.precio)} (${f1(e.dist_liq)}% arriba).`, 'Si querés alejarla, agregá margen (⊕) en BingX. La liquidación exacta la muestra BingX.'], 'posiciones'));
+            [`Tu posición de ${m} se liquida en ~${fp(e.liquidacion)} y el precio está en ${fp(d.precio)} (tendría que caer ${f1(e.dist_liq)}%).`, 'Si querés alejarla, agregá margen (⊕) en BingX. La liquidación exacta la muestra BingX.'], 'posiciones'));
           (e.ganancias || []).forEach((g) => cuando(`tp:${m}:${g.k}`, g.alcanzado, () => nueva(`tp:${m}:${g.k}`, '💰', `${m} llegó a tu toma de ganancias +${f0(g.k * PLAN_COMPRAS.ganancias.cada * 100)}%`,
             `${fp(g.precio)} · pasar ${ar.format(',.4f')(g.vender)} ${m}`, [`${m} llegó a ${fp(g.precio)}, +${f0(g.k * PLAN_COMPRAS.ganancias.cada * 100)}% sobre tu promedio.`, `Según tu plan: pasá ${ar.format(',.4f')(g.vender)} ${m} (~${f0(g.usdt)} USDT) a spot.`], 'posiciones')));
           if (e.piramidar) cuando(`pz:${m}`, e.piramidar.disponible && e.piramidar.sumar > 0, () => nueva(`pz:${m}:${hoy}`, '📈', `${m}: podés piramidar`, `sumar ~${f0(e.piramidar.sumar)} USDT de posición`,
@@ -2458,6 +2468,11 @@
     pick(rows, 'explicacion').filter((e) => e.plazo === S.plazo && e.tipo === 'vigilar' && e.precio !== null && e.precio !== undefined).forEach((e) => {
       G.plines.push(G.c.createPriceLine({ price: num(e.precio), color: alpha(e.sesgo === 'alcista' ? P.up : P.dn, 0.8), lineWidth: 1, lineStyle: LW.LineStyle.Dashed,
         axisLabelVisible: true, title: String(e.texto).replace(/\s*\d[\d.,]*.*$/, '') }));
+    });
+    // Fibonacci del swing de 90 dias (4 h): el unico que mostro ventaja. Se ve en 4 h y diario, con cuanto rebotó cada nivel
+    if (tf === '4h' || tf === '1d') pick(rows, 'nivel').filter((n) => n.fib !== undefined && n.fib !== null).forEach((n) => {
+      G.plines.push(G.c.createPriceLine({ price: num(n.precio), color: alpha(P.c2 || P.mute, num(n.rebote) >= 55 ? 0.85 : 0.4), lineWidth: 1, lineStyle: LW.LineStyle.Dotted,
+        axisLabelVisible: true, title: narrow ? `Fib ${f1(num(n.fib) * 100)}%` : `Fib ${f1(num(n.fib) * 100)}% · rebotó ${f0(num(n.rebote))}%` }));
     });
     if (L.patrones) d.figs.forEach((p) => {
       const obj = num(p.objetivo); if (obj === null) return;

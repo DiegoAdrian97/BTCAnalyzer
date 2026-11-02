@@ -1,7 +1,14 @@
 """Tus posiciones del plan de compras (plan_compras.json): que compras se ejecutaron, precio promedio, liquidacion,
 ganancia/perdida, apalancamiento real, niveles de toma de ganancias y cuanto se puede sumar al piramidar.
-La pagina hace las mismas cuentas (dashboard/index.html, planEstado). Margen aislado: el margen extra ya agregado
-esta en la posicion aunque su compra no se haya ejecutado todavia."""
+La pagina hace las mismas cuentas (dashboard/index.html, planEstado).
+Base: lo que ya estaba abierto en BingX (plan["posiciones"]: cantidad, entrada y margen, que ya incluye todo el margen
+extra agregado). Encima se suman las compras del plan que se ejecuten despues (las que tienen en_posicion ya estan en
+la base). Margen aislado: cada compra nueva suma su margen inicial (orden / apalancamiento)."""
+
+
+def hecha(c, bajo):
+    """La compra ya se ejecuto: estaba en la posicion de BingX o el precio la toco desde plan["desde"]."""
+    return bool(c.get("en_posicion")) or (bajo is not None and bajo <= c["precio"])
 
 
 def mmr(plan, m):
@@ -18,21 +25,28 @@ def estado(plan, m, bajo, alto, precio):
     """Estado de una cripto del plan. bajo / alto: minimo y maximo desde plan["desde"]; precio: el de ahora."""
     lev = plan.get("apalancamiento", 5)
     cs = [c for c in plan["compras"] if c["moneda"] == m]
-    hechas = [c for c in cs if c.get("cargada") and bajo is not None and bajo <= c["precio"]]
-    margen = sum(c["orden"] / lev for c in hechas) + sum(c["extra"] for c in cs if c.get("extra_agregado"))
-    nocional = sum(c["orden"] for c in hechas)
-    cantidad = sum(c["orden"] / c["precio"] for c in hechas)
+    base = (plan.get("posiciones") or {}).get(m)
+    hechas = [c for c in cs if hecha(c, bajo) and (c.get("en_posicion") or c.get("cargada"))]
+    nuevas = [c for c in hechas if not c.get("en_posicion")] if base else hechas
+    if base:
+        margen = base["margen"] + sum(c["orden"] / lev for c in nuevas)
+        nocional = base["cantidad"] * base["entrada"] + sum(c["orden"] for c in nuevas)
+        cantidad = base["cantidad"] + sum(c["orden"] / c["precio"] for c in nuevas)
+    else:
+        margen = sum(c["orden"] / lev for c in hechas) + sum(c["extra"] for c in cs if c.get("extra_agregado"))
+        nocional = sum(c["orden"] for c in hechas)
+        cantidad = sum(c["orden"] / c["precio"] for c in hechas)
     r = mmr(plan, m)
-    out = {"moneda": m, "hechas": len(hechas), "total": len(cs), "precio": precio, "margen": margen,
+    out = {"moneda": m, "hechas": len(hechas), "total": len(cs), "precio": precio, "margen": margen, "base": bool(base),
            "pendientes": [c for c in cs if c not in hechas]}
-    if not hechas:
+    if cantidad <= 0 or precio is None:
         return out
     prom = nocional / cantidad
     valor = cantidad * precio
     liq = liquidacion(nocional, cantidad, margen, r)
     out.update(promedio=prom, cantidad=cantidad, nocional=nocional, valor=valor, pnl=valor - nocional,
                pnl_pct=(valor - nocional) / margen * 100, apalancamiento_real=valor / (margen + valor - nocional),
-               liquidacion=liq, dist_liq=(precio / liq - 1) * 100 if liq else None)
+               liquidacion=liq, dist_liq=(1 - liq / precio) * 100 if liq else None)   # cuanto tendria que caer
     g = plan.get("ganancias") or {}
     if g:
         out["ganancias"] = [{"k": k, "precio": prom * (1 + g["cada"] * k), "vender": cantidad * g["vender"],

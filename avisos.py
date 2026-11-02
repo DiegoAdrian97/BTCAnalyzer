@@ -672,7 +672,7 @@ def _cmd_compras():
         bajo, _, precio, _ = pp[m]
         out.append(f"{m} (ahora {_f(precio)}):")
         for c in [c for c in plan["compras"] if c["moneda"] == m]:
-            st = "✔ ejecutada" if bajo <= c["precio"] else (f"⏳ orden puesta, a {_ar((precio / c['precio'] - 1) * 100, 1)}%" if c.get("cargada")
+            st = "✔ ejecutada" if c.get("en_posicion") or bajo <= c["precio"] else (f"⏳ orden puesta, a {_ar((precio / c['precio'] - 1) * 100, 1)}%" if c.get("cargada")
                                                             else f"✎ falta cargarla, a {_ar((precio / c['precio'] - 1) * 100, 1)}%")
             out.append(f"  #{c['n']} {_f(c['precio'])} · {_ar(c['orden'])} USDT · {st}")
     return "\n".join(out)
@@ -689,11 +689,11 @@ def _cmd_posiciones():
             continue
         bajo, alto, precio, _ = pp[m]
         e = posiciones.estado(plan, m, bajo, alto, precio)
-        if not e["hechas"]:
-            out.append(f"{m}: ninguna compra ejecutada (margen ya puesto {_ar(e['margen'])} USDT)")
+        if "cantidad" not in e:
+            out.append(f"{m}: sin posición (margen ya puesto {_ar(e['margen'])} USDT)")
             continue
         liq = "no se liquida (margen mayor que la posición)" if not e["liquidacion"] else f"{_f(e['liquidacion'])} ({_ar(e['dist_liq'], 0)}% abajo)"
-        out.append(f"{m}: {e['hechas']}/{e['total']} compras · {_f(e['cantidad'], 4)} {m} a {_f(e['promedio'])} promedio · ahora {_f(precio)}\n"
+        out.append(f"{m}: {e['hechas']}/{e['total']} compras del plan · {_f(e['cantidad'], 4)} {m} a {_f(e['promedio'])} promedio · ahora {_f(precio)}\n"
                    f"  Resultado {'+' if e['pnl'] >= 0 else ''}{_ar(e['pnl'])} USDT · margen {_ar(e['margen'])} · apalancamiento real {_ar(e['apalancamiento_real'], 1)}x\n"
                    f"  Liquidación: {liq}")
         g = next((x for x in e.get("ganancias", []) if not x["alcanzado"]), None)
@@ -942,6 +942,8 @@ def _compras(ahora):
             if c["moneda"] != m:
                 continue
             clave = (m, c["n"])
+            if c.get("en_posicion"):            # ya estaba en la posicion de BingX
+                continue
             nombre = f"{m} compra #{c['n']} en {_fmt(c['precio'])}"
             if bajo_ahora <= c["precio"] < bajo_antes and (clave, "hecha") not in avisados:
                 avisados.add((clave, "hecha"))
