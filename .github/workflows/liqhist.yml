@@ -1,0 +1,20 @@
+name: Buscar liquidaciones
+on:
+  push:
+    branches: [medicion-monedas]
+    paths: [".github/workflows/liqhist.yml", "medir/liq_hist.py"]
+permissions:
+  contents: write
+jobs:
+  bajar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: mkdir -p medir/monedas && python medir/liq_hist.py medir/monedas
+      - run: |
+          git config user.name "DiegoAdrian97"; git config user.email "diegojadrian97@gmail.com"
+          git add medir/monedas/liq_hist.json && git commit -q -m "busqueda liquidaciones" || exit 0
+          for i in 1 2 3 4; do git pull --rebase -q && git push -q && break; sleep 10; done
