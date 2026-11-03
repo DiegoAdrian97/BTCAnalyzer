@@ -48,6 +48,14 @@ sin orden. Cuando cambie el plan: editar `plan_compras.json` y correr `python Ja
 
 ### Mis posiciones, toma de ganancias y piramidado
 
+**BingX en vivo (solo lectura, versión del teléfono):** con "Conectar BingX", "Mis posiciones" sale de tu cuenta (cantidad,
+entrada, margen y liquidación de BingX) y "Próximas compras" marca "orden puesta" si hay una orden límite de compra a ese precio.
+Lo hace la función `JavascriptVersion/api/posiciones.js` de Vercel con tres variables de entorno (Settings → Environment
+Variables; nunca en el código): `BINGX_API_KEY` y `BINGX_API_SECRET` de una clave de API de BingX **con permiso solo de
+lectura**, y `POSICIONES_CLAVE`, una contraseña tuya (8 caracteres o más) que la página pide una vez. Sin las tres, o con la
+contraseña mal, no devuelve nada. Si BingX rechaza los pedidos desde EE.UU., elegí una región europea para las funciones en
+Vercel (Settings → Functions). Sin conectar, todo sigue saliendo de `plan_compras.json` como antes.
+
 Debajo de "Próximas compras": por cripto, parte de lo que ya estaba abierto en BingX (`posiciones` en
 `plan_compras.json`: cantidad, entrada y margen) y le suma las compras del plan que se ejecutan después. Muestra
 cantidad, precio promedio, resultado, margen, apalancamiento real y liquidación aproximada (`posiciones.py`; la
@@ -208,7 +216,10 @@ junta lo que coincide en el tiempo y lo explica en criollo:
   **Hackeo a un exchange grande** (Binance, Coinbase, Kraken, OKX, Bybit, Bitget, BingX, KuCoin, Tether y otros) es un
   tema aparte, con búsqueda propia en Google Noticias, impacto máximo (3) y siempre bajista aunque el titular diga que
   los fondos están a salvo. Se avisa por Telegram al instante aunque esté en "solo entradas" (`AVISOS_CRITICOS=0` lo apaga).
-- **Sin repetidos y en español**: los titulares en inglés se traducen (Google Translate, gratis) y la misma noticia
+- **Sin repetidos y en español**: los titulares en inglés se traducen (Google, cliente "dict-chrome-ex", con respaldo en otro
+  servidor de Google y en MyMemory: el traductor gratis de antes lo bloqueaba Google desde Vercel y quedaban en inglés). De los
+  feeds en inglés se traduce todo lo que no esté claramente en español; lo que no se pudo traducir no se muestra, salvo el
+  hackeo de un exchange (se avisa igual, en español). La misma noticia
   contada por varios medios aparece una sola vez (la primera que salió, con "y N medios más"). Se considera la misma
   si comparten la mayoría de sus palabras clave en 12 horas, o si es el mismo exchange hackeado.
 - **Fear & Greed Index** (alternative.me): arco clásico con aguja en el panel del termómetro (y el número en "Qué está pasando"). Medido
@@ -273,6 +284,36 @@ lightgbm; conviene reentrenarlo cada algunos meses). Se usa solo para BTC; ZEC s
   niveles a un escalón, que el precio pasa seguido en ese plazo).
 - **¿El rango es honesto?**: cada predicción guarda también su rango del 80% (`predicciones_btc.csv` pasa a 7 columnas; las
   filas viejas de 5 se siguen leyendo) y "Aciertos" muestra cuántas veces el precio terminó adentro: lo honesto es ~80%.
+- **Rango ajustado con su propio pasado** (calibración "conformal", `rango_puntajes` / `rango_factor`): repasa sus últimas 200
+  predicciones de cada plazo (sin pisarse), arma el rango que habría dado en cada una con lo que sabía ahí y mide dónde terminó
+  el precio; el factor que deja adentro al 80% ensancha o angosta el rango y el cono de ahora. Medido 2023–2026 sin mirar el
+  futuro: sin ajustar terminaba adentro 78–79,5%; ajustado, 80% en 15 min, 1 hora y 4 horas, en los dos tramos. Con velas de
+  4 h o diarias no mejoró: ahí solo se mide.
+
+### Medir antes de sumar (`medir_contexto.py`)
+
+Simula la app como corre en vivo (ventanas de 30 días de 5 min, 180 de 30 min y 730 de 4 h; aprendizaje desde cero y repaso
+de 1.000 predicciones en cada ventana), encadenada sobre 2023–2026 con datos públicos (data.binance.vision y Deribit). Entra
+solo lo que gana en 2023–24 y también en 2025–26 (diferencia por día con |z| > 2):
+
+| Idea | Resultado | Qué se hizo |
+|---|---|---|
+| Open interest, flujo de compras/ventas, long/short, funding, prima perpetuo-spot y DVOL como señales del modelo | Ninguna ganó en ningún plazo en los dos tramos (15 min, flujo + open interest: z +1,7 y +1,8) | Quedan como contexto, sin peso |
+| Pesos del equipo distintos por régimen (tendencia, rango, pánico) | No mejoró (z entre −1 y +0,4 en 15 min, 1 h y 4 h) | El régimen se muestra en "Por qué"; el modelo no cambia |
+| 15 min, 1 h y 4 h van para el mismo lado | El de 1 hora acertó 54,0% (52,6–55,4) contra 51,5% (50,5–52,4); mejor en los dos tramos. En 15 min y 4 h, igual | Señal en la explicación de 1 hora (no cambia la probabilidad) |
+| Rango del 80% ajustado | 78–79,5% → 80% (hasta velas de 1 h) | Se aplica |
+
+Ojo con los archivos de metrics de Binance: la hora es la del inicio de los 5 minutos y el dato se conoce al final (la API lo
+confirma). Medido sin ese corrimiento, el flujo y el open interest "ganaban" en 15 min (z +10): era ver el dato 5 minutos antes.
+
+### Contexto nuevo: perpetuo contra spot y opciones
+
+- **Perpetuo vs spot** (precio de marca contra el índice, Bybit): caro desde +0,05% (calentamiento), con descuento desde −0,07%
+  (miedo); cortes en los percentiles 90 y 5 de la prima de Binance 2022–24. La prima de Coinbase (EE.UU. contra afuera) sigue
+  en "Qué está pasando".
+- **Opciones de BTC (Deribit)**: volatilidad implícita DVOL (y cuánto espera que se mueva por día), puts contra calls, el "dolor
+  máximo" del vencimiento del viernes (línea violeta en el gráfico, capa "Opciones") y cuánto más caros están los puts que los
+  calls. Contexto: el DVOL no anticipó la dirección en la medición.
 
 ### Volatilidad prevista
 
@@ -360,4 +401,6 @@ python JavascriptVersion/generar_pagina.py
 | `dashboard/index.html` | La página del dashboard |
 | `render.yaml` | Configuración para Render |
 | `JavascriptVersion/` | La versión que corre entera en el teléfono (Vercel): `analisis.js`, `indicadores.js`, `aprendizaje.js`, `datos.js`, `worker.js`; holograma: `holograma.html`, `holograma.js`, `manos.js` |
+| `medir_contexto.py` | Mide con años de historia si una señal o idea nueva le gana a la tasa base antes de sumarla |
+| `JavascriptVersion/api/posiciones.js` | Tus posiciones y órdenes de BingX, solo lectura (Vercel) |
 | `backtest_*.py`, `grid_bot_zec.py` | Backtests y bot de grilla (BingX demo) |

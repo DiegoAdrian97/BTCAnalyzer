@@ -320,8 +320,11 @@ def prediccion(res, k, x):
     return ajustar(ps, res["factor"]), ajustar(pf, res["factor"])
 
 
-def aprender(bars, combo, h, warmup, X=None):
+def aprender(bars, combo, h, warmup, X=None, reg=None):
     """Repasa las ultimas predicciones a h velas y devuelve lo aprendido, o None si falta historia.
+
+    reg (opcional): el regimen de mercado de cada vela (ver regimenes). Con reg, el equipo aprende pesos distintos
+    para cada regimen (cada prediccion usa y corrige los del regimen de su vela); sin reg, un solo juego de pesos.
 
     bars: velas cerradas. combo: combos(rasgos(...)) y X: continuos(...) de esas velas; pueden traer una vela mas
     al final (la que esta en curso): con ella se arma la prediccion de ahora.
@@ -424,6 +427,8 @@ def aprender(bars, combo, h, warmup, X=None):
 
     E, K = EXPERTOS, len(FACTORES)
     pesos = [1.0 / E] * E
+    por_reg = {}                          # con reg: un juego de pesos por regimen (arrancan iguales)
+    pesos_de = (lambda t: pesos) if reg is None else (lambda t: por_reg.setdefault(reg[t], [1.0 / E] * E))
     score = [0.0] * K                     # error de cada confianza sobre la mezcla
     factor = 0
     pend = {}                             # predicciones esperando su resultado: t -> (expertos, mezcla)
@@ -460,12 +465,13 @@ def aprender(bars, combo, h, warmup, X=None):
             return
         preds, mix = got
         os_, of = sube[t], prim[t]
+        w = pesos_de(t)
         tot_w = 0.0
         for e in range(E):
-            pesos[e] *= expo(-ETA * error(preds[e][0], preds[e][1], os_, of))
-            tot_w += pesos[e]
+            w[e] *= expo(-ETA * error(preds[e][0], preds[e][1], os_, of))
+            tot_w += w[e]
         for e in range(E):
-            pesos[e] = (1.0 - REPARTO) * pesos[e] / tot_w + REPARTO / E
+            w[e] = (1.0 - REPARTO) * w[e] / tot_w + REPARTO / E
         for k in range(K):
             f = FACTORES[k]
             score[k] += error(ajustar(mix[0], f), ajustar(mix[1], f), os_, of)
@@ -481,7 +487,7 @@ def aprender(bars, combo, h, warmup, X=None):
                 factor = best
         preds = equipo(t)
         if preds is not None:
-            mix = _mezclar(pesos, preds)
+            mix = _mezclar(pesos_de(t), preds)
             if m >= ARRANQUE:             # desde aca se mide: el equipo ya tuvo tiempo de acomodarse
                 f_ = FACTORES[factor]
                 ps, pf = ajustar(mix[0], f_), ajustar(mix[1], f_)
@@ -491,10 +497,10 @@ def aprender(bars, combo, h, warmup, X=None):
                 cal[g][0] += 1
                 cal[g][1] += ps
                 cal[g][2] += os_
-                if REGISTRO is not None:  # para medir la calibracion afuera (no cambia nada del repaso)
-                    REGISTRO.append((ps, os_, pf, of))
                 e_og, _ = medir(og, preds[0][0], preds[0][1], os_, of)
                 e_bs, _ = medir(bs, preds[BASE][0], preds[BASE][1], os_, of)
+                if REGISTRO is not None:  # para medir afuera (no cambia nada del repaso): ver medir_contexto.py
+                    REGISTRO.append((ps, os_, pf, of, t, e_ap, e_bs))
                 if h_ap is not None and (pf - 0.5 >= SEGURA or 0.5 - pf >= SEGURA):
                     seg[0] += h_ap
                     seg[1] += 1
@@ -508,9 +514,9 @@ def aprender(bars, combo, h, warmup, X=None):
                         sep[2] += 1
                         sep[3] += of
                 serie.append((e_ap, e_og, e_bs))
-                top = 0
+                top, w = 0, pesos_de(t)
                 for e in range(E):
-                    if pesos[e] > pesos[top]:
+                    if w[e] > w[top]:
                         top = e
                 if lider is not None and top != lider:
                     cambios += 1
@@ -524,6 +530,8 @@ def aprender(bars, combo, h, warmup, X=None):
         resolver(t)
     for j in range(end + 2 - h, end + 1):
         sumar(j)
+    if reg is not None:                   # la prediccion de ahora usa los pesos del regimen de ahora
+        pesos = pesos_de(len(combo) - 1)
 
     # curva: ventaja sobre la tasa base (cuanto menos error, en %) en ventanas moviles de VENTANA predicciones
     curva = []
@@ -566,6 +574,36 @@ def aprender(bars, combo, h, warmup, X=None):
             "pesos": pesos[:], "ranking": ranking, "medidas": len(serie), "curva": curva,
             "calibracion": [[round(x[1] / x[0] * 100, 1), round(x[2] / x[0] * 100, 1), x[0]] for x in cal if x[0]],
             "_estado": {"tabs": tabs, "tot": tot, "m_sube": m_sube, "m_prim": m_prim}}
+
+
+# ---------- regimen de mercado ----------
+REGIMENES = ("tendencia alcista", "tendencia bajista", "rango", "pánico")
+REG_PANICO = 1.8          # volatilidad rapida contra la lenta para "panico"
+REG_PENDIENTE = 1.5       # cuanto se movio la media de 200 en 50 velas, en rangos tipicos de una vela
+
+
+def regimenes(bars, e200):
+    """El regimen de cada vela, solo con lo que se sabia al cerrarla (None mientras arrancan los promedios):
+    3 panico: el rango de las velas (promedio rapido, 20) mas de REG_PANICO veces el normal (lento, 200) y el precio
+    debajo de hace 20 velas; 0 / 1 tendencia alcista / bajista: la media de 200 se movio en 50 velas mas de
+    REG_PENDIENTE rangos tipicos y el precio esta de ese lado de la media; 2 rango: lo demas."""
+    n = len(bars)
+    af, asl = 2 / 21, 2 / 201
+    ef = es = None
+    out = [None] * n
+    for i in range(n):
+        r = (bars[i][2] - bars[i][3]) / bars[i][4]
+        ef = r if ef is None else ef + af * (r - ef)
+        es = r if es is None else es + asl * (r - es)
+        if i < 200 or es <= 0 or e200[i] is None or e200[i - 50] is None:
+            continue
+        c = bars[i][4]
+        if ef > REG_PANICO * es and c < bars[i - 20][4]:
+            out[i] = 3
+            continue
+        pend = (e200[i] / e200[i - 50] - 1) / es
+        out[i] = 0 if pend > REG_PENDIENTE and c > e200[i] else 1 if pend < -REG_PENDIENTE and c < e200[i] else 2
+    return out
 
 
 _CACHE = {}

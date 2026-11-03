@@ -194,33 +194,89 @@ ESPANOL = set("el la los las de del y en por para con que se un una sus es son t
 _TRAD = {}
 
 
+def _palabras(titulo):
+    return re.findall(r"[a-záéíóúñ']+", titulo.lower())
+
+
 def en_ingles(titulo):
-    w = re.findall(r"[a-z']+", titulo.lower())
+    w = _palabras(titulo)
     en, es = sum(x in INGLES for x in w), sum(x in ESPANOL for x in w)
     return en >= 1 and en > es
 
 
-def traducir(rows):
-    """Pasa al español los titulares en ingles (guarda el original). Si el traductor falla, quedan en ingles."""
-    pend = list(dict.fromkeys(r["titulo"] for r in rows if en_ingles(r["titulo"]) and r["titulo"] not in _TRAD))
-    for i in range(0, len(pend), 25):
-        lote = pend[i:i + 25]
-        try:
-            data = urllib.parse.urlencode({"q": "\n".join(lote)}).encode()
-            req = urllib.request.Request("https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=es&dt=t",
-                                         data=data, headers={"User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded"})
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                partes = json.loads(resp.read().decode("utf-8"))[0]
-            lineas = "".join(p[0] for p in partes if p and p[0]).split("\n")
-            if len(lineas) == len(lote):
-                _TRAD.update({o: tr.strip() for o, tr in zip(lote, lineas) if tr.strip()})
-        except Exception as e:
-            print(f"(traductor no disponible: {type(e).__name__})")
+def en_espanol(titulo):
+    w = _palabras(titulo)
+    en, es = sum(x in INGLES for x in w), sum(x in ESPANOL for x in w)
+    return (es >= 1 and es >= en) or bool(re.search(r"[áéíóúñ¿¡]", titulo.lower()))
+
+
+# Google bloquea seguido el traductor gratis "gtx" desde servidores compartidos (error 429): primero el cliente
+# "dict-chrome-ex" (un titular por consulta, en lotes), en dos servidores de Google, y despues MyMemory de a uno.
+TRADUCTORES = ("https://translate.googleapis.com/translate_a/t?client=dict-chrome-ex&sl=en&tl=es",
+               "https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=en&tl=es")
+
+
+def _traducir_google(base, lista):
+    i = 0
+    while i < len(lista):
+        lote, largo = [], 0
+        while i < len(lista) and len(lote) < 20 and largo + len(urllib.parse.quote(lista[i])) < 6000:
+            largo += len(urllib.parse.quote(lista[i])) + 3
+            lote.append(lista[i])
+            i += 1
+        u = base + "&" + "&".join("q=" + urllib.parse.quote(q) for q in lote)
+        with urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": UA}), timeout=10) as resp:
+            j = json.loads(resp.read().decode("utf-8"))
+        if not isinstance(j, list) or len(j) != len(lote):
+            continue
+        for o, tr in zip(lote, j):
+            tr = tr[0] if isinstance(tr, list) else tr
+            if isinstance(tr, str) and tr.strip():
+                _TRAD[o] = html.unescape(tr.strip())
+
+
+def _traducir_mymemory(lista):
+    for o in lista[:15]:
+        u = "https://api.mymemory.translated.net/get?langpair=en|es&q=" + urllib.parse.quote(o[:450])
+        with urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": UA}), timeout=8) as resp:
+            j = json.loads(resp.read().decode("utf-8"))
+        tr = (j.get("responseData") or {}).get("translatedText")
+        if j.get("quotaFinished") or not tr or "MYMEMORY WARNING" in tr.upper():
             break
+        _TRAD[o] = html.unescape(tr.strip())
+
+
+def traducir(rows, feed_ingles=False):
+    """Pasa al español los titulares en ingles (guarda el original). feed_ingles: el feed es en ingles, asi que se
+    traduce todo lo que no este claramente en español. Lo que no se pudo traducir no se muestra (las noticias van
+    siempre en español), salvo el hackeo de un exchange: se avisa igual, con el nombre del exchange. Igual en JS."""
+    hay = (lambda t: not en_espanol(t)) if feed_ingles else en_ingles
+    pend = list(dict.fromkeys(r["titulo"] for r in rows if hay(r["titulo"]) and r["titulo"] not in _TRAD))
+    for base in TRADUCTORES:
+        faltan = [t for t in pend if t not in _TRAD]
+        if not faltan:
+            break
+        try:
+            _traducir_google(base, faltan)
+        except Exception as e:
+            print(f"(traductor {base[8:30]} no disponible: {type(e).__name__})")
+    try:
+        _traducir_mymemory([t for t in pend if t not in _TRAD])
+    except Exception as e:
+        print(f"(traductor MyMemory no disponible: {type(e).__name__})")
+    out = []
     for r in rows:
         if r["titulo"] in _TRAD:
             r["original"], r["titulo"] = r["titulo"], _TRAD[r["titulo"]]
-    return rows
+            out.append(r)
+        elif not hay(r["titulo"]):
+            out.append(r)
+        elif r.get("tema") == "Hackeo de exchange":
+            m = re.search(EXCHANGE, r["titulo"].lower())
+            ex = m.group(0).capitalize() if m else "un exchange"
+            r["original"], r["titulo"] = r["titulo"], f"Posible hackeo en {ex} (titular de {r.get('fuente') or 'un medio'} en inglés, sin traducir)"
+            out.append(r)
+    return out
 
 
 MESES = {m: i + 1 for i, m in enumerate("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split())}
@@ -364,12 +420,13 @@ def externo(now_ms=None, moneda="BTC"):
 
     # todas las fuentes a la vez: si alguna tarda, no frena al resto
     with ThreadPoolExecutor(max_workers=6) as pool:
-        feeds = [pool.submit(intento, f"noticias {url[:40]}", lambda f=feed, u=url: parse_rss(_get(u), f, now_ms)) for feed, url in FEEDS]
+        feeds = [(pool.submit(intento, f"noticias {url[:40]}", lambda f=feed, u=url: parse_rss(_get(u), f, now_ms)),
+                  bool(re.search(r"hl=en|coindesk", url))) for feed, url in FEEDS]
         etf = pool.submit(intento, "flujos de ETF", lambda: parse_farside(_get(FARSIDE)))
         pr = pool.submit(intento, "prima de Coinbase", _prima) if moneda == "BTC" else None
         cal = pool.submit(intento, "calendario economico", lambda: _calendario(now_ms))
         fng = pool.submit(intento, "miedo y codicia", lambda: miedo_codicia(json.loads(_get("https://api.alternative.me/fng/?limit=2"))))
-        rows = juntar([traducir(x.result() or []) for x in feeds]) + (etf.result() or []) + (cal.result() or [])
+        rows = juntar([traducir(x.result() or [], ing) for x, ing in feeds]) + (etf.result() or []) + (cal.result() or [])
         if pr and pr.result():
             rows.append(pr.result())
         if fng.result():

@@ -226,11 +226,78 @@
   function outcomes(closes, idxs, h, F = null) {
     const rets = idxs.filter((i) => i + h < closes.length).map((i) => (closes[i + h] / closes[i] - 1) * (F ? F[i] : 1)).sort((a, b) => a - b);
     if (!rets.length) return null;
-    return { n: rets.length, up: (rets.filter((r) => r > 0).length / rets.length) * 100, p10: quantile(rets, 0.1) * 100, p90: quantile(rets, 0.9) * 100 };
+    return { n: rets.length, up: (rets.filter((r) => r > 0).length / rets.length) * 100, p10: quantile(rets, 0.1) * 100,
+      p50: quantile(rets, 0.5) * 100, p90: quantile(rets, 0.9) * 100 };
+  }
+
+  // ---------- rango del 80% honesto (calibracion "conformal" con su propio pasado; ver analisis_btc.py) ----------
+  const CAL_PUNTOS = 200, CAL_MIN = 60, CAL_K = [0.6, 2.0];
+  const desdeIdx = (xs, v) => { let a = 0, b = xs.length; while (a < b) { const m = (a + b) >> 1; if (xs[m] < v) a = m + 1; else b = m; } return a; };
+  const hastaIdx = (xs, v) => { let a = 0, b = xs.length; while (a < b) { const m = (a + b) >> 1; if (xs[m] <= v) a = m + 1; else b = m; } return a; };
+  /** [[vela, puntaje]] de las ultimas `puntos` predicciones del pasado: donde termino el precio, en anchos de rango. */
+  function rangoPuntajes(closes, st, F, h, warmup, jMax, puntos = CAL_PUNTOS, ventana = null) {
+    const grupos = new Map();
+    for (let i = warmup; i <= jMax; i++) {
+      const e = st[i];
+      if (!e) continue;
+      for (const keep of [4, 3, 2, 1]) {
+        const key = `${keep}|${e.slice(0, keep).join(',')}`;
+        if (!grupos.has(key)) grupos.set(key, []);
+        grupos.get(key).push(i);
+      }
+    }
+    const out = [];
+    for (let j = jMax; j >= warmup && out.length < puntos; j -= h) {
+      const e = st[j];
+      if (!e) continue;
+      const desde = ventana ? Math.max(warmup, j - ventana) : warmup;
+      let lst = [], a = 0, b = 0;
+      for (const keep of [4, 3, 2, 1]) {           // como similar(): la situacion mas completa con casos suficientes
+        lst = grupos.get(`${keep}|${e.slice(0, keep).join(',')}`) || [];
+        a = desdeIdx(lst, desde); b = hastaIdx(lst, j - h);
+        if (b - a >= MIN_SAMPLES) break;
+      }
+      if (b - a < 10) continue;
+      const fj = F ? F[j] : 1;
+      const rets = lst.slice(a, b).map((i) => (closes[i + h] / closes[i] - 1) * (F ? F[i] / fj : 1)).sort((x, y) => x - y);
+      const q10 = quantile(rets, 0.1), q50 = quantile(rets, 0.5), q90 = quantile(rets, 0.9);
+      const r = closes[j + h] / closes[j] - 1, ancho = r >= q50 ? q90 - q50 : q50 - q10;
+      if (ancho > 0) out.push([j, Math.abs(r - q50) / ancho]);
+    }
+    return out;
+  }
+  /** El factor que deja adentro al 80% (entre CAL_K) y cuantas veces el rango sin ajustar acerto (en %). */
+  function rangoFactor(puntajes) {
+    if (!puntajes.length) return { k: 1, cobertura: null, casos: 0 };
+    const xs = puntajes.map((p) => p[1]).sort((a, b) => a - b);
+    const cob = (xs.filter((x) => x <= 1).length / xs.length) * 100;
+    if (xs.length < CAL_MIN) return { k: 1, cobertura: cob, casos: xs.length };
+    return { k: Math.min(CAL_K[1], Math.max(CAL_K[0], quantile(xs, 0.8))), cobertura: cob, casos: xs.length };
+  }
+  /** rangoFactor de una temporalidad, una receta y un horizonte (una sola vez por analisis). Con velas de 4 h o
+   *  diarias no mejoro en la medicion (medir_contexto.py): ahi solo se mide (k = 1). */
+  // solo depende de las velas cerradas: se recalcula cuando cierra una nueva (como el aprendizaje)
+  const CAL_CACHE = new Map();
+  function calibracion(s, receta, h) {
+    const key = `${receta}|${h}`;
+    if (!s.cal.has(key)) {
+      const last = s.closes.length - (s.partial ? 2 : 1), c = s.closed[s.closed.length - 1];
+      const clave = `${s.tfMs}|${key}`, sello = `${s.closed.length}|${c[0]}|${c[4]}|${s.warmup}`;   // con el precio: BTC y ZEC tienen las mismas horas
+      const hit = CAL_CACHE.get(clave);
+      let cal;
+      if (hit && hit[0] === sello) cal = hit[1];
+      else {
+        cal = rangoFactor(rangoPuntajes(s.closes, Apr.estados(s.feats, receta), volFactor(s, h), h, s.warmup, last - h));
+        if (s.tfMin > 60) cal.k = 1;
+        CAL_CACHE.set(clave, [sello, cal]);
+      }
+      s.cal.set(key, cal);
+    }
+    return s.cal.get(key);
   }
 
   /** Camino tipico/alcista/bajista: el camino real mas parecido a la mediana y a los percentiles 75/25. */
-  function scenarios(bars, idxs, price, tfMs, F = null) {
+  function scenarios(bars, idxs, price, tfMs, F = null, ancho = 1) {
     const closes = bars.map((b) => b[4]);
     const usable = idxs.filter((j) => j + SCENARIO_STEPS < bars.length);
     if (usable.length < 10) return [[], []];
@@ -262,8 +329,9 @@
     });
     const p10 = q(0.1), p50 = q(0.5), p90 = q(0.9);
     for (let k = 0; k < SCENARIO_STEPS; k++) {
+      // el cono, ensanchado o angostado alrededor de la mediana con el ajuste del rango (calibracion)
       cone.push({ tabla: 'cono', tf: null, paso: k + 1, t: t0 + (k + 1) * tfMs,
-        p10: rp(price * (1 + p10[k])), p50: rp(price * (1 + p50[k])), p90: rp(price * (1 + p90[k])) });
+        p10: rp(price * (1 + p50[k] - ancho * (p50[k] - p10[k]))), p50: rp(price * (1 + p50[k])), p90: rp(price * (1 + p50[k] + ancho * (p90[k] - p50[k]))) });
     }
     return [candles, cone];
   }
@@ -383,11 +451,14 @@
     const whenMs = s.bars[s.bars.length - 1][0] + (h + 1) * s.tfMs;
     const when = fmtLocal(whenMs);
     const [tg, close] = targets(s.bars, sample, price, h, when, f, L.distancia === undefined ? null : L.distancia, fit.p_primero === undefined ? null : fit.p_primero, F);
+    const cal = calibracion(s, fit.receta, h), k = cal.k;
+    const lo = o.p50 - k * (o.p50 - o.p10), hi = o.p50 + k * (o.p90 - o.p50);
     return [{
       tf, horizonte: label(h * s.tfMin), velas: h, sube: rnd(up, 1), baja: rnd(100 - up, 1), base: rnd(b.up, 1),
       sube_crudo: rnd(o.up, 1), receta: fit.receta, factor: f,
       veredicto: verdict, sin_ventaja: sinVentaja, n: o.n, dias: s.days, hora: when, t_hasta: whenMs, margen: rnd(margin, 1), pocos_casos: o.n < 100,
-      min: rp(price * (1 + o.p10 / 100)), max: rp(price * (1 + o.p90 / 100)), ...(close || NO_CLOSE),
+      min: rp(price * (1 + lo / 100)), max: rp(price * (1 + hi / 100)),
+      rango_k: rnd(k, 2), rango_cobertura: cal.cobertura === null ? null : rnd(cal.cobertura, 1), rango_casos: cal.casos, ...(close || NO_CLOSE),
     }, tg];
   }
 
@@ -403,6 +474,74 @@
     return { tabla: 'contexto', clave: 'liq_reales', titulo: 'Liquidaciones reales 1 h (OKX)', valor: `longs ${m(l60)} M · shorts ${m(s60)} M USD`, senal: 'neutral', detalle: det_,
       longs_1h: rnd(l60), shorts_1h: rnd(s60), longs_15m: rnd(l15), shorts_15m: rnd(s15), barrida };
   }
+  // perpetuo contra spot (como base_perp de analisis_btc.py): contexto, sin peso en las probabilidades
+  const BASE_ALTA = 0.05, BASE_BAJA = -0.07;
+  function basePerp(mark, index, fuente) {
+    const b = (mark / index - 1) * 100;
+    const [sig, det] = b >= BASE_ALTA ? ['bajista', 'Perpetuo caro contra el spot: compras apalancadas, calentamiento']
+      : b <= BASE_BAJA ? ['alcista', 'Perpetuo con descuento: ventas apalancadas o coberturas, miedo'] : ['neutral', 'Perpetuo y spot parejos'];
+    return { tabla: 'contexto', clave: 'base_perp', titulo: `Perpetuo vs spot (${fuente})`, valor: arp(b, 3), senal: sig,
+      detalle: `${det}. Es contexto: no entra en las probabilidades.`, base: rnd(b, 4) };
+  }
+
+  // ---------- opciones de BTC (Deribit; como opciones() de analisis_btc.py): contexto ----------
+  const MESES_EN = Object.fromEntries('JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC'.split(' ').map((m, i) => [m, i]));
+  function vence(nombre) {          // BTC-13NOV26-83000-P -> [ms del vencimiento (08:00 UTC), strike, 'C' o 'P']
+    const p = String(nombre).split('-');
+    if (p.length !== 4) return null;
+    const d = p[1], dia = parseInt(d.slice(0, -5), 10), mes = MESES_EN[d.slice(-5, -2)], anio = 2000 + parseInt(d.slice(-2), 10), k = parseFloat(p[2]);
+    if (Number.isNaN(dia) || mes === undefined || Number.isNaN(anio) || Number.isNaN(k)) return null;
+    return [Date.UTC(anio, mes, dia, 8), k, p[3]];
+  }
+  function opciones(libro, dvol, precio, ahoraMs) {
+    const rows = [];
+    const add = (key, title, value, detail, num = {}) => rows.push({ tabla: 'contexto', clave: key, titulo: title, valor: value, senal: 'neutral', detalle: detail, ...num });
+    const dv = dvol.slice().sort((a, b) => a[0] - b[0]).map((x) => x[1]);
+    if (dv.length >= 25) {
+      const ahora = dv[dv.length - 1], antes = dv[dv.length - 25], pc = (dv.filter((v) => v < ahora).length / dv.length) * 100;
+      add('opciones_iv', 'Volatilidad implícita (DVOL)', `${ar(ahora, 1)} (24 h ${arp(ahora - antes, 1).replace('%', '')})`,
+        `Lo que las opciones esperan que se mueva BTC: ≈ ±${ar(ahora / Math.sqrt(365), 1)}% por día. Más alta que el ${ar(pc)}% de los últimos 30 días. Alta: miedo o coberturas; baja: calma.`,
+        { dvol: rnd(ahora, 2), dvol_24h: rnd(ahora - antes, 2), dvol_pct: rnd(pc, 1) });
+    }
+    const ops = [];
+    libro.forEach((o) => {
+      const v = vence(o.instrument_name || '');
+      if (v && v[0] > ahoraMs && (o.open_interest || 0) > 0) ops.push([v[0], v[1], v[2], +o.open_interest, o.mark_iv]);
+    });
+    if (!ops.length || precio <= 0) return rows;
+    const suma = (xs, tipo) => xs.reduce((a, x) => a + (x[2] === tipo ? x[3] : 0), 0);
+    const oiC = suma(ops, 'C'), oiP = suma(ops, 'P');
+    const viernes = [...new Set(ops.filter((x) => new Date(x[0]).getUTCDay() === 5).map((x) => x[0]))].sort((a, b) => a - b);
+    if (viernes.length) {
+      const vto = viernes[0], vs = ops.filter((x) => x[0] === vto), vc = suma(vs, 'C'), vp = suma(vs, 'P');
+      const strikes = [...new Set(vs.map((x) => x[1]))].sort((a, b) => a - b);
+      const dolorDe = (K) => vs.reduce((a, x) => a + x[3] * (x[2] === 'C' ? Math.max(0, K - x[1]) : Math.max(0, x[1] - K)), 0);
+      let dolor = strikes[0], mejor = dolorDe(dolor);
+      strikes.forEach((K) => { const v = dolorDe(K); if (v < mejor) { mejor = v; dolor = K; } });
+      const cuando = fmtLocal(vto);
+      if (oiC > 0) add('opciones_pc', 'Opciones: puts / calls', `${ar(oiP / oiC, 2)} (vence ${cuando.slice(0, 5)}: ${vc ? ar(vp / vc, 2) : '—'})`,
+        'Contratos abiertos de puts por cada call. Más de 1: coberturas o apuestas a la baja; menos: apuestas a la suba.',
+        { ratio: rnd(oiP / oiC, 3), ratio_vto: vc ? rnd(vp / vc, 3) : null });
+      add('opciones_dolor', `Dolor máximo (vence ${cuando} h)`, `${ap(dolor)} (${arp(pct(dolor, precio), 1)})`,
+        'El precio donde más opciones de ese viernes vencen sin valor. Cerca del vencimiento a veces atrae al precio.',
+        { precio: dolor, vence: vto, distancia: rnd(pct(dolor, precio), 2) });
+    }
+    // sesgo: puts 5-15% abajo contra calls 5-15% arriba, en el primer vencimiento a 7 dias o mas
+    const lejos = [...new Set(ops.filter((x) => x[0] - ahoraMs >= 7 * DAY_MS).map((x) => x[0]))].sort((a, b) => a - b);
+    if (lejos.length) {
+      const vs = ops.filter((x) => x[0] === lejos[0] && x[4]);
+      const ivp = vs.filter((x) => x[2] === 'P' && x[1] >= 0.85 * precio && x[1] <= 0.95 * precio).map((x) => x[4]);
+      const ivc = vs.filter((x) => x[2] === 'C' && x[1] >= 1.05 * precio && x[1] <= 1.15 * precio).map((x) => x[4]);
+      if (ivp.length && ivc.length) {
+        const sk = ivp.reduce((a, x) => a + x, 0) / ivp.length - ivc.reduce((a, x) => a + x, 0) / ivc.length;
+        add('opciones_sesgo', 'Opciones: puts vs calls (IV)', `${sk > 0 ? '+' : ''}${ar(sk, 1)} puntos`,
+          'Volatilidad implícita de los puts 5-15% abajo menos la de los calls 5-15% arriba (vencimiento a 7 días o más). Positivo: pagan más por protegerse de una baja.',
+          { sesgo: rnd(sk, 2) });
+      }
+    }
+    return rows;
+  }
+
   // ---------- contexto actual (como analisis_btc.py; en el navegador las fuentes son Bybit, Bitget y Binance) ----------
   function context(raw, h1) {
     const rows = [];
@@ -441,6 +580,7 @@
       const top = raw.top == null || Number.isNaN(raw.top) ? '' : `, top traders ${ar(raw.top, 2)}`;
       add('long_short', 'Cuentas long / short', `${ar(nowLs, 2)} (24 h antes ${ar(prevLs, 2)}${top})`, sig, crowd);
     }
+    if (raw.base) rows.push(basePerp(raw.base.mark, raw.base.index, 'Bybit'));
     if (raw.liq) rows.push(liqReales(raw.liq, raw.liqT));
     if (raw.funding == null || Number.isNaN(raw.funding)) return [rows, null];
     const fr = raw.funding, f7 = raw.funding7 == null || Number.isNaN(raw.funding7) ? null : raw.funding7;
@@ -555,6 +695,15 @@
   const SHORT_CTX = { 'flujo_1 h': 'Compras a mercado 1 h', 'flujo_4 h': 'Compras a mercado 4 h', oi_1h: 'Open interest 1 h',
     oi_4h: 'Open interest 4 h', oi_24h: 'Open interest 24 h', long_short: 'Long/short', libros: 'Libros de órdenes', funding: 'Funding' };
 
+  // cuando 15 min, 1 hora y 4 horas van para el mismo lado (como coinciden de analisis_btc.py; medido 2023-2026)
+  const COINCIDEN = { si: 54.0, no: 51.5 };
+  function coinciden(rows) {
+    const p = {}; rows.forEach((r) => { if (r.tabla === 'plazo') p[r.plazo] = r.sube; });
+    const xs = ['15 min', '1 hora', '4 horas'].map((k) => p[k]);
+    if (xs.some((x) => x === null || x === undefined)) return null;
+    return xs.every((x) => x > 50) ? 'alcista' : xs.every((x) => x < 50) ? 'bajista' : null;
+  }
+
   /** La conclusion de un plazo en pocas palabras: prediccion, hasta 4 razones de cada lado, niveles e invalidacion. */
   function explain(rows, price, spec) {
     const [name, , , sigTfs, ctxKeys, candle] = spec;
@@ -607,6 +756,7 @@
         signals.push([3, n.tipo === 'soporte' ? 'alcista' : 'bajista', `En el Fibonacci ${ar(n.fib * 100, 1)}% de 90 días (${ap(n.precio)}): ahí rebotó ${n.rebote}% de las veces`]);
       }
     }
+    if (main.coinciden) signals.push([2, main.coinciden, `15 min, 1 hora y 4 horas van para el mismo lado: así acertó ${ar(COINCIDEN.si, 1)}% (2023-26; ${ar(COINCIDEN.no, 1)}% cuando no)`]);
     const sma = get('nivel').find((n) => n.nombre === 'Media 200 días');
     if (sma && name === '1 día') {
       signals.push([6, price > sma.precio ? 'alcista' : 'bajista', price > sma.precio ? 'Arriba de la media de 200 días' : 'Debajo de la media de 200 días']);
@@ -728,11 +878,12 @@
       const base = [];
       for (let j = warmup; j < bars.length - 1 - Math.max(...horizons); j++) base.push(j);
       series[tf] = { bars, closes, base, tfMs, tfMin, days, closed: candles[tf], feats, combo: Apr.combos(feats), X, warmup,
-        last: bars.length - 1 - Math.max(...horizons, SCENARIO_STEPS), similar: new Map(), fit: new Map(), vol: new Map(), partial };
+        last: bars.length - 1 - Math.max(...horizons, SCENARIO_STEPS), similar: new Map(), fit: new Map(), vol: new Map(), cal: new Map(), partial };
       const mainFit = tune(tf, series[tf], horizons[0]);
       const idxs = mainFit.idxs, keep = mainFit.keep;
       const i = bars.length - 1;
       const trend = trendWord(closes[i], e20[i], e50[i], e200[i]);
+      const reg = Apr.regimenes(bars, e200);
       byTf[tf] = { summary, trend };
       const pivots = Ind.zigzag(bars);
       const [waveLabels, waveDesc, waveTarget, waveNow, waveShort] = Ind.elliott(pivots, bars);
@@ -741,7 +892,7 @@
       rows.push({ tabla: 'marco', tf, tendencia: trend, ...summary, ema50: rp(e50[i]), ema200: rp(e200[i]), similares: idxs.length,
         criterio: keep ? Apr.recetaTxt(mainFit.receta, keep) : '',
         elliott: waveDesc, elliott_objetivo: rp(waveTarget), elliott_curso: waveNow, elliott_corto: waveShort,
-        macd_cruce: cross });
+        macd_cruce: cross, regimen: reg[i] === null ? null : Apr.REGIMENES[reg[i]] });   // dato a la vista (no entra en el modelo: no mejoro)
       indRows.forEach((r) => rows.push({ tabla: 'indicador', tf, ...r }));
       const tail = pivots.slice(-10);
       const offset = tail.length - waveLabels.length;
@@ -758,7 +909,7 @@
         entries.push([bars[i][0] + tfMs, tf, h, closes[i], prob.sube, prob.min, prob.max]);
       });
 
-      const [sc, cone] = scenarios(bars, idxs, price, tfMs, volFactor(series[tf], SCENARIO_STEPS));
+      const [sc, cone] = scenarios(bars, idxs, price, tfMs, volFactor(series[tf], SCENARIO_STEPS), calibracion(series[tf], mainFit.receta, SCENARIO_STEPS).k);
       sc.concat(cone).forEach((r) => { r.tf = tf; rows.push(r); });
       for (let k = Math.max(0, i - CHART_BARS + 1); k <= i; k++) {
         const [t, o, h, l, c, v] = bars[k];
@@ -805,6 +956,8 @@
     } else {
       rows.push({ tabla: 'contexto', clave: 'error', titulo: 'Contexto no disponible', valor: '', senal: 'neutral', detalle: 'No se pudo leer: Bybit, Bitget y Binance no respondieron' });
     }
+    // opciones de BTC (Deribit): volatilidad implicita, puts/calls, dolor maximo del viernes. Contexto, solo BTC
+    if (input.opcionesRaw && (input.moneda || 'BTC') === 'BTC') opciones(input.opcionesRaw.libro, input.opcionesRaw.dvol, price, now).forEach((r) => rows.push(r));
     // noticias, ETF y prima de Coinbase (las trae api/contexto.js): para explicar los movimientos fuertes
     if (input.externo && Array.isArray(input.externo.rows)) {
       input.externo.rows.filter((r) => r.clave !== 'prima_coinbase' || (input.moneda || 'BTC') === 'BTC').forEach((r) => rows.push(r));
@@ -865,6 +1018,8 @@
       const tm = termometroAlt(input.moneda, candles['1d'], price, root.TERMOMETRO, now);
       if (tm) rows.push(tm);
     }
+    const lado = coinciden(rows);
+    rows.forEach((r) => { if (r.tabla === 'plazo' && r.plazo === '1 hora') r.coinciden = lado; });
     const explanation = [];
     PLAZOS.forEach((spec) => explain(rows, price, spec).forEach((e) => explanation.push(e)));
     explanation.forEach((e) => rows.push(e));
@@ -876,7 +1031,7 @@
     return { rows, log };
   }
 
-  const Analisis = { analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, logAndScore, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, liqReales };
+  const Analisis = { analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, liqReales };
   root.Analisis = Analisis;
   if (typeof module !== 'undefined' && module.exports) module.exports = Analisis;
 })(typeof self !== 'undefined' ? self : globalThis);

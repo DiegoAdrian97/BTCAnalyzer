@@ -35,7 +35,7 @@ def entrada_apr(bars, tf_min=60):
 def plazo_1h(sin_ventaja, pu):
     return [{"tabla": "plazo", "plazo": "1 hora", "hora": "03/11 19:00", "veredicto": "Casi moneda", "sin_ventaja": sin_ventaja,
              "sube": 44.8, "base": 48.9, "obj_arriba": 77960.0, "obj_abajo": 77760.0, "primero_arriba": pu, "margen_primero": 3.0,
-             "distancia": 100.0, "min": 77310.5, "max": 78420.2},
+             "distancia": 100.0, "min": 77310.5, "max": 78420.2, "coinciden": "alcista" if pu == 70.0 else None},
             {"tabla": "marco", "tf": "15m", "rating": 0.3, "rating_txt": "Compra", "rsi": 55, "macd_cruce": None, "elliott_objetivo": None, "elliott_corto": ""},
             {"tabla": "marco", "tf": "1h", "rating": -0.4, "rating_txt": "Venta", "rsi": 72, "macd_cruce": "bajista", "elliott_objetivo": None, "elliott_corto": ""},
             {"tabla": "nivel", "nombre": "Máximo 24 h", "precio": 78500.0, "tipo": "resistencia", "distancia": 0.8},
@@ -60,6 +60,24 @@ def registro_py():
     return {f"{tf}|{h}": list(v) for (tf, h), v in sorted(sc.items())}
 
 
+# opciones inventadas: vencimientos de viernes y de otros dias, puts y calls alrededor de 60.000
+OPC_AHORA = 1_793_700_000_000          # martes 03/11/2026
+OPC_LIBRO = [{"instrument_name": f"BTC-{d}-{k}-{t}", "open_interest": round(1 + (k / 1000) % 7 + (t == "P") * 2.5, 1),
+              "mark_iv": 45 + (60000 - k) / 2000 + (t == "P") * 3}
+             for d in ("4NOV26", "6NOV26", "13NOV26", "27NOV26") for k in range(50000, 70001, 2500) for t in "CP"]
+OPC_DVOL = [[OPC_AHORA - (720 - k) * 3_600_000, 40 + 5 * math.sin(k / 30)] for k in range(721)]
+
+
+def rango_py():
+    """Calibracion del rango del 80% (rango_puntajes / rango_factor) con la volatilidad prevista (vol_escala)."""
+    c = [b[4] for b in H1]
+    e50, e200, rsi, (ml, ms, mh) = ind.ema(c, 50), ind.ema(c, 200), ind.rsi(c), ind.macd(c)
+    st = apr.estados(apr.rasgos(H1, 60, e50, e200, rsi, mh), 2)
+    F = A.vol_escala(H1, 60, 4, False)
+    pts = A.rango_puntajes(c, st, F, 4, 200, len(c) - 1 - 4)
+    return {"F": F[-50:], "puntajes": pts, "factor": A.rango_factor(pts), "sin_vol": A.rango_factor(A.rango_puntajes(c, st, None, 6, 200, len(c) - 7, ventana=900))}
+
+
 def py():
     piv = ind.zigzag(H4)
     raw = {"oi": [[b[0] + 3_600_000, 1000 + i] for i, b in enumerate(H1[-40:])], "ls": [1.2 + i / 100 for i in range(25)],
@@ -75,6 +93,9 @@ def py():
                      if k not in ("_estado", "pesos")},
         "explain": {k: A.explain(v, 77860.0, tuple(SPEC_1H)) for k, v in CASOS.items()},
         "registro": registro_py(),
+        "rango": rango_py(),
+        "opciones": A.opciones(OPC_LIBRO, OPC_DVOL, 61234.5, OPC_AHORA),
+        "base_perp": [A.base_perp(61300, 61234.5, "Bybit"), A.base_perp(61190, 61234.5, "Bybit"), A.base_perp(61240, 61234.5, "Bybit")],
         "_ctx_raw": raw,
     }
 
@@ -95,6 +116,12 @@ console.log(JSON.stringify({
   registro: (() => { const cl = {}; Object.entries(d.LOG_CIERRES).forEach(([tf, xs]) => { cl[tf] = new Map(xs); });
     const sc = A.logAndScore([[1000, '1h', 4, 100.0, 60.0]], d.LOG_ENTRADAS, cl);
     return Object.fromEntries([...sc.entries()].sort()); })(),
+  opciones: A.opciones(d.OPC_LIBRO, d.OPC_DVOL, 61234.5, d.OPC_AHORA),
+  base_perp: [A.basePerp(61300, 61234.5, 'Bybit'), A.basePerp(61190, 61234.5, 'Bybit'), A.basePerp(61240, 61234.5, 'Bybit')],
+  rango: (() => { const c = d.H1.map((b) => b[4]), e50 = Ind.ema(c, 50), e200 = Ind.ema(c, 200), rsi = Ind.rsi(c), mh = Ind.macd(c)[2];
+    const st = Apr.estados(Apr.rasgos(d.H1, 60, e50, e200, rsi, mh), 2), F = A.volEscala(d.H1, 60, 4, false);
+    const pts = A.rangoPuntajes(c, st, F, 4, 200, c.length - 1 - 4);
+    return { F: F.slice(-50), puntajes: pts, factor: A.rangoFactor(pts), sin_vol: A.rangoFactor(A.rangoPuntajes(c, st, null, 6, 200, c.length - 7, 200, 900)) }; })(),
   aprender: (() => { const c = d.H1.map((b) => b[4]), e50 = Ind.ema(c, 50), e200 = Ind.ema(c, 200), rsi = Ind.rsi(c), mh = Ind.macd(c)[2];
     const r = Apr.aprender(d.H1, Apr.combos(Apr.rasgos(d.H1, 60, e50, e200, rsi, mh)), 4, 200, Apr.continuos(d.H1, 60, e50, e200, rsi, mh));
     delete r._estado; delete r.pesos; return r; })(),
@@ -125,7 +152,8 @@ def main():
     p = py()
     raw = p.pop("_ctx_raw")
     entrada = {"H1": H1, "H4": H4, "D1": D1, "ALT": ALT, "AHORA": AHORA, "raw": raw, "LIQ": LIQ,
-               "CASOS": CASOS, "SPEC_1H": SPEC_1H, "LOG_ENTRADAS": LOG_ENTRADAS, "LOG_CIERRES": LOG_CIERRES}
+               "CASOS": CASOS, "SPEC_1H": SPEC_1H, "LOG_ENTRADAS": LOG_ENTRADAS, "LOG_CIERRES": LOG_CIERRES,
+               "OPC_LIBRO": OPC_LIBRO, "OPC_DVOL": OPC_DVOL, "OPC_AHORA": OPC_AHORA}
     out = subprocess.run(["node", "-e", JS, RAIZ], input=json.dumps(entrada), capture_output=True, text=True)
     if out.returncode:
         raise SystemExit("node fallo:\n" + out.stderr[-2000:])

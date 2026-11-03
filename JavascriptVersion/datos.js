@@ -151,6 +151,16 @@
   const bitgetTaker = async () => (await pedir('bitget', `https://api.bitget.com/api/v2/mix/market/taker-buy-sell?symbol=${SYM}&productType=usdt-futures&period=1h`))
     .data.map((x) => ({ t: +x.ts, buy: +x.buyVolume, sell: +x.sellVolume })).sort((a, b) => a.t - b.t).slice(-4).map(({ buy, sell }) => ({ buy, sell }));
   // con su propio nombre: si Binance limita este pedido, las velas siguen saliendo de Binance
+  // perpetuo contra spot: precio de marca e indice de Bybit (cada minuto, con el resto del contexto)
+  const bybitBase = async () => { const t = (await pedir('bybit', `https://api.bybit.com/v5/market/tickers?category=linear&symbol=${SYM}`)).result.list[0];
+    return { mark: +t.markPrice, index: +t.indexPrice }; };
+  // opciones de BTC (Deribit, publico y con permiso CORS): libro de opciones y DVOL de 30 dias, cada 10 min
+  async function opcionesRaw() {
+    const now = Date.now(), D = 'https://www.deribit.com/api/v2/public';
+    const [libro, dv] = await Promise.all([pedir('deribit', `${D}/get_book_summary_by_currency?currency=BTC&kind=option`),
+      pedir('deribit', `${D}/get_volatility_index_data?currency=BTC&start_timestamp=${now - 30 * DAY}&end_timestamp=${now}&resolution=3600`)]);
+    return { libro: libro.result, dvol: dv.result.data.map((x) => [+x[0] + 3600000, +x[4]]) };
+  }
   const binanceTop = async () => +(await pedir('binance-datos', `${BINANCE}/futures/data/topLongShortPositionRatio?symbol=${SYM}&period=1h&limit=1`))[0].longShortRatio;
 
   // liquidaciones reales de OKX de la ultima hora (como liq_okx de analisis_btc.py): [ms, lado, usd]
@@ -170,13 +180,13 @@
   async function contextRaw() {
     const now = Date.now();
     const liqP = SYM === 'BTCUSDT' ? intento(liqOkx(now)) : Promise.resolve(null);
-    const [oi, ls, taker, top, fr] = await Promise.all([
+    const [oi, ls, taker, top, fr, base] = await Promise.all([
       intento(bybitOi(30)), intento(bybitLs(25)), intento(bitgetTaker()), intento(binanceTop()),
-      intento(cached(`${pre()}funding`, 3 * 3600000, fundingRaw)),
+      intento(cached(`${pre()}funding`, 3 * 3600000, fundingRaw)), intento(bybitBase()),
     ]);
     if (!oi && !ls && !taker && !fr) throw new Error('sin datos del momento');
     return { oi, ls: ls && ls.map((x) => x[1]), taker, top, funding: fr ? fr.tasa : null, funding7: fr ? fr.f7 : null, fundingFuente: fr ? fr.fuente : null,
-      liq: await liqP, liqT: now };
+      liq: await liqP, liqT: now, base };
   }
 
   async function liqRaw() {
@@ -210,6 +220,7 @@
     // noticias, ETF y prima de Coinbase: las junta la funcion del servidor (las paginas no pueden leer esas fuentes)
     const extP = cached('externo', 600000, async () => { const r = await fetch('api/contexto', { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); return r.json(); }).catch(() => null);
     const liqP = cached(`${pre()}liquidaciones`, 300000, liqRaw).catch(() => null);
+    const opcP = sym === 'BTCUSDT' ? cached('opciones', 600000, opcionesRaw).catch(() => null) : Promise.resolve(null);
     const candles = {};
     let done = 0;
     await Promise.all(Object.entries(TIMEFRAMES).map(async ([tf, [days]]) => {
@@ -224,7 +235,8 @@
     } catch (e) { /* sin la vela en curso, el analisis igual sirve con las cerradas */ }
     const price = live5m ? live5m[4] : candles['5m'][candles['5m'].length - 1][4];
     const log = (await dbGet(`${pre()}predicciones`)) || [];
-    return { candles, live5m, price, now, ctxRaw: await ctxP, booksRaw: await booksP, liqRaw: await liqP, externo: await extP, log, fuente: src };
+    return { candles, live5m, price, now, ctxRaw: await ctxP, booksRaw: await booksP, liqRaw: await liqP, externo: await extP,
+      opcionesRaw: await opcP, log, fuente: src };
   }
 
   const Datos = { recolectar, guardarLog: (log, sym = 'BTCUSDT') => dbSet(`${sym === 'BTCUSDT' ? '' : `${sym}:`}predicciones`, log), isBanned };

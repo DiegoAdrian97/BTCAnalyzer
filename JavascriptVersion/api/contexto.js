@@ -159,26 +159,70 @@ function juntar(listas, maximo = 30) {
 const INGLES = new Set('the of to and in for on with as after is are says over from by at its will amid into than about could would has have this what why how approves approved hacked hack falls fell rises rose surges surged drops dropped plunges jumps hits record inflows outflows breaks slips soars tumbles rally rallies crash crashes sees amid week weeks year high low'.split(' '));
 const ESPANOL = new Set('el la los las de del y en por para con que se un una sus es son tras sobre como pero'.split(' '));
 const TRAD = new Map();
+const palabras = (titulo) => titulo.toLowerCase().match(/[a-z\u00e1\u00e9\u00ed\u00f3\u00fa\u00f1']+/g) || [];
 function enIngles(titulo) {
-  const w = titulo.toLowerCase().match(/[a-z']+/g) || [];
+  const w = palabras(titulo);
   const en = w.filter((x) => INGLES.has(x)).length, es = w.filter((x) => ESPANOL.has(x)).length;
   return en >= 1 && en > es;
 }
-async function traducir(rows) {
-  const pend = [...new Set(rows.filter((r) => enIngles(r.titulo) && !TRAD.has(r.titulo)).map((r) => r.titulo))];
-  for (let i = 0; i < pend.length; i += 25) {
-    const lote = pend.slice(i, i + 25);
-    try {
-      const r = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=es&dt=t', {
-        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA },
-        body: new URLSearchParams({ q: lote.join('\n') }), signal: AbortSignal.timeout(10000) });
-      const partes = (await r.json())[0];
-      const lineas = partes.filter((p) => p && p[0]).map((p) => p[0]).join('').split('\n');
-      if (lineas.length === lote.length) lote.forEach((o, k) => { if (lineas[k].trim()) TRAD.set(o, lineas[k].trim()); });
-    } catch (e) { break; }
+function enEspanol(titulo) {
+  const w = palabras(titulo);
+  const en = w.filter((x) => INGLES.has(x)).length, es = w.filter((x) => ESPANOL.has(x)).length;
+  return es >= 1 && es >= en || /[\u00e1\u00e9\u00ed\u00f3\u00fa\u00f1\u00bf\u00a1]/.test(titulo.toLowerCase());
+}
+// Google bloquea seguido el traductor gratis "gtx" desde los servidores compartidos (error 429): primero el cliente
+// "dict-chrome-ex" (un titular por consulta, en lotes), en dos servidores de Google, y despues MyMemory de a uno.
+const TRADUCTORES = ['https://translate.googleapis.com/translate_a/t?client=dict-chrome-ex&sl=en&tl=es',
+  'https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=en&tl=es'];
+// Vercel corta la funcion a los ~10 s: la traduccion tiene hasta HASTA_MS (lo que no llega, no se muestra)
+const HASTA_MS = 6000;
+async function traducirGoogle(base, lista, limite) {
+  for (let i = 0; i < lista.length && Date.now() < limite;) {
+    const lote = [];
+    let largo = 0;
+    while (i < lista.length && lote.length < 20 && largo + encodeURIComponent(lista[i]).length < 6000) { largo += encodeURIComponent(lista[i]).length + 3; lote.push(lista[i]); i += 1; }
+    const r = await fetch(`${base}&${lote.map((q) => `q=${encodeURIComponent(q)}`).join('&')}`, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(Math.max(500, limite - Date.now())) });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const j = await r.json();
+    if (!Array.isArray(j) || j.length !== lote.length) continue;
+    lote.forEach((o, k) => { const tr = Array.isArray(j[k]) ? j[k][0] : j[k]; if (typeof tr === 'string' && tr.trim()) TRAD.set(o, unesc(tr.trim())); });
   }
-  for (const r of rows) if (TRAD.has(r.titulo)) { r.original = r.titulo; r.titulo = TRAD.get(r.titulo); }
-  return rows;
+}
+async function traducirMyMemory(lista, limite) {
+  for (const o of lista.slice(0, 15)) {
+    if (Date.now() >= limite) break;
+    const r = await fetch(`https://api.mymemory.translated.net/get?langpair=en|es&q=${encodeURIComponent(o.slice(0, 450))}`, { signal: AbortSignal.timeout(Math.max(500, limite - Date.now())) });
+    const j = await r.json();
+    const tr = j && j.responseData && j.responseData.translatedText;
+    if (j.quotaFinished || !tr || /MYMEMORY WARNING/i.test(tr)) break;
+    TRAD.set(o, unesc(tr.trim()));
+  }
+}
+/** Pasa al español los titulares en ingles (guarda el original). feedIngles: el feed es en ingles, asi que se traduce
+ *  todo lo que no este claramente en español. Lo que no se pudo traducir no se muestra (las noticias van siempre en
+ *  español), salvo el hackeo de un exchange: se avisa igual, con el nombre del exchange. Igual en noticias.py. */
+async function traducir(rows, feedIngles = false) {
+  const hay = (t) => (feedIngles ? !enEspanol(t) : enIngles(t));
+  const pend = [...new Set(rows.filter((r) => hay(r.titulo) && !TRAD.has(r.titulo)).map((r) => r.titulo))];
+  const limite = Date.now() + HASTA_MS;
+  for (const base of TRADUCTORES) {
+    const faltan = pend.filter((t) => !TRAD.has(t));
+    if (!faltan.length || Date.now() >= limite) break;
+    try { await traducirGoogle(base, faltan, limite); } catch (e) { /* el siguiente */ }
+  }
+  try { await traducirMyMemory(pend.filter((t) => !TRAD.has(t)), limite); } catch (e) { /* sin traductor: se descartan */ }
+  const out = [];
+  for (const r of rows) {
+    if (TRAD.has(r.titulo)) { r.original = r.titulo; r.titulo = TRAD.get(r.titulo); out.push(r); continue; }
+    if (!hay(r.titulo)) { out.push(r); continue; }
+    if (r.tema === 'Hackeo de exchange') {
+      const ex = (r.titulo.toLowerCase().match(EXCHANGE) || [''])[0];
+      r.original = r.titulo;
+      r.titulo = `Posible hackeo en ${ex ? ex[0].toUpperCase() + ex.slice(1) : 'un exchange'} (titular de ${r.fuente || 'un medio'} en inglés, sin traducir)`;
+      out.push(r);
+    }
+  }
+  return out;
 }
 
 function parseFarside(page, dias = 10) {
@@ -281,7 +325,7 @@ function miedoCodicia(data) {
 }
 
 async function externo(nowMs = Date.now()) {
-  const listas = await Promise.all(FEEDS.map(([feed, url]) => get(url).then((x) => traducir(parseRss(x, feed, nowMs))).catch(() => [])));
+  const listas = await Promise.all(FEEDS.map(([feed, url]) => get(url).then((x) => traducir(parseRss(x, feed, nowMs), /hl=en|coindesk/.test(url))).catch(() => [])));
   const rows = juntar(listas);
   const [etf, pr, cal, fng] = await Promise.all([get(FARSIDE).then(parseFarside).catch(() => []), prima().catch(() => null),
     calendario(nowMs).catch(() => []), get('https://api.alternative.me/fng/?limit=2').then((x) => miedoCodicia(JSON.parse(x))).catch(() => null)]);

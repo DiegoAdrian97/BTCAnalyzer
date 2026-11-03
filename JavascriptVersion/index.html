@@ -44,7 +44,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
-<script src="app.js?v=9fc0c85394"></script>
+<script src="app.js?v=bc49c2c571"></script>
 </head><body><div id="dash-root">
 <style>
   /* Tema: minimalista y moderno. Una sola familia tipografica (la del sistema: SF en el iPhone), superficies planas,
@@ -748,8 +748,9 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 
   <section class="ab-card" id="posiciones" aria-labelledby="pos-t" hidden>
     <div class="ab-card-head"><div><span class="ab-kicker">Tu plan · margen aislado</span><h2 id="pos-t">Mis posiciones</h2></div>
-      <span class="ab-kicker" id="pos-hora">—</span></div>
+      <div class="ab-head-act"><span class="ab-kicker" id="pos-hora">—</span><button type="button" class="ab-iconbtn" id="bx-btn" hidden>Conectar BingX</button></div></div>
     <div class="ab-cmp-grid" id="pos-body"></div>
+    <p class="ab-foot" id="pos-bx-nota" hidden>Posiciones y órdenes leídas de tu cuenta de BingX (solo lectura), cada minuto: cantidad, entrada, margen y liquidación son las de BingX, y una compra del plan cuenta como "orden puesta" si hay una orden límite de compra a ese precio.</p>
     <p class="ab-foot">Se recalcula cada 15 segundos con el precio de ahora. Parte de lo que ya tenías abierto en BingX (cargado del 01/11: cantidad, entrada y margen) y le suma las compras del plan que se ejecuten desde ahí. La liquidación es aproximada (mantenimiento 0,4% BTC, 1% el resto): la exacta la muestra BingX. Toma de ganancias: cada +25% sobre tu promedio, pasar 25% de la posición a spot. Piramidar: cuando sube 15% sobre tu promedio, cuánto podés sumar sin plata nueva con la liquidación como mucho en 75% de tu compra más baja.</p>
   </section>
 
@@ -782,6 +783,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
         <div class="ab-likely-top"><span>Precio más probable a esa hora</span><b id="likely">—</b></div>
         <div class="ab-range"><div class="ab-range-iqr" id="iqr"></div><div class="ab-range-now" id="rnow"></div><div class="ab-range-mark" id="rmed"></div></div>
         <div class="ab-range-ends"><span id="r-lo">—</span><span>franja oscura: la mitad de los casos · ▼ precio actual</span><span id="r-hi">—</span></div>
+        <p class="ab-note ab-rango-cal" id="r-cal" hidden></p>
       </div>
     </div>
     <div class="ab-hero-side" id="sesgo">
@@ -827,6 +829,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
           <button type="button" class="ab-chipbtn" data-layer="liq" aria-pressed="true"><i style="background: var(--color-bad)"></i>Liquidaciones</button>
           <button type="button" class="ab-chipbtn" data-layer="osc" aria-pressed="true"><i style="background: var(--ab-c2)"></i>RSI · MACD</button>
           <button type="button" class="ab-chipbtn" data-layer="plan" aria-pressed="true" hidden><i style="background: var(--color-fg)"></i>Mi plan</button>
+          <button type="button" class="ab-chipbtn" data-layer="opc" aria-pressed="true"><i style="background: var(--ab-c2)"></i>Opciones</button>
         </div>
         <div class="ab-zoom" role="group" aria-label="Zoom del gráfico">
           <span class="ab-zoom-g"><button type="button" class="ab-iconbtn ab-round" data-zoom="out" aria-label="Ver más velas">−</button>
@@ -957,7 +960,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   // cada plazo se mira con las velas que mejor lo muestran
   const PLAZO_VIEW = { '5 min': '5m', '15 min': '15m', '1 hora': '1h', '4 horas': '4h', '1 día': '1d' };
   const S = { plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
-    layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, liq: true, osc: true, plan: true }, log: false, medir: false, iman: false };
+    layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, liq: true, osc: true, plan: true, opc: true }, log: false, medir: false, iman: false };
   const defBars = () => (window.innerWidth < 600 ? 62 : 102);  // incluye las 12 del futuro posible; en el telefono, menos para que se lean
   S.nbars = defBars();
   // en el celu arranca con lo esencial (velas, medias, patrones y liquidaciones); el resto se prende en "Capas"
@@ -1269,6 +1272,27 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   // ---------- proximas compras: el plan de plan_compras.json, con donde esta el precio y que ya se ejecuto ----------
   const PLAN_COMPRAS = null;
   const CMP = { datos: {}, hora: null };
+  // ---------- BingX en vivo (solo lectura; api/posiciones.js de Vercel): posiciones y ordenes reales ----------
+  // Conectado, "Mis posiciones" sale de BingX (no del JSON) y una compra del plan esta "cargada" si hay una orden limite
+  // de compra a ese precio. La contraseña (POSICIONES_CLAVE de Vercel) se guarda en este navegador.
+  const BX = { ok: false, posiciones: null, ordenes: null, hora: null, error: null };
+  const BX_API = window.abPosicionesApi || null;       // solo la version del telefono (Vercel) tiene el servidor
+  const bxClave = () => { try { return localStorage.getItem('ab-bingx-clave'); } catch (e) { return null; } };
+  async function bxLeer() {
+    const clave = bxClave();
+    if (!BX_API || !clave) { BX.ok = false; return; }
+    try {
+      const r = await fetch(BX_API, { headers: { 'x-clave': clave }, cache: 'no-store' });
+      const j = await r.json();
+      if (j.ok) Object.assign(BX, { ok: true, posiciones: j.posiciones || {}, ordenes: j.ordenes, hora: new Date(j.hora), error: null });
+      else {
+        Object.assign(BX, { ok: false, error: j.error || `error ${r.status}` });
+        if (r.status === 401) { try { localStorage.removeItem('ab-bingx-clave'); } catch (e) { /* idem */ } }
+      }
+    } catch (e) { BX.error = 'sin conexión con el servidor'; }
+    drawCompras(); drawPosiciones();
+  }
+  const cargada = (c) => (BX.ok && BX.ordenes ? (BX.ordenes[c.moneda] || []).some((o) => Math.abs(o.precio / c.precio - 1) < 0.003) : !!c.cargada);
   async function cmpPrecios() {
     if (!PLAN_COMPRAS) return;
     const mons = [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))];
@@ -1308,8 +1332,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
         if (d && !marcado && d.precio > c.precio) { box.append(el('div', 'ab-cmp-now', `ahora ${fp(d.precio)}`)); marcado = true; }
         const dist = d ? (d.precio / c.precio - 1) * 100 : null;
         let cls = 'ab-cmp-row', ic = '○', st = '';
-        if (hecha) { cls += ' ok'; ic = '✔'; st = c.en_posicion ? 'En tu posición' : c.cargada ? (c.extra_agregado ? 'Se ejecutó' : `Se ejecutó · sumá ${f0(c.extra)} de margen`) : 'Tocó el precio (sin orden)'; }
-        else if (!c.cargada) { ic = '✎'; st = dist !== null && dist <= 3 ? `¡Cargá la orden! (a ${f1(dist)}%)` : 'Falta cargar la orden'; if (dist !== null && dist <= 3) cls += ' carga'; }
+        if (hecha) { cls += ' ok'; ic = '✔'; st = c.en_posicion ? 'En tu posición' : BX.ok ? 'Se ejecutó (ver BingX)' : c.cargada ? (c.extra_agregado ? 'Se ejecutó' : `Se ejecutó · sumá ${f0(c.extra)} de margen`) : 'Tocó el precio (sin orden)'; }
+        else if (!cargada(c)) { ic = '✎'; st = dist !== null && dist <= 3 ? `¡Cargá la orden! (a ${f1(dist)}%)` : 'Falta cargar la orden'; if (dist !== null && dist <= 3) cls += ' carga'; }
         else { ic = '⏳'; st = dist === null ? 'Orden puesta' : `Orden puesta · a ${f1(dist)}%`; }
         if (!hecha && !prox) { cls += ' prox'; prox = true; }
         const row = el('div', cls), mid = el('div');
@@ -1327,9 +1351,10 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   const cmpHecha = (c, d) => !!c.en_posicion || !!(d && d.bajo <= c.precio);
   function planEstado(m, d) {
     const P = PLAN_COMPRAS, lev = P.apalancamiento || 5, mt = P.mantenimiento || {}, r = mt[m] !== undefined ? mt[m] : (mt.otras !== undefined ? mt.otras : 0.01);
-    const cs = P.compras.filter((c) => c.moneda === m), base = (P.posiciones || {})[m];
-    const hechas = cs.filter((c) => cmpHecha(c, d) && (c.en_posicion || c.cargada));
-    const nuevas = base ? hechas.filter((c) => !c.en_posicion) : hechas;
+    const cs = P.compras.filter((c) => c.moneda === m), vivo = BX.ok ? (BX.posiciones || {})[m] : undefined;
+    const base = BX.ok ? vivo : (P.posiciones || {})[m];
+    const hechas = cs.filter((c) => cmpHecha(c, d) && (BX.ok || c.en_posicion || c.cargada));
+    const nuevas = BX.ok ? [] : base ? hechas.filter((c) => !c.en_posicion) : hechas;     // BingX ya incluye lo ejecutado
     const sum = (xs, f) => xs.reduce((s, c) => s + f(c), 0);
     let margen, nocional, cantidad;
     if (base) {
@@ -1340,9 +1365,9 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       nocional = sum(hechas, (c) => c.orden); cantidad = sum(hechas, (c) => c.orden / c.precio);
     }
     const liqDe = (n, q, mg) => (q > 0 ? Math.max(0, (n - mg) / (q * (1 - r))) : null);
-    const out = { moneda: m, hechas: hechas.length, total: cs.length, precio: d ? d.precio : null, margen, base: !!base };
+    const out = { moneda: m, hechas: hechas.length, total: cs.length, precio: d ? d.precio : null, margen, base: !!base, bingx: !!vivo };
     if (cantidad <= 0 || !d) return out;
-    const prom = nocional / cantidad, valor = cantidad * d.precio, liq = liqDe(nocional, cantidad, margen);
+    const prom = nocional / cantidad, valor = cantidad * d.precio, liq = vivo && vivo.liquidacion ? vivo.liquidacion : liqDe(nocional, cantidad, margen);
     Object.assign(out, { promedio: prom, cantidad, nocional, valor, pnl: valor - nocional, pnl_pct: (valor - nocional) / margen * 100,
       apalancamiento_real: valor / (margen + valor - nocional), liquidacion: liq, dist_liq: liq ? (1 - liq / d.precio) * 100 : null });
     const g = P.ganancias;
@@ -1395,10 +1420,23 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       }
       body.append(box);
     });
-    const hr = document.getElementById('pos-hora');
-    hr.textContent = CMP.hora ? `en vivo · ${CMP.hora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : '—';
+    const hr = document.getElementById('pos-hora'), bxb = document.getElementById('bx-btn');
+    hr.textContent = BX.ok ? `BingX en vivo · ${BX.hora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`
+      : BX.error ? `BingX: ${BX.error}` : CMP.hora ? `en vivo · ${CMP.hora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : '—';
+    bxb.hidden = !BX_API; bxb.textContent = bxClave() ? 'Desconectar BingX' : 'Conectar BingX';
+    document.getElementById('pos-bx-nota').hidden = !BX.ok;
   }
   if (PLAN_COMPRAS) { setTimeout(cmpPrecios, 500); setInterval(() => { if (!document.hidden) cmpPrecios(); }, 15000); }
+  if (PLAN_COMPRAS && BX_API) {
+    document.getElementById('bx-btn').addEventListener('click', () => {
+      if (bxClave()) { try { localStorage.removeItem('ab-bingx-clave'); } catch (e) { /* idem */ } Object.assign(BX, { ok: false, error: null }); drawCompras(); drawPosiciones(); return; }
+      const c = window.prompt('Contraseña de BingX (la que pusiste en Vercel como POSICIONES_CLAVE):');
+      if (!c) return;
+      try { localStorage.setItem('ab-bingx-clave', c.trim()); } catch (e) { /* sin almacenamiento: no se puede recordar */ }
+      bxLeer();
+    });
+    bxLeer(); setInterval(() => { if (!document.hidden) bxLeer(); }, 60000);
+  }
 
   // ---------- notificaciones en la pagina (no por Telegram) ----------
   // Se arman en este dispositivo cuando cambia algo: zona del termometro, funding de 7 dias extremo, compras del plan
@@ -1494,7 +1532,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
           PLAN_COMPRAS.compras.filter((c) => c.moneda === m).forEach((c) => {
             const dist = (d.precio / c.precio - 1) * 100, hecha = cmpHecha(c, d);
             cuando(`cc:${m}:${c.n}`, !hecha && dist <= 3, () => nueva(`cc:${m}:${c.n}:${hoy}`, '📌', `${m} se acerca a tu compra #${c.n}`, `a ${f1(dist)}% de ${fp(c.precio)}`,
-              [`${m} está en ${fp(d.precio)}, a ${f1(dist)}% de tu compra #${c.n} en ${fp(c.precio)}.`, c.cargada ? 'La orden límite ya está cargada.' : `Cargá la orden límite: precio ${fp(c.precio)}, valor de la orden ${f0(c.orden)} a ${PLAN_COMPRAS.apalancamiento || 5}x.`], 'compras'));
+              [`${m} está en ${fp(d.precio)}, a ${f1(dist)}% de tu compra #${c.n} en ${fp(c.precio)}.`, cargada(c) ? 'La orden límite ya está cargada.' : `Cargá la orden límite: precio ${fp(c.precio)}, valor de la orden ${f0(c.orden)} a ${PLAN_COMPRAS.apalancamiento || 5}x.`], 'compras'));
             cuando(`ch:${m}:${c.n}`, hecha, () => nueva(`ch:${m}:${c.n}`, '✅', `Se ejecutó tu compra #${c.n} de ${m}`, `${fp(c.precio)} · orden ${f0(c.orden)}`,
               [`${m} tocó ${fp(c.precio)}: tu orden de ${f0(c.orden)} USDT debería haberse ejecutado. Confirmalo en BingX.`, c.extra_agregado ? 'El margen extra ya lo tenías agregado.' : `Ahora agregá ${f0(c.extra)} USDT de margen (⊕ en la posición).`], 'posiciones'));
           });
@@ -1937,6 +1975,14 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     const b = el('span', 'ab-bias', bias === 'alcista' ? '▲ Escenario alcista' : bias === 'bajista' ? '▼ Escenario bajista' : '◆ Sin dirección clara');
     b.style.color = bias === 'alcista' ? 'var(--color-ok)' : bias === 'bajista' ? 'var(--color-bad)' : 'var(--color-fg-muted)';
     chip.append(b);
+    // regimen de mercado (tendencia, rango o panico) de las velas del plazo: dato, no cambia las probabilidades
+    const pz = pick(rows, 'plazo').find((r) => r.plazo === S.plazo), mk = pz ? pick(rows, 'marco', pz.tf)[0] : null;
+    if (mk && mk.regimen) {
+      const rg = el('span', 'ab-bias', ` · ${mk.regimen[0].toUpperCase()}${mk.regimen.slice(1)} (${TF_TXT[pz.tf].toLowerCase()})`);
+      rg.style.color = 'var(--color-fg-muted)';
+      rg.title = 'Régimen de mercado: tendencia (la media de 200 con pendiente clara y el precio de ese lado), pánico (volatilidad más del doble de lo normal con el precio cayendo) o rango. Es un dato: aprender pesos distintos por régimen no mejoró las predicciones (medido 2023-2026).';
+      chip.append(rg);
+    }
     const neutral = bias === 'neutral';
     document.getElementById('favor-t').textContent = neutral ? 'Señales alcistas' : 'A favor';
     document.getElementById('contra-t').textContent = neutral ? 'Señales bajistas' : 'En contra';
@@ -1994,6 +2040,13 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     const at = (v) => Math.max(0, Math.min(100, (v - lo) / span * 100));
     document.getElementById('likely').textContent = p.mediana === null ? '—' : fp(num(p.mediana));
     document.getElementById('r-lo').textContent = fp(lo); document.getElementById('r-hi').textContent = fp(hi);
+    // el rango del 80% ajustado con su propio pasado (calibracion): cuanto acertaba sin ajustar y cuanto se movio
+    const rc = document.getElementById('r-cal'), rk = num(p.rango_k), rcob = num(p.rango_cobertura), rn = num(p.rango_casos) || 0;
+    rc.hidden = rcob === null || rn < 30;
+    if (!rc.hidden) {
+      rc.textContent = `Rango del 80%: en sus últimas ${f0(rn)} predicciones de este plazo el precio terminó adentro ${f1(rcob)}% de las veces`
+        + (rk === null || Math.abs(rk - 1) < 0.03 ? ', así que queda como está.' : rk > 1 ? `: venía angosto, se ensancha ×${f2(rk)}.` : `: venía ancho, se angosta ×${f2(rk)}.`);
+    }
     const iqr = document.getElementById('iqr'), med = document.getElementById('rmed'), now = document.getElementById('rnow');
     iqr.style.left = '50%'; iqr.style.width = '0'; med.style.left = '50%'; now.style.left = '50%';
     later(() => {
@@ -2504,6 +2557,16 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     } else bajar();
   }
 
+  // "»": aparece si la ultima vela quedo fuera de la vista, abajo del panel del precio y a la izquierda de las liquidaciones
+  function botonPresente() {
+    const r = G.chart && G.d ? G.chart.timeScale().getVisibleLogicalRange() : null;
+    const lejos = !!r && r.to < G.d.lastIdx - 0.5;
+    if (lejos) {
+      try { G.nowBtn.style.top = `${G.chart.paneSize(0).height - 44}px`; G.nowBtn.style.right = `${G.chart.priceScale('right').width() + (G.liqW || 0) + 10}px`; } catch (e) { /* sin medidas todavia */ }
+    }
+    G.nowBtn.hidden = !lejos;
+  }
+
   function buildChart(box, P) {
     if (G.chart) { try { G.chart.remove(); } catch (e) { /* ya no estaba */ } }
     clearInterval(G.cdTimer);
@@ -2573,12 +2636,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     box.append(G.nowBtn);
     chart.timeScale().subscribeVisibleLogicalRangeChange((r) => {
       if (r) document.getElementById('zoom-info').textContent = `${Math.max(1, Math.round(r.to - r.from))} velas`;
-      if (!r || !G.d) return;
-      const lejos = r.to < G.d.lastIdx - 0.5;            // la ultima vela quedo fuera de la vista (el boton va a la izquierda de las liquidaciones)
-      if (lejos) {
-        try { G.nowBtn.style.top = `${chart.paneSize(0).height - 44}px`; G.nowBtn.style.right = `${chart.priceScale('right').width() + (G.liqW || 0) + 10}px`; } catch (e) { /* sin medidas todavia */ }
-      }
-      G.nowBtn.hidden = !lejos;
+      if (!G.dibujando) botonPresente();               // mientras se redibuja, el rango pasa por estados intermedios
     });
     axisTouch(box);
     medirInput(box);
@@ -2748,6 +2806,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     const ts = G.chart.timeScale();
     const keep = G.tf === tf ? ts.getVisibleLogicalRange() : null;
     if (G.tf !== tf) G.med = null;
+    G.dibujando = true;
     d.cdata = all.map((b) => ({ ms: b.t, bar: { time: T2(b.t), open: b.o, high: b.h, low: b.l, close: b.c } }));
     G.c.setData(d.cdata.map((b) => b.bar));
     G.vol.setData(all.map((b) => ({ time: T2(b.t), value: b.v, color: alpha(b.c >= b.o ? P.up : P.dn, 0.3) })));
@@ -2794,14 +2853,19 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       const m = MON(), dat = CMP.datos[m], line = (price, color, style, width, title) => {
         G.plines.push(G.c.createPriceLine({ price, color, lineWidth: width, lineStyle: style, axisLabelVisible: true, title })); d.plan += 1;
       };
-      PLAN_COMPRAS.compras.filter((c) => c.moneda === m && !cmpHecha(c, dat)).forEach((c) => line(c.precio, alpha(P.fg, c.cargada ? 0.75 : 0.45),
-        c.cargada ? LW.LineStyle.Dashed : LW.LineStyle.Dotted, 1, narrow ? `#${c.n}` : `Compra #${c.n}${c.cargada ? '' : ' · sin orden'}`));
+      PLAN_COMPRAS.compras.filter((c) => c.moneda === m && !cmpHecha(c, dat)).forEach((c) => line(c.precio, alpha(P.fg, cargada(c) ? 0.75 : 0.45),
+        cargada(c) ? LW.LineStyle.Dashed : LW.LineStyle.Dotted, 1, narrow ? `#${c.n}` : `Compra #${c.n}${cargada(c) ? '' : ' · sin orden'}`));
       const e = planEstado(m, dat);
       if (e.promedio) line(e.promedio, alpha(P.fg, 0.9), LW.LineStyle.Solid, 1, narrow ? 'Prom.' : 'Tu promedio');
       const g = e.ganancias && e.ganancias.find((x) => !x.alcanzado);
       if (g) line(g.precio, alpha(P.up, 0.85), LW.LineStyle.Dashed, 1, narrow ? `TP +${f0(g.k * PLAN_COMPRAS.ganancias.cada * 100)}%` : `Toma de ganancias +${f0(g.k * PLAN_COMPRAS.ganancias.cada * 100)}%`);
       if (e.liquidacion) line(e.liquidacion, P.dn, LW.LineStyle.Solid, 2, narrow ? 'Liq.' : 'Tu liquidación');
     }
+    // opciones (Deribit, solo BTC): el dolor maximo del viernes, donde mas opciones vencen sin valor
+    const dolor = L.opc ? pick(rows, 'contexto').find((c) => c.clave === 'opciones_dolor' && num(c.precio) !== null) : null;
+    d.dolor = dolor ? num(dolor.precio) : null;
+    if (dolor) G.plines.push(G.c.createPriceLine({ price: d.dolor, color: alpha(P.c2, 0.75), lineWidth: 1, lineStyle: LW.LineStyle.LargeDashed,
+      axisLabelVisible: true, title: narrow ? 'Dolor máx.' : `Dolor máx. opciones (${String(dolor.titulo).replace(/^.*vence\s*/, '').replace(/\)$/, '').slice(0, 5)})` }));
     if (L.patrones) d.figs.forEach((p) => {
       const obj = num(p.objetivo); if (obj === null) return;
       G.plines.push(G.c.createPriceLine({ price: obj, color: colOf(p.sesgo), lineWidth: 1, lineStyle: LW.LineStyle.SparseDotted, axisLabelVisible: true,
@@ -2814,6 +2878,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       G.chart.priceScale('right').applyOptions({ autoScale: true });
     }
     G.tf = tf;
+    G.dibujando = false;
+    requestAnimationFrame(botonPresente);
     legend(null);
     G.under.update(); G.over.update();
 
@@ -2839,6 +2905,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       item(`pat-vela-${p.nombre}`, CC(colOf(p.sesgo)), `Flechita · ${p.nombre}:`, p.descripcion));
     if (G.plines.length) item('sr', DD(P.mute), 'Líneas punteadas con etiqueta en el eje:',
       `resistencia y soporte más cercanos para el plazo de ${S.plazo}${L.patrones && d.figs.some((p) => num(p.objetivo) !== null) ? ' y el objetivo de cada figura' : ''}.`);
+    if (d.dolor !== null) item('opc', DD(P.c2), 'Línea violeta a rayas largas:',
+      'el "dolor máximo" de las opciones del viernes: el precio donde más opciones vencen sin valor. Cerca del vencimiento a veces atrae al precio; es contexto, no una predicción.');
     if (d.plan) item('plan', DD(P.fg), 'Tu plan (líneas grises con nombre):',
       'compras que faltan (rayada: orden puesta; punteada: falta cargarla), tu precio promedio, la próxima toma de ganancias y la liquidación aproximada.');
     if (ghosts.length) item('futuro', DD(P.mute), 'Velas transparentes a la derecha:',

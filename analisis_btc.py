@@ -25,6 +25,7 @@ No es una recomendacion de inversion.
 """
 
 import argparse
+import bisect
 import csv
 import json
 import math
@@ -312,11 +313,90 @@ def outcomes(closes, idxs, h, F=None):
     if not rets:
         return None
     q = lambda p: rets[min(int(p * len(rets)), len(rets) - 1)] * 100
-    return {"n": len(rets), "up": sum(r > 0 for r in rets) / len(rets) * 100, "p10": q(0.1), "p90": q(0.9)}
+    return {"n": len(rets), "up": sum(r > 0 for r in rets) / len(rets) * 100, "p10": q(0.1), "p50": q(0.5), "p90": q(0.9)}
 
 
-def scenarios(bars, idxs, price, tf_ms, F=None):
-    """Camino tipico/alcista/bajista: el camino real mas parecido a la mediana y a los percentiles 75/25."""
+# ---------- rango del 80% honesto (calibracion "conformal" con su propio pasado) ----------
+# Para las ultimas CAL_PUNTOS predicciones del pasado (cada h velas: no se pisan) arma el rango del 80% que habria dado
+# ahi (los casos parecidos que habia hasta ese momento, llevados a la volatilidad de ese momento) y mide donde termino
+# el precio, en "anchos de rango" desde la mediana: 1 es justo en el borde. El factor k que deja adentro al 80% de esas
+# predicciones ensancha (k > 1) o angosta (k < 1) el rango de ahora. Igual en analisis.js (rangoPuntajes, rangoFactor).
+CAL_PUNTOS, CAL_MIN, CAL_K = 200, 60, (0.6, 2.0)
+
+
+def rango_puntajes(closes, st, F, h, warmup, j_max, puntos=CAL_PUNTOS, ventana=None):
+    """[(vela, puntaje)] de las ultimas `puntos` predicciones con resultado conocido (j <= j_max), de la mas nueva a
+    la mas vieja. st: la situacion de cada vela (apr.estados). F: vol_escala (o None). ventana: solo casos de las
+    ultimas `ventana` velas antes de cada prediccion (como el analisis en vivo, que tiene una ventana de historia)."""
+    grupos = {}
+    for i in range(warmup, j_max + 1):
+        e = st[i]
+        if e:
+            for keep in (4, 3, 2, 1):
+                grupos.setdefault((keep, tuple(e[:keep])), []).append(i)
+    out, j = [], j_max
+    while j >= warmup and len(out) < puntos:
+        e = st[j]
+        if e:
+            desde = max(warmup, j - ventana) if ventana else warmup
+            for keep in (4, 3, 2, 1):           # como similar(): la situacion mas completa con casos suficientes
+                lst = grupos.get((keep, tuple(e[:keep])), [])
+                a, b = bisect.bisect_left(lst, desde), bisect.bisect_right(lst, j - h)
+                if b - a >= MIN_SAMPLES:
+                    break
+            if b - a >= 10:
+                fj = F[j] if F else 1.0
+                rets = sorted((closes[i + h] / closes[i] - 1) * (F[i] / fj if F else 1.0) for i in lst[a:b])
+                q = lambda p: rets[min(int(p * len(rets)), len(rets) - 1)]
+                q10, q50, q90 = q(0.1), q(0.5), q(0.9)
+                r = closes[j + h] / closes[j] - 1
+                ancho = (q90 - q50) if r >= q50 else (q50 - q10)
+                if ancho > 0:
+                    out.append((j, abs(r - q50) / ancho))
+        j -= h
+    return out
+
+
+def rango_factor(puntajes):
+    """El factor que deja adentro al 80% (entre CAL_K) y cuantas veces el rango sin ajustar acerto (en %)."""
+    if not puntajes:
+        return {"k": 1.0, "cobertura": None, "casos": 0}
+    xs = sorted(p for _, p in puntajes)
+    cob = sum(1 for x in xs if x <= 1) / len(xs) * 100
+    if len(xs) < CAL_MIN:
+        return {"k": 1.0, "cobertura": cob, "casos": len(xs)}
+    k = xs[min(int(0.8 * len(xs)), len(xs) - 1)]
+    return {"k": min(CAL_K[1], max(CAL_K[0], k)), "cobertura": cob, "casos": len(xs)}
+
+
+def calibracion(s, receta, h):
+    """rango_factor de una temporalidad, una receta y un horizonte (una sola vez por analisis). Medido 2023-2026 sin
+    mirar el futuro (medir_contexto.py): con velas de hasta 1 hora el rango ajustado termina adentro 80% (sin ajustar,
+    78-79,5%); con velas de 4 horas no mejoro, asi que ahi solo se mide (k = 1)."""
+    key = (receta, h)
+    if key not in s["cal"]:
+        last = len(s["closes"]) - (2 if s["partial"] else 1)          # ultima vela cerrada
+        c = s["closed"][-1]
+        clave, sello = (s["tf_ms"], receta, h), (len(s["closed"]), c[0], c[4], s["warmup"])
+        hit = _CAL_CACHE.get(clave)
+        if hit and hit[0] == sello:                                    # solo depende de las velas cerradas
+            cal = hit[1]
+        else:
+            cal = rango_factor(rango_puntajes(s["closes"], apr.estados(s["feats"], receta), vol_factor(s, h), h,
+                                              s["warmup"], last - h))
+            if s["tf_min"] > 60:
+                cal["k"] = 1.0
+            _CAL_CACHE[clave] = (sello, cal)
+        s["cal"][key] = cal
+    return s["cal"][key]
+
+
+_CAL_CACHE = {}
+
+
+def scenarios(bars, idxs, price, tf_ms, F=None, ancho=1.0):
+    """Camino tipico/alcista/bajista: el camino real mas parecido a la mediana y a los percentiles 75/25.
+    ancho: el ajuste del rango (calibracion): el cono se ensancha o angosta alrededor de la mediana."""
     closes = [b[4] for b in bars]
     usable = [j for j in idxs if j + SCENARIO_STEPS < len(bars)]
     if len(usable) < 10:
@@ -339,10 +419,10 @@ def scenarios(bars, idxs, price, tf_ms, F=None):
                             "o": rp(z(o)), "h": rp(z(h)), "l": rp(z(l)), "c": rp(z(c)),
                             "desde": datetime.fromtimestamp(bars[j][0] / 1000, timezone.utc).strftime("%Y-%m-%d")})
     p10, p50, p90 = q(0.1), q(0.5), q(0.9)
-    for k in range(SCENARIO_STEPS):
-        cone.append({"tabla": "cono", "tf": None, "paso": k + 1, "t": t0 + (k + 1) * tf_ms,
-                     "p10": rp(price * (1 + p10[k])), "p50": rp(price * (1 + p50[k])),
-                     "p90": rp(price * (1 + p90[k]))})
+    for n in range(SCENARIO_STEPS):
+        cone.append({"tabla": "cono", "tf": None, "paso": n + 1, "t": t0 + (n + 1) * tf_ms,
+                     "p10": rp(price * (1 + p50[n] - ancho * (p50[n] - p10[n]))), "p50": rp(price * (1 + p50[n])),
+                     "p90": rp(price * (1 + p50[n] + ancho * (p90[n] - p50[n])))})
     return candles, cone
 
 
@@ -494,12 +574,17 @@ def horizon_stats(tf, s, h, price, fit):
     when_ms = bars[-1][0] + (h + 1) * s["tf_ms"]
     when = datetime.fromtimestamp(when_ms / 1000, LOCAL_TZ).strftime("%d/%m %H:%M")
     tg, close = targets(bars, sample, price, h, when, f, L.get("distancia"), fit.get("p_primero"), F)
+    cal = calibracion(s, fit["receta"], h)
+    k = cal["k"]
+    lo, hi = o["p50"] - k * (o["p50"] - o["p10"]), o["p50"] + k * (o["p90"] - o["p50"])
     return ({"tf": tf, "horizonte": label(h * s["tf_min"]), "velas": h,
              "sube": round(up, 1), "baja": round(100 - up, 1), "base": round(b["up"], 1),
              "sube_crudo": round(o["up"], 1), "receta": fit["receta"], "factor": f,
              "veredicto": verdict, "sin_ventaja": sin_ventaja, "n": o["n"], "dias": s["days"], "hora": when, "t_hasta": when_ms,
              "margen": round(margin, 1), "pocos_casos": o["n"] < 100,
-             "min": rp(price * (1 + o["p10"] / 100)), "max": rp(price * (1 + o["p90"] / 100)),
+             "min": rp(price * (1 + lo / 100)), "max": rp(price * (1 + hi / 100)),
+             "rango_k": round(k, 2), "rango_cobertura": None if cal["cobertura"] is None else round(cal["cobertura"], 1),
+             "rango_casos": cal["casos"],
              **(close or {"mediana": None, "p25": None, "p75": None, "obj_arriba": None, "obj_abajo": None,
                           "distancia": None, "toca_arriba": None, "toca_abajo": None,
                           "primero_arriba": None, "primero_crudo": None, "margen_primero": None, "ninguno": None})}, tg)
@@ -571,6 +656,11 @@ def context(bgx, h1):
     except Exception as e:
         print(f"(long/short no disponible: {type(e).__name__})")
 
+    try:   # perpetuo contra spot: precio de marca e indice de Bybit (lo mismo que usa la app)
+        tk = api("bybit", byb.publicGetV5MarketTickers, {"category": "linear", "symbol": "BTCUSDT"})["result"]["list"][0]
+        rows.append(base_perp(float(tk["markPrice"]), float(tk["indexPrice"]), "Bybit"))
+    except Exception as e:
+        print(f"(base perpetuo-spot no disponible: {type(e).__name__})")
     # BingX: el exchange donde operas (el funding que pagas vos). Cambia cada 8 h: se pide cada 3 h
     try:
         now_ms = int(time.time() * 1000)
@@ -635,6 +725,104 @@ def liq_reales(det, now_ms):
     return {"tabla": "contexto", "clave": "liq_reales", "titulo": "Liquidaciones reales 1 h (OKX)",
             "valor": f"longs {m(l60)} M · shorts {m(s60)} M USD", "senal": "neutral", "detalle": det_txt,
             "longs_1h": round(l60), "shorts_1h": round(s60), "longs_15m": round(l15), "shorts_15m": round(s15), "barrida": barrida}
+
+
+# Perpetuo contra spot: cuanto mas caro (o barato) cotiza el perpetuo que el indice spot. Cortes: percentiles 90 y 5 de
+# la prima de Binance 2022-2024 (medir_contexto.py). Contexto: sin peso en las probabilidades hasta medir que anticipa.
+BASE_ALTA, BASE_BAJA = 0.05, -0.07
+
+
+def base_perp(mark, index, fuente):
+    """Fila de contexto con la base del perpetuo (precio de marca contra el indice spot, en %). Igual en JS."""
+    b = (mark / index - 1) * 100
+    if b >= BASE_ALTA:
+        sig, det = "bajista", "Perpetuo caro contra el spot: compras apalancadas, calentamiento"
+    elif b <= BASE_BAJA:
+        sig, det = "alcista", "Perpetuo con descuento: ventas apalancadas o coberturas, miedo"
+    else:
+        sig, det = "neutral", "Perpetuo y spot parejos"
+    return {"tabla": "contexto", "clave": "base_perp", "titulo": f"Perpetuo vs spot ({fuente})", "valor": arp(b, 3),
+            "senal": sig, "detalle": det + ". Es contexto: no entra en las probabilidades.", "base": round(b, 4)}
+
+
+# ---------- opciones de BTC (Deribit, publico) ----------
+# Volatilidad implicita (DVOL), puts contra calls, el "dolor maximo" del vencimiento del viernes y cuanto mas caros
+# estan los puts que los calls. Contexto: sin peso en las probabilidades (medir_contexto.py mide el DVOL).
+MESES_EN = {m: i + 1 for i, m in enumerate("JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC".split())}
+
+
+def _vence(nombre):
+    """BTC-13NOV26-83000-P -> (ms del vencimiento, 08:00 UTC; strike; 'C' o 'P'), o None."""
+    try:
+        _, d, k, tipo = nombre.split("-")
+        dia, mes, anio = int(d[:-5]), MESES_EN[d[-5:-2]], 2000 + int(d[-2:])
+        return int(datetime(anio, mes, dia, 8, tzinfo=timezone.utc).timestamp() * 1000), float(k), tipo
+    except (ValueError, KeyError):
+        return None
+
+
+def opciones(libro, dvol, precio, ahora_ms):
+    """Filas de contexto de las opciones. libro: get_book_summary_by_currency (kind=option); dvol: [[ms, valor]] por
+    hora de los ultimos 30 dias. Igual en analisis.js."""
+    rows = []
+
+    def add(key, title, value, detail, **num):
+        rows.append({"tabla": "contexto", "clave": key, "titulo": title, "valor": value, "senal": "neutral", "detalle": detail, **num})
+    dv = [v for _, v in sorted(dvol)]
+    if len(dv) >= 25:
+        ahora, antes = dv[-1], dv[-25]
+        pct_ = sum(1 for v in dv if v < ahora) / len(dv) * 100
+        add("opciones_iv", "Volatilidad implícita (DVOL)", f"{ar(ahora, 1)} (24 h {arp(ahora - antes, 1).replace('%', '')})",
+            f"Lo que las opciones esperan que se mueva BTC: ≈ ±{ar(ahora / 365 ** 0.5, 1)}% por día. Más alta que el "
+            f"{ar(pct_)}% de los últimos 30 días. Alta: miedo o coberturas; baja: calma.",
+            dvol=round(ahora, 2), dvol_24h=round(ahora - antes, 2), dvol_pct=round(pct_, 1))
+    ops = []
+    for o in libro:
+        v = _vence(o.get("instrument_name", ""))
+        if v and v[0] > ahora_ms and (o.get("open_interest") or 0) > 0:
+            ops.append((v[0], v[1], v[2], float(o["open_interest"]), o.get("mark_iv")))
+    if not ops or precio <= 0:
+        return rows
+    oi_c = sum(x[3] for x in ops if x[2] == "C")
+    oi_p = sum(x[3] for x in ops if x[2] == "P")
+    viernes = sorted({x[0] for x in ops if datetime.fromtimestamp(x[0] / 1000, timezone.utc).weekday() == 4})
+    if viernes:
+        vto = viernes[0]
+        vs = [x for x in ops if x[0] == vto]
+        vc, vp = sum(x[3] for x in vs if x[2] == "C"), sum(x[3] for x in vs if x[2] == "P")
+        strikes = sorted({x[1] for x in vs})
+        dolor = min(strikes, key=lambda K: (sum(x[3] * max(0.0, K - x[1]) for x in vs if x[2] == "C")
+                                            + sum(x[3] * max(0.0, x[1] - K) for x in vs if x[2] == "P"), K))
+        cuando = datetime.fromtimestamp(vto / 1000, LOCAL_TZ).strftime("%d/%m %H:%M")
+        if oi_c > 0:
+            add("opciones_pc", "Opciones: puts / calls", f"{ar(oi_p / oi_c, 2)} (vence {cuando[:5]}: {ar(vp / vc, 2) if vc else '—'})",
+                "Contratos abiertos de puts por cada call. Más de 1: coberturas o apuestas a la baja; menos: apuestas a la suba.",
+                ratio=round(oi_p / oi_c, 3), ratio_vto=None if not vc else round(vp / vc, 3))
+        add("opciones_dolor", f"Dolor máximo (vence {cuando} h)", f"{ap(dolor)} ({arp(pct(dolor, precio), 1)})",
+            "El precio donde más opciones de ese viernes vencen sin valor. Cerca del vencimiento a veces atrae al precio.",
+            precio=dolor, vence=vto, distancia=round(pct(dolor, precio), 2))
+    # sesgo: puts 5-15% abajo contra calls 5-15% arriba, en el primer vencimiento a 7 dias o mas
+    lejos = sorted({x[0] for x in ops if x[0] - ahora_ms >= 7 * 86_400_000})
+    if lejos:
+        vs = [x for x in ops if x[0] == lejos[0] and x[4]]
+        ivp = [x[4] for x in vs if x[2] == "P" and 0.85 * precio <= x[1] <= 0.95 * precio]
+        ivc = [x[4] for x in vs if x[2] == "C" and 1.05 * precio <= x[1] <= 1.15 * precio]
+        if ivp and ivc:
+            sk = sum(ivp) / len(ivp) - sum(ivc) / len(ivc)
+            add("opciones_sesgo", "Opciones: puts vs calls (IV)", f"{'+' if sk > 0 else ''}{ar(sk, 1)} puntos",
+                "Volatilidad implícita de los puts 5-15% abajo menos la de los calls 5-15% arriba (vencimiento a 7 días o "
+                "más). Positivo: pagan más por protegerse de una baja.", sesgo=round(sk, 2))
+    return rows
+
+
+def opciones_deribit(now_ms):
+    """Libro de opciones de BTC y DVOL de los ultimos 30 dias, de Deribit (publico)."""
+    import urllib.request
+    get = lambda u: json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"}), timeout=15).read())["result"]
+    libro = get("https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=BTC&kind=option")
+    dv = get(f"https://www.deribit.com/api/v2/public/get_volatility_index_data?currency=BTC&start_timestamp={now_ms - 30 * 86_400_000}"
+             f"&end_timestamp={now_ms}&resolution=3600")["data"]
+    return libro, [[int(x[0]) + 3_600_000, float(x[4])] for x in dv]
 
 
 def funding_bingx(bgx):
@@ -806,6 +994,21 @@ def fibonacci(h4, velas=540):
     return [(f, hi - (hi - lo) * f if sube else lo + (hi - lo) * f) for f in sorted(FIB_REBOTE)]
 
 
+# Cuando 15 min, 1 hora y 4 horas van para el mismo lado. Medido 2023-2026 sin mirar el futuro (medir_contexto.py):
+# el de 1 hora acerto la direccion 54,0% de las veces (52,6-55,4) contra 51,5% (50,5-52,4) cuando no coincidian; mejor
+# en 2023-24 y en 2025-26. En 15 min y 4 horas no cambio. Se muestra como senal: no cambia la probabilidad.
+COINCIDEN = {"si": 54.0, "no": 51.5}
+
+
+def coinciden(rows):
+    """'alcista' o 'bajista' si las predicciones de 15 min, 1 hora y 4 horas van para el mismo lado; None si no."""
+    p = {r["plazo"]: r["sube"] for r in rows if r["tabla"] == "plazo"}
+    xs = [p.get(k) for k in ("15 min", "1 hora", "4 horas")]
+    if any(x is None for x in xs):
+        return None
+    return "alcista" if all(x > 50 for x in xs) else "bajista" if all(x < 50 for x in xs) else None
+
+
 def explain(rows, price, spec):
     """La conclusion de un plazo en pocas palabras: prediccion, hasta 4 razones de cada lado, niveles e invalidacion."""
     name, _, _, sig_tfs, ctx_keys, candle = spec
@@ -856,6 +1059,9 @@ def explain(rows, price, spec):
             n = min(fz, key=lambda n: abs(n["distancia"]))
             signals.append((3, "alcista" if n["tipo"] == "soporte" else "bajista",
                             f"En el Fibonacci {ar(n['fib'] * 100, 1)}% de 90 días ({ap(n['precio'])}): ahí rebotó {n['rebote']}% de las veces"))
+    if main.get("coinciden"):
+        signals.append((2, main["coinciden"], f"15 min, 1 hora y 4 horas van para el mismo lado: así acertó {ar(COINCIDEN['si'], 1)}% "
+                                              f"(2023-26; {ar(COINCIDEN['no'], 1)}% cuando no)"))
     sma = next((n for n in get("nivel") if n["nombre"] == "Media 200 días"), None)
     if sma and name == "1 día":
         signals.append((6, "alcista" if price > sma["precio"] else "bajista",
@@ -1014,11 +1220,12 @@ def analyze():
         series[tf] = {"bars": bars, "closes": closes, "base": list(base), "tf_ms": tf_ms, "tf_min": tf_min, "days": days,
                       "closed": candles[tf], "feats": feats, "combo": apr.combos(feats), "X": X, "warmup": warmup,
                       "last": len(bars) - 1 - max(horizons + (SCENARIO_STEPS,)), "similar": {}, "fit": {},
-                      "vol": {}, "partial": partial}
+                      "vol": {}, "cal": {}, "partial": partial}
         main_fit = tune(tf, series[tf], horizons[0])
         idxs, keep = main_fit["idxs"], main_fit["keep"]
         i = len(bars) - 1
         trend = trend_word(closes[i], e20[i], e50[i], e200[i])
+        reg = apr.regimenes(bars, e200)
         by_tf[tf] = {"summary": summary, "trend": trend}
         pivots = ind.zigzag(bars)
         wave_labels, wave_desc, wave_target, wave_now, wave_short = ind.elliott(pivots, bars)
@@ -1030,7 +1237,9 @@ def analyze():
                      "ema50": rp(e50[i]), "ema200": rp(e200[i]), "similares": len(idxs),
                      "criterio": apr.receta_txt(main_fit["receta"], keep) if keep else "",
                      "elliott": wave_desc, "elliott_objetivo": rp(wave_target),
-                     "elliott_curso": wave_now, "elliott_corto": wave_short})
+                     "elliott_curso": wave_now, "elliott_corto": wave_short,
+                     # regimen de mercado: dato a la vista. Pesos distintos por regimen no mejoraron (medir_contexto.py)
+                     "regimen": None if reg[i] is None else apr.REGIMENES[reg[i]]})
         rows += [{"tabla": "indicador", "tf": tf, **r} for r in ind_rows]
         tail = pivots[-10:]
         offset = len(tail) - len(wave_labels)
@@ -1049,7 +1258,8 @@ def analyze():
             rows += [{"tabla": "objetivo", "tf": tf, "horizonte": prob["horizonte"], "hora": prob["hora"], **t} for t in tg]
             entries.append((bars[-1][0] + tf_ms, tf, h, closes[-1], prob["sube"], prob["min"], prob["max"]))
 
-        sc, cone = scenarios(bars, idxs, price, tf_ms, vol_factor(series[tf], SCENARIO_STEPS))
+        sc, cone = scenarios(bars, idxs, price, tf_ms, vol_factor(series[tf], SCENARIO_STEPS),
+                             calibracion(series[tf], main_fit["receta"], SCENARIO_STEPS)["k"])
         for r in sc + cone:
             r["tf"] = tf
         rows += sc + cone
@@ -1099,6 +1309,11 @@ def analyze():
         funding = None
         rows.append({"tabla": "contexto", "clave": "error", "titulo": "Contexto no disponible", "valor": "",
                      "senal": "neutral", "detalle": f"No se pudo leer: {type(e).__name__}"})
+    try:   # opciones de BTC (Deribit): volatilidad implicita, puts/calls, dolor maximo del viernes. Contexto
+        libro, dv = cached("opciones", 600, lambda: opciones_deribit(now_ms))
+        rows += opciones(libro, dv, price, now_ms)
+    except Exception as e:
+        print(f"(opciones no disponibles: {type(e).__name__})")
     try:   # noticias, ETF y prima de Coinbase: para explicar los movimientos fuertes
         rows += cached("externo", 600, noticias.externo)
     except Exception as e:
@@ -1164,6 +1379,10 @@ def analyze():
             rows.append(tm)
     except Exception as e:
         print(f"(termometro no disponible: {type(e).__name__}: {e})")
+    lado = coinciden(rows)
+    for r in rows:
+        if r["tabla"] == "plazo" and r["plazo"] == "1 hora":
+            r["coinciden"] = lado
     explanation = [e for spec in PLAZOS for e in explain(rows, price, spec)]
     rows += explanation
     takeaway = next(e["texto"] for e in explanation if e["plazo"] == "1 hora" and e["tipo"] == "titular")

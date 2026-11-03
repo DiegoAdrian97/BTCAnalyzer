@@ -16,6 +16,7 @@
   const porMoneda = {};
   const redraw = () => fns.forEach((f) => f());
   window.abLive = true;            // la pagina se conecta sola al WebSocket de Binance para los ticks
+  window.abPosicionesApi = 'api/posiciones';   // BingX en vivo (solo lectura): ver api/posiciones.js
   // tema: el elegido con el boton (guardado en este navegador) o el del sistema. Se aplica antes de pintar.
   try { const tm = localStorage.getItem('ab-tema'); if (tm === 'dark' || tm === 'light') document.documentElement.dataset.theme = tm; } catch (e) { /* idem */ }
   window.abOscuro = () => { const tm = document.documentElement.dataset.theme; return tm ? tm === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches; };

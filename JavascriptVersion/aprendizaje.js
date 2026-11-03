@@ -379,6 +379,26 @@
     };
   }
 
+  // ---------- regimen de mercado (como regimenes de aprendizaje.py) ----------
+  const REGIMENES = ['tendencia alcista', 'tendencia bajista', 'rango', 'pánico'];
+  const REG_PANICO = 1.8, REG_PENDIENTE = 1.5;
+  /** El regimen de cada vela (0 tendencia alcista, 1 bajista, 2 rango, 3 panico), solo con lo que se sabia al cerrarla. */
+  function regimenes(bars, e200) {
+    const n = bars.length, af = 2 / 21, as = 2 / 201, out = new Array(n).fill(null);
+    let ef = null, es = null;
+    for (let i = 0; i < n; i++) {
+      const r = (bars[i][2] - bars[i][3]) / bars[i][4];
+      ef = ef === null ? r : ef + af * (r - ef);
+      es = es === null ? r : es + as * (r - es);
+      if (i < 200 || es <= 0 || e200[i] === null || e200[i] === undefined || e200[i - 50] === null || e200[i - 50] === undefined) continue;
+      const c = bars[i][4];
+      if (ef > REG_PANICO * es && c < bars[i - 20][4]) { out[i] = 3; continue; }
+      const pend = (e200[i] / e200[i - 50] - 1) / es;
+      out[i] = pend > REG_PENDIENTE && c > e200[i] ? 0 : pend < -REG_PENDIENTE && c < e200[i] ? 1 : 2;
+    }
+    return out;
+  }
+
   const cache = new Map();
   /** aprender() solo cuando cerro una vela nueva: mientras tanto el resultado es el mismo. */
   function aprendido(clave, bars, combo, h, warmup, X = null) {
@@ -390,7 +410,7 @@
     return res;
   }
 
-  const Apr = { rasgos, continuos, estados, combos, ajustar, aprender, aprendido, prediccion, recetaTxt, expertoTxt, confianzaTxt, expo, sigmoide, wilson,
+  const Apr = { regimenes, REGIMENES, rasgos, continuos, estados, combos, ajustar, aprender, aprendido, prediccion, recetaTxt, expertoTxt, confianzaTxt, expo, sigmoide, wilson,
     RECETAS, RASGOS, FACTORES, MODELO, BASE, EXPERTOS };
   root.Apr = Apr;
   if (typeof module !== 'undefined' && module.exports) module.exports = Apr;
