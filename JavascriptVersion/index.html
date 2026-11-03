@@ -22,9 +22,12 @@
   --cds-pad-xs: 4px; --cds-pad-sm: 8px; --cds-pad-md: 12px; --cds-pad-lg: 18px; --cds-pad-xl: 28px; --cds-radius: 8px;
   --cds-chart-grid: #eceef2; --cds-surface-popover: #ffffff; --cds-border: #dde1e7; --cds-shadow-popover: 0 6px 24px rgba(20,24,32,.12);
   --cds-text-secondary: #6a7180; --cds-ease-out: cubic-bezier(.2,.8,.2,1); --cds-dur-slow: .4s; color-scheme: light; }
-@media (prefers-color-scheme: dark) { :root { --color-fg: #e8eaee; --color-fg-muted: #949bab; --color-bg: #121418; --color-panel: #1b1e24;
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --color-fg: #e8eaee; --color-fg-muted: #949bab; --color-bg: #121418; --color-panel: #1b1e24;
   --color-border-line: #2b3038; --color-ok: #3cc58a; --color-warn: #e0a64a; --color-bad: #f0645a; --cds-chart-grid: #252a31;
   --cds-surface-popover: #22262d; --cds-border: #343a43; --cds-shadow-popover: 0 6px 24px rgba(0,0,0,.45); --cds-text-secondary: #949bab; color-scheme: dark; } }
+:root[data-theme="dark"] { --color-fg: #e8eaee; --color-fg-muted: #949bab; --color-bg: #121418; --color-panel: #1b1e24;
+  --color-border-line: #2b3038; --color-ok: #3cc58a; --color-warn: #e0a64a; --color-bad: #f0645a; --cds-chart-grid: #252a31;
+  --cds-surface-popover: #22262d; --cds-border: #343a43; --cds-shadow-popover: 0 6px 24px rgba(0,0,0,.45); --cds-text-secondary: #949bab; color-scheme: dark; }
 html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }   /* sin zoom por doble toque */
 body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14px var(--font-anthropic-sans); }
 /* abierta desde la pantalla de inicio del iPhone: respeta la isla y la barra de abajo */
@@ -41,7 +44,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
-<script src="app.js?v=07943cda24"></script>
+<script src="app.js?v=9fc0c85394"></script>
 </head><body><div id="dash-root">
 <style>
   /* Tema: minimalista y moderno. Una sola familia tipografica (la del sistema: SF en el iPhone), superficies planas,
@@ -53,12 +56,17 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     --cds-shadow-popover: 0 8px 28px rgba(16, 24, 40, .12);
     --font-anthropic-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
     --font-anthropic-serif: var(--font-anthropic-sans); --cds-radius: 10px; }
+  /* oscuro: el del sistema, salvo que elijas claro u oscuro con el boton (data-theme en <html>) */
   @media (prefers-color-scheme: dark) {
-    :root { --color-fg: #e7eaf0; --color-fg-muted: #8a92a2; --color-bg: #0a0c10; --color-panel: #12151b;
+    :root:not([data-theme="light"]) { --color-fg: #e7eaf0; --color-fg-muted: #8a92a2; --color-bg: #0a0c10; --color-panel: #12151b;
       --color-border-line: #1f242c; --color-ok: #22ab94; --color-warn: #f0b90b; --color-bad: #f7525f;
       --cds-chart-grid: #1a1e25; --cds-surface-popover: #191d24; --cds-border: #2a303a; --cds-text-secondary: #8a92a2;
       --cds-shadow-popover: 0 10px 30px rgba(0, 0, 0, .5); }
   }
+  :root[data-theme="dark"] { --color-fg: #e7eaf0; --color-fg-muted: #8a92a2; --color-bg: #0a0c10; --color-panel: #12151b;
+      --color-border-line: #1f242c; --color-ok: #22ab94; --color-warn: #f0b90b; --color-bad: #f7525f;
+      --cds-chart-grid: #1a1e25; --cds-surface-popover: #191d24; --cds-border: #2a303a; --cds-text-secondary: #8a92a2;
+      --cds-shadow-popover: 0 10px 30px rgba(0, 0, 0, .5); }
   body { background: var(--color-bg); -webkit-font-smoothing: antialiased; }
   /* Layout: franja superior (precio · prediccion protagonista · sesgo), selector de temporalidad,
      grafico grande con panel de probabilidades al costado, y debajo senales, niveles, ondas, indicadores. */
@@ -164,6 +172,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   .ab-chart.is-scaling { cursor: ns-resize; }
   .ab-chart.is-midiendo { cursor: cell; }
   .ab-iconbtn[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+  #tema-btn[aria-pressed="true"] { background: var(--soft); color: var(--ink); }   /* el icono ya dice el tema */
   .ab-now-btn { position: absolute; z-index: 4; box-shadow: var(--cds-shadow-popover); background: var(--panel); border: 1px solid var(--line); }
   .ab-now-btn[hidden] { display: none; }
 
@@ -674,6 +683,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
         <button type="button" class="ab-iconbtn ab-round ab-nt-btn" id="nt-btn" aria-label="Notificaciones" aria-expanded="false" aria-controls="nt-pop">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15L6 16zM10 20a2 2 0 0 0 4 0"/></svg>
           <span class="ab-nt-badge" id="nt-badge" hidden>0</span></button>
+        <button type="button" class="ab-iconbtn ab-round ab-nt-btn" id="tema-btn" aria-pressed="false" aria-label="Modo oscuro" title="Modo oscuro">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path id="tema-ico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d=""/></svg></button>
         <div class="ab-nt-pop" id="nt-pop" role="dialog" aria-label="Notificaciones" hidden>
           <div class="ab-nt-pop-h"><b>Notificaciones</b><button type="button" class="ab-iconbtn" id="nt-leer">Marcar leídas</button></div>
           <div class="ab-nt-list" id="nt-list"></div>
@@ -824,11 +835,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
           <button type="button" class="ab-iconbtn" id="fit">Ajustar</button>
           <button type="button" class="ab-iconbtn" id="log-btn" aria-pressed="false" title="Escala logarítmica: las mismas subas y bajas en % miden lo mismo (tecla L)">Log</button>
           <button type="button" class="ab-iconbtn" id="medir-btn" aria-pressed="false" title="Medir: arrastrá en el gráfico para ver el % y las velas entre dos puntos (con el mouse: Shift + arrastrar; tecla M)">Medir</button>
+          <button type="button" class="ab-iconbtn" id="iman-btn" aria-pressed="false" title="Imán: la mira y los puntos de Medir se pegan a la apertura, máximo, mínimo o cierre de la vela más cercana (tecla I; mientras medís, Cmd o Ctrl lo invierte)">Imán</button>
           <button type="button" class="ab-iconbtn" id="foto-btn" title="Guardar o compartir una imagen del gráfico">Imagen</button>
           <button type="button" class="ab-iconbtn" id="replay" title="Repetir la animación del escenario">↻</button>
         </div>
       </div>
-      <p class="ab-note ab-help" id="chart-help" hidden><span class="ab-only-mouse">Arrastrá el gráfico para moverte · rueda: zoom · arrastrá el eje de precios o el de horas para estirarlos · arrastrá el borde de abajo del precio o de cada indicador para hacerlo más alto o más bajo · doble clic en un eje: vuelve ese eje a como estaba (en el de horas, todos los paneles) · doble clic en el gráfico: ajusta todo · Shift + arrastrar: medir % y velas · teclas (con el mouse sobre el gráfico): ← → moverse, + − zoom, 0 ajustar, L logarítmica, M medir, 1 a 6 temporalidad, F pantalla completa, Esc borrar la medición</span><span class="ab-only-touch">Arrastrá con un dedo para moverte · pellizcá para zoom (de costado: velas; vertical: precios) · arrastrá los ejes para estirarlos · arrastrá la manija de abajo de cada panel para cambiar su alto · doble toque en un eje lo vuelve a como estaba · tocá una vela para ver sus datos · "Medir" y arrastrá: % y velas entre dos puntos</span></p>
+      <p class="ab-note ab-help" id="chart-help" hidden><span class="ab-only-mouse">Arrastrá el gráfico para moverte · rueda: zoom · arrastrá el eje de precios o el de horas para estirarlos · arrastrá el borde de abajo del precio o de cada indicador para hacerlo más alto o más bajo · doble clic en un eje: vuelve ese eje a como estaba (en el de horas, todos los paneles) · doble clic en el gráfico: ajusta todo · Shift + arrastrar: medir % y velas · teclas (con el mouse sobre el gráfico): ← → moverse, + − zoom, 0 ajustar, L logarítmica, M medir, I imán (Cmd/Ctrl mientras medís lo invierte), 1 a 6 temporalidad, F pantalla completa, Esc borrar la medición</span><span class="ab-only-touch">Arrastrá con un dedo para moverte · pellizcá para zoom (de costado: velas; vertical: precios) · arrastrá los ejes para estirarlos · arrastrá la manija de abajo de cada panel para cambiar su alto · doble toque en un eje lo vuelve a como estaba · tocá una vela para ver sus datos · "Medir" y arrastrá: % y velas entre dos puntos ("Imán" los pega a la apertura, máximo, mínimo o cierre)</span></p>
       <div class="ab-chart dash-skeleton" id="chart" data-source="analisis"></div>
       <details class="ab-exbox" id="ex-box"><summary>Qué estás viendo <b id="ex-n"></b></summary>
         <div class="ab-explain" id="legend"></div></details>
@@ -945,7 +957,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   // cada plazo se mira con las velas que mejor lo muestran
   const PLAZO_VIEW = { '5 min': '5m', '15 min': '15m', '1 hora': '1h', '4 horas': '4h', '1 día': '1d' };
   const S = { plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
-    layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, liq: true, osc: true, plan: true }, log: false, medir: false };
+    layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, liq: true, osc: true, plan: true }, log: false, medir: false, iman: false };
   const defBars = () => (window.innerWidth < 600 ? 62 : 102);  // incluye las 12 del futuro posible; en el telefono, menos para que se lean
   S.nbars = defBars();
   // en el celu arranca con lo esencial (velas, medias, patrones y liquidaciones); el resto se prende en "Capas"
@@ -975,7 +987,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   try {
     const saved = JSON.parse(sessionStorage.getItem('ab-vista') || 'null');
     if (saved) {
-      Object.assign(S, { plazo: saved.plazo, tf: saved.tf, scen: saved.scen, fs: !!saved.fs, log: !!saved.log });
+      Object.assign(S, { plazo: saved.plazo, tf: saved.tf, scen: saved.scen, fs: !!saved.fs, log: !!saved.log, iman: !!saved.iman });
       Object.assign(S.layers, saved.layers || {});
       document.querySelectorAll('#scens button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.scen === S.scen)));
     }
@@ -998,7 +1010,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   helpBtn.addEventListener('click', () => { help.hidden = !help.hidden; helpBtn.setAttribute('aria-expanded', String(!help.hidden)); });
   document.getElementById('ex-box').open = window.innerWidth >= 900;
   window.addEventListener('pagehide', () => {
-    try { sessionStorage.setItem('ab-vista', JSON.stringify({ plazo: S.plazo, tf: S.tf, scen: S.scen, layers: S.layers, fs: S.fs, log: S.log })); } catch (e) { /* idem */ }
+    try { sessionStorage.setItem('ab-vista', JSON.stringify({ plazo: S.plazo, tf: S.tf, scen: S.scen, layers: S.layers, fs: S.fs, log: S.log, iman: S.iman })); } catch (e) { /* idem */ }
   });
   const placeTf = seg(document.getElementById('tfs'), 'data-tf', (v) => { S.tf = v; S.hz = null; S.offset = 0; draw(); });
   const placeSc = seg(document.getElementById('scens'), 'data-scen', (v) => { S.scen = v; draw(); });
@@ -1017,6 +1029,35 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   // ---------- pantalla completa ----------
   // en el iPhone Safari no deja poner un elemento en pantalla completa: el grafico pasa a ocupar toda la ventana
   // con CSS. Donde se puede (compu, Android) ademas se pide la pantalla completa real.
+  // ---------- modo claro / oscuro ----------
+  // Sin elegir, sigue al sistema. El boton fija claro u oscuro en este navegador (y lo recuerda) y todo se redibuja
+  // con los colores de ese tema (el grafico se rehace solo porque cambia su fondo).
+  const sisOscuro = window.matchMedia('(prefers-color-scheme: dark)');
+  function oscuro() { const t = document.documentElement.dataset.theme; return t ? t === 'dark' : sisOscuro.matches; }
+  if (!window.abOscuro) window.abOscuro = oscuro;
+  const temaBtn = document.getElementById('tema-btn');
+  const SOL = 'M12 4V2M12 22v-2M4 12H2M22 12h-2M5.6 5.6 4.2 4.2M19.8 19.8l-1.4-1.4M5.6 18.4l-1.4 1.4M19.8 4.2l-1.4 1.4M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z';
+  const LUNA = 'M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z';
+  function pintarTema() {
+    const on = oscuro();
+    temaBtn.setAttribute('aria-pressed', String(on));
+    temaBtn.setAttribute('aria-label', on ? 'Pasar a modo claro' : 'Pasar a modo oscuro');
+    temaBtn.title = on ? 'Modo claro' : 'Modo oscuro';
+    document.getElementById('tema-ico').setAttribute('d', on ? SOL : LUNA);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim() || (on ? '#0a0c10' : '#f3f4f7'));
+  }
+  temaBtn.addEventListener('click', () => {
+    const t = oscuro() ? 'light' : 'dark';
+    document.documentElement.dataset.theme = t;
+    try { localStorage.setItem('ab-tema', t); } catch (e) { /* sin almacenamiento: vale hasta recargar */ }
+    pintarTema(); if (S.rows) draw();
+  });
+  // sin eleccion propia, si el sistema cambia de tema tambien se redibuja
+  sisOscuro.addEventListener('change', () => { if (!document.documentElement.dataset.theme) { pintarTema(); if (S.rows) draw(); } });
+  try { const t = localStorage.getItem('ab-tema'); if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t; } catch (e) { /* idem */ }
+  pintarTema();
+
   const card = document.getElementById('grafico'), fsBtn = document.getElementById('fs-btn');
   function setFs(on, native = true) {
     S.fs = on;
@@ -1073,6 +1114,14 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     if (!on && G.med) { G.med = null; if (G.over) G.over.update(); }
   }
   medirBtn.addEventListener('click', () => setMedir(!S.medir));
+  // iman (como en TradingView): la mira se pega a apertura/maximo/minimo/cierre y la regla tambien
+  const imanBtn = document.getElementById('iman-btn');
+  function setIman(on) {
+    S.iman = on; imanBtn.setAttribute('aria-pressed', String(on));
+    if (G.chart) G.chart.applyOptions({ crosshair: { mode: on ? LW.CrosshairMode.MagnetOHLC : LW.CrosshairMode.Normal } });
+  }
+  imanBtn.addEventListener('click', () => setIman(!S.iman));
+  imanBtn.setAttribute('aria-pressed', String(S.iman));
   document.getElementById('foto-btn').addEventListener('click', () => foto());
   // teclas, con el mouse sobre el grafico (o en pantalla completa) y sin escribir en un campo
   document.addEventListener('keydown', (e) => {
@@ -1090,6 +1139,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     } else if (k === '0') defRange();
     else if (k === 'l') setLog(!S.log);
     else if (k === 'm') setMedir(!S.medir);
+    else if (k === 'i') setIman(!S.iman);
     else if (k === 'f') setFs(!S.fs);
     else if (k >= '1' && k <= '6') setTf(tfs[Number(k) - 1]);
     else return;
@@ -2101,7 +2151,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     return m && m.length >= 3 ? `rgba(${m[0]},${m[1]},${m[2]},${a})` : c;
   }
   function pal() {
-    const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const dark = oscuro();
     return { dark, up: cssv('--color-ok'), dn: cssv('--color-bad'), warn: cssv('--color-warn'), fg: cssv('--color-fg'), mute: cssv('--color-fg-muted'),
       panel: cssv('--color-panel'), line: cssv('--color-border-line'), grid: cssv('--cds-chart-grid'),
       c0: dash.colors[0], c1: dash.colors[1], c2: dash.colors[2], font: cssv('--font-anthropic-sans') || 'system-ui, sans-serif',
@@ -2312,6 +2362,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     ctx.beginPath(); ctx.moveTo(x2, y2);
     ctx.lineTo(x2 - 8 * Math.cos(ang - 0.45), y2 - 8 * Math.sin(ang - 0.45)); ctx.lineTo(x2 - 8 * Math.cos(ang + 0.45), y2 - 8 * Math.sin(ang + 0.45));
     ctx.closePath(); ctx.fillStyle = col; ctx.fill();
+    [[m.a, x1, y1], [m.b, x2, y2]].forEach(([q, x, y]) => {
+      if (!q.iman) return;
+      ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill();
+      ctx.strokeStyle = P.panel; ctx.lineWidth = 2; ctx.stroke();
+    });
     const mins = Math.abs(n) * TF_MIN[S.tf];
     const txt = `${sg(ch)} · ${m.b.p >= m.a.p ? '+' : '−'}${fp(Math.abs(m.b.p - m.a.p))} · ${Math.abs(n)} velas${mins ? ` · ${dur(mins)}` : ''}`;
     pillC(ctx, x2, Math.max(14, Math.min(h - 14, y2 + (y2 < y1 ? -16 : 16))), txt, col, true, 'middle', w);
@@ -2387,8 +2442,17 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
         const ps = G.chart.paneSize(0);
         if (x < 0 || x > ps.width || y < 0 || y > ps.height) return null;
         const l = G.chart.timeScale().coordinateToLogical(x), p = G.c.coordinateToPrice(y);
-        return l === null || p === null ? null : { l, p };
+        if (l === null || p === null) return null;
+        return S.iman !== (e.ctrlKey || e.metaKey) ? pegar(l, y) || { l, p } : { l, p };
       } catch (err) { return null; }            // el grafico se esta rehaciendo
+    };
+    // la vela mas cercana (tambien las del escenario, a la derecha) y su apertura, maximo, minimo o cierre mas cerca en pixeles
+    const pegar = (l, y) => {
+      const d = G.d, k = Math.round(l);
+      const b = k >= 0 && k < d.all.length ? d.all[k] : d.ghosts.find((g) => g.k === k - d.lastIdx);
+      if (!b) return null;
+      const p = [b.o, b.h, b.l, b.c].reduce((m, v) => (Math.abs(Y(v) - y) < Math.abs(Y(m) - y) ? v : m));
+      return { l: k, p, iman: true };
     };
     const bloquear = (e) => { if (tapada) { e.preventDefault(); e.stopPropagation(); } };
     box.addEventListener('pointerdown', (e) => {
@@ -2451,7 +2515,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       layout: { background: { type: 'solid', color: P.panel }, textColor: P.mute, fontFamily: P.font, fontSize: 11,
         panes: { separatorColor: P.line, separatorHoverColor: alpha(P.fg, 0.12), enableResize: true } },
       grid: { vertLines: { color: P.grid }, horzLines: { color: P.grid } },
-      crosshair: { mode: LW.CrosshairMode.Normal, vertLine: cross, horzLine: cross },
+      crosshair: { mode: S.iman ? LW.CrosshairMode.MagnetOHLC : LW.CrosshairMode.Normal, vertLine: cross, horzLine: cross },
       rightPriceScale: { borderVisible: false, scaleMargins: { top: narrow ? 0.17 : 0.11, bottom: 0.2 }, minimumWidth: narrow ? 58 : 70 },
       timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 4, barSpacing: narrow ? 6 : 8, minBarSpacing: 1,
         shiftVisibleRangeOnNewBar: true },

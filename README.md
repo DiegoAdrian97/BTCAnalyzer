@@ -8,8 +8,8 @@ El gráfico usa el motor de TradingView ([Lightweight Charts](https://www.tradin
 gestos, con las marcas del analista encima (escenarios, cono, patrones, divergencias, ondas, FVG, liquidaciones y niveles).
 Herramientas: **Mi plan** (las compras que faltan de `plan_compras.json`, tu promedio, la próxima toma de ganancias y la
 liquidación, como líneas con nombre), **Medir** (Shift + arrastrar o el botón: %, precio, velas y tiempo entre dos puntos),
-escala **Log**, **»** para volver a la última vela, **Imagen** (en el iPhone se comparte, en la compu se baja) y teclas con el
-mouse sobre el gráfico (← → moverse, + − zoom, 0 ajustar, L, M, 1 a 6 temporalidad, F pantalla completa, Esc). Verde y rojo
+**Imán** (la mira y los puntos de Medir se pegan a la apertura, máximo, mínimo o cierre; Cmd/Ctrl mientras medís lo invierte), escala **Log**, **»** para volver a la última vela, **Imagen** (en el iPhone se comparte, en la compu se baja) y teclas con el
+mouse sobre el gráfico (← → moverse, + − zoom, 0 ajustar, L, M, I, 1 a 6 temporalidad, F pantalla completa, Esc). Botón ☀/☾ al lado de la campanita: modo claro u oscuro (sin elegir, sigue al sistema; se recuerda en ese navegador). Verde y rojo
 validados para daltonismo (deuteranopia: diferencia 11 en claro y 9 en oscuro; los anteriores daban 5-6).
 
 No es una recomendación de inversión.

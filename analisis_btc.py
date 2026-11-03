@@ -1236,9 +1236,12 @@ LOCAL_SHELL = """<!doctype html>
   --cds-pad-xs: 4px; --cds-pad-sm: 8px; --cds-pad-md: 12px; --cds-pad-lg: 18px; --cds-pad-xl: 28px; --cds-radius: 8px;
   --cds-chart-grid: #eceef2; --cds-surface-popover: #ffffff; --cds-border: #dde1e7; --cds-shadow-popover: 0 6px 24px rgba(20,24,32,.12);
   --cds-text-secondary: #6a7180; --cds-ease-out: cubic-bezier(.2,.8,.2,1); --cds-dur-slow: .4s; color-scheme: light; }
-@media (prefers-color-scheme: dark) { :root { --color-fg: #e8eaee; --color-fg-muted: #949bab; --color-bg: #121418; --color-panel: #1b1e24;
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --color-fg: #e8eaee; --color-fg-muted: #949bab; --color-bg: #121418; --color-panel: #1b1e24;
   --color-border-line: #2b3038; --color-ok: #3cc58a; --color-warn: #e0a64a; --color-bad: #f0645a; --cds-chart-grid: #252a31;
   --cds-surface-popover: #22262d; --cds-border: #343a43; --cds-shadow-popover: 0 6px 24px rgba(0,0,0,.45); --cds-text-secondary: #949bab; color-scheme: dark; } }
+:root[data-theme="dark"] { --color-fg: #e8eaee; --color-fg-muted: #949bab; --color-bg: #121418; --color-panel: #1b1e24;
+  --color-border-line: #2b3038; --color-ok: #3cc58a; --color-warn: #e0a64a; --color-bad: #f0645a; --cds-chart-grid: #252a31;
+  --cds-surface-popover: #22262d; --cds-border: #343a43; --cds-shadow-popover: 0 6px 24px rgba(0,0,0,.45); --cds-text-secondary: #949bab; color-scheme: dark; }
 html { touch-action: manipulation; }   /* sin zoom por doble toque en el telefono */
 body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14px var(--font-anthropic-sans); }
 #dash-root { padding-block: 24px 40px; padding-left: max(16px, var(--dash-gutter, 24px)); padding-right: max(16px, var(--dash-gutter, 24px)); }
@@ -1260,10 +1263,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       }).catch(function () {});
     }, 2000);
   }
-  var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  try { var tm = localStorage.getItem('ab-tema'); if (tm === 'dark' || tm === 'light') document.documentElement.dataset.theme = tm; } catch (e) { /* sin almacenamiento */ }
+  window.abOscuro = function () { var t = document.documentElement.dataset.theme; return t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches; };
   window.dash = {
-    colors: dark ? ['#4a8af4', '#bf7f1a', '#9270f0', '#14a394', '#f08bb4', '#a3e635', '#fb923c', '#94a3b8']
-                 : ['#2563eb', '#d97706', '#7c3aed', '#0f9488', '#d1477e', '#4d7c0f', '#c2410c', '#64748b'],
+    get colors() { return window.abOscuro() ? ['#4a8af4', '#bf7f1a', '#9270f0', '#14a394', '#f08bb4', '#a3e635', '#fb923c', '#94a3b8']
+                                            : ['#2563eb', '#d97706', '#7c3aed', '#0f9488', '#d1477e', '#4d7c0f', '#c2410c', '#64748b']; },
     data: function () { return { status: 'ok', data: rows, columns: [], meta: [], refreshing: false }; },
     onData: function (fn) { fns.push(fn); fn(); },
     params: function () { return {}; }, setParams: function () {}, resetParams: function () {}, setLink: function () {}, refresh: function () {}

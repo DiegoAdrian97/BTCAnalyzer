@@ -16,10 +16,14 @@
   const porMoneda = {};
   const redraw = () => fns.forEach((f) => f());
   window.abLive = true;            // la pagina se conecta sola al WebSocket de Binance para los ticks
-  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  // tema: el elegido con el boton (guardado en este navegador) o el del sistema. Se aplica antes de pintar.
+  try { const tm = localStorage.getItem('ab-tema'); if (tm === 'dark' || tm === 'light') document.documentElement.dataset.theme = tm; } catch (e) { /* idem */ }
+  window.abOscuro = () => { const tm = document.documentElement.dataset.theme; return tm ? tm === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches; };
+  // paletas validadas para daltonismo y contraste (claro y oscuro)
+  const COLORES = { oscuro: ['#4a8af4', '#bf7f1a', '#9270f0', '#14a394', '#f08bb4', '#a3e635', '#fb923c', '#94a3b8'],
+    claro: ['#2563eb', '#d97706', '#7c3aed', '#0f9488', '#d1477e', '#4d7c0f', '#c2410c', '#64748b'] };
   window.dash = {
-    colors: dark ? ['#4a8af4', '#bf7f1a', '#9270f0', '#14a394', '#f08bb4', '#a3e635', '#fb923c', '#94a3b8']
-      : ['#2563eb', '#d97706', '#7c3aed', '#0f9488', '#d1477e', '#4d7c0f', '#c2410c', '#64748b'],
+    get colors() { return window.abOscuro() ? COLORES.oscuro : COLORES.claro; },
     data: () => (rows ? { status: 'ok', data: rows, columns: [], meta: [], refreshing: false }
       : { status: 'loading', data: [], columns: [], meta: [], refreshing: false }),
     onData: (fn) => { fns.push(fn); fn(); },
