@@ -18,7 +18,7 @@
   window.abLive = true;            // la pagina se conecta sola al WebSocket de Binance para los ticks
   const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   window.dash = {
-    colors: dark ? ['#5b9cff', '#f5b041', '#b392ff', '#4fd1c5', '#f08bb4', '#a3e635', '#fb923c', '#94a3b8']
+    colors: dark ? ['#4a8af4', '#bf7f1a', '#9270f0', '#14a394', '#f08bb4', '#a3e635', '#fb923c', '#94a3b8']
       : ['#2563eb', '#d97706', '#7c3aed', '#0f9488', '#d1477e', '#4d7c0f', '#c2410c', '#64748b'],
     data: () => (rows ? { status: 'ok', data: rows, columns: [], meta: [], refreshing: false }
       : { status: 'loading', data: [], columns: [], meta: [], refreshing: false }),

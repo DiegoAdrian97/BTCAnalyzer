@@ -376,15 +376,17 @@
     const edge = up - (fit.p_sube !== null && fit.p_sube !== undefined ? Apr.ajustar(b.up / 100, f) * 100 : b.up);
     // margen de error del 95%: con pocos casos, una diferencia chica contra la tasa normal es ruido
     const margin = 196 * Math.sqrt(((o.up / 100) * (1 - o.up / 100)) / o.n) * f;
-    const verdict = Math.abs(edge) < Math.max(3, margin) ? 'Casi moneda' : edge > 0 ? 'Sesgo alcista' : 'Sesgo bajista';
+    const L = fit.learn || {};
+    // si en su repaso honesto no le gano a la tasa base, una diferencia contra lo normal no es una ventaja: es ruido
+    const sinVentaja = L.habilidad !== undefined && L.habilidad !== null && L.habilidad <= 0;
+    const verdict = sinVentaja || Math.abs(edge) < Math.max(3, margin) ? 'Casi moneda' : edge > 0 ? 'Sesgo alcista' : 'Sesgo bajista';
     const whenMs = s.bars[s.bars.length - 1][0] + (h + 1) * s.tfMs;
     const when = fmtLocal(whenMs);
-    const L = fit.learn || {};
     const [tg, close] = targets(s.bars, sample, price, h, when, f, L.distancia === undefined ? null : L.distancia, fit.p_primero === undefined ? null : fit.p_primero, F);
     return [{
       tf, horizonte: label(h * s.tfMin), velas: h, sube: rnd(up, 1), baja: rnd(100 - up, 1), base: rnd(b.up, 1),
       sube_crudo: rnd(o.up, 1), receta: fit.receta, factor: f,
-      veredicto: verdict, n: o.n, dias: s.days, hora: when, t_hasta: whenMs, margen: rnd(margin, 1), pocos_casos: o.n < 100,
+      veredicto: verdict, sin_ventaja: sinVentaja, n: o.n, dias: s.days, hora: when, t_hasta: whenMs, margen: rnd(margin, 1), pocos_casos: o.n < 100,
       min: rp(price * (1 + o.p10 / 100)), max: rp(price * (1 + o.p90 / 100)), ...(close || NO_CLOSE),
     }, tg];
   }
@@ -401,7 +403,7 @@
     return { tabla: 'contexto', clave: 'liq_reales', titulo: 'Liquidaciones reales 1 h (OKX)', valor: `longs ${m(l60)} M · shorts ${m(s60)} M USD`, senal: 'neutral', detalle: det_,
       longs_1h: rnd(l60), shorts_1h: rnd(s60), longs_15m: rnd(l15), shorts_15m: rnd(s15), barrida };
   }
-  // ---------- contexto actual (Bybit, OKX y BingX, como analisis_btc.py) ----------
+  // ---------- contexto actual (como analisis_btc.py; en el navegador las fuentes son Bybit, Bitget y Binance) ----------
   function context(raw, h1) {
     const rows = [];
     const add = (key, title, value, signal, detail, num = {}) => rows.push({ tabla: 'contexto', clave: key, titulo: title, valor: value, senal: signal, detalle: detail, ...num });
@@ -611,7 +613,8 @@
     }
     signals.sort((a, b) => a[0] - b[0]);
 
-    const up = main.obj_arriba, dn = main.obj_abajo, pu = main.primero_arriba, mg = main.margen_primero || 0;
+    const up = main.obj_arriba, dn = main.obj_abajo, mg = main.margen_primero || 0;
+    const pu = main.sin_ventaja ? null : main.primero_arriba;     // sin ventaja medida, "que toca primero" tampoco es una prediccion
     const nUp = signals.filter((s) => s[1] === 'alcista').length, nDn = signals.length - nUp;
     let bias, head;
     if (pu !== null && pu - 50 > Math.max(5, mg)) {
@@ -622,7 +625,11 @@
       head = `Hasta las ${hh} h, es más probable que BTC baje a ${ap(dn)} (${ar(100 - pu)}%) antes que suba a ${ap(up)}.`;
     } else {
       bias = 'neutral';
-      head = `Hasta las ${hh} h, sin dirección clara: lo esperable es que BTC se mueva entre ${ap(dn)} y ${ap(up)}.`;
+      // el rango real: donde termino el 80% de los casos parecidos (los niveles +/- un escalon se pasan seguido)
+      const lo = main.min, hi = main.max;
+      const rango = lo && hi ? `8 de cada 10 veces terminó entre ${ap(lo)} y ${ap(hi)}` : `lo más cerca está ${ap(dn)} o ${ap(up)}`;
+      const motivo = main.sin_ventaja ? ' (en su repaso no le ganó a la tasa base)' : '';
+      head = `Hasta las ${hh} h, sin dirección clara${motivo}: ${rango}.`;
     }
     const agree = bias === 'alcista' ? nUp : nDn;
     let why;
@@ -666,21 +673,27 @@
     return txt;
   }
 
-  /** Suma las predicciones nuevas al registro y mide cuantas acertaron (solo con velas cerradas). */
+  /**
+   * Suma las predicciones nuevas al registro y mide cuantas acertaron (solo con velas cerradas). Cada una guarda
+   * tambien su rango del 80% (registros viejos: sin rango), para medir si el precio termina adentro.
+   */
   function logAndScore(log, entries, closesByTf) {
     const seen = new Set(log.map((r) => `${r[0]}|${r[1]}|${r[2]}`));
-    entries.forEach(([t, tf, h, p, pr]) => {
-      if (!seen.has(`${t}|${tf}|${h}`)) log.push([t, tf, h, rp(p), rnd(pr, 1)]);
+    entries.forEach(([t, tf, h, p, pr, lo, hi]) => {
+      if (!seen.has(`${t}|${tf}|${h}`)) log.push([t, tf, h, rp(p), rnd(pr, 1)].concat(lo === null || lo === undefined || hi === null || hi === undefined ? [] : [rp(lo), rp(hi)]));
     });
-    const score = new Map();
-    log.forEach(([t, tf, h, p, pr]) => {
+    const score = new Map();      // tf|h -> [casos, aciertos, brier, con rango, adentro del rango]
+    log.forEach(([t, tf, h, p, pr, lo, hi]) => {
       const future = closesByTf[tf] && closesByTf[tf].get(t + h * TF_MS[tf]);
-      const prob = pr / 100;
-      if (future === undefined || prob === 0.5) return;
-      const up = future > p;
+      if (future === undefined) return;
       const key = `${tf}|${h}`;
-      const [n, hits, brier] = score.get(key) || [0, 0, 0];
-      score.set(key, [n + 1, hits + ((prob > 0.5) === up ? 1 : 0), brier + (prob - (up ? 1 : 0)) ** 2]);
+      const sc = score.get(key) || [0, 0, 0, 0, 0];
+      score.set(key, sc);
+      if (lo !== undefined && hi !== undefined) { sc[3] += 1; sc[4] += lo <= future && future <= hi ? 1 : 0; }
+      const prob = pr / 100;
+      if (prob === 0.5) return;
+      const up = future > p;
+      sc[0] += 1; sc[1] += (prob > 0.5) === up ? 1 : 0; sc[2] += (prob - (up ? 1 : 0)) ** 2;
     });
     return score;
   }
@@ -742,7 +755,7 @@
         const [prob, tg] = horizonStats(tf, series[tf], h, price, tune(tf, series[tf], h));
         rows.push({ tabla: 'probabilidad', ...prob });
         tg.forEach((t) => rows.push({ tabla: 'objetivo', tf, horizonte: prob.horizonte, hora: prob.hora, ...t }));
-        entries.push([bars[i][0] + tfMs, tf, h, closes[i], prob.sube]);
+        entries.push([bars[i][0] + tfMs, tf, h, closes[i], prob.sube, prob.min, prob.max]);
       });
 
       const [sc, cone] = scenarios(bars, idxs, price, tfMs, volFactor(series[tf], SCENARIO_STEPS));
@@ -764,7 +777,7 @@
       tg.forEach((t) => rows.push({ tabla: 'objetivo_plazo', plazo: name, ...t }));
       if (!entries.some((e) => e[1] === tf && e[2] === h)) {
         const s = series[tf];
-        entries.push([s.bars[s.bars.length - 1][0] + s.tfMs, tf, h, s.closes[s.closes.length - 1], prob.sube]);
+        entries.push([s.bars[s.bars.length - 1][0] + s.tfMs, tf, h, s.closes[s.closes.length - 1], prob.sube, prob.min, prob.max]);
       }
     });
 
@@ -790,7 +803,7 @@
       ctx.forEach((r) => rows.push(r));
       funding = fr;
     } else {
-      rows.push({ tabla: 'contexto', clave: 'error', titulo: 'Contexto no disponible', valor: '', senal: 'neutral', detalle: 'No se pudo leer: Bybit, OKX y BingX no respondieron' });
+      rows.push({ tabla: 'contexto', clave: 'error', titulo: 'Contexto no disponible', valor: '', senal: 'neutral', detalle: 'No se pudo leer: Bybit, Bitget y Binance no respondieron' });
     }
     // noticias, ETF y prima de Coinbase (las trae api/contexto.js): para explicar los movimientos fuertes
     if (input.externo && Array.isArray(input.externo.rows)) {
@@ -827,8 +840,11 @@
     const score = logAndScore(log, entries, closesByTf);
     [...score.entries()].map(([key, v]) => { const [tf, h] = key.split('|'); return [tf, Number(h), v]; })
       .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] - b[1]))
-      .forEach(([tf, h, [n, hits, brier]]) => rows.push({ tabla: 'acierto', tf, horizonte: label(h * (TF_MS[tf] / 60000)), pronosticos: n,
-        aciertos: rnd((hits / n) * 100, 1), brier: rnd(brier / n, 3) }));
+      .filter(([, , [n, , , nr]]) => n || nr)     // sin casos medibles no hay nada que mostrar
+      .forEach(([tf, h, [n, hits, brier, nr, adentro]]) => rows.push({ tabla: 'acierto', tf, horizonte: label(h * (TF_MS[tf] / 60000)), pronosticos: n,
+        aciertos: n ? rnd((hits / n) * 100, 1) : null, brier: n ? rnd(brier / n, 3) : null,
+        // el rango del 80% es honesto si el precio termina adentro ~80% de las veces
+        con_rango: nr, en_rango: nr ? rnd((adentro / nr) * 100, 1) : null }));
 
     const mov = movimiento(candles['5m'], price, input.moneda || 'BTC');
     if (mov) {
@@ -860,7 +876,7 @@
     return { rows, log };
   }
 
-  const Analisis = { analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, liqReales };
+  const Analisis = { analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, logAndScore, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, liqReales };
   root.Analisis = Analisis;
   if (typeof module !== 'undefined' && module.exports) module.exports = Analisis;
 })(typeof self !== 'undefined' ? self : globalThis);

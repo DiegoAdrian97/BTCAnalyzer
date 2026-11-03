@@ -1,15 +1,16 @@
 <style>
   /* Tema: minimalista y moderno. Una sola familia tipografica (la del sistema: SF en el iPhone), superficies planas,
-     bordes finos y color solo donde dice algo (verde sube, rojo baja). Pisa los colores que trae cada version. */
+     bordes finos y color solo donde dice algo (verde sube, rojo baja). Pisa los colores que trae cada version.
+     Verde y rojo validados para daltonismo (deuteranopia: diferencia 11 en claro y 9 en oscuro; los de antes daban 5-6). */
   :root { --color-fg: #0f1218; --color-fg-muted: #687080; --color-bg: #f3f4f7; --color-panel: #ffffff;
-    --color-border-line: #e6e8ec; --color-ok: #0b9e6a; --color-warn: #c97a12; --color-bad: #e0484f;
+    --color-border-line: #e6e8ec; --color-ok: #089981; --color-warn: #c97a12; --color-bad: #f23645;
     --cds-chart-grid: #eef0f3; --cds-surface-popover: #ffffff; --cds-border: #e3e6ea; --cds-text-secondary: #687080;
     --cds-shadow-popover: 0 8px 28px rgba(16, 24, 40, .12);
     --font-anthropic-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
     --font-anthropic-serif: var(--font-anthropic-sans); --cds-radius: 10px; }
   @media (prefers-color-scheme: dark) {
     :root { --color-fg: #e7eaf0; --color-fg-muted: #8a92a2; --color-bg: #0a0c10; --color-panel: #12151b;
-      --color-border-line: #1f242c; --color-ok: #2ebd85; --color-warn: #f0b90b; --color-bad: #f6465d;
+      --color-border-line: #1f242c; --color-ok: #22ab94; --color-warn: #f0b90b; --color-bad: #f7525f;
       --cds-chart-grid: #1a1e25; --cds-surface-popover: #191d24; --cds-border: #2a303a; --cds-text-secondary: #8a92a2;
       --cds-shadow-popover: 0 10px 30px rgba(0, 0, 0, .5); }
   }
@@ -116,6 +117,10 @@
   .ab-chart { cursor: crosshair; user-select: none; }
   .ab-chart.is-panning { cursor: grabbing; }
   .ab-chart.is-scaling { cursor: ns-resize; }
+  .ab-chart.is-midiendo { cursor: cell; }
+  .ab-iconbtn[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+  .ab-now-btn { position: absolute; z-index: 4; box-shadow: var(--cds-shadow-popover); background: var(--panel); border: 1px solid var(--line); }
+  .ab-now-btn[hidden] { display: none; }
 
   /* que creo que va a pasar */
   .ab-story-head { margin: 0; font-family: var(--serif); font-weight: 400; font-size: clamp(1.25rem, 2.4vw, 1.65rem); line-height: 1.35; max-width: 62ch; text-wrap: pretty; }
@@ -765,16 +770,20 @@
           <button type="button" class="ab-chipbtn" data-layer="ondas" aria-pressed="true"><i style="background: var(--color-fg)"></i>Ondas</button>
           <button type="button" class="ab-chipbtn" data-layer="liq" aria-pressed="true"><i style="background: var(--color-bad)"></i>Liquidaciones</button>
           <button type="button" class="ab-chipbtn" data-layer="osc" aria-pressed="true"><i style="background: var(--ab-c2)"></i>RSI · MACD</button>
+          <button type="button" class="ab-chipbtn" data-layer="plan" aria-pressed="true" hidden><i style="background: var(--color-fg)"></i>Mi plan</button>
         </div>
         <div class="ab-zoom" role="group" aria-label="Zoom del gráfico">
           <span class="ab-zoom-g"><button type="button" class="ab-iconbtn ab-round" data-zoom="out" aria-label="Ver más velas">−</button>
             <span id="zoom-info" class="ab-num">— velas</span>
             <button type="button" class="ab-iconbtn ab-round" data-zoom="in" aria-label="Ver menos velas">+</button></span>
           <button type="button" class="ab-iconbtn" id="fit">Ajustar</button>
+          <button type="button" class="ab-iconbtn" id="log-btn" aria-pressed="false" title="Escala logarítmica: las mismas subas y bajas en % miden lo mismo (tecla L)">Log</button>
+          <button type="button" class="ab-iconbtn" id="medir-btn" aria-pressed="false" title="Medir: arrastrá en el gráfico para ver el % y las velas entre dos puntos (con el mouse: Shift + arrastrar; tecla M)">Medir</button>
+          <button type="button" class="ab-iconbtn" id="foto-btn" title="Guardar o compartir una imagen del gráfico">Imagen</button>
           <button type="button" class="ab-iconbtn" id="replay" title="Repetir la animación del escenario">↻</button>
         </div>
       </div>
-      <p class="ab-note ab-help" id="chart-help" hidden><span class="ab-only-mouse">Arrastrá el gráfico para moverte · rueda: zoom · arrastrá el eje de precios o el de horas para estirarlos · arrastrá el borde de abajo del precio o de cada indicador para hacerlo más alto o más bajo · doble clic en un eje: vuelve ese eje a como estaba (en el de horas, todos los paneles) · doble clic en el gráfico: ajusta todo</span><span class="ab-only-touch">Arrastrá con un dedo para moverte · pellizcá para zoom (de costado: velas; vertical: precios) · arrastrá los ejes para estirarlos · arrastrá la manija de abajo de cada panel para cambiar su alto · doble toque en un eje lo vuelve a como estaba · tocá una vela para ver sus datos</span></p>
+      <p class="ab-note ab-help" id="chart-help" hidden><span class="ab-only-mouse">Arrastrá el gráfico para moverte · rueda: zoom · arrastrá el eje de precios o el de horas para estirarlos · arrastrá el borde de abajo del precio o de cada indicador para hacerlo más alto o más bajo · doble clic en un eje: vuelve ese eje a como estaba (en el de horas, todos los paneles) · doble clic en el gráfico: ajusta todo · Shift + arrastrar: medir % y velas · teclas (con el mouse sobre el gráfico): ← → moverse, + − zoom, 0 ajustar, L logarítmica, M medir, 1 a 6 temporalidad, F pantalla completa, Esc borrar la medición</span><span class="ab-only-touch">Arrastrá con un dedo para moverte · pellizcá para zoom (de costado: velas; vertical: precios) · arrastrá los ejes para estirarlos · arrastrá la manija de abajo de cada panel para cambiar su alto · doble toque en un eje lo vuelve a como estaba · tocá una vela para ver sus datos · "Medir" y arrastrá: % y velas entre dos puntos</span></p>
       <div class="ab-chart dash-skeleton" id="chart" data-source="analisis"></div>
       <details class="ab-exbox" id="ex-box"><summary>Qué estás viendo <b id="ex-n"></b></summary>
         <div class="ab-explain" id="legend"></div></details>
@@ -891,7 +900,7 @@
   // cada plazo se mira con las velas que mejor lo muestran
   const PLAZO_VIEW = { '5 min': '5m', '15 min': '15m', '1 hora': '1h', '4 horas': '4h', '1 día': '1d' };
   const S = { plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
-    layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, liq: true, osc: true } };
+    layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, liq: true, osc: true, plan: true }, log: false, medir: false };
   const defBars = () => (window.innerWidth < 600 ? 62 : 102);  // incluye las 12 del futuro posible; en el telefono, menos para que se lean
   S.nbars = defBars();
   // en el celu arranca con lo esencial (velas, medias, patrones y liquidaciones); el resto se prende en "Capas"
@@ -921,14 +930,16 @@
   try {
     const saved = JSON.parse(sessionStorage.getItem('ab-vista') || 'null');
     if (saved) {
-      Object.assign(S, { plazo: saved.plazo, tf: saved.tf, scen: saved.scen, fs: !!saved.fs });
+      Object.assign(S, { plazo: saved.plazo, tf: saved.tf, scen: saved.scen, fs: !!saved.fs, log: !!saved.log });
       Object.assign(S.layers, saved.layers || {});
       document.querySelectorAll('#scens button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.scen === S.scen)));
     }
   } catch (e) { /* sin almacenamiento: arranca con la vista por defecto */ }
   const syncLayers = () => {
     document.querySelectorAll('#layers [data-layer]').forEach((x) => x.setAttribute('aria-pressed', String(!!S.layers[x.dataset.layer])));
-    const all = Object.keys(S.layers);
+    // "Mi plan" cuenta solo si hay plan (el chip se muestra en drawChart: aca PLAN_COMPRAS todavia no existe)
+    const planChip = document.querySelector('#layers [data-layer="plan"]');
+    const all = Object.keys(S.layers).filter((k) => k !== 'plan' || (planChip && !planChip.hidden));
     document.getElementById('capas-n').textContent = `${all.filter((k) => S.layers[k]).length}/${all.length}`;
   };
   syncLayers();
@@ -942,7 +953,7 @@
   helpBtn.addEventListener('click', () => { help.hidden = !help.hidden; helpBtn.setAttribute('aria-expanded', String(!help.hidden)); });
   document.getElementById('ex-box').open = window.innerWidth >= 900;
   window.addEventListener('pagehide', () => {
-    try { sessionStorage.setItem('ab-vista', JSON.stringify({ plazo: S.plazo, tf: S.tf, scen: S.scen, layers: S.layers, fs: S.fs })); } catch (e) { /* idem */ }
+    try { sessionStorage.setItem('ab-vista', JSON.stringify({ plazo: S.plazo, tf: S.tf, scen: S.scen, layers: S.layers, fs: S.fs, log: S.log })); } catch (e) { /* idem */ }
   });
   const placeTf = seg(document.getElementById('tfs'), 'data-tf', (v) => { S.tf = v; S.hz = null; S.offset = 0; draw(); });
   const placeSc = seg(document.getElementById('scens'), 'data-scen', (v) => { S.scen = v; draw(); });
@@ -979,7 +990,11 @@
     requestAnimationFrame(() => { if (S.rows) { drawChart(S.rows, S.sum); placeTf(); placeSc(); } });
   }
   fsBtn.addEventListener('click', () => setFs(!S.fs));
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.fs) setFs(false); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (G.med || S.medir) { setMedir(false); return; }      // primero se borra la medicion
+    if (S.fs) setFs(false);
+  });
   document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && S.fs) setFs(false, false); });
   if (S.fs) setFs(true, false);
 
@@ -997,6 +1012,44 @@
     ts.setVisibleLogicalRange({ from: r.to - len, to: r.to });
   }));
   document.getElementById('fit').addEventListener('click', defRange);
+  // escala logaritmica: en el diario y el de 4 h los movimientos grandes se comparan mejor en %
+  const logBtn = document.getElementById('log-btn');
+  function setLog(on) {
+    S.log = on; logBtn.setAttribute('aria-pressed', String(on));
+    if (G.chart) G.chart.priceScale('right').applyOptions({ mode: on ? LW.PriceScaleMode.Logarithmic : LW.PriceScaleMode.Normal });
+  }
+  logBtn.addEventListener('click', () => setLog(!S.log));
+  logBtn.setAttribute('aria-pressed', String(S.log));
+  // medir: % y velas entre dos puntos, como la regla de TradingView (con el mouse tambien Shift + arrastrar)
+  const medirBtn = document.getElementById('medir-btn');
+  function setMedir(on) {
+    S.medir = on; medirBtn.setAttribute('aria-pressed', String(on));
+    document.getElementById('chart').classList.toggle('is-midiendo', on);
+    if (!on && G.med) { G.med = null; if (G.over) G.over.update(); }
+  }
+  medirBtn.addEventListener('click', () => setMedir(!S.medir));
+  document.getElementById('foto-btn').addEventListener('click', () => foto());
+  // teclas, con el mouse sobre el grafico (o en pantalla completa) y sin escribir en un campo
+  document.addEventListener('keydown', (e) => {
+    if (!G.chart || e.metaKey || e.ctrlKey || e.altKey || (!G.hoverBox && !S.fs)) return;
+    const tg = e.target || {};
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(tg.tagName || '') || tg.isContentEditable) return;
+    const ts = G.chart.timeScale(), r = ts.getVisibleLogicalRange();
+    const tfs = ['5m', '15m', '30m', '1h', '4h', '1d'], k = e.key.toLowerCase();
+    if ((k === 'arrowleft' || k === 'arrowright') && r) {
+      const step = Math.max(1, (r.to - r.from) * 0.15) * (k === 'arrowleft' ? -1 : 1);
+      ts.setVisibleLogicalRange({ from: r.from + step, to: r.to + step });
+    } else if ((k === '+' || k === '=' || k === '-' || k === '_') && r) {
+      const len = Math.max(12, Math.min(600, (r.to - r.from) * (k === '-' || k === '_' ? 1.4 : 1 / 1.4)));
+      ts.setVisibleLogicalRange({ from: r.to - len, to: r.to });
+    } else if (k === '0') defRange();
+    else if (k === 'l') setLog(!S.log);
+    else if (k === 'm') setMedir(!S.medir);
+    else if (k === 'f') setFs(!S.fs);
+    else if (k >= '1' && k <= '6') setTf(tfs[Number(k) - 1]);
+    else return;
+    e.preventDefault();
+  });
 
   document.querySelectorAll('.ab-more').forEach((d) => d.addEventListener('toggle', () => { if (d.open && S.rows) draw(); }));
 
@@ -1839,7 +1892,8 @@
       d.style.flexBasis = '50%'; u.style.flexBasis = '50%';
       tug.append(d, u, el('i', 'ab-tug-mid'));
       later(() => { d.style.flexBasis = (100 - pu) + '%'; u.style.flexBasis = pu + '%'; });
-      document.getElementById('first-mg').textContent = `${f0(num(p.distancia))} USD para cada lado` + (num(p.factor) === 0 ? ' · sin ventaja aprendida: lo trata como moneda' : ` · margen ±${f0(num(p.margen_primero))} pts`);
+      document.getElementById('first-mg').textContent = `${f0(num(p.distancia))} USD para cada lado` + (num(p.factor) === 0 ? ' · sin ventaja aprendida: lo trata como moneda'
+        : p.sin_ventaja ? ' · en su repaso no le ganó a la tasa base: no lo toma como predicción' : ` · margen ±${f0(num(p.margen_primero))} pts`);
     }
     const lo = num(p.min), hi = num(p.max), span = hi - lo || 1;
     const at = (v) => Math.max(0, Math.min(100, (v - lo) / span * 100));
@@ -2111,6 +2165,7 @@
     const d = G.d, P = G.P, L = S.layers;
     if (!d) return;
     const narrow = w < 480;
+    const usados = [];      // alturas de los nombres de figuras ya puestos: si dos caen juntos (p. ej. pegados al borde), el otro baja
     if (L.patrones) {
       d.figs.forEach((p) => {
         const col = colOf(p.sesgo), conf = p.estado === 'confirmado', key = `pat-grafico-${p.nombre}`;
@@ -2139,7 +2194,12 @@
         });
         const head = first || label;
         const pn = narrow && p.nombre.length > 22 ? `${p.nombre.slice(0, 21).trim()}…` : p.nombre;
-        if (head) pillC(ctx, head.x, Math.max(narrow ? 66 : 50, Math.min(h - 12, head.y)), conf ? `✓ ${pn}` : `Posible ${pn.slice(0, 1).toLowerCase()}${pn.slice(1)}`, col, conf, first ? 'middle' : 'start', w);
+        if (head) {
+          let y = Math.max(narrow ? 66 : 50, Math.min(h - 12, head.y));
+          while (usados.some((u) => Math.abs(u - y) < 20) && y < h - 12) y += 20;
+          usados.push(y);
+          pillC(ctx, head.x, y, conf ? `✓ ${pn}` : `Posible ${pn.slice(0, 1).toLowerCase()}${pn.slice(1)}`, col, conf, first ? 'middle' : 'start', w);
+        }
         ctx.globalAlpha = 1;
       });
       d.divs.forEach((v) => {
@@ -2191,6 +2251,25 @@
       ctx.fillText('LIQUID.', w - 3, narrow ? 54 : 40);
       ctx.globalAlpha = 1;
     }
+    if (G.med) drawMed(ctx, w, h);
+  }
+
+  // la regla: caja entre los dos puntos, flecha y cuanto cambio (%, precio, velas y tiempo)
+  function drawMed(ctx, w, h) {
+    const m = G.med, ts = G.chart.timeScale(), P = G.P;
+    const x1 = ts.logicalToCoordinate(m.a.l), x2 = ts.logicalToCoordinate(m.b.l), y1 = Y(m.a.p), y2 = Y(m.b.p);
+    if ([x1, x2, y1, y2].some((v) => v === null)) return;
+    const ch = (m.b.p / m.a.p - 1) * 100, col = ch >= 0 ? P.up : P.dn, n = Math.round(m.b.l - m.a.l);
+    ctx.fillStyle = alpha(col, 0.13); ctx.fillRect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1));
+    ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    const ang = Math.atan2(y2 - y1, x2 - x1);
+    ctx.beginPath(); ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - 8 * Math.cos(ang - 0.45), y2 - 8 * Math.sin(ang - 0.45)); ctx.lineTo(x2 - 8 * Math.cos(ang + 0.45), y2 - 8 * Math.sin(ang + 0.45));
+    ctx.closePath(); ctx.fillStyle = col; ctx.fill();
+    const mins = Math.abs(n) * TF_MIN[S.tf];
+    const txt = `${sg(ch)} · ${m.b.p >= m.a.p ? '+' : '−'}${fp(Math.abs(m.b.p - m.a.p))} · ${Math.abs(n)} velas${mins ? ` · ${dur(mins)}` : ''}`;
+    pillC(ctx, x2, Math.max(14, Math.min(h - 14, y2 + (y2 < y1 ? -16 : 16))), txt, col, true, 'middle', w);
   }
 
   // en los paneles de RSI y MACD: la franja 30-70 y las divergencias marcadas tambien en el indicador
@@ -2250,6 +2329,72 @@
     box.addEventListener('touchcancel', end, { capture: true });
   }
 
+  // la regla: el arrastre se toma antes que el motor del grafico (asi no mueve la vista) y solo en el panel del precio
+  function medirInput(box) {
+    if (box.abMedir) return;                           // el contenedor queda; el grafico se rehace adentro
+    box.abMedir = true;
+    box.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') G.hoverBox = true; });
+    box.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') G.hoverBox = false; });
+    let on = false, tapada = false;
+    const punto = (e) => {
+      const r = box.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+      try {
+        const ps = G.chart.paneSize(0);
+        if (x < 0 || x > ps.width || y < 0 || y > ps.height) return null;
+        const l = G.chart.timeScale().coordinateToLogical(x), p = G.c.coordinateToPrice(y);
+        return l === null || p === null ? null : { l, p };
+      } catch (err) { return null; }            // el grafico se esta rehaciendo
+    };
+    const bloquear = (e) => { if (tapada) { e.preventDefault(); e.stopPropagation(); } };
+    box.addEventListener('pointerdown', (e) => {
+      tapada = false;
+      if (!G.chart || e.button !== 0) return;
+      const quiere = S.medir || (e.shiftKey && e.pointerType === 'mouse');
+      if (!quiere) { if (G.med) { G.med = null; G.over.update(); } return; }   // un clic normal borra la medicion
+      const pt = punto(e); if (!pt) return;
+      on = true; tapada = true; G.med = { a: pt, b: pt };
+      e.preventDefault(); e.stopPropagation(); G.over.update();
+    }, { capture: true });
+    // el motor escucha mousedown y touchstart: tambien se frenan mientras se mide
+    ['mousedown', 'touchstart'].forEach((ev) => box.addEventListener(ev, bloquear, { capture: true, passive: false }));
+    window.addEventListener('pointermove', (e) => {
+      if (!on) return;
+      const pt = punto(e); if (pt) { G.med.b = pt; G.over.update(); }
+    });
+    const fin = () => {
+      if (!on) return;
+      on = false;
+      if (G.med && Math.abs(G.med.b.l - G.med.a.l) < 0.3 && Math.abs(G.med.b.p - G.med.a.p) < 1e-12) { G.med = null; G.over.update(); }
+    };
+    window.addEventListener('pointerup', fin);
+    window.addEventListener('pointercancel', fin);
+  }
+
+  // imagen del grafico (con las marcas, sin la mira) y una linea de encabezado; en el iPhone se comparte, en la compu se baja.
+  // Se arma sincronico (toDataURL) para llamar a share dentro del toque: Safari no deja compartir despues de esperar
+  function foto() {
+    if (!G.chart || !G.d) return;
+    const shot = G.chart.takeScreenshot(true, false), P = G.P, k = shot.width / Math.max(1, G.box.clientWidth);
+    const head = Math.round(30 * k), cv = document.createElement('canvas');
+    cv.width = shot.width; cv.height = shot.height + head;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = P.panel; ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.drawImage(shot, 0, head);
+    ctx.font = `600 ${Math.round(13 * k)}px ${P.font}`; ctx.fillStyle = P.fg; ctx.textBaseline = 'middle';
+    ctx.fillText(`${MON()}USDT · ${TF_TXT[S.tf]} · ${fp(G.d.price)} · ${fmtT(Date.now(), '1h')} (hora Argentina)`, Math.round(10 * k), head / 2);
+    const name = `${MON()}-${S.tf}-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.png`;
+    const b64 = atob(cv.toDataURL('image/png').split(',')[1]), bytes = new Uint8Array(b64.length);
+    for (let i = 0; i < b64.length; i++) bytes[i] = b64.charCodeAt(i);
+    const blob = new Blob([bytes], { type: 'image/png' }), file = new File([blob], name, { type: 'image/png' });
+    const bajar = () => {
+      const a = el('a'); a.href = URL.createObjectURL(blob); a.download = name;
+      document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    };
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: `${MON()} · ${TF_TXT[S.tf]}` }).catch((e) => { if (!e || e.name !== 'AbortError') bajar(); });
+    } else bajar();
+  }
+
   function buildChart(box, P) {
     if (G.chart) { try { G.chart.remove(); } catch (e) { /* ya no estaba */ } }
     clearInterval(G.cdTimer);
@@ -2306,10 +2451,28 @@
     if (S.layers.osc) ['rsi', 'macd'].forEach(() => { const e = el('div', 'ab-ohlc ab-ohlc-pane'); box.append(e); G.legO.push(e); });
     G.tip = el('div', 'ab-tip'); G.tip.hidden = true; box.append(G.tip);
     chart.subscribeCrosshairMove(onCross);
+    if (S.log) chart.priceScale('right').applyOptions({ mode: LW.PriceScaleMode.Logarithmic });
+    // si te fuiste al pasado, un boton te trae de vuelta a la ultima vela (con el mismo zoom)
+    G.nowBtn = el('button', 'ab-iconbtn ab-round ab-now-btn', '»');
+    Object.assign(G.nowBtn, { type: 'button', title: 'Volver a la última vela', hidden: true });
+    G.nowBtn.setAttribute('aria-label', 'Volver a la última vela');
+    G.nowBtn.addEventListener('click', () => {
+      const ts = chart.timeScale(), r = ts.getVisibleLogicalRange(); if (!r || !G.d) return;
+      const total = G.d.all.length + G.d.futN, len = r.to - r.from;
+      ts.setVisibleLogicalRange({ from: total + 1 - len, to: total + 1 });
+    });
+    box.append(G.nowBtn);
     chart.timeScale().subscribeVisibleLogicalRangeChange((r) => {
       if (r) document.getElementById('zoom-info').textContent = `${Math.max(1, Math.round(r.to - r.from))} velas`;
+      if (!r || !G.d) return;
+      const lejos = r.to < G.d.lastIdx - 0.5;            // la ultima vela quedo fuera de la vista (el boton va a la izquierda de las liquidaciones)
+      if (lejos) {
+        try { G.nowBtn.style.top = `${chart.paneSize(0).height - 44}px`; G.nowBtn.style.right = `${chart.priceScale('right').width() + (G.liqW || 0) + 10}px`; } catch (e) { /* sin medidas todavia */ }
+      }
+      G.nowBtn.hidden = !lejos;
     });
     axisTouch(box);
+    medirInput(box);
     G.cdTimer = setInterval(() => {
       if (!G.d || !G.d.live) return;
       const left = Math.max(0, Math.round((G.d.closeAt - Date.now()) / 1000));
@@ -2475,6 +2638,7 @@
     // datos de cada serie
     const ts = G.chart.timeScale();
     const keep = G.tf === tf ? ts.getVisibleLogicalRange() : null;
+    if (G.tf !== tf) G.med = null;
     d.cdata = all.map((b) => ({ ms: b.t, bar: { time: T2(b.t), open: b.o, high: b.h, low: b.l, close: b.c } }));
     G.c.setData(d.cdata.map((b) => b.bar));
     G.vol.setData(all.map((b) => ({ time: T2(b.t), value: b.v, color: alpha(b.c >= b.o ? P.up : P.dn, 0.3) })));
@@ -2513,6 +2677,22 @@
       G.plines.push(G.c.createPriceLine({ price: num(n.precio), color: alpha(P.c2 || P.mute, num(n.rebote) >= 55 ? 0.85 : 0.4), lineWidth: 1, lineStyle: LW.LineStyle.Dotted,
         axisLabelVisible: true, title: narrow ? `Fib ${f1(num(n.fib) * 100)}%` : `Fib ${f1(num(n.fib) * 100)}% · rebotó ${f0(num(n.rebote))}%` }));
     });
+    // tu plan (plan_compras.json): en tinta neutra para no confundirlo con las marcas del analisis
+    d.plan = 0;
+    const planChip = document.querySelector('#layers [data-layer="plan"]');
+    if (planChip && planChip.hidden === !!PLAN_COMPRAS) { planChip.hidden = !PLAN_COMPRAS; syncLayers(); }
+    if (L.plan && PLAN_COMPRAS) {
+      const m = MON(), dat = CMP.datos[m], line = (price, color, style, width, title) => {
+        G.plines.push(G.c.createPriceLine({ price, color, lineWidth: width, lineStyle: style, axisLabelVisible: true, title })); d.plan += 1;
+      };
+      PLAN_COMPRAS.compras.filter((c) => c.moneda === m && !cmpHecha(c, dat)).forEach((c) => line(c.precio, alpha(P.fg, c.cargada ? 0.75 : 0.45),
+        c.cargada ? LW.LineStyle.Dashed : LW.LineStyle.Dotted, 1, narrow ? `#${c.n}` : `Compra #${c.n}${c.cargada ? '' : ' · sin orden'}`));
+      const e = planEstado(m, dat);
+      if (e.promedio) line(e.promedio, alpha(P.fg, 0.9), LW.LineStyle.Solid, 1, narrow ? 'Prom.' : 'Tu promedio');
+      const g = e.ganancias && e.ganancias.find((x) => !x.alcanzado);
+      if (g) line(g.precio, alpha(P.up, 0.85), LW.LineStyle.Dashed, 1, narrow ? `TP +${f0(g.k * PLAN_COMPRAS.ganancias.cada * 100)}%` : `Toma de ganancias +${f0(g.k * PLAN_COMPRAS.ganancias.cada * 100)}%`);
+      if (e.liquidacion) line(e.liquidacion, P.dn, LW.LineStyle.Solid, 2, narrow ? 'Liq.' : 'Tu liquidación');
+    }
     if (L.patrones) d.figs.forEach((p) => {
       const obj = num(p.objetivo); if (obj === null) return;
       G.plines.push(G.c.createPriceLine({ price: obj, color: colOf(p.sesgo), lineWidth: 1, lineStyle: LW.LineStyle.SparseDotted, axisLabelVisible: true,
@@ -2550,6 +2730,8 @@
       item(`pat-vela-${p.nombre}`, CC(colOf(p.sesgo)), `Flechita · ${p.nombre}:`, p.descripcion));
     if (G.plines.length) item('sr', DD(P.mute), 'Líneas punteadas con etiqueta en el eje:',
       `resistencia y soporte más cercanos para el plazo de ${S.plazo}${L.patrones && d.figs.some((p) => num(p.objetivo) !== null) ? ' y el objetivo de cada figura' : ''}.`);
+    if (d.plan) item('plan', DD(P.fg), 'Tu plan (líneas grises con nombre):',
+      'compras que faltan (rayada: orden puesta; punteada: falta cargarla), tu precio promedio, la próxima toma de ganancias y la liquidación aproximada.');
     if (ghosts.length) item('futuro', DD(P.mute), 'Velas transparentes a la derecha:',
       `un camino real del ${ghosts[0].desde.split('-').reverse().join('/')}, cuando ${MON()} estaba en una situación parecida, llevado al precio de hoy. La zona gris es donde terminó el 80% de esos casos y la línea vertical, la hora del plazo elegido.`);
     if (L.ondas && giros.some((g) => g.w)) item('ondas', { background: 'transparent', border: `1.5px solid ${P.fg}`, borderRadius: '50%', width: '10px', height: '10px' },
@@ -2781,11 +2963,17 @@
     if (!hits.length) { box.append(el('p', 'ab-note', 'Cada predicción queda registrada. Los aciertos aparecen cuando se cumple el plazo de cada una, desde las próximas corridas.')); return; }
     const tbl = el('table', 'ab-tbl'); tbl.setAttribute('data-source', 'analisis'); tbl.setAttribute('data-row-key', 'tf,horizonte');
     const hr = el('tr');
-    [['tf', 'Velas'], ['horizonte', 'Plazo'], ['pronosticos', 'Casos'], ['aciertos', 'Aciertos'], ['brier', 'Brier']].forEach(([f, t]) => { const th = el('th', '', t); th.setAttribute('data-field', f); hr.append(th); });
+    [['tf', 'Velas'], ['horizonte', 'Plazo'], ['pronosticos', 'Casos'], ['aciertos', 'Aciertos'], ['brier', 'Brier'], ['en_rango', 'En rango 80%']].forEach(([f, t]) => { const th = el('th', '', t); th.setAttribute('data-field', f); hr.append(th); });
     const th = el('thead'); th.append(hr); const tb = el('tbody');
+    const pc = (v) => (num(v) === null ? '—' : `${f1(num(v))}%`);
     hits.forEach((h) => { const tr = el('tr'); tr.dataset.key = `${encodeURIComponent(h.tf)},${encodeURIComponent(h.horizonte)}`;
-      [h.tf, h.horizonte, h.pronosticos, `${f1(num(h.aciertos))}%`, ar.format('.3f')(num(h.brier))].forEach((v) => tr.append(el('td', '', String(v)))); tb.append(tr); });
-    tbl.append(th, tb); box.append(tbl, el('p', 'ab-note', 'Brier mide la calidad de las probabilidades: 0,250 es tirar una moneda; menos es mejor.'));
+      const er = num(h.en_rango), cr = num(h.con_rango) || 0;
+      [h.tf, h.horizonte, h.pronosticos, pc(h.aciertos), num(h.brier) === null ? '—' : ar.format('.3f')(num(h.brier))].forEach((v) => tr.append(el('td', '', String(v))));
+      // el rango es honesto si queda cerca de 80%: muy por debajo, el cono es angosto; muy por arriba, exagera
+      const td = el('td', '', er === null ? '—' : `${f1(er)}% (${cr})`);
+      if (er !== null && cr >= 30) { td.style.color = Math.abs(er - 80) <= 7 ? 'var(--color-ok)' : 'var(--color-warn)'; td.title = Math.abs(er - 80) <= 7 ? 'Cerca del 80%: el rango es honesto' : er < 80 ? 'Debajo del 80%: el rango viene angosto' : 'Arriba del 80%: el rango viene ancho'; }
+      tr.append(td); tb.append(tr); });
+    tbl.append(th, tb); box.append(tbl, el('p', 'ab-note', 'Brier mide la calidad de las probabilidades: 0,250 es tirar una moneda; menos es mejor. "En rango 80%": cuántas veces el precio terminó dentro del rango que anunció (lo honesto es cerca de 80%).'));
   }
   dash.onData(draw);   // al final: todo lo de arriba (tambien el grafico) ya esta definido
 })();

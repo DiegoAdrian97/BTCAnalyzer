@@ -6,6 +6,11 @@ gráfico con escenarios, figuras, divergencias, liquidaciones estimadas, libros 
 
 El gráfico usa el motor de TradingView ([Lightweight Charts](https://www.tradingview.com/lightweight-charts/)): mismas velas, ejes, mira y
 gestos, con las marcas del analista encima (escenarios, cono, patrones, divergencias, ondas, FVG, liquidaciones y niveles).
+Herramientas: **Mi plan** (las compras que faltan de `plan_compras.json`, tu promedio, la próxima toma de ganancias y la
+liquidación, como líneas con nombre), **Medir** (Shift + arrastrar o el botón: %, precio, velas y tiempo entre dos puntos),
+escala **Log**, **»** para volver a la última vela, **Imagen** (en el iPhone se comparte, en la compu se baja) y teclas con el
+mouse sobre el gráfico (← → moverse, + − zoom, 0 ajustar, L, M, 1 a 6 temporalidad, F pantalla completa, Esc). Verde y rojo
+validados para daltonismo (deuteranopia: diferencia 11 en claro y 9 en oscuro; los anteriores daban 5-6).
 
 No es una recomendación de inversión.
 
@@ -259,6 +264,16 @@ demás que se probó). Las cuentas están en `fuerte.py` y `JavascriptVersion/fu
 momentos), y los árboles en `JavascriptVersion/modelo_fuerte.json`, que arma `entrenar_fuerte.py` (necesita numpy y
 lightgbm; conviene reentrenarlo cada algunos meses). Se usa solo para BTC; ZEC sigue con la tabla.
 
+### Predicciones honestas
+
+- **Sin ventaja medida, sin sesgo**: si en su repaso honesto el equipo no le ganó a la tasa base para ese plazo
+  (`habilidad` ≤ 0), el plazo queda en "Casi moneda" y el titular no dice qué toca primero, aunque los casos parecidos
+  marquen una diferencia: esa diferencia no se tradujo en menos error.
+- **Rango real en el titular**: sin dirección, muestra dónde terminó el 80% de los casos parecidos (antes mostraba los
+  niveles a un escalón, que el precio pasa seguido en ese plazo).
+- **¿El rango es honesto?**: cada predicción guarda también su rango del 80% (`predicciones_btc.csv` pasa a 7 columnas; las
+  filas viejas de 5 se siguen leyendo) y "Aciertos" muestra cuántas veces el precio terminó adentro: lo honesto es ~80%.
+
 ### Volatilidad prevista
 
 El rango esperado, la probabilidad de tocar cada precio y los caminos posibles usan casos del pasado llevados a la
@@ -307,7 +322,9 @@ conexión, no se duerme como Render y no hay límites de pedidos compartidos. Es
 
 La primera vez baja el historial de velas (unos segundos) y lo guarda en el teléfono; después solo
 pide lo nuevo. Reanaliza todo cada ~12 segundos mientras está abierta y se pausa en segundo plano.
-BingX no se usa en esta versión: su API no acepta pedidos desde páginas web.
+BingX no se usa en esta versión: su API no acepta pedidos desde páginas web. Por lo mismo (OKX no manda el permiso CORS),
+en el teléfono el flujo de compras y ventas a mercado sale de Bitget y los top traders de Binance; antes esos pedidos a OKX
+fallaban siempre y esas señales no entraban en la explicación. El funding, de Bybit.
 
 ### Modo holograma
 

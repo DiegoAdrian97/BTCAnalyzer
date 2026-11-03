@@ -1,7 +1,7 @@
 """Prueba que la version Python y la JavaScript den lo mismo (mismas filas, mismos numeros) con velas inventadas
 (semilla fija). La corre GitHub Actions en cada push (.github/workflows/paridad.yml); a mano: python pruebas/paridad.py
 Necesita node. Sale con error si algo difiere."""
-import json, math, os, random, subprocess, sys
+import json, math, os, random, subprocess, sys, tempfile
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RAIZ)
@@ -31,6 +31,35 @@ def entrada_apr(bars, tf_min=60):
     return apr.combos(apr.rasgos(bars, tf_min, e50, e200, rsi, mh)), apr.continuos(bars, tf_min, e50, e200, rsi, mh)
 
 
+# explain (sin ventaja medida / rango del 80%) y el registro de predicciones con su rango
+def plazo_1h(sin_ventaja, pu):
+    return [{"tabla": "plazo", "plazo": "1 hora", "hora": "03/11 19:00", "veredicto": "Casi moneda", "sin_ventaja": sin_ventaja,
+             "sube": 44.8, "base": 48.9, "obj_arriba": 77960.0, "obj_abajo": 77760.0, "primero_arriba": pu, "margen_primero": 3.0,
+             "distancia": 100.0, "min": 77310.5, "max": 78420.2},
+            {"tabla": "marco", "tf": "15m", "rating": 0.3, "rating_txt": "Compra", "rsi": 55, "macd_cruce": None, "elliott_objetivo": None, "elliott_corto": ""},
+            {"tabla": "marco", "tf": "1h", "rating": -0.4, "rating_txt": "Venta", "rsi": 72, "macd_cruce": "bajista", "elliott_objetivo": None, "elliott_corto": ""},
+            {"tabla": "nivel", "nombre": "Máximo 24 h", "precio": 78500.0, "tipo": "resistencia", "distancia": 0.8},
+            {"tabla": "nivel", "nombre": "Mínimo 24 h", "precio": 77000.0, "tipo": "soporte", "distancia": -1.1},
+            {"tabla": "contexto", "clave": "flujo_1 h", "senal": "alcista", "detalle": "Dominan los compradores agresivos"},
+            {"tabla": "aprendizaje", "plazo": "1 hora", "repasadas": 0}]
+
+
+SPEC_1H = ["1 hora", "5m", 12, ["15m", "1h"], ["flujo_1 h", "flujo_4 h", "oi_1h"], "15 min"]
+CASOS = {f"{sv}_{pu}": plazo_1h(sv, pu) for sv in (True, False) for pu in (30.0, 50.0, 70.0)}
+LOG_ENTRADAS = [[2000, "1h", 4, 100.0, 55.0, 95.0, 105.0], [3000, "1h", 4, 100.0, 50.0, 99.0, 101.0], [4000, "4h", 3, 100.0, 40.0, 90.0, 110.0]]
+LOG_CIERRES = {"1h": [[1000 + 4 * 3_600_000, 101.0], [2000 + 4 * 3_600_000, 104.0], [3000 + 4 * 3_600_000, 102.0]], "4h": [[4000 + 3 * 14_400_000, 95.0]]}
+
+
+def registro_py():
+    """log_and_score en un archivo aparte (no toca data/predicciones_btc.csv), con una fila vieja de 5 columnas."""
+    tmp = tempfile.mkdtemp()
+    A.LOG_FILE, A.DATA_DIR = os.path.join(tmp, "log.csv"), tmp
+    with open(A.LOG_FILE, "w") as f:
+        f.write("1000,1h,4,100.0,60.0\n")
+    sc = A.log_and_score([tuple(e) for e in LOG_ENTRADAS], {tf: dict(xs) for tf, xs in LOG_CIERRES.items()})
+    return {f"{tf}|{h}": list(v) for (tf, h), v in sorted(sc.items())}
+
+
 def py():
     piv = ind.zigzag(H4)
     raw = {"oi": [[b[0] + 3_600_000, 1000 + i] for i, b in enumerate(H1[-40:])], "ls": [1.2 + i / 100 for i in range(25)],
@@ -44,6 +73,8 @@ def py():
         "liq_reales": A.liq_reales([tuple(x) for x in LIQ], AHORA),
         "aprender": {k: v for k, v in apr.aprender(H1, *entrada_apr(H1)[:1], 4, 200, entrada_apr(H1)[1]).items()
                      if k not in ("_estado", "pesos")},
+        "explain": {k: A.explain(v, 77860.0, tuple(SPEC_1H)) for k, v in CASOS.items()},
+        "registro": registro_py(),
         "_ctx_raw": raw,
     }
 
@@ -60,6 +91,10 @@ console.log(JSON.stringify({
   termometro: A.termometro(d.D1.map((b) => b[4]), d.D1[d.D1.length - 1][4] * 1.01, T, null, d.AHORA, -0.00001),
   termometro_alt: A.termometroAlt('XRP', d.ALT.slice(-600), d.ALT[d.ALT.length - 1][4], T, d.AHORA),
   fuerte: Fu.prever(M, d.H1), contexto: A.context(d.raw, d.H1), liq_reales: A.liqReales(d.LIQ, d.AHORA),
+  explain: Object.fromEntries(Object.entries(d.CASOS).map(([k, v]) => [k, A.explain(v, 77860.0, d.SPEC_1H)])),
+  registro: (() => { const cl = {}; Object.entries(d.LOG_CIERRES).forEach(([tf, xs]) => { cl[tf] = new Map(xs); });
+    const sc = A.logAndScore([[1000, '1h', 4, 100.0, 60.0]], d.LOG_ENTRADAS, cl);
+    return Object.fromEntries([...sc.entries()].sort()); })(),
   aprender: (() => { const c = d.H1.map((b) => b[4]), e50 = Ind.ema(c, 50), e200 = Ind.ema(c, 200), rsi = Ind.rsi(c), mh = Ind.macd(c)[2];
     const r = Apr.aprender(d.H1, Apr.combos(Apr.rasgos(d.H1, 60, e50, e200, rsi, mh)), 4, 200, Apr.continuos(d.H1, 60, e50, e200, rsi, mh));
     delete r._estado; delete r.pesos; return r; })(),
@@ -89,7 +124,8 @@ def igual(a, b, ruta, err):
 def main():
     p = py()
     raw = p.pop("_ctx_raw")
-    entrada = {"H1": H1, "H4": H4, "D1": D1, "ALT": ALT, "AHORA": AHORA, "raw": raw, "LIQ": LIQ}
+    entrada = {"H1": H1, "H4": H4, "D1": D1, "ALT": ALT, "AHORA": AHORA, "raw": raw, "LIQ": LIQ,
+               "CASOS": CASOS, "SPEC_1H": SPEC_1H, "LOG_ENTRADAS": LOG_ENTRADAS, "LOG_CIERRES": LOG_CIERRES}
     out = subprocess.run(["node", "-e", JS, RAIZ], input=json.dumps(entrada), capture_output=True, text=True)
     if out.returncode:
         raise SystemExit("node fallo:\n" + out.stderr[-2000:])

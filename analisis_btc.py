@@ -486,15 +486,18 @@ def horizon_stats(tf, s, h, price, fit):
     edge = up - (apr.ajustar(b["up"] / 100, f) * 100 if fit.get("p_sube") is not None else b["up"])
     # margen de error del 95%: con pocos casos, una diferencia chica contra la tasa normal es ruido
     margin = 196 * ((o["up"] / 100) * (1 - o["up"] / 100) / o["n"]) ** 0.5 * f
-    verdict = "Casi moneda" if abs(edge) < max(3, margin) else ("Sesgo alcista" if edge > 0 else "Sesgo bajista")
+    L = fit.get("learn") or {}
+    # si en su repaso honesto no le gano a la tasa base, una diferencia contra lo normal no es una ventaja: es ruido
+    sin_ventaja = L.get("habilidad") is not None and L["habilidad"] <= 0
+    verdict = ("Casi moneda" if sin_ventaja or abs(edge) < max(3, margin) else
+               "Sesgo alcista" if edge > 0 else "Sesgo bajista")
     when_ms = bars[-1][0] + (h + 1) * s["tf_ms"]
     when = datetime.fromtimestamp(when_ms / 1000, LOCAL_TZ).strftime("%d/%m %H:%M")
-    L = fit.get("learn") or {}
     tg, close = targets(bars, sample, price, h, when, f, L.get("distancia"), fit.get("p_primero"), F)
     return ({"tf": tf, "horizonte": label(h * s["tf_min"]), "velas": h,
              "sube": round(up, 1), "baja": round(100 - up, 1), "base": round(b["up"], 1),
              "sube_crudo": round(o["up"], 1), "receta": fit["receta"], "factor": f,
-             "veredicto": verdict, "n": o["n"], "dias": s["days"], "hora": when, "t_hasta": when_ms,
+             "veredicto": verdict, "sin_ventaja": sin_ventaja, "n": o["n"], "dias": s["days"], "hora": when, "t_hasta": when_ms,
              "margen": round(margin, 1), "pocos_casos": o["n"] < 100,
              "min": rp(price * (1 + o["p10"] / 100)), "max": rp(price * (1 + o["p90"] / 100)),
              **(close or {"mediana": None, "p25": None, "p75": None, "obj_arriba": None, "obj_abajo": None,
@@ -862,6 +865,8 @@ def explain(rows, price, spec):
     up, dn, pu, mg = main["obj_arriba"], main["obj_abajo"], main["primero_arriba"], main["margen_primero"] or 0
     n_up = sum(s == "alcista" for _, s, _ in signals)
     n_dn = len(signals) - n_up
+    if main["sin_ventaja"]:
+        pu = None       # sin ventaja medida, "que toca primero" tampoco es una prediccion
     if pu is not None and pu - 50 > max(5, mg):
         bias = "alcista"
         head = f"Hasta las {hh} h, es más probable que BTC suba a {ap(up)} ({ar(pu)}%) antes que baje a {ap(dn)}."
@@ -870,7 +875,11 @@ def explain(rows, price, spec):
         head = f"Hasta las {hh} h, es más probable que BTC baje a {ap(dn)} ({ar(100 - pu)}%) antes que suba a {ap(up)}."
     else:
         bias = "neutral"
-        head = f"Hasta las {hh} h, sin dirección clara: lo esperable es que BTC se mueva entre {ap(dn)} y {ap(up)}."
+        # el rango real: donde termino el 80% de los casos parecidos (los niveles +/- un escalon se pasan seguido)
+        lo, hi = main["min"], main["max"]
+        rango = f"8 de cada 10 veces terminó entre {ap(lo)} y {ap(hi)}" if lo and hi else f"lo más cerca está {ap(dn)} o {ap(up)}"
+        motivo = " (en su repaso no le ganó a la tasa base)" if main["sin_ventaja"] else ""
+        head = f"Hasta las {hh} h, sin dirección clara{motivo}: {rango}."
     agree = n_up if bias == "alcista" else n_dn
     if not signals:
         why = "No hay señales fuertes en este plazo."
@@ -932,23 +941,33 @@ def log_and_score(entries, closes_by_tf):
     rows = []
     if os.path.exists(LOG_FILE):
         with open(LOG_FILE) as f:
-            rows = [r for r in csv.reader(f) if len(r) == 5]
+            rows = [r for r in csv.reader(f) if len(r) in (5, 7)]     # 5: registros viejos, sin el rango
     seen = {(r[0], r[1], r[2]) for r in rows}
-    rows += [[str(t), tf, str(h), f"{p:.{dec_precio(p)}f}", f"{pr:.1f}"] for t, tf, h, p, pr in entries if (str(t), tf, str(h)) not in seen]
+    fmt = lambda x: f"{x:.{dec_precio(x)}f}"
+    rows += [[str(t), tf, str(h), fmt(p), f"{pr:.1f}"] + ([] if lo is None or hi is None else [fmt(lo), fmt(hi)])
+             for t, tf, h, p, pr, lo, hi in entries if (str(t), tf, str(h)) not in seen]
     rows = rows[-20000:]        # como la version JS: el registro no crece sin limite (se lee y se escribe cada analisis)
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(LOG_FILE, "w", newline="") as f:
         csv.writer(f).writerows(rows)
-    score = {}
-    for t, tf, h, p, pr in rows:
+    score = {}      # (tf, h) -> [casos, aciertos, brier, con rango, adentro del rango]
+    for r in rows:
+        t, tf, h, p, pr = r[:5]
         tf_ms = ccxt.Exchange.parse_timeframe(tf) * 1000
         future = closes_by_tf.get(tf, {}).get(int(t) + int(h) * tf_ms)
+        if future is None:
+            continue
+        sc = score.setdefault((tf, int(h)), [0, 0, 0.0, 0, 0])
+        if len(r) == 7:
+            sc[3] += 1
+            sc[4] += float(r[5]) <= future <= float(r[6])
         prob = float(pr) / 100
-        if future is None or prob == 0.5:
+        if prob == 0.5:
             continue
         up = future > float(p)
-        n, hits, brier = score.get((tf, int(h)), (0, 0, 0.0))
-        score[(tf, int(h))] = (n + 1, hits + ((prob > 0.5) == up), brier + (prob - up) ** 2)
+        sc[0] += 1
+        sc[1] += (prob > 0.5) == up
+        sc[2] += (prob - up) ** 2
     return score
 
 
@@ -1028,7 +1047,7 @@ def analyze():
             prob, tg = horizon_stats(tf, series[tf], h, price, tune(tf, series[tf], h))
             rows.append({"tabla": "probabilidad", **prob})
             rows += [{"tabla": "objetivo", "tf": tf, "horizonte": prob["horizonte"], "hora": prob["hora"], **t} for t in tg]
-            entries.append((bars[-1][0] + tf_ms, tf, h, closes[-1], prob["sube"]))
+            entries.append((bars[-1][0] + tf_ms, tf, h, closes[-1], prob["sube"], prob["min"], prob["max"]))
 
         sc, cone = scenarios(bars, idxs, price, tf_ms, vol_factor(series[tf], SCENARIO_STEPS))
         for r in sc + cone:
@@ -1052,7 +1071,8 @@ def analyze():
         rows += learning_rows(name, tf, h, fit)
         rows += [{"tabla": "objetivo_plazo", "plazo": name, **t} for t in tg]
         if not any(e[1] == tf and e[2] == h for e in entries):
-            entries.append((series[tf]["bars"][-1][0] + series[tf]["tf_ms"], tf, h, series[tf]["closes"][-1], prob["sube"]))
+            entries.append((series[tf]["bars"][-1][0] + series[tf]["tf_ms"], tf, h, series[tf]["closes"][-1], prob["sube"],
+                            prob["min"], prob["max"]))
 
     # niveles clave
     h1, d1 = candles["1h"], candles["1d"]
@@ -1114,10 +1134,14 @@ def analyze():
         print(f"(mapa de liquidaciones no disponible: {type(e).__name__})")
 
     closes_by_tf = {tf: {c[0] + ccxt.Exchange.parse_timeframe(tf) * 1000: c[4] for c in cs} for tf, cs in candles.items()}
-    for (tf, h), (n, hits, brier) in sorted(log_and_score(entries, closes_by_tf).items()):
+    for (tf, h), (n, hits, brier, nr, adentro) in sorted(log_and_score(entries, closes_by_tf).items()):
+        if not n and not nr:        # sin casos medibles no hay nada que mostrar
+            continue
         tf_min = ccxt.Exchange.parse_timeframe(tf) // 60
         rows.append({"tabla": "acierto", "tf": tf, "horizonte": label(h * tf_min), "pronosticos": n,
-                     "aciertos": round(hits / n * 100, 1), "brier": round(brier / n, 3)})
+                     "aciertos": round(hits / n * 100, 1) if n else None, "brier": round(brier / n, 3) if n else None,
+                     # el rango del 80% es honesto si el precio termina adentro ~80% de las veces
+                     "con_rango": nr, "en_rango": round(adentro / nr * 100, 1) if nr else None})
 
     mov = movimiento(candles["5m"], price)
     if mov:
@@ -1192,7 +1216,8 @@ def print_console(rows):
     print("\nNIVELES CERCANOS  " + "  ".join(f"{n['nombre']} {n['precio']:,.0f} ({n['distancia']:+.1f}%)" for n in near))
     hits = get("acierto")
     if hits:
-        print("\nACIERTOS  " + "  ".join(f"{a['tf']} a {a['horizonte']}: {a['aciertos']:.0f}% ({a['pronosticos']})" for a in hits))
+        print("\nACIERTOS  " + "  ".join(f"{a['tf']} a {a['horizonte']}: {a['aciertos']:.0f}% ({a['pronosticos']})" for a in hits
+                                       if a["aciertos"] is not None))
 
 
 PAGE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dashboard", "index.html")
@@ -1237,7 +1262,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   }
   var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   window.dash = {
-    colors: dark ? ['#5b9cff', '#f5b041', '#b392ff', '#4fd1c5', '#f08bb4', '#a3e635', '#fb923c', '#94a3b8']
+    colors: dark ? ['#4a8af4', '#bf7f1a', '#9270f0', '#14a394', '#f08bb4', '#a3e635', '#fb923c', '#94a3b8']
                  : ['#2563eb', '#d97706', '#7c3aed', '#0f9488', '#d1477e', '#4d7c0f', '#c2410c', '#64748b'],
     data: function () { return { status: 'ok', data: rows, columns: [], meta: [], refreshing: false }; },
     onData: function (fn) { fns.push(fn); fn(); },

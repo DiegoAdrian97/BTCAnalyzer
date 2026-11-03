@@ -4,7 +4,7 @@
  * - El historial de velas queda guardado en el telefono (IndexedDB): la primera vez se baja todo y
  *   despues solo lo nuevo.
  * - Lo que cambia lento se pide con cache: contexto cada 60 s, liquidaciones cada 5 min, libros cada 20 s.
- * BingX no se usa: su API rechaza los pedidos que vienen de paginas web.
+ * BingX no se usa: su API rechaza los pedidos que vienen de paginas web (y de OKX solo las liquidaciones, por lo mismo).
  */
 (function (root) {
   'use strict';
@@ -128,31 +128,30 @@
     return candles;
   }
 
-  // ---------- datos del momento: open interest y long/short de Bybit, flujo y top traders de OKX, funding de BingX ----------
-  // (igual que el servidor: a Binance no se le piden). Cada parte que falle se saltea.
-  const okxId = () => SYM.replace('USDT', '-USDT-SWAP');
+  // ---------- datos del momento: open interest, long/short y funding de Bybit, flujo de Bitget y top traders de Binance ----------
+  // (el servidor usa OKX y BingX, que el navegador no deja leer). Cada parte que falle se saltea.
   const bybitOi = async (limit) => (await pedir('bybit', `https://api.bybit.com/v5/market/open-interest?category=linear&symbol=${SYM}&intervalTime=1h&limit=${limit}`))
     .result.list.map((x) => [+x.timestamp, +x.openInterest]).sort((x, y) => x[0] - y[0]);
   const bybitLs = async (limit) => (await pedir('bybit', `https://api.bybit.com/v5/market/account-ratio?category=linear&symbol=${SYM}&period=1h&limit=${limit}`))
     .result.list.filter((x) => +x.sellRatio > 0).map((x) => [+x.timestamp, +x.buyRatio / +x.sellRatio]).sort((x, y) => x[0] - y[0]);
   const intento = (p) => p.catch(() => null);
 
-  // funding actual y promedio de los ultimos 7 dias (21 cobros de 8 h): el promedio entra en el termometro
+  // funding actual y promedio de los ultimos 7 dias (21 cobros de 8 h): el promedio entra en el termometro.
+  // De Bybit: BingX no manda el permiso CORS y el navegador siempre lo bloqueaba (2 pedidos fallidos cada 3 h).
   const prom = (xs) => (xs.length >= 15 ? xs.reduce((a, x) => a + x, 0) / xs.length : null);
   async function fundingRaw() {
-    try {
-      const s = SYM.replace('USDT', '-USDT');
-      const [j, h] = await Promise.all([
-        pedir('bingx', `https://open-api.bingx.com/openApi/swap/v2/quote/premiumIndex?symbol=${s}`),
-        pedir('bingx', `https://open-api.bingx.com/openApi/swap/v2/quote/fundingRate?symbol=${s}&limit=21`).catch(() => null)]);
-      return { tasa: +j.data.lastFundingRate, f7: h && Array.isArray(h.data) ? prom(h.data.slice(0, 21).map((x) => +x.fundingRate)) : null, fuente: 'BingX' };
-    } catch (e) {   // si el navegador no puede leer BingX: el de Bybit
-      const [t, h] = await Promise.all([
-        pedir('bybit', `https://api.bybit.com/v5/market/tickers?category=linear&symbol=${SYM}`),
-        pedir('bybit', `https://api.bybit.com/v5/market/funding/history?category=linear&symbol=${SYM}&limit=21`).catch(() => null)]);
-      return { tasa: +t.result.list[0].fundingRate, f7: h ? prom(h.result.list.map((x) => +x.fundingRate)) : null, fuente: 'Bybit' };
-    }
+    const [t, h] = await Promise.all([
+      pedir('bybit', `https://api.bybit.com/v5/market/tickers?category=linear&symbol=${SYM}`),
+      pedir('bybit', `https://api.bybit.com/v5/market/funding/history?category=linear&symbol=${SYM}&limit=21`).catch(() => null)]);
+    return { tasa: +t.result.list[0].fundingRate, f7: h ? prom(h.result.list.map((x) => +x.fundingRate)) : null, fuente: 'Bybit' };
   }
+  // compras y ventas a mercado de las ultimas 4 horas (la ultima, en curso) y top traders. El servidor los saca de
+  // OKX, pero esos endpoints de OKX no mandan el permiso CORS: en el navegador fallaban siempre y las senales de
+  // flujo nunca entraban en la explicacion. Bitget y Binance si dejan leerlos desde una pagina.
+  const bitgetTaker = async () => (await pedir('bitget', `https://api.bitget.com/api/v2/mix/market/taker-buy-sell?symbol=${SYM}&productType=usdt-futures&period=1h`))
+    .data.map((x) => ({ t: +x.ts, buy: +x.buyVolume, sell: +x.sellVolume })).sort((a, b) => a.t - b.t).slice(-4).map(({ buy, sell }) => ({ buy, sell }));
+  // con su propio nombre: si Binance limita este pedido, las velas siguen saliendo de Binance
+  const binanceTop = async () => +(await pedir('binance-datos', `${BINANCE}/futures/data/topLongShortPositionRatio?symbol=${SYM}&period=1h&limit=1`))[0].longShortRatio;
 
   // liquidaciones reales de OKX de la ultima hora (como liq_okx de analisis_btc.py): [ms, lado, usd]
   async function liqOkx(now) {
@@ -172,11 +171,7 @@
     const now = Date.now();
     const liqP = SYM === 'BTCUSDT' ? intento(liqOkx(now)) : Promise.resolve(null);
     const [oi, ls, taker, top, fr] = await Promise.all([
-      intento(bybitOi(30)), intento(bybitLs(25)),
-      intento(pedir('okx', `https://www.okx.com/api/v5/rubik/stat/taker-volume-contract?instId=${okxId()}&period=1H&limit=4`)
-        .then((j) => j.data.slice(0, 4).reverse().map((x) => ({ buy: +x[2], sell: +x[1] })))),
-      intento(pedir('okx', `https://www.okx.com/api/v5/rubik/stat/contracts/long-short-position-ratio-contract-top-trader?instId=${okxId()}&period=1H&limit=1`)
-        .then((j) => +j.data[0][1])),
+      intento(bybitOi(30)), intento(bybitLs(25)), intento(bitgetTaker()), intento(binanceTop()),
       intento(cached(`${pre()}funding`, 3 * 3600000, fundingRaw)),
     ]);
     if (!oi && !ls && !taker && !fr) throw new Error('sin datos del momento');
