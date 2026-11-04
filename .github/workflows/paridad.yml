@@ -3,7 +3,7 @@ name: Python = JavaScript
 on:
   push:
     branches: [main]
-    paths: ["*.py", "JavascriptVersion/*.js", "JavascriptVersion/*.json", "pruebas/**", ".github/workflows/paridad.yml"]
+    paths: ["*.py", "JavascriptVersion/*.js", "JavascriptVersion/api/*.js", "JavascriptVersion/*.json", "pruebas/**", ".github/workflows/paridad.yml"]
   workflow_dispatch:
 jobs:
   paridad:
@@ -17,3 +17,4 @@ jobs:
         with: { node-version: "22" }
       - run: pip install -r requirements.txt
       - run: python pruebas/paridad.py
+      - run: python pruebas/sesgo.py

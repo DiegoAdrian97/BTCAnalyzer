@@ -14,25 +14,49 @@ const FEEDS = [
   ['cripto', GN_EN + '(hack+OR+hacked+OR+breach+OR+exploit+OR+drained+OR+stolen)+(Binance+OR+Coinbase+OR+Kraken+OR+OKX+OR+Bybit+OR+Bitget+OR+BingX+OR+KuCoin+OR+Tether+OR+exchange)+when:1d'],
   ['cripto', 'https://www.coindesk.com/arc/outboundfeeds/rss/'],
 ];
-// BABA (Alibaba, perpetuo de la accion): estrictamente China (la empresa incluida) y los mercados. La Fed, el gobierno
-// de EE.UU. o una guerra entran solo si el titular habla de China o de la bolsa. Nada de cripto; sin ETF de BTC, prima
-// de Coinbase ni Fear & Greed. Igual que noticias.py.
-const FEEDS_BABA = [['accion', GN + 'China+(econom%C3%ADa+OR+Pek%C3%ADn+OR+aranceles+OR+yuan+OR+%22Xi+Jinping%22+OR+est%C3%ADmulos)+when:1d'],
-  ['accion', GN_EN + 'China+(economy+OR+stimulus+OR+PBOC+OR+Beijing+OR+tariffs+OR+%22Xi+Jinping%22+OR+%22tech+stocks%22)+when:1d'],
-  ['accion', GN + '%22Wall+Street%22+OR+%22S%26P+500%22+OR+Nasdaq+OR+%22Hang+Seng%22+when:1d'],
-  ['accion', GN_EN + '%22stock+market%22+OR+%22Wall+Street%22+OR+Nasdaq+OR+%22Hang+Seng%22+when:1d'],
-  ['accion', GN + 'Alibaba+when:1d'], ['accion', GN_EN + 'Alibaba+OR+%22BABA+stock%22+when:1d']];
-const ALIBABA = /alibaba|\bbaba\b|jack ma|alipay|ant group|taobao|tmall|aliexpress|\bqwen\b|aliyun|eddie wu|joe tsai/;
-const CHINA = /\bchina\b|chinese|\bchin[oa]s?\b|beijing|pek[ií]n|xi jinping|pboc|banco popular de china|\byuan\b|renminbi|hong kong|shanghai|shenzhen|taiw[aá]n/;
-const CHINA_SOLO = /xi jinping|pboc|banco popular de china|beijing|pek[ií]n|\byuan\b|renminbi/;
-const BOLSA = /\bmercados?\b|\bmarkets?\b|wall street|s&p ?500|\bnasdaq\b|dow jones|\bdow\b|hang seng|\bbolsas?\b|stock market|\bstocks?\b|\bacciones\b|\bnyse\b|\bvix\b|equities|mercado burs[aá]til|[ií]ndices burs/;
-/** Tema de un titular para una accion (BABA): sin cripto. */
-function temaAccion(t) {
-  const ali = ALIBABA.test(t);
-  if (CRIPTO.test(t) && !ali) return null;
-  if (ali) return 'Alibaba';
-  if (CHINA.test(t) && (CHINA_SOLO.test(t) || POLITICA.test(t) || BOLSA.test(t))) return 'China';
-  if (BOLSA.test(t)) return 'Mercado bursátil';
+// ---- reglas copiadas de noticias.py (generar_reglas.py): no editar a mano ----
+const BOLSA = "\\bmercados?\\b|\\bmarkets?\\b|wall street|s&p ?500|\\bnasdaq\\b|dow jones|\\bdow\\b|hang seng|\\bbolsas?\\b|stock market|\\bstocks?\\b|\\bacciones\\b|\\bnyse\\b|\\bvix\\b|equities|mercado burs[aá]til|[ií]ndices burs|merval|ibovespa|bovespa";
+const CHINA = "\\bchina\\b|chinese|\\bchin[oa]s?\\b|beijing|pek[ií]n|xi jinping|pboc|banco popular de china|\\byuan\\b|renminbi|hong kong|shanghai|shenzhen|taiw[aá]n";
+const CHINA_SOLO = "xi jinping|pboc|banco popular de china|beijing|pek[ií]n|\\byuan\\b|renminbi";
+const EEUU = "reserva federal|federal reserve|\\bfed\\b|powell|\\bfomc\\b|inflaci[oó]n|inflation|\\bcpi\\b|\\bipc\\b|payrolls?|n[oó]minas|jobs report|empleo|desempleo|unemployment|jobless|treasury|tesoro|bonos|yields?|rendimientos?|arancel|tariff|recesi[oó]n|recession|\\bgdp\\b|\\bpib\\b|consumer|consumo|shutdown|trump|casa blanca|white house|ee\\.? ?uu|estados unidos|\\bu\\.s\\.|\\bus\\b|american";
+const EEUU_SOLO = "reserva federal|federal reserve|\\bfed\\b|powell|\\bfomc\\b|\\bcpi\\b|payrolls?|n[oó]minas no agr|jobs report|treasury yields|bonos del tesoro";
+const LATAM = "argentin|milei|caputo|\\bbcra\\b|brasil|brazil|lula|haddad|\\bselic\\b|banco central do brasil|copom|m[eé]xico|banxico|sheinbaum|latinoam|latin america|am[eé]rica latina|colombia|chile|uruguay|\\bperu\\b|per[uú]\\b|riesgo pa[ií]s";
+const LATAM_SOLO = "milei|caputo|\\bbcra\\b|\\bselic\\b|banco central do brasil|copom|banxico|riesgo pa[ií]s";
+const ECON = "econom|arancel|tariff|inflaci|inflation|tasas?\\b|\\brates?\\b|comercio|\\btrade\\b|bolsa|\\bstocks?\\b|mercados?|markets?|recesi|recession|empleo|\\bjobs?\\b|\\bpib\\b|\\bgdp\\b|deuda|\\bdebt|d[eé]ficit|impuesto|\\btax|est[ií]mulo|stimulus|banco central|central bank|\\bpeso\\b|\\breal\\b|d[oó]lar|dollar|chips?\\b|semiconduct|exporta|importa|\\bexport|\\bimport|blacklist|lista negra|sanci|regula|gobierno|government|presidente|president|ministr|acuerdo|\\bdeal\\b|yields?|rendimiento|bonos|consumo|consumer|ventas|sales|industria|manufactur|crecimiento|growth";
+const CHIPS_IA = "semiconduct|\\bchips?\\b|chipmakers?|\\bgpus?\\b|inteligencia artificial|\\bai\\b|\\bia\\b|data ?cent|centros? de datos|\\btsmc\\b|\\bhbm\\b|export controls|controles (?:a las )?exportaci|\\bsox\\b";
+const TEC_IA = "inteligencia artificial|\\bai\\b|\\bia\\b|big tech|gigantes tecnol|antimonopol|antitrust|publicidad digital|digital ad|buscador|search engine|\\bcloud\\b|la nube|openai|chatgpt|tech stocks|tecnol[oó]gicas";
+const SUBE = "\\bsube|\\bsuben|subi[oó]|subieron|\\bsubir|al alza|en alza|avanza|trepa|se dispara|dispar[oó]|r[eé]cord|m[aá]ximos? hist|m[aá]ximo de|rall(?:y|ies|ied)|\\brises?\\b|\\brose\\b|\\brising\\b|surg(?:e|es|ed|ing)\\b|soar|jump|climb|\\bgains?\\b|gained|rebound|rebota|repunt|recupera|\\bhigher\\b|advanc|se fortalece|fortalec|strengthen|\\bcrece|grows?\\b|growth|\\bacelera|\\baccelerat|expand|alcanza|hits? (?:a )?(?:record|high)|all-time high";
+const BAJA = "\\bcae\\b|\\bcaen\\b|cay[oó]|cayeron|ca[ií]da|a la baja|en baja|\\bbaja\\b|\\bbajan\\b|baj[oó]|retroced|pierde|perdi[oó]|desplom|derrumb|se hunde|hund|plung|tumbl|\\bfalls?\\b|\\bfell\\b|\\bdrops?\\b|dropped|slid|slip|\\bsinks?\\b|\\bsank\\b|declin|\\blower\\b|sell-?off|venta masiva|slump|crash|retreat|se desacelera|desaceler|se modera|modera|cools?\\b|eases?\\b|\\bslows?\\b|slowdown|se debilita|debilit|weak|golpea|hits? (?:a )?low|m[ií]nimo";
+const COMPARA_SUBE = "m[aá]s alt[oa]s? de lo (?:esperado|previsto)|m[aá]s de lo (?:esperado|previsto)|higher than expected|above (?:expectations|forecasts|estimates)|por encima de lo (?:esperado|previsto)|faster than expected|hotter than expected|m[aá]s r[aá]pido de lo";
+const COMPARA_BAJA = "m[aá]s baj[oa]s? de lo (?:esperado|previsto)|menos de lo (?:esperado|previsto)|lower than expected|below (?:expectations|forecasts|estimates)|por debajo de lo (?:esperado|previsto)|slower than expected|softer than expected|cooler than expected|m[aá]s lent[oa] de lo";
+const MALO_SI_SUBE = "inflaci|inflation|\\bipc\\b|\\bcpi\\b|\\bpce\\b|precios al consumidor|consumer prices|rendimiento|yields?\\b|\\btasas?\\b|\\brates?\\b|tipos de inter|interest rate|\\bselic\\b|desemple|unemploy|jobless|d[oó]lar|dollar|\\bdxy\\b|\\bvix\\b|volatilid|riesgo pa[ií]s|arancel|tariff|petr[oó]leo|\\boil\\b|crudo|deuda|\\bdebt\\b|costos|costs|despidos|layoffs";
+const CONTRASTE = "\\b(?:pese a|a pesar de|despite|aunque|although|even as|but|pero|sin embargo|however|mientras que|while)\\b";
+const PARTES = "\\b(?:tras|luego de|despu[eé]s de|after|por|on|as|amid|en medio de|ante|following|impulsad[oa]s? por|driven by|due to|debido a|and|y|e|with|con)\\b|[,;:]";
+const SUJETO_BTC = "bitcoin|\\bbtc\\b|cripto|crypto|\\bether|ethereum|altcoins?|stablecoin";
+const SUJETO_BOLSA = "\\bacciones\\b|\\bshares?\\b|\\bstocks?\\b|wall street|s&p|nasdaq|\\bdow\\b|hang seng|merval|ibovespa|bovespa|[ií]ndices?|\\bbolsas?\\b|equities|tecnol[oó]gicas|semiconductores|chipmakers";
+const SECTOR_AMPLIO = "chip stocks|semiconductor stocks|semiconductores|chipmakers|\\bsector\\b|tech stocks|tecnol[oó]gicas|big tech";
+const FUERTE_BUENO = ["(?:cuts?|recorta|recort[oó]|reduce|baja|bajan)(?: the| la| el| su| sus| las| its)?(?: key| benchmark| de referencia)?(?: interest| selic)? (?:rates?|tasas?|tipos|selic)|recort(?:a|an|e|es|ar|[oó])(?: de)?(?: las| la| sus| los)? (?:tasas?|tipos)|rate cuts?|cuts? (?:interest )?rates|baja(?:n|r)? (?:de )?(?:las |la )?(?:tasas?|tipos)|rebaja de (?:tasas|tipos)|dovish|paloma", "est[ií]mulos?|stimulus|rescate|bailout|recorta (?:el )?encaje|reserve requirement|\\brrr\\b", "alto el fuego|ceasefire|tregua|truce|acuerdo de paz|peace deal|acuerdo comercial|trade deal|trade truce|tregua comercial|suspende (?:los )?aranceles|tariff relief|elimina (?:los )?aranceles|lifts? tariffs|bajan? los aranceles|reduce (?:los )?aranceles", "soft landing|aterrizaje suave"];
+const FUERTE_MALO = ["(?:hikes?|raises?|eleva|sube|suben)(?: the| la| el| su| its)?(?: key| benchmark| de referencia)?(?: interest| selic)? (?:rates?|tasas?|tipos|selic)|sub(?:e|en|ir|i[oó]|a)(?: de)? (?:las |la )?(?:tasas?|tipos)|alza de (?:tasas|tipos)|rate hikes?|hikes? (?:interest )?rates|raises? (?:interest )?rates|eleva(?:n)? (?:las |la )?(?:tasas?|tipos)|hawkish|halc[oó]n|fewer rate cuts|menos recortes", "nuevos aranceles|new tariffs|impone aranceles|imposes? tariffs|tariff hike|aranceles (?:de|del) \\d|duplica los aranceles|amenaza con aranceles|threatens? tariffs", "temores? de (?:una )?recesi[oó]n|recession fears|cae en recesi[oó]n|enters? recession|crisis|default|impago|quiebra|bankrupt", "declara(?:ci[oó]n de)? (?:la )?guerra|invade|invasi[oó]n|sanciones|sanctions"];
+const FUERTE_BTC_BUENO = ["\\baprueb|\\bapprov|tax cuts?|recorte de impuestos|baja de impuestos", "\\bbuys?\\b|\\bbought\\b|\\bcompra(?:n|r|ron)?\\b|acumula|adquiere|\\bacquires?\\b", "reserva estrat[eé]gica|strategic reserve|aprueba (?:el |los )?etf|etf approv|entradas r[eé]cord|record inflows|fuerte demanda|strong demand|record demand|inflows?|entradas"];
+const FUERTE_BTC_MALO = ["\\bhack(?:s|ed|eo|eos|eado|eada|earon|ean)?\\b|hackers? (?:steal|stole|drain|rob)|breach|exploit|drain(?:ed|s|ing)?\\b|stolen|robad|robo de|roban|robaron|comprometid|compromised|security incident|incidente de seguridad|(?:halts?|suspends?|suspende|pausa|pauses?|freezes?) (?:all )?(?:withdrawals|retiros)|retiros (?:suspendidos|congelados)|prohib|proh[ií]b|\\bbans?\\b|outflows?|salidas|presi[oó]n vendedora|sell(?:ing)? pressure|demanda (?:judicial|colectiva|contra|a\\b)|demandan?\\b|lawsuit|\\bsues?\\b|investiga|probe"];
+const FUERTE_ACCION_BUENO = ["(?:wins?|gana) (?:dismissal|the case|lawsuit|appeal|ruling|el juicio|juicio|apelaci[oó]n)[^,;.]*|dismiss(?:es|ed)? [^,;.]*(?:case|lawsuit|suit|charges)|desestima[^,;.]*|rules? in (?:its )?favor[^,;.]*|fall[oó] a (?:su )?favor[^,;.]*", "\\bbeats?\\b|beat (?:estimates|expectations)|supera (?:las |los )?(?:estimaciones|expectativas|previsiones|pron[oó]sticos)|super[oó] (?:las )?(?:estimaciones|expectativas)|tops? (?:estimates|expectations)", "rais(?:es|ed|ing) (?:its |full-year )?(?:guidance|forecast|outlook)|eleva (?:sus |su |la |el )?(?:previsi[oó]n|previsiones|perspectivas|pron[oó]stico|gu[ií]a)|mejora (?:sus |su )?(?:previsiones|perspectivas)", "(?:ingresos|ventas|ganancias|beneficios) r[eé]cord|record (?:revenue|sales|profit|earnings|quarter)", "upgrades?\\b|upgraded|mejora (?:de )?(?:la )?recomendaci[oó]n|eleva (?:el )?precio objetivo|raises? (?:price )?target|price target (?:raised|hike)", "recompra|buyback|share repurchase|aumenta (?:el )?dividendo|dividend (?:hike|increase)", "wins? (?:a |an )?(?:\\$?[\\d,.]+ ?(?:billion|million|bn|mn)?[- ]?(?:dollar )?)?(?:contract|deal|order)|gana (?:un |el )?contrato|contrato (?:millonario|de \\d)|multibillion|acuerdo (?:millonario|con)|alianza|partnership|se asocia|asociaci[oó]n con", "aprobaci[oó]n|approv|obtiene (?:la )?licencia|wins? (?:a )?license|licencia bancaria|autoriza"];
+const FUERTE_ACCION_MALO = ["\\bmiss(?:es|ed)?\\b|no alcanza (?:las )?(?:estimaciones|expectativas)|decepciona|disappoint|por debajo de (?:las )?(?:estimaciones|expectativas)", "cuts? (?:its |full-year )?(?:guidance|forecast|outlook)|recorta (?:sus |su |la |el )?(?:previsi[oó]n|previsiones|perspectivas|pron[oó]stico)|weak (?:guidance|outlook|forecast)|previsiones? d[eé]bil", "downgrades?\\b|downgraded|rebaja (?:de )?(?:la )?recomendaci[oó]n|recorta (?:el )?precio objetivo|cuts? (?:price )?target|price target cut", "antitrust|antimonopol|probe|investigaci[oó]n|investiga|\\bfines?\\b|\\bfined\\b|multa|lawsuit|\\bsues?\\b|demanda (?:judicial|colectiva|contra)|demandan?\\b|loses? (?:the )?(?:antitrust )?case|pierde (?:el )?juicio|breakup|desmembra", "blacklist|lista negra|entity list|export (?:controls|curbs|restrictions|ban)|restricciones? (?:a las )?exportaci|controles (?:a las )?exportaci|\\bbans?\\b|prohib|proh[ií]b|veto", "temores? de (?:una )?burbuja|bubble fears|burbuja|recall|retira del mercado|renuncia (?:el |la )?(?:ceo|director|presidente)|(?:ceo|cfo) (?:resigns|steps down|quits)|fraude|fraud|short seller|delist"];
+const PALABRA_BUENA = "optimis|alivio|relief|impuls|boost|fuerte demanda|strong demand|lanza|launch|unveil|presenta|expande|expands?\\b|nuevas? ciudades|new cities|r[eé]cord";
+const PALABRA_MALA = "miedo|\\bfears?\\b|temor|p[aá]nico|panic|guerra|\\bwar\\b|misil|missile|ataque|attack|\\bstrikes?\\b|bombard|escalad|amenaza|threat|incertidumbre|uncertainty|liquidac|liquidat|flee|huyen|preocupa|concern|shutdown|golpe|recesi|recession";
+const ACCIONES = {"BABA": {"empresa": "Alibaba", "rx": "alibaba|\\bbaba\\b|jack ma|alipay|ant group|taobao|tmall|aliexpress|\\bqwen\\b|aliyun|eddie wu|joe tsai", "region": "China", "region_rx": "\\bchina\\b|chinese|\\bchin[oa]s?\\b|beijing|pek[ií]n|xi jinping|pboc|banco popular de china|\\byuan\\b|renminbi|hong kong|shanghai|shenzhen|taiw[aá]n", "region_solo": "xi jinping|pboc|banco popular de china|beijing|pek[ií]n|\\byuan\\b|renminbi", "sector": null, "sector_rx": null, "rivales": "\\bjd\\.com|jingdong|pinduoduo|\\bpdd\\b|\\btemu\\b|tencent|meituan|baidu", "feeds": [["accion:BABA", "https://news.google.com/rss/search?hl=es-419&gl=AR&ceid=AR:es-419&q=China+(econom%C3%ADa+OR+Pek%C3%ADn+OR+aranceles+OR+yuan+OR+%22Xi+Jinping%22+OR+est%C3%ADmulos)+when:1d"], ["accion:BABA", "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=China+(economy+OR+stimulus+OR+PBOC+OR+Beijing+OR+tariffs+OR+%22Xi+Jinping%22+OR+%22tech+stocks%22)+when:1d"], ["accion:BABA", "https://news.google.com/rss/search?hl=es-419&gl=AR&ceid=AR:es-419&q=%22Wall+Street%22+OR+%22S%26P+500%22+OR+Nasdaq+OR+%22Hang+Seng%22+when:1d"], ["accion:BABA", "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=%22stock+market%22+OR+%22Wall+Street%22+OR+Nasdaq+OR+%22Hang+Seng%22+when:1d"], ["accion:BABA", "https://news.google.com/rss/search?hl=es-419&gl=AR&ceid=AR:es-419&q=Alibaba+when:1d"], ["accion:BABA", "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=Alibaba+OR+%22BABA+stock%22+when:1d"]]}, "NVDA": {"empresa": "Nvidia", "rx": "nvidia|\\bnvda\\b|jensen huang|blackwell|geforce|\\bcuda\\b", "region": "Economía de EE.UU.", "region_rx": "reserva federal|federal reserve|\\bfed\\b|powell|\\bfomc\\b|inflaci[oó]n|inflation|\\bcpi\\b|\\bipc\\b|payrolls?|n[oó]minas|jobs report|empleo|desempleo|unemployment|jobless|treasury|tesoro|bonos|yields?|rendimientos?|arancel|tariff|recesi[oó]n|recession|\\bgdp\\b|\\bpib\\b|consumer|consumo|shutdown|trump|casa blanca|white house|ee\\.? ?uu|estados unidos|\\bu\\.s\\.|\\bus\\b|american", "region_solo": "reserva federal|federal reserve|\\bfed\\b|powell|\\bfomc\\b|\\bcpi\\b|payrolls?|n[oó]minas no agr|jobs report|treasury yields|bonos del tesoro", "sector": "Chips e IA", "sector_rx": "semiconduct|\\bchips?\\b|chipmakers?|\\bgpus?\\b|inteligencia artificial|\\bai\\b|\\bia\\b|data ?cent|centros? de datos|\\btsmc\\b|\\bhbm\\b|export controls|controles (?:a las )?exportaci|\\bsox\\b", "rivales": "\\bamd\\b|advanced micro|intel\\b|broadcom|qualcomm|huawei|cerebras|\\barm\\b", "feeds": [["accion:NVDA", "https://news.google.com/rss/search?hl=es-419&gl=AR&ceid=AR:es-419&q=Nvidia+when:1d"], ["accion:NVDA", "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=Nvidia+OR+%22NVDA+stock%22+when:1d"], ["accion:NVDA", "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=semiconductor+OR+%22chip+stocks%22+OR+%22AI+chips%22+OR+%22export+controls%22+when:1d"], ["accion:NVDA", "https://news.google.com/rss/search?hl=es-419&gl=AR&ceid=AR:es-419&q=%22Reserva+Federal%22+OR+%22inflaci%C3%B3n+en+EE.UU.%22+OR+aranceles+OR+%22bonos+del+Tesoro%22+when:1d"], ["accion:NVDA", "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=%22Federal+Reserve%22+OR+inflation+OR+tariffs+OR+%22jobs+report%22+OR+%22Treasury+yields%22+when:1d"], ["accion:NVDA", "https://news.google.com/rss/search?hl=es-419&gl=AR&ceid=AR:es-419&q=%22Wall+Street%22+OR+%22S%26P+500%22+OR+Nasdaq+when:1d"], ["accion:NVDA", "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=%22stock+market%22+OR+%22Wall+Street%22+OR+Nasdaq+when:1d"]]}, "GOOGL": {"empresa": "Alphabet", "rx": "alphabet|google|youtube|waymo|gemini|deepmind|sundar pichai|\\bgoogl?\\b|android", "region": "Economía de EE.UU.", "region_rx": "reserva federal|federal reserve|\\bfed\\b|powell|\\bfomc\\b|inflaci[oó]n|inflation|\\bcpi\\b|\\bipc\\b|payrolls?|n[oó]minas|jobs report|empleo|desempleo|unemployment|jobless|treasury|tesoro|bonos|yields?|rendimientos?|arancel|tariff|recesi[oó]n|recession|\\bgdp\\b|\\bpib\\b|consumer|consumo|shutdown|trump|casa blanca|white house|ee\\.? ?uu|estados unidos|\\bu\\.s\\.|\\bus\\b|american", "region_solo": "reserva federal|federal reserve|\\bfed\\b|powell|\\bfomc\\b|\\bcpi\\b|payrolls?|n[oó]minas no agr|jobs report|treasury yields|bonos del tesoro", "sector": "IA y tecnología", "sector_rx": "inteligencia artificial|\\bai\\b|\\bia\\b|big tech|gigantes tecnol|antimonopol|antitrust|publicidad digital|digital ad|buscador|search engine|\\bcloud\\b|la nube|openai|chatgpt|tech stocks|tecnol[oó]gicas", "rivales": "microsoft|openai|chatgpt|\\bmeta\\b|amazon|apple|perplexity|anthropic|\\bbing\\b", "feeds": [["accion:GOOGL", "https://news.google.com/rss/search?hl=es-419&gl=AR&ceid=AR:es-419&q=Google+OR+Alphabet+when:1d"], ["accion:GOOGL", "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=Alphabet+OR+Google+(stock+OR+shares+OR+antitrust+OR+earnings+OR+AI)+when:1d"], ["accion:GOOGL", "https://news.google.com/rss/search?hl=es-419&gl=AR&ceid=AR:es-419&q=%22Reserva+Federal%22+OR+%22inflaci%C3%B3n+en+EE.UU.%22+OR+aranceles+OR+%22bonos+del+Tesoro%22+when:1d"], ["accion:GOOGL", "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=%22Federal+Reserve%22+OR+inflation+OR+tariffs+OR+%22jobs+report%22+OR+%22Treasury+yields%22+when:1d"], ["accion:GOOGL", "https://news.google.com/rss/search?hl=es-419&gl=AR&ceid=AR:es-419&q=%22Wall+Street%22+OR+%22S%26P+500%22+OR+Nasdaq+when:1d"], ["accion:GOOGL", "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=%22stock+market%22+OR+%22Wall+Street%22+OR+Nasdaq+when:1d"]]}, "AMD": {"empresa": "AMD", "rx": "\\bamd\\b|advanced micro devices|lisa su|ryzen|\\bepyc\\b|radeon|instinct mi|xilinx", "region": "Economía de EE.UU.", "region_rx": "reserva federal|federal reserve|\\bfed\\b|powell|\\bfomc\\b|inflaci[oó]n|inflation|\\bcpi\\b|\\bipc\\b|payrolls?|n[oó]minas|jobs report|empleo|desempleo|unemployment|jobless|treasury|tesoro|bonos|yields?|rendimientos?|arancel|tariff|recesi[oó]n|recession|\\bgdp\\b|\\bpib\\b|consumer|consumo|shutdown|trump|casa blanca|white house|ee\\.? ?uu|estados unidos|\\bu\\.s\\.|\\bus\\b|american", "region_solo": "reserva federal|federal reserve|\\bfed\\b|powell|\\bfomc\\b|\\bcpi\\b|payrolls?|n[oó]minas no agr|jobs report|treasury yields|bonos del tesoro", "sector": "Chips e IA", "sector_rx": "semiconduct|\\bchips?\\b|chipmakers?|\\bgpus?\\b|inteligencia artificial|\\bai\\b|\\bia\\b|data ?cent|centros? de datos|\\btsmc\\b|\\bhbm\\b|export controls|controles (?:a las )?exportaci|\\bsox\\b", "rivales": "nvidia|intel\\b|qualcomm|broadcom|\\barm\\b|huawei", "feeds": [["accion:AMD", "https://news.google.com/rss/search?hl=es-419&gl=AR&ceid=AR:es-419&q=AMD+(acciones+OR+chips+OR+%22Lisa+Su%22)+when:1d"], ["accion:AMD", "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=AMD+(stock+OR+shares+OR+chips+OR+%22Lisa+Su%22)+when:1d"], ["accion:AMD", "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=semiconductor+OR+%22chip+stocks%22+OR+%22AI+chips%22+OR+%22export+controls%22+when:1d"], ["accion:AMD", "https://news.google.com/rss/search?hl=es-419&gl=AR&ceid=AR:es-419&q=%22Reserva+Federal%22+OR+%22inflaci%C3%B3n+en+EE.UU.%22+OR+aranceles+OR+%22bonos+del+Tesoro%22+when:1d"], ["accion:AMD", "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=%22Federal+Reserve%22+OR+inflation+OR+tariffs+OR+%22jobs+report%22+OR+%22Treasury+yields%22+when:1d"], ["accion:AMD", "https://news.google.com/rss/search?hl=es-419&gl=AR&ceid=AR:es-419&q=%22Wall+Street%22+OR+%22S%26P+500%22+OR+Nasdaq+when:1d"], ["accion:AMD", "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=%22stock+market%22+OR+%22Wall+Street%22+OR+Nasdaq+when:1d"]]}, "MELI": {"empresa": "Mercado Libre", "rx": "mercado ?libre|\\bmeli\\b|mercado pago|galperin|szarfsztejn", "region": "Latinoamérica", "region_rx": "argentin|milei|caputo|\\bbcra\\b|brasil|brazil|lula|haddad|\\bselic\\b|banco central do brasil|copom|m[eé]xico|banxico|sheinbaum|latinoam|latin america|am[eé]rica latina|colombia|chile|uruguay|\\bperu\\b|per[uú]\\b|riesgo pa[ií]s", "region_solo": "milei|caputo|\\bbcra\\b|\\bselic\\b|banco central do brasil|copom|banxico|riesgo pa[ií]s", "sector": null, "sector_rx": null, "rivales": "amazon|shopee|\\btemu\\b|shein|magalu|nubank|ual[aá]", "feeds": [["accion:MELI", "https://news.google.com/rss/search?hl=es-419&gl=AR&ceid=AR:es-419&q=%22Mercado+Libre%22+OR+%22Mercado+Pago%22+when:1d"], ["accion:MELI", "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=MercadoLibre+OR+%22Mercado+Libre%22+when:1d"], ["accion:MELI", "https://news.google.com/rss/search?hl=es-419&gl=AR&ceid=AR:es-419&q=Argentina+(econom%C3%ADa+OR+BCRA+OR+Milei+OR+d%C3%B3lar+OR+inflaci%C3%B3n)+when:1d"], ["accion:MELI", "https://news.google.com/rss/search?hl=es-419&gl=AR&ceid=AR:es-419&q=Brasil+(econom%C3%ADa+OR+Selic+OR+Lula+OR+inflaci%C3%B3n)+when:1d"], ["accion:MELI", "https://news.google.com/rss/search?hl=es-419&gl=AR&ceid=AR:es-419&q=M%C3%A9xico+(econom%C3%ADa+OR+Banxico+OR+aranceles)+when:1d"], ["accion:MELI", "https://news.google.com/rss/search?hl=es-419&gl=AR&ceid=AR:es-419&q=%22Wall+Street%22+OR+%22S%26P+500%22+OR+Nasdaq+when:1d"], ["accion:MELI", "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=%22stock+market%22+OR+%22Wall+Street%22+OR+Nasdaq+when:1d"]]}};
+const IMPACTO = {"Hackeo de exchange": 3, "Fed y tasas": 3, "Guerras grandes": 3, "Gobierno de EE.UU.": 3, "Grandes gobiernos": 2, "ETF": 2, "Hackeo o quiebra": 2, "Mercado bursátil": 2, "Cripto": 1, "Alibaba": 3, "China": 3, "Nvidia": 3, "Economía de EE.UU.": 3, "Chips e IA": 2, "Alphabet": 3, "IA y tecnología": 2, "AMD": 3, "Mercado Libre": 3, "Latinoamérica": 3};
+// ---- fin de las reglas copiadas ----
+const R = (src) => new RegExp(src);
+const RG = (src) => new RegExp(src, 'g');
+/** Tema de un titular para una accion (ACCIONES[...]): la empresa, su region, su sector o la bolsa. Sin cripto. */
+function temaAccion(t, c) {
+  const emp = R(c.rx).test(t);
+  if (CRIPTO.test(t) && !emp) return null;
+  if (emp) return c.empresa;
+  if (c.sector && R(c.rivales).test(t)) return c.sector;            // un rival solo: entra al sector (como neutral)
+  if (R(c.region_rx).test(t) && (R(c.region_solo).test(t) || R(ECON).test(t) || R(BOLSA).test(t))) return c.region;
+  if (c.sector && R(c.sector_rx).test(t)) return c.sector;
+  if (R(BOLSA).test(t)) return 'Mercado bursátil';
   return null;
 }
 const FARSIDE = 'https://farside.co.uk/bitcoin-etf-flow-all-data/';
@@ -62,24 +86,42 @@ const TEMAS = [
   ['ETF', /\betfs?\b|blackrock|\bibit\b|fidelity|grayscale|fondos cotizados/],
   ['Hackeo o quiebra', new RegExp(HACK_SRC + '|quiebra|bankrupt|insolven|congela|freez')],
 ];
-// si el titular es bueno o malo para BTC: frases fuertes (pesan 2) y palabras (pesan 1), igual que noticias.py
-const SESGO = [
-  [-2, 'fewer rate cuts|menos recortes|no (?:recorta|baja)|sin recorte|holds? rates|pausa|pause|halc[oó]n|hawkish|m[aá]s alt[ao]s? de lo (?:esperado|previsto)|higher than expected|sube(?:n)? (?:las |la )?tasas m[aá]s|recorte menor|smaller cut|sub(?:e|en|ir|a)(?: de)? (?:las |la )?tasas|rate hikes?|hike rates|raises? (?:interest )?rates|eleva(?:n)? (?:las |la )?tasas|declara(?:ci[oó]n de)? (?:la )?guerra|invade|invasi[oó]n|prohibe|proh[ií]be|bans? (?:bitcoin|crypto)|' + HACK_SRC],
-  [2, 'recorte mayor|bigger(?:-than-expected)? cut|m[aá]s baj[ao]s? de lo (?:esperado|previsto)|lower than expected|paloma|dovish|recorte de tasas|recorta(?:n)? (?:las |la )?tasas|rate cuts?|cuts? rates|baja(?:n|r)? (?:de )?(?:las |la )?tasas|baja(?:n)? la inflaci|inflaci[oó]n (?:baja|cae|se desacelera|se modera)|inflation (?:cools|eases|slows)|cooler|cut rates|alto el fuego|ceasefire|tregua|acuerdo de paz|peace deal|reserva estrat[eé]gica|strategic reserve|aprueba (?:el |los )?etf|etf approv'],
-  [1, '\\bsube|\\bsuben|subida|se dispar|r[eé]cord|m[aá]ximo hist|rall|surge|soar|jump|rebot|rebound|recupera|entradas|inflows?|aprueb|approv|adopt|compra|\\bbuys?\\b|acumula|dovish|acuerdo|\\bdeal\\b|alivio|optimis'],
-  [-1, '\\bcae\\b|\\bcaen\\b|ca[ií]da|desplom|derrumb|hund|pierde|retroced|plunge|\\bdrops?\\b|\\bfalls?\\b|crash|slump|tumble|sell-?off|venta masiva|liquidac|liquidat|quiebra|bankrupt|demanda|lawsuit|investiga|salidas|outflows?|guerra|\\bwar\\b|misil|missile|ataque|attack|\\bstrikes?\\b|bombard|escalad|sanci|arancel|tariff|hawkish|recesi|recession|shutdown|miedo|\\bfear\\b|p[aá]nico|panic|temor|slides?|slips?'],
-];
-const IMPACTO = { 'Hackeo de exchange': 3, 'Fed y tasas': 3, 'Guerras grandes': 3, 'Gobierno de EE.UU.': 3, 'Grandes gobiernos': 2, ETF: 2, 'Hackeo o quiebra': 2, Alibaba: 3, China: 3, 'Mercado bursátil': 2, Cripto: 1 };
-function sesgo(titulo, tm = null) {
-  let t = titulo.toLowerCase(), score = 0;
-  // la Fed haciendo lo que el mercado ya esperaba no sorprende: neutral
-  if (tm === 'Fed y tasas' && COMO_SE_ESPERABA.test(t)) return 'neutral';
+const cuenta = (src, t) => (t.match(RG(src)) || []).length;
+const quita = (src, t) => t.replace(RG(src), ' ');
+const partes = (t) => t.split(R(PARTES)).filter((p) => p && p.trim());
+/** alcista, bajista o neutral para el activo del feed (BTC o una accion), segun el titular (como sesgo de noticias.py). */
+function sesgo(titulo, tm = null, feed = '') {
+  let t = titulo.toLowerCase();
+  const c = feed.startsWith('accion:') ? ACCIONES[feed.slice(7)] : null;
+  if (FED.test(t) && COMO_SE_ESPERABA.test(t)) return 'neutral';       // la Fed haciendo lo esperado no sorprende
   if (tm === 'Hackeo de exchange') return 'bajista';
   if (tm === 'Guerras grandes') return VIOLENTO.test(t) || !PAZ.test(t) ? 'bajista' : 'alcista';
-  for (const [peso, src] of SESGO) {
-    const rx = new RegExp(src, 'g'), n = (t.match(rx) || []).length;
-    score += peso * n;
-    if (Math.abs(peso) === 2 && n) t = t.replace(rx, ' ');
+  // 1. pese a / despite: manda lo de antes (o, si empieza asi, lo que sigue a la primera coma)
+  const m = R(CONTRASTE).exec(t);
+  if (m) {
+    const antes = t.slice(0, m.index).replace(/^[ ,.]+|[ ,.]+$/g, '');
+    t = antes.length > 8 ? antes : (t.slice(m.index + m[0].length).includes(',') && t.indexOf(',') > m.index ? t.slice(t.indexOf(',') + 1) : antes);
+  }
+  // 4. una accion: si el titular habla de un rival (va primero, o la empresa ni aparece) es neutral
+  if (c && !R(SECTOR_AMPLIO).test(t)) {
+    const mr = R(c.rivales).exec(t), me = R(c.rx).exec(t);
+    if (mr && (!me || mr.index < me.index)) return 'neutral';
+  }
+  const sujeto = c ? `${c.rx}|${SUJETO_BOLSA}` : SUJETO_BTC;
+  // 2. el activo sube o baja: manda
+  let mov = 0;
+  for (const p of partes(t)) if (R(sujeto).test(p) && !R(MALO_SI_SUBE).test(p)) mov += cuenta(SUBE, p) - cuenta(BAJA, p);
+  if (mov) return mov > 0 ? 'alcista' : 'bajista';
+  // 3. frases fuertes y despues la direccion de cada parte
+  let score = 0;
+  for (const rx of FUERTE_BUENO.concat(c ? FUERTE_ACCION_BUENO : FUERTE_BTC_BUENO)) if (R(rx).test(t)) { score += 2; t = quita(rx, t); }
+  for (const rx of FUERTE_MALO.concat(c ? FUERTE_ACCION_MALO : FUERTE_BTC_MALO)) if (R(rx).test(t)) { score -= 2; t = quita(rx, t); }
+  for (const p of partes(t)) {
+    let d = 2 * (cuenta(COMPARA_SUBE, p) - cuenta(COMPARA_BAJA, p));
+    const p2 = quita(COMPARA_BAJA, quita(COMPARA_SUBE, p));
+    d += cuenta(SUBE, p2) - cuenta(BAJA, p2);
+    score += R(MALO_SI_SUBE).test(p) ? -d : d;
+    score += cuenta(PALABRA_BUENA, p2) - cuenta(PALABRA_MALA, p2);
   }
   return score > 0 ? 'alcista' : score < 0 ? 'bajista' : 'neutral';
 }
@@ -103,7 +145,7 @@ const unesc = (s) => s.replace(/&(#x?[0-9a-f]+|\w+);/gi, (m, e) => (e[0] === '#'
 
 function tema(titulo, feed) {
   const t = titulo.toLowerCase();
-  if (feed === 'accion') return temaAccion(t);
+  if (feed.startsWith('accion:')) return temaAccion(t, ACCIONES[feed.slice(7)]);
   if (HACK.test(t) && EXCHANGE.test(t)) return 'Hackeo de exchange';
   if (FED.test(t)) return 'Fed y tasas';
   if (GUERRA.test(t) && ACTOR_GRANDE.test(t)) return 'Guerras grandes';
@@ -130,7 +172,7 @@ function parseRss(xml, feed, nowMs, horas = 24) {
     if (fuente && title.endsWith(' - ' + fuente)) title = title.slice(0, -fuente.length - 3).trim();   // Google agrega " - Medio"
     if (!fuente) { const m = link.match(/^https?:\/\/(?:www\.)?([^/]+)/); fuente = m ? m[1] : ''; }
     const tm = tema(title, feed);
-    if (tm) out.push({ tabla: 'noticia', t, titulo: title.slice(0, 220), fuente: fuente.slice(0, 60), url: link, tema: tm, sesgo: sesgo(title, tm), impacto: IMPACTO[tm] });
+    if (tm) out.push({ tabla: 'noticia', t, titulo: title.slice(0, 220), fuente: fuente.slice(0, 60), url: link, tema: tm, sesgo: sesgo(title, tm, feed), impacto: IMPACTO[tm] });
   }
   return out;
 }
@@ -351,9 +393,9 @@ function miedoCodicia(data) {
 
 async function externo(nowMs = Date.now(), limiteMs = Infinity, moneda = 'BTC') {
   LIMITE = limiteMs;
-  if (moneda === 'BABA') {
+  if (ACCIONES[moneda]) {             // una accion: sus noticias (empresa, region, sector y bolsa) y el calendario
     const [listas, cal] = await Promise.all([
-      Promise.all(FEEDS_BABA.map(([feed, url]) => get(url).then((x) => traducir(parseRss(x, feed, nowMs), /hl=en/.test(url))).catch(() => []))),
+      Promise.all(ACCIONES[moneda].feeds.map(([feed, url]) => get(url).then((x) => traducir(parseRss(x, feed, nowMs), /hl=en/.test(url))).catch(() => []))),
       calendario(nowMs).catch(() => [])]);
     return juntar(listas).concat(cal);
   }
@@ -388,5 +430,5 @@ module.exports.miedoCodicia = miedoCodicia;
 module.exports.primaCoinbase = primaCoinbase;
 module.exports.sesgo = sesgo;
 module.exports.tema = tema;
-module.exports.FEEDS_BABA = FEEDS_BABA;
+module.exports.ACCIONES = ACCIONES;
 module.exports.parseCalendario = parseCalendario;

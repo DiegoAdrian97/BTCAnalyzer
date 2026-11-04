@@ -29,18 +29,56 @@ FEEDS = [
     ("cripto", GN_EN + "(hack+OR+hacked+OR+breach+OR+exploit+OR+drained+OR+stolen)+(Binance+OR+Coinbase+OR+Kraken+OR+OKX+OR+Bybit+OR+Bitget+OR+BingX+OR+KuCoin+OR+Tether+OR+exchange)+when:1d"),
     ("cripto", "https://www.coindesk.com/arc/outboundfeeds/rss/"),
 ]
-# BABA (Alibaba, perpetuo de la accion): noticias del mundo y de la empresa; sin ETF de BTC, prima ni Fear & Greed
-# (estrictamente China, la empresa incluida, y los mercados: la Fed, el gobierno de EE.UU. o una guerra entran solo si
-# el titular habla de China o de la bolsa; nada de cripto). Igual que contexto.js
-FEEDS_BABA = [("accion", GN + "China+(econom%C3%ADa+OR+Pek%C3%ADn+OR+aranceles+OR+yuan+OR+%22Xi+Jinping%22+OR+est%C3%ADmulos)+when:1d"),
-              ("accion", GN_EN + "China+(economy+OR+stimulus+OR+PBOC+OR+Beijing+OR+tariffs+OR+%22Xi+Jinping%22+OR+%22tech+stocks%22)+when:1d"),
-              ("accion", GN + "%22Wall+Street%22+OR+%22S%26P+500%22+OR+Nasdaq+OR+%22Hang+Seng%22+when:1d"),
-              ("accion", GN_EN + "%22stock+market%22+OR+%22Wall+Street%22+OR+Nasdaq+OR+%22Hang+Seng%22+when:1d"),
-              ("accion", GN + "Alibaba+when:1d"), ("accion", GN_EN + "Alibaba+OR+%22BABA+stock%22+when:1d")]
-ALIBABA = r"alibaba|\bbaba\b|jack ma|alipay|ant group|taobao|tmall|aliexpress|\bqwen\b|aliyun|eddie wu|joe tsai"
+# ---------- acciones (perpetuos de BABA, NVDA, GOOGL, AMD y MELI) ----------
+# Nada de cripto. Para cada una: la empresa, su pais o region (la economia que la mueve), su sector si tiene uno claro
+# y la bolsa. Un titular de un rival solo (sin la empresa) entra al sector como neutral. Igual que contexto.js.
+BOLSA = r"\bmercados?\b|\bmarkets?\b|wall street|s&p ?500|\bnasdaq\b|dow jones|\bdow\b|hang seng|\bbolsas?\b|stock market|\bstocks?\b|\bacciones\b|\bnyse\b|\bvix\b|equities|mercado burs[aá]til|[ií]ndices burs|merval|ibovespa|bovespa"
 CHINA = r"\bchina\b|chinese|\bchin[oa]s?\b|beijing|pek[ií]n|xi jinping|pboc|banco popular de china|\byuan\b|renminbi|hong kong|shanghai|shenzhen|taiw[aá]n"
 CHINA_SOLO = r"xi jinping|pboc|banco popular de china|beijing|pek[ií]n|\byuan\b|renminbi"
-BOLSA = r"\bmercados?\b|\bmarkets?\b|wall street|s&p ?500|\bnasdaq\b|dow jones|\bdow\b|hang seng|\bbolsas?\b|stock market|\bstocks?\b|\bacciones\b|\bnyse\b|\bvix\b|equities|mercado burs[aá]til|[ií]ndices burs"
+EEUU = r"reserva federal|federal reserve|\bfed\b|powell|\bfomc\b|inflaci[oó]n|inflation|\bcpi\b|\bipc\b|payrolls?|n[oó]minas|jobs report|empleo|desempleo|unemployment|jobless|treasury|tesoro|bonos|yields?|rendimientos?|arancel|tariff|recesi[oó]n|recession|\bgdp\b|\bpib\b|consumer|consumo|shutdown|trump|casa blanca|white house|ee\.? ?uu|estados unidos|\bu\.s\.|\bus\b|american"
+EEUU_SOLO = r"reserva federal|federal reserve|\bfed\b|powell|\bfomc\b|\bcpi\b|payrolls?|n[oó]minas no agr|jobs report|treasury yields|bonos del tesoro"
+LATAM = r"argentin|milei|caputo|\bbcra\b|brasil|brazil|lula|haddad|\bselic\b|banco central do brasil|copom|m[eé]xico|banxico|sheinbaum|latinoam|latin america|am[eé]rica latina|colombia|chile|uruguay|\bperu\b|per[uú]\b|riesgo pa[ií]s"
+LATAM_SOLO = r"milei|caputo|\bbcra\b|\bselic\b|banco central do brasil|copom|banxico|riesgo pa[ií]s"
+ECON = r"econom|arancel|tariff|inflaci|inflation|tasas?\b|\brates?\b|comercio|\btrade\b|bolsa|\bstocks?\b|mercados?|markets?|recesi|recession|empleo|\bjobs?\b|\bpib\b|\bgdp\b|deuda|\bdebt|d[eé]ficit|impuesto|\btax|est[ií]mulo|stimulus|banco central|central bank|\bpeso\b|\breal\b|d[oó]lar|dollar|chips?\b|semiconduct|exporta|importa|\bexport|\bimport|blacklist|lista negra|sanci|regula|gobierno|government|presidente|president|ministr|acuerdo|\bdeal\b|yields?|rendimiento|bonos|consumo|consumer|ventas|sales|industria|manufactur|crecimiento|growth"
+CHIPS_IA = r"semiconduct|\bchips?\b|chipmakers?|\bgpus?\b|inteligencia artificial|\bai\b|\bia\b|data ?cent|centros? de datos|\btsmc\b|\bhbm\b|export controls|controles (?:a las )?exportaci|\bsox\b"
+TEC_IA = r"inteligencia artificial|\bai\b|\bia\b|big tech|gigantes tecnol|antimonopol|antitrust|publicidad digital|digital ad|buscador|search engine|\bcloud\b|la nube|openai|chatgpt|tech stocks|tecnol[oó]gicas"
+_GN = lambda q: GN + q + "+when:1d"
+_GN_EN = lambda q: GN_EN + q + "+when:1d"
+BOLSA_FEEDS = [_GN("%22Wall+Street%22+OR+%22S%26P+500%22+OR+Nasdaq"), _GN_EN("%22stock+market%22+OR+%22Wall+Street%22+OR+Nasdaq")]
+EEUU_FEEDS = [_GN("%22Reserva+Federal%22+OR+%22inflaci%C3%B3n+en+EE.UU.%22+OR+aranceles+OR+%22bonos+del+Tesoro%22"),
+              _GN_EN("%22Federal+Reserve%22+OR+inflation+OR+tariffs+OR+%22jobs+report%22+OR+%22Treasury+yields%22")]
+CHIPS_FEEDS = [_GN_EN("semiconductor+OR+%22chip+stocks%22+OR+%22AI+chips%22+OR+%22export+controls%22")]
+ACCIONES = {
+    "BABA": {"empresa": "Alibaba", "rx": r"alibaba|\bbaba\b|jack ma|alipay|ant group|taobao|tmall|aliexpress|\bqwen\b|aliyun|eddie wu|joe tsai",
+             "region": "China", "region_rx": CHINA, "region_solo": CHINA_SOLO, "sector": None, "sector_rx": None,
+             "rivales": r"\bjd\.com|jingdong|pinduoduo|\bpdd\b|\btemu\b|tencent|meituan|baidu",
+             "feeds": [_GN("China+(econom%C3%ADa+OR+Pek%C3%ADn+OR+aranceles+OR+yuan+OR+%22Xi+Jinping%22+OR+est%C3%ADmulos)"),
+                       _GN_EN("China+(economy+OR+stimulus+OR+PBOC+OR+Beijing+OR+tariffs+OR+%22Xi+Jinping%22+OR+%22tech+stocks%22)"),
+                       _GN("%22Wall+Street%22+OR+%22S%26P+500%22+OR+Nasdaq+OR+%22Hang+Seng%22"),
+                       _GN_EN("%22stock+market%22+OR+%22Wall+Street%22+OR+Nasdaq+OR+%22Hang+Seng%22"),
+                       _GN("Alibaba"), _GN_EN("Alibaba+OR+%22BABA+stock%22")]},
+    "NVDA": {"empresa": "Nvidia", "rx": r"nvidia|\bnvda\b|jensen huang|blackwell|geforce|\bcuda\b",
+             "region": "Economía de EE.UU.", "region_rx": EEUU, "region_solo": EEUU_SOLO, "sector": "Chips e IA", "sector_rx": CHIPS_IA,
+             "rivales": r"\bamd\b|advanced micro|intel\b|broadcom|qualcomm|huawei|cerebras|\barm\b",
+             "feeds": [_GN("Nvidia"), _GN_EN("Nvidia+OR+%22NVDA+stock%22")] + CHIPS_FEEDS + EEUU_FEEDS + BOLSA_FEEDS},
+    "GOOGL": {"empresa": "Alphabet", "rx": r"alphabet|google|youtube|waymo|gemini|deepmind|sundar pichai|\bgoogl?\b|android",
+              "region": "Economía de EE.UU.", "region_rx": EEUU, "region_solo": EEUU_SOLO, "sector": "IA y tecnología", "sector_rx": TEC_IA,
+              "rivales": r"microsoft|openai|chatgpt|\bmeta\b|amazon|apple|perplexity|anthropic|\bbing\b",
+              "feeds": [_GN("Google+OR+Alphabet"), _GN_EN("Alphabet+OR+Google+(stock+OR+shares+OR+antitrust+OR+earnings+OR+AI)")] + EEUU_FEEDS + BOLSA_FEEDS},
+    "AMD": {"empresa": "AMD", "rx": r"\bamd\b|advanced micro devices|lisa su|ryzen|\bepyc\b|radeon|instinct mi|xilinx",
+            "region": "Economía de EE.UU.", "region_rx": EEUU, "region_solo": EEUU_SOLO, "sector": "Chips e IA", "sector_rx": CHIPS_IA,
+            "rivales": r"nvidia|intel\b|qualcomm|broadcom|\barm\b|huawei",
+            "feeds": [_GN("AMD+(acciones+OR+chips+OR+%22Lisa+Su%22)"), _GN_EN("AMD+(stock+OR+shares+OR+chips+OR+%22Lisa+Su%22)")] + CHIPS_FEEDS + EEUU_FEEDS + BOLSA_FEEDS},
+    "MELI": {"empresa": "Mercado Libre", "rx": r"mercado ?libre|\bmeli\b|mercado pago|galperin|szarfsztejn",
+             "region": "Latinoamérica", "region_rx": LATAM, "region_solo": LATAM_SOLO, "sector": None, "sector_rx": None,
+             "rivales": r"amazon|shopee|\btemu\b|shein|magalu|nubank|ual[aá]",
+             "feeds": [_GN("%22Mercado+Libre%22+OR+%22Mercado+Pago%22"), _GN_EN("MercadoLibre+OR+%22Mercado+Libre%22"),
+                       _GN("Argentina+(econom%C3%ADa+OR+BCRA+OR+Milei+OR+d%C3%B3lar+OR+inflaci%C3%B3n)"),
+                       _GN("Brasil+(econom%C3%ADa+OR+Selic+OR+Lula+OR+inflaci%C3%B3n)"), _GN("M%C3%A9xico+(econom%C3%ADa+OR+Banxico+OR+aranceles)")] + BOLSA_FEEDS},
+}
+for _k, _c in ACCIONES.items():
+    _c["feeds"] = [("accion:" + _k, u) for u in _c["feeds"]]
+FEEDS_BABA = ACCIONES["BABA"]["feeds"]
 FARSIDE = "https://farside.co.uk/bitcoin-etf-flow-all-data/"
 # Solo lo que de verdad mueve a BTC (pedido de Diego): guerras grandes (con una potencia o una zona caliente de por
 # medio), el gobierno de EE.UU. (Casa Blanca, Congreso, Fed, Tesoro, SEC, aranceles) y los gobiernos grandes (China,
@@ -69,32 +107,116 @@ TEMAS = [
     ("ETF", r"\betfs?\b|blackrock|\bibit\b|fidelity|grayscale|fondos cotizados"),
     ("Hackeo o quiebra", HACK + r"|quiebra|bankrupt|insolven|congela|freez"),
 ]
-# si el titular es bueno o malo para BTC: frases fuertes (pesan 2) y palabras (pesan 1). Las frases van primero
-# porque cambian el sentido ("baja de tasas" es bueno aunque diga "baja"). Es una lectura del titular, no un modelo.
-SESGO = [
-    (-2, r"fewer rate cuts|menos recortes|no (?:recorta|baja)|sin recorte|holds? rates|pausa|pause|halc[oó]n|hawkish|m[aá]s alt[ao]s? de lo (?:esperado|previsto)|higher than expected|sube(?:n)? (?:las |la )?tasas m[aá]s|recorte menor|smaller cut|sub(?:e|en|ir|a)(?: de)? (?:las |la )?tasas|rate hikes?|hike rates|raises? (?:interest )?rates|eleva(?:n)? (?:las |la )?tasas|declara(?:ci[oó]n de)? (?:la )?guerra|invade|invasi[oó]n|prohibe|proh[ií]be|bans? (?:bitcoin|crypto)|" + HACK),
-    (2, r"recorte mayor|bigger(?:-than-expected)? cut|m[aá]s baj[ao]s? de lo (?:esperado|previsto)|lower than expected|paloma|dovish|recorte de tasas|recorta(?:n)? (?:las |la )?tasas|rate cuts?|cuts? rates|baja(?:n|r)? (?:de )?(?:las |la )?tasas|baja(?:n)? la inflaci|inflaci[oó]n (?:baja|cae|se desacelera|se modera)|inflation (?:cools|eases|slows)|cooler|cut rates|alto el fuego|ceasefire|tregua|acuerdo de paz|peace deal|reserva estrat[eé]gica|strategic reserve|aprueba (?:el |los )?etf|etf approv"),
-    (1, r"\bsube|\bsuben|subida|se dispar|r[eé]cord|m[aá]ximo hist|rall|surge|soar|jump|rebot|rebound|recupera|entradas|inflows?|aprueb|approv|adopt|compra|\bbuys?\b|acumula|dovish|acuerdo|\bdeal\b|alivio|optimis"),
-    (-1, r"\bcae\b|\bcaen\b|ca[ií]da|desplom|derrumb|hund|pierde|retroced|plunge|\bdrops?\b|\bfalls?\b|crash|slump|tumble|sell-?off|venta masiva|liquidac|liquidat|quiebra|bankrupt|demanda|lawsuit|investiga|salidas|outflows?|guerra|\bwar\b|misil|missile|ataque|attack|\bstrikes?\b|bombard|escalad|sanci|arancel|tariff|hawkish|recesi|recession|shutdown|miedo|\bfear\b|p[aá]nico|panic|temor|slides?|slips?"),
-]
-IMPACTO = {"Hackeo de exchange": 3, "Fed y tasas": 3, "Guerras grandes": 3, "Gobierno de EE.UU.": 3, "Grandes gobiernos": 2, "ETF": 2, "Hackeo o quiebra": 2, "Alibaba": 3, "China": 3, "Mercado bursátil": 2, "Cripto": 1}
+IMPACTO = {"Hackeo de exchange": 3, "Fed y tasas": 3, "Guerras grandes": 3, "Gobierno de EE.UU.": 3, "Grandes gobiernos": 2, "ETF": 2, "Hackeo o quiebra": 2, "Mercado bursátil": 2, "Cripto": 1}
+for _c in ACCIONES.values():
+    IMPACTO[_c["empresa"]] = 3
+    IMPACTO[_c["region"]] = 3
+    if _c["sector"]:
+        IMPACTO[_c["sector"]] = 2
+
+# ---------- si un titular es bueno o malo para el activo (BTC o una accion) ----------
+# Lectura del titular por reglas, no un modelo. En orden:
+# 1. Lo que viene despues de "pese a / despite / aunque / pero" no cuenta: manda lo primero.
+# 2. Si el titular dice que el activo (o la bolsa, para una accion) sube o baja, eso manda.
+# 3. Si no: frases fuertes (pesan 2: tasas, estimulos, aranceles nuevos, resultados, recomendaciones, multas, ETF,
+#    hackeos...) y despues las palabras de direccion de cada parte del titular. Si esa parte habla de algo que es malo
+#    que suba (inflacion, tasas, rendimientos, dolar, desempleo, riesgo pais, aranceles, petroleo), la direccion se da
+#    vuelta: "sube la inflacion" es malo, "bajan las tasas" es bueno.
+# 4. Una accion: un titular que habla de un rival (el rival va primero, o la empresa ni aparece) es neutral.
+# Medido con pruebas/titulares.json (pruebas/sesgo.py). Igual que contexto.js.
+SUBE = r"\bsube|\bsuben|subi[oó]|subieron|\bsubir|al alza|en alza|avanza|trepa|se dispara|dispar[oó]|r[eé]cord|m[aá]ximos? hist|m[aá]ximo de|rall(?:y|ies|ied)|\brises?\b|\brose\b|\brising\b|surg(?:e|es|ed|ing)\b|soar|jump|climb|\bgains?\b|gained|rebound|rebota|repunt|recupera|\bhigher\b|advanc|se fortalece|fortalec|strengthen|\bcrece|grows?\b|growth|\bacelera|\baccelerat|expand|alcanza|hits? (?:a )?(?:record|high)|all-time high"
+BAJA = r"\bcae\b|\bcaen\b|cay[oó]|cayeron|ca[ií]da|a la baja|en baja|\bbaja\b|\bbajan\b|baj[oó]|retroced|pierde|perdi[oó]|desplom|derrumb|se hunde|hund|plung|tumbl|\bfalls?\b|\bfell\b|\bdrops?\b|dropped|slid|slip|\bsinks?\b|\bsank\b|declin|\blower\b|sell-?off|venta masiva|slump|crash|retreat|se desacelera|desaceler|se modera|modera|cools?\b|eases?\b|\bslows?\b|slowdown|se debilita|debilit|weak|golpea|hits? (?:a )?low|m[ií]nimo"
+COMPARA_SUBE = r"m[aá]s alt[oa]s? de lo (?:esperado|previsto)|m[aá]s de lo (?:esperado|previsto)|higher than expected|above (?:expectations|forecasts|estimates)|por encima de lo (?:esperado|previsto)|faster than expected|hotter than expected|m[aá]s r[aá]pido de lo"
+COMPARA_BAJA = r"m[aá]s baj[oa]s? de lo (?:esperado|previsto)|menos de lo (?:esperado|previsto)|lower than expected|below (?:expectations|forecasts|estimates)|por debajo de lo (?:esperado|previsto)|slower than expected|softer than expected|cooler than expected|m[aá]s lent[oa] de lo"
+MALO_SI_SUBE = r"inflaci|inflation|\bipc\b|\bcpi\b|\bpce\b|precios al consumidor|consumer prices|rendimiento|yields?\b|\btasas?\b|\brates?\b|tipos de inter|interest rate|\bselic\b|desemple|unemploy|jobless|d[oó]lar|dollar|\bdxy\b|\bvix\b|volatilid|riesgo pa[ií]s|arancel|tariff|petr[oó]leo|\boil\b|crudo|deuda|\bdebt\b|costos|costs|despidos|layoffs"
+CONTRASTE = r"\b(?:pese a|a pesar de|despite|aunque|although|even as|but|pero|sin embargo|however|mientras que|while)\b"
+PARTES = r"\b(?:tras|luego de|despu[eé]s de|after|por|on|as|amid|en medio de|ante|following|impulsad[oa]s? por|driven by|due to|debido a|and|y|e|with|con)\b|[,;:]"
+SUJETO_BTC = r"bitcoin|\bbtc\b|cripto|crypto|\bether|ethereum|altcoins?|stablecoin"
+SUJETO_BOLSA = r"\bacciones\b|\bshares?\b|\bstocks?\b|wall street|s&p|nasdaq|\bdow\b|hang seng|merval|ibovespa|bovespa|[ií]ndices?|\bbolsas?\b|equities|tecnol[oó]gicas|semiconductores|chipmakers"
+SECTOR_AMPLIO = r"chip stocks|semiconductor stocks|semiconductores|chipmakers|\bsector\b|tech stocks|tecnol[oó]gicas|big tech"
+# frases fuertes (pesan 2): buenas y malas para todos
+FUERTE_BUENO = [r"(?:cuts?|recorta|recort[oó]|reduce|baja|bajan)(?: the| la| el| su| sus| las| its)?(?: key| benchmark| de referencia)?(?: interest| selic)? (?:rates?|tasas?|tipos|selic)|recort(?:a|an|e|es|ar|[oó])(?: de)?(?: las| la| sus| los)? (?:tasas?|tipos)|rate cuts?|cuts? (?:interest )?rates|baja(?:n|r)? (?:de )?(?:las |la )?(?:tasas?|tipos)|rebaja de (?:tasas|tipos)|dovish|paloma",
+                r"est[ií]mulos?|stimulus|rescate|bailout|recorta (?:el )?encaje|reserve requirement|\brrr\b",
+                r"alto el fuego|ceasefire|tregua|truce|acuerdo de paz|peace deal|acuerdo comercial|trade deal|trade truce|tregua comercial|suspende (?:los )?aranceles|tariff relief|elimina (?:los )?aranceles|lifts? tariffs|bajan? los aranceles|reduce (?:los )?aranceles",
+                r"soft landing|aterrizaje suave"]
+FUERTE_MALO = [r"(?:hikes?|raises?|eleva|sube|suben)(?: the| la| el| su| its)?(?: key| benchmark| de referencia)?(?: interest| selic)? (?:rates?|tasas?|tipos|selic)|sub(?:e|en|ir|i[oó]|a)(?: de)? (?:las |la )?(?:tasas?|tipos)|alza de (?:tasas|tipos)|rate hikes?|hikes? (?:interest )?rates|raises? (?:interest )?rates|eleva(?:n)? (?:las |la )?(?:tasas?|tipos)|hawkish|halc[oó]n|fewer rate cuts|menos recortes",
+               r"nuevos aranceles|new tariffs|impone aranceles|imposes? tariffs|tariff hike|aranceles (?:de|del) \d|duplica los aranceles|amenaza con aranceles|threatens? tariffs",
+               r"temores? de (?:una )?recesi[oó]n|recession fears|cae en recesi[oó]n|enters? recession|crisis|default|impago|quiebra|bankrupt",
+               r"declara(?:ci[oó]n de)? (?:la )?guerra|invade|invasi[oó]n|sanciones|sanctions"]
+FUERTE_BTC_BUENO = [r"\baprueb|\bapprov|tax cuts?|recorte de impuestos|baja de impuestos", r"\bbuys?\b|\bbought\b|\bcompra(?:n|r|ron)?\b|acumula|adquiere|\bacquires?\b", r"reserva estrat[eé]gica|strategic reserve|aprueba (?:el |los )?etf|etf approv|entradas r[eé]cord|record inflows|fuerte demanda|strong demand|record demand|inflows?|entradas"]
+FUERTE_BTC_MALO = [HACK + r"|prohib|proh[ií]b|\bbans?\b|outflows?|salidas|presi[oó]n vendedora|sell(?:ing)? pressure|demanda (?:judicial|colectiva|contra|a\b)|demandan?\b|lawsuit|\bsues?\b|investiga|probe"]
+FUERTE_ACCION_BUENO = [r"(?:wins?|gana) (?:dismissal|the case|lawsuit|appeal|ruling|el juicio|juicio|apelaci[oó]n)[^,;.]*|dismiss(?:es|ed)? [^,;.]*(?:case|lawsuit|suit|charges)|desestima[^,;.]*|rules? in (?:its )?favor[^,;.]*|fall[oó] a (?:su )?favor[^,;.]*", r"\bbeats?\b|beat (?:estimates|expectations)|supera (?:las |los )?(?:estimaciones|expectativas|previsiones|pron[oó]sticos)|super[oó] (?:las )?(?:estimaciones|expectativas)|tops? (?:estimates|expectations)",
+                       r"rais(?:es|ed|ing) (?:its |full-year )?(?:guidance|forecast|outlook)|eleva (?:sus |su |la |el )?(?:previsi[oó]n|previsiones|perspectivas|pron[oó]stico|gu[ií]a)|mejora (?:sus |su )?(?:previsiones|perspectivas)",
+                       r"(?:ingresos|ventas|ganancias|beneficios) r[eé]cord|record (?:revenue|sales|profit|earnings|quarter)",
+                       r"upgrades?\b|upgraded|mejora (?:de )?(?:la )?recomendaci[oó]n|eleva (?:el )?precio objetivo|raises? (?:price )?target|price target (?:raised|hike)",
+                       r"recompra|buyback|share repurchase|aumenta (?:el )?dividendo|dividend (?:hike|increase)",
+                       r"wins? (?:a |an )?(?:\$?[\d,.]+ ?(?:billion|million|bn|mn)?[- ]?(?:dollar )?)?(?:contract|deal|order)|gana (?:un |el )?contrato|contrato (?:millonario|de \d)|multibillion|acuerdo (?:millonario|con)|alianza|partnership|se asocia|asociaci[oó]n con",
+                       r"aprobaci[oó]n|approv|obtiene (?:la )?licencia|wins? (?:a )?license|licencia bancaria|autoriza"]
+FUERTE_ACCION_MALO = [r"\bmiss(?:es|ed)?\b|no alcanza (?:las )?(?:estimaciones|expectativas)|decepciona|disappoint|por debajo de (?:las )?(?:estimaciones|expectativas)",
+                      r"cuts? (?:its |full-year )?(?:guidance|forecast|outlook)|recorta (?:sus |su |la |el )?(?:previsi[oó]n|previsiones|perspectivas|pron[oó]stico)|weak (?:guidance|outlook|forecast)|previsiones? d[eé]bil",
+                      r"downgrades?\b|downgraded|rebaja (?:de )?(?:la )?recomendaci[oó]n|recorta (?:el )?precio objetivo|cuts? (?:price )?target|price target cut",
+                      r"antitrust|antimonopol|probe|investigaci[oó]n|investiga|\bfines?\b|\bfined\b|multa|lawsuit|\bsues?\b|demanda (?:judicial|colectiva|contra)|demandan?\b|loses? (?:the )?(?:antitrust )?case|pierde (?:el )?juicio|breakup|desmembra",
+                      r"blacklist|lista negra|entity list|export (?:controls|curbs|restrictions|ban)|restricciones? (?:a las )?exportaci|controles (?:a las )?exportaci|\bbans?\b|prohib|proh[ií]b|veto",
+                      r"temores? de (?:una )?burbuja|bubble fears|burbuja|recall|retira del mercado|renuncia (?:el |la )?(?:ceo|director|presidente)|(?:ceo|cfo) (?:resigns|steps down|quits)|fraude|fraud|short seller|delist"]
+PALABRA_BUENA = r"optimis|alivio|relief|impuls|boost|fuerte demanda|strong demand|lanza|launch|unveil|presenta|expande|expands?\b|nuevas? ciudades|new cities|r[eé]cord"
+PALABRA_MALA = r"miedo|\bfears?\b|temor|p[aá]nico|panic|guerra|\bwar\b|misil|missile|ataque|attack|\bstrikes?\b|bombard|escalad|amenaza|threat|incertidumbre|uncertainty|liquidac|liquidat|flee|huyen|preocupa|concern|shutdown|golpe|recesi|recession"
 
 
-def sesgo(titulo, tm=None):
-    """alcista, bajista o neutral para BTC, segun las palabras del titular."""
-    t, score = titulo.lower(), 0
-    # la Fed haciendo lo que el mercado ya esperaba no sorprende: neutral
-    if tm == "Fed y tasas" and re.search(COMO_SE_ESPERABA, t):
+def _cuenta(rx, t):
+    return len(re.findall(rx, t))
+
+
+def _quita(rx, t):
+    return re.sub(rx, " ", t)
+
+
+def sesgo(titulo, tm=None, feed=""):
+    """alcista, bajista o neutral para el activo del feed (BTC o una accion), segun el titular."""
+    t = titulo.lower()
+    c = ACCIONES.get(feed[7:]) if feed.startswith("accion:") else None
+    if re.search(FED, t) and re.search(COMO_SE_ESPERABA, t):      # la Fed haciendo lo esperado no sorprende
         return "neutral"
     if tm == "Hackeo de exchange":
         return "bajista"
     if tm == "Guerras grandes":
         return "bajista" if re.search(VIOLENTO, t) or not re.search(PAZ, t) else "alcista"
-    for peso, rx in SESGO:
-        n = len(re.findall(rx, t))
-        score += peso * n
-        if abs(peso) == 2 and n:
-            t = re.sub(rx, " ", t)          # la frase ya conto: sus palabras no vuelven a contar
+    # 1. pese a / despite: manda lo de antes (o, si empieza asi, lo que sigue a la primera coma)
+    m = re.search(CONTRASTE, t)
+    if m:
+        antes = t[:m.start()].strip(" ,.")
+        t = antes if len(antes) > 8 else (t[t.index(",") + 1:] if "," in t[m.end():] and t.index(",") > m.start() else antes)
+    # 4. una accion: un rival solo (sin la empresa ni la bolsa en general) es neutral
+    if c and not re.search(SECTOR_AMPLIO, t):
+        mr, me = re.search(c["rivales"], t), re.search(c["rx"], t)
+        if mr and (not me or mr.start() < me.start()):     # el rival es de quien habla el titular
+            return "neutral"
+    sujeto = SUJETO_BTC if c is None else c["rx"] + "|" + SUJETO_BOLSA
+    partes = [p for p in re.split(PARTES, t) if p and p.strip()]
+    # 2. el activo sube o baja: manda
+    mov = 0
+    for p in partes:
+        if re.search(sujeto, p) and not re.search(MALO_SI_SUBE, p):
+            mov += _cuenta(SUBE, p) - _cuenta(BAJA, p)
+    if mov:
+        return "alcista" if mov > 0 else "bajista"
+    # 3. frases fuertes y despues la direccion de cada parte
+    score = 0
+    buenas = FUERTE_BUENO + (FUERTE_BTC_BUENO if c is None else FUERTE_ACCION_BUENO)
+    malas = FUERTE_MALO + (FUERTE_BTC_MALO if c is None else FUERTE_ACCION_MALO)
+    for rx in buenas:
+        if re.search(rx, t):
+            score += 2; t = _quita(rx, t)
+    for rx in malas:
+        if re.search(rx, t):
+            score -= 2; t = _quita(rx, t)
+    for p in re.split(PARTES, t):
+        if not p or not p.strip():
+            continue
+        d = 2 * (_cuenta(COMPARA_SUBE, p) - _cuenta(COMPARA_BAJA, p))
+        p2 = _quita(COMPARA_BAJA, _quita(COMPARA_SUBE, p))
+        d += _cuenta(SUBE, p2) - _cuenta(BAJA, p2)
+        score += -d if re.search(MALO_SI_SUBE, p) else d
+        score += _cuenta(PALABRA_BUENA, p2) - _cuenta(PALABRA_MALA, p2)
     return "alcista" if score > 0 else "bajista" if score < 0 else "neutral"
 
 
@@ -104,15 +226,19 @@ def _get(url, timeout=12):
         return r.read().decode("utf-8", "replace")
 
 
-def tema_accion(t):
-    """Tema de un titular para una accion (BABA): sin cripto."""
-    ali = re.search(ALIBABA, t)
-    if re.search(CRIPTO, t) and not ali:
+def tema_accion(t, c):
+    """Tema de un titular para una accion (ACCIONES[...]): la empresa, su region, su sector o la bolsa. Sin cripto."""
+    emp = re.search(c["rx"], t)
+    if re.search(CRIPTO, t) and not emp:
         return None
-    if ali:
-        return "Alibaba"
-    if re.search(CHINA, t) and (re.search(CHINA_SOLO, t) or re.search(POLITICA, t) or re.search(BOLSA, t)):
-        return "China"
+    if emp:
+        return c["empresa"]
+    if c["sector"] and re.search(c["rivales"], t):        # un rival solo: entra al sector (como neutral)
+        return c["sector"]
+    if re.search(c["region_rx"], t) and (re.search(c["region_solo"], t) or re.search(ECON, t) or re.search(BOLSA, t)):
+        return c["region"]
+    if c["sector"] and re.search(c["sector_rx"], t):
+        return c["sector"]
     if re.search(BOLSA, t):
         return "Mercado bursátil"
     return None
@@ -121,8 +247,8 @@ def tema_accion(t):
 def tema(titulo, feed):
     """De que habla un titular (guerra grande, gobierno de EE.UU. o grande, ETF, hackeo, cripto). None: se descarta."""
     t = titulo.lower()
-    if feed == "accion":
-        return tema_accion(t)
+    if feed.startswith("accion:"):
+        return tema_accion(t, ACCIONES[feed[7:]])
     if re.search(HACK, t) and re.search(EXCHANGE, t):
         return "Hackeo de exchange"
     if re.search(FED, t):
@@ -166,7 +292,7 @@ def parse_rss(xml, feed, now_ms, horas=24):
         tm = tema(title, feed)
         if tm:
             out.append({"tabla": "noticia", "t": t, "titulo": title[:220], "fuente": fuente[:60], "url": link, "tema": tm,
-                        "sesgo": sesgo(title, tm), "impacto": IMPACTO[tm]})
+                        "sesgo": sesgo(title, tm, feed), "impacto": IMPACTO[tm]})
     return out
 
 
@@ -446,10 +572,10 @@ def externo(now_ms=None, moneda="BTC"):
             print(f"({nombre} no disponible: {type(e).__name__})")
             return None
 
-    if moneda == "BABA":
-        with ThreadPoolExecutor(max_workers=6) as pool:
+    if moneda in ACCIONES:               # una accion: sus noticias (empresa, region, sector y bolsa) y el calendario
+        with ThreadPoolExecutor(max_workers=8) as pool:
             feeds = [(pool.submit(intento, f"noticias {url[:40]}", lambda f=feed, u=url: parse_rss(_get(u), f, now_ms)),
-                      bool(re.search(r"hl=en", url))) for feed, url in FEEDS_BABA]
+                      bool(re.search(r"hl=en", url))) for feed, url in ACCIONES[moneda]["feeds"]]
             cal = pool.submit(intento, "calendario economico", lambda: _calendario(now_ms))
             return juntar([traducir(x.result() or [], ing) for x, ing in feeds]) + (cal.result() or [])
     # todas las fuentes a la vez: si alguna tarda, no frena al resto
