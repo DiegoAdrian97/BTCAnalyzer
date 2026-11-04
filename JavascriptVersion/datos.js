@@ -268,6 +268,9 @@
     return { candles, live5m, price, now, ctxRaw: ctxR, booksRaw: booksR, liqRaw: liqR, externo: extR, opcionesRaw: opcR, log, fuente: src };
   }
 
-  const Datos = { recolectar, guardarLog: (log, sym = 'BTCUSDT') => dbSet(`${sym === 'BTCUSDT' ? '' : `${sym}:`}predicciones`, log), isBanned };
+  // el ultimo analisis de cada activo, guardado en el telefono: al abrir la app se muestra al toque mientras se calcula
+  const ultimo = (sym) => dbGet(`ultimo:${sym}`);
+  const guardarUltimo = (sym, rows) => dbSet(`ultimo:${sym}`, { hora: Date.now(), rows });
+  const Datos = { recolectar, ultimo, guardarUltimo, cambio: () => SYM, guardarLog: (log, sym = 'BTCUSDT') => dbSet(`${sym === 'BTCUSDT' ? '' : `${sym}:`}predicciones`, log), isBanned };
   root.Datos = Datos;
 })(typeof self !== 'undefined' ? self : globalThis);

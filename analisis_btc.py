@@ -326,16 +326,23 @@ def outcomes(closes, idxs, h, F=None):
 CAL_PUNTOS, CAL_MIN, CAL_K = 200, 60, (0.6, 2.0)
 
 
-def rango_puntajes(closes, st, F, h, warmup, j_max, puntos=CAL_PUNTOS, ventana=None):
-    """[(vela, puntaje)] de las ultimas `puntos` predicciones con resultado conocido (j <= j_max), de la mas nueva a
-    la mas vieja. st: la situacion de cada vela (apr.estados). F: vol_escala (o None). ventana: solo casos de las
-    ultimas `ventana` velas antes de cada prediccion (como el analisis en vivo, que tiene una ventana de historia)."""
+def rango_grupos(st, warmup, j_max):
+    """Velas de cada situacion (con 4, 3, 2 y 1 rasgos), en orden. No depende del horizonte: se arma una vez por receta."""
     grupos = {}
     for i in range(warmup, j_max + 1):
         e = st[i]
         if e:
             for keep in (4, 3, 2, 1):
                 grupos.setdefault((keep, tuple(e[:keep])), []).append(i)
+    return grupos
+
+
+def rango_puntajes(closes, st, F, h, warmup, j_max, puntos=CAL_PUNTOS, ventana=None, grupos=None):
+    """[(vela, puntaje)] de las ultimas `puntos` predicciones con resultado conocido (j <= j_max), de la mas nueva a
+    la mas vieja. st: la situacion de cada vela (apr.estados). F: vol_escala (o None). ventana: solo casos de las
+    ultimas `ventana` velas antes de cada prediccion (como el analisis en vivo, que tiene una ventana de historia).
+    grupos: rango_grupos ya armado (con mas velas no cambia nada: solo se usan las de antes de j - h)."""
+    grupos = grupos if grupos is not None else rango_grupos(st, warmup, j_max)
     out, j = [], j_max
     while j >= warmup and len(out) < puntos:
         e = st[j]
@@ -384,8 +391,11 @@ def calibracion(s, receta, h):
         if hit and hit[0] == sello:                                    # solo depende de las velas cerradas
             cal = hit[1]
         else:
-            cal = rango_factor(rango_puntajes(s["closes"], apr.estados(s["feats"], receta), vol_factor(s, h), h,
-                                              s["warmup"], last - h))
+            if receta not in s.setdefault("grupos", {}):     # una vez por receta, para todos los horizontes
+                st = apr.estados(s["feats"], receta)
+                s["grupos"][receta] = (st, rango_grupos(st, s["warmup"], last))
+            st, gr = s["grupos"][receta]
+            cal = rango_factor(rango_puntajes(s["closes"], st, vol_factor(s, h), h, s["warmup"], last - h, grupos=gr))
             if s["tf_min"] > 60:
                 cal["k"] = 1.0
             _CAL_CACHE[clave] = (sello, cal)

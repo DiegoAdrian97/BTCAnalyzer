@@ -237,17 +237,23 @@
   const desdeIdx = (xs, v) => { let a = 0, b = xs.length; while (a < b) { const m = (a + b) >> 1; if (xs[m] < v) a = m + 1; else b = m; } return a; };
   const hastaIdx = (xs, v) => { let a = 0, b = xs.length; while (a < b) { const m = (a + b) >> 1; if (xs[m] <= v) a = m + 1; else b = m; } return a; };
   /** [[vela, puntaje]] de las ultimas `puntos` predicciones del pasado: donde termino el precio, en anchos de rango. */
-  function rangoPuntajes(closes, st, F, h, warmup, jMax, puntos = CAL_PUNTOS, ventana = null) {
+  /** Velas de cada situacion (con 4, 3, 2 y 1 rasgos), en orden. No depende del horizonte: una vez por receta. */
+  function rangoGrupos(st, warmup, jMax) {
     const grupos = new Map();
     for (let i = warmup; i <= jMax; i++) {
       const e = st[i];
       if (!e) continue;
-      for (const keep of [4, 3, 2, 1]) {
-        const key = `${keep}|${e.slice(0, keep).join(',')}`;
-        if (!grupos.has(key)) grupos.set(key, []);
-        grupos.get(key).push(i);
+      let k = '';
+      for (let keep = 1; keep <= 4; keep++) {         // la misma clave que e.slice(0, keep).join(',')
+        if (keep <= e.length) k = keep === 1 ? String(e[0]) : `${k},${e[keep - 1]}`;
+        const key = `${keep}|${k}`, g = grupos.get(key);
+        if (g) g.push(i); else grupos.set(key, [i]);
       }
     }
+    return grupos;
+  }
+  function rangoPuntajes(closes, st, F, h, warmup, jMax, puntos = CAL_PUNTOS, ventana = null, gruposHechos = null) {
+    const grupos = gruposHechos || rangoGrupos(st, warmup, jMax);
     const out = [];
     for (let j = jMax; j >= warmup && out.length < puntos; j -= h) {
       const e = st[j];
@@ -289,7 +295,10 @@
       let cal;
       if (hit && hit[0] === sello) cal = hit[1];
       else {
-        cal = rangoFactor(rangoPuntajes(s.closes, Apr.estados(s.feats, receta), volFactor(s, h), h, s.warmup, last - h));
+        if (!s.grupos) s.grupos = new Map();
+        if (!s.grupos.has(receta)) { const st = Apr.estados(s.feats, receta); s.grupos.set(receta, [st, rangoGrupos(st, s.warmup, last)]); }
+        const [st, gr] = s.grupos.get(receta);
+        cal = rangoFactor(rangoPuntajes(s.closes, st, volFactor(s, h), h, s.warmup, last - h, CAL_PUNTOS, null, gr));
         if (s.tfMin > 60) cal.k = 1;
         CAL_CACHE.set(clave, [sello, cal]);
       }

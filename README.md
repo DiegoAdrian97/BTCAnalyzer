@@ -103,6 +103,13 @@ menciona cuando el precio está a menos de 0,4% de uno que rebotó 55% o más.
 `pruebas/paridad.py` corre en GitHub Actions en cada push: los indicadores, Fibonacci, el termómetro (BTC y alts) y el
 modelo de movimiento fuerte tienen que dar lo mismo en las dos versiones.
 
+### Más rápido al abrir
+
+El último análisis de cada activo queda guardado en el teléfono: al abrir la app o elegir otro activo en el
+desplegable se ve al instante ("Último análisis guardado · actualizando…") mientras se calcula el nuevo. Si se cambia
+de activo mientras se bajan los datos, ese cálculo se descarta. La calibración del rango arma los grupos de casos una
+vez por receta (antes, una vez por plazo): la primera vuelta tarda ~20% menos, con el mismo resultado.
+
 ### BABA (Alibaba) en la app
 
 El perpetuo de la acción de Alibaba (`BABAUSDT`, en Binance, Bybit, Bitget y KuCoin) se analiza en la app como una

@@ -8,7 +8,7 @@
   const VER = document.currentScript && document.currentScript.src.includes('?') ? document.currentScript.src.slice(document.currentScript.src.indexOf('?')) : '';
   let rows = null;
   const fns = [];
-  // la cripto que se analiza: BTC, ZEC, SOL o XRP (cada una con su ultimo analisis guardado para volver enseguida)
+  // el activo que se analiza (cada uno con su ultimo analisis: en memoria y guardado en el telefono para mostrarlo al toque)
   const MONEDAS = ['BTC', 'ZEC', 'SOL', 'XRP', 'BABA'];
   let moneda = 'BTC';
   try { const g = localStorage.getItem('app-moneda'); moneda = MONEDAS.includes(g) ? g : 'BTC'; } catch (e) { /* sin almacenamiento */ }
@@ -87,9 +87,9 @@
     if (m === moneda) return;
     moneda = m; window.abMoneda = m;
     try { localStorage.setItem('app-moneda', m); } catch (e) { /* idem */ }
-    document.querySelectorAll('#app-moneda button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.m === m)));
+    const sel = document.getElementById('app-moneda-sel'); if (sel && sel.value !== m) sel.value = m;
     rows = porMoneda[m] || null;
-    if (!rows) estado(`Preparando el análisis de ${m}… bajando el historial de velas`);
+    if (!rows) estado(`Preparando el análisis de ${m}…`);
     worker.postMessage({ tipo: 'seguir', sym: sym() });
     redraw();
   }
@@ -97,19 +97,25 @@
     const sw = document.getElementById('app-moneda');
     if (!sw) return;
     sw.hidden = false;
-    sw.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.m === moneda)));
-    sw.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) elegir(b.dataset.m); });
+    const sel = document.getElementById('app-moneda-sel');
+    sel.value = moneda;
+    sel.addEventListener('change', () => elegir(sel.value));
   });
   worker.postMessage({ tipo: 'seguir', sym: sym() });
   worker.onmessage = (ev) => {
     const m = ev.data;
     if (m.sym && m.sym !== sym() && m.tipo !== 'analisis') return;
     if (m.tipo === 'analisis') {
-      porMoneda[(m.sym || 'BTCUSDT').replace('USDT', '')] = m.rows;
+      const mon = (m.sym || 'BTCUSDT').replace('USDT', '');
+      if (m.guardado && porMoneda[mon]) return;           // ya hay uno nuevo: el guardado no hace falta
+      porMoneda[mon] = m.rows;
       if (m.sym && m.sym !== sym()) { if (holo) sendHolo(); return; }
       rows = m.rows;
       window.abAnalyses = m.numero;
-      estado(m.fuente === 'bybit' ? 'Binance limitó los pedidos: por ahora las velas salen de Bybit.' : '');
+      if (m.guardado) {
+        const min = Math.max(1, Math.round((Date.now() - m.hora) / 60000));
+        estado(`Último análisis guardado (hace ${min < 60 ? `${min} min` : `${Math.round(min / 60)} h`}) · actualizando…`);
+      } else estado(m.fuente === 'bybit' ? 'Binance limitó los pedidos: por ahora las velas salen de Bybit.' : '');
       if (holo) sendHolo(); else redraw();      // con el holograma abierto, la pagina de abajo no se redibuja
     } else if (m.tipo === 'progreso' && !rows) {
       estado(`Preparando el primer análisis… ${m.texto}`);
@@ -119,5 +125,5 @@
   };
   // con la app en segundo plano no se analiza: ahorra bateria y datos
   document.addEventListener('visibilitychange', () => worker.postMessage(document.hidden ? { tipo: 'pausa' } : { tipo: 'seguir', sym: sym() }));
-  document.addEventListener('DOMContentLoaded', () => { if (!rows) estado('Preparando el primer análisis… bajando el historial de velas'); });
+  document.addEventListener('DOMContentLoaded', () => { if (!rows) estado('Preparando el análisis…'); });
 })();

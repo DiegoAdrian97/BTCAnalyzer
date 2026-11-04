@@ -19,6 +19,16 @@ function renombrar(rows, mon) {
 }
 
 let inicio = 0;
+const guardado = {}, mostrado = {};
+/** Al abrir la app o elegir otro activo: el ultimo analisis guardado en el telefono, al toque (despues llega el nuevo). */
+async function mostrarGuardado(sym) {
+  if (mostrado[sym]) return;
+  mostrado[sym] = true;
+  try {
+    const u = await Datos.ultimo(sym);
+    if (u && u.rows && sym === SYM) postMessage({ tipo: 'analisis', rows: u.rows, numero: 0, guardado: true, hora: u.hora, sym });
+  } catch (e) { /* sin guardado */ }
+}
 async function ciclo(nueva = false) {
   // un ciclo que quedo colgado mas de 90 s (por ejemplo, la app paso a segundo plano en medio de un pedido) no
   // bloquea los siguientes
@@ -35,13 +45,16 @@ async function ciclo(nueva = false) {
       self.JSON_T = Date.now();
     }
     const input = await Datos.recolectar((texto) => postMessage({ tipo: 'progreso', texto, sym }), sym);
+    if (sym !== SYM) throw new Error('cambio');           // eligieron otro activo mientras bajaban los datos: no se calcula este
     input.moneda = mon;
     const { rows, log } = Analisis.analizar(input);
     Datos.guardarLog(log, sym);
     numero += 1;
-    if (sym === SYM) postMessage({ tipo: 'analisis', rows: renombrar(rows, mon), numero, ms: Date.now() - t0, fuente: input.fuente, sym });
+    const salida = renombrar(rows, mon);
+    if (sym === SYM) postMessage({ tipo: 'analisis', rows: salida, numero, ms: Date.now() - t0, fuente: input.fuente, sym });
+    if (Date.now() - (guardado[sym] || 0) > 60000) { guardado[sym] = Date.now(); Datos.guardarUltimo(sym, salida); }
   } catch (e) {
-    postMessage({ tipo: 'error', texto: e && e.message ? e.message : String(e), sym });
+    if (!(e && e.message === 'cambio')) postMessage({ tipo: 'error', texto: e && e.message ? e.message : String(e), sym });
   }
   corriendo = false;
   if (otraVez) { otraVez = false; if (!pausado) { ciclo(); return; } }     // pidieron otra cripto mientras calculaba
@@ -56,8 +69,9 @@ onmessage = (ev) => {
     const cambio = !!ev.data.sym && ev.data.sym !== SYM;
     if (ev.data.sym) SYM = ev.data.sym;
     pausado = false;
+    mostrarGuardado(SYM);
     ciclo(cambio);
   }
 };
 
-ciclo();
+// el primer ciclo lo pide la app con el activo elegido ("seguir"): asi no se calcula BTC de mas al abrir otro

@@ -443,6 +443,16 @@
   }
   .ab-sigchip { white-space: nowrap; }
   /* interruptor Web | Holograma */
+  .ab-asset { display: inline-flex; align-items: center; gap: 8px; width: max-content; padding: 3px 4px 3px 12px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--panel); position: relative; }
+  .ab-asset[hidden] { display: none; }
+  .ab-asset-k { font-size: var(--cds-font-size-caption); color: var(--mute); }
+  .ab-asset select { font: inherit; font-size: var(--cds-font-size-caption); font-weight: 650; color: var(--paper); background: var(--ink);
+    border: 0; border-radius: 999px; padding: 6px 30px 6px 14px; min-height: 30px; cursor: pointer; appearance: none; -webkit-appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
+  .ab-asset select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .ab-asset option { color: var(--ink); background: var(--panel); }
   .ab-appmode { display: inline-flex; width: max-content; padding: 3px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); }
   .ab-appmode[hidden] { display: none; }
   .ab-appmode button { font: inherit; font-size: var(--cds-font-size-caption); font-weight: 600; padding: 6px 14px; border: 0; border-radius: 999px; background: transparent; color: var(--mute); cursor: pointer; }
@@ -642,10 +652,12 @@
           <div class="ab-nt-list" id="nt-list"></div>
         </div>
       </div>
-      <!-- version JS (Vercel): que cripto se analiza -->
-      <div class="ab-appmode" id="app-moneda" role="group" aria-label="Cripto" hidden>
-        <button type="button" data-m="BTC" aria-pressed="true">BTC</button><button type="button" data-m="ZEC" aria-pressed="false">ZEC</button><button type="button" data-m="SOL" aria-pressed="false">SOL</button><button type="button" data-m="XRP" aria-pressed="false">XRP</button><button type="button" data-m="BABA" aria-pressed="false" title="Alibaba (perpetuo de la acción)">BABA</button>
-      </div>
+      <!-- version JS (Vercel): que activo se analiza -->
+      <label class="ab-asset" id="app-moneda" hidden><span class="ab-asset-k">Activo</span>
+        <select id="app-moneda-sel" aria-label="Activo que se analiza">
+          <option value="BTC">BTC · Bitcoin</option><option value="ZEC">ZEC · Zcash</option><option value="SOL">SOL · Solana</option>
+          <option value="XRP">XRP · Ripple</option><option value="BABA">BABA · Alibaba (acción)</option>
+        </select></label>
       <!-- interruptor de la version JS (Vercel): Web | Holograma -->
       <div class="ab-appmode" id="app-modo" role="group" aria-label="Modo de la app" hidden>
         <button type="button" data-app="web" aria-pressed="true">Web</button><button type="button" data-app="holo" aria-pressed="false">✦ Holograma</button>
