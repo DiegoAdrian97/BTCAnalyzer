@@ -14,7 +14,17 @@ while (y, m) < (hoy.year, hoy.month):
     except Exception as e:
         print(sym, y, m, type(e).__name__, flush=True)
     y, m = (y + 1, 1) if m == 12 else (y, m + 1)
-rows.sort(); n = len(rows); print(sym, n, flush=True)
+d = dt.date(hoy.year, hoy.month, 1)
+while d < hoy:      # el mes en curso, dia por dia
+    u = f"https://data.binance.vision/data/futures/um/daily/klines/{sym}/5m/{sym}-5m-{d}.zip"
+    try:
+        z = zipfile.ZipFile(io.BytesIO(urllib.request.urlopen(u, timeout=120).read()))
+        for r in csv.reader(io.TextIOWrapper(z.open(z.namelist()[0]))):
+            if r[0].isdigit(): rows.append((int(r[0]), float(r[2]), float(r[3]), float(r[4])))
+    except Exception as e:
+        print(sym, d, type(e).__name__, flush=True)
+    d += dt.timedelta(days=1)
+rows = sorted(set(rows)); n = len(rows); print(sym, n, "desde", dt.datetime.utcfromtimestamp(rows[0][0] / 1000) if rows else None, flush=True)
 CORTES = (0.8, 1.0, 1.3, 1.6, 2.0, 2.5)
 af, asl = 2 / 21, 2 / 201; ef = es = None; vr = [1.0] * n
 for i, (_, h, l, c) in enumerate(rows):
