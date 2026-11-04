@@ -1,0 +1,14 @@
+name: ahora
+on: push
+permissions: {contents: write}
+jobs:
+  r:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install ccxt && python ahora.py > salida.json
+      - run: |
+          git config user.name DiegoAdrian97 && git config user.email diegojadrian97@gmail.com
+          git add salida.json && git commit -m "salida [skip ci]" && git push
