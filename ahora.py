@@ -1,16 +1,32 @@
-import ccxt, json, time
+import json, urllib.request
 out = {}
-for eid in ("binanceusdm", "bybit", "bitget", "okx", "bingx"):
+def get(u):
     try:
-        ex = getattr(ccxt, eid)({"options": {"defaultType": "swap"}}); ms = ex.load_markets()
-        out[eid] = sorted(s for s in ms if any(s.startswith(t + "/") for t in ("NVDA", "GOOGL", "GOOG", "AMD", "MELI", "AAPL", "MSFT", "AMZN", "META", "TSLA", "BABA")) and ":USDT" in s)
+        r = urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "analista"}), timeout=15)
+        return json.loads(r.read())
     except Exception as e:
-        out[eid] = f"ERR {type(e).__name__} {str(e)[:80]}"
-try:
-    ex = ccxt.binanceusdm()
-    for t in ("NVDA", "GOOGL", "AMD", "MELI", "BABA"):
-        k = ex.fetch_ohlcv(f"{t}/USDT:USDT", "1d", since=1704067200000, limit=1000)
-        out["binance_" + t] = [time.strftime("%Y-%m-%d", time.gmtime(k[0][0] / 1000)), len(k), k[-1][4]] if k else None
-except Exception as e:
-    out["binance_hist"] = f"ERR {e}"
-print(json.dumps(out, indent=1))
+        return {"error": str(e)[:150]}
+BG = "https://api.bitget.com/api/v2/mix/market"
+BY = "https://api.bybit.com/v5/market"
+for m in ["MELI", "NVDA", "GOOGL", "AMD", "BABA"]:
+    s = m + "USDT"
+    d = {}
+    d["bybit_tickers"] = get(f"{BY}/tickers?category=linear&symbol={s}")
+    d["bybit_oi"] = get(f"{BY}/open-interest?category=linear&symbol={s}&intervalTime=1h&limit=3")
+    d["bybit_ls"] = get(f"{BY}/account-ratio?category=linear&symbol={s}&period=1h&limit=3")
+    d["bg_fund"] = get(f"{BG}/current-fund-rate?symbol={s}&productType=usdt-futures")
+    d["bg_fundhist"] = get(f"{BG}/history-fund-rate?symbol={s}&productType=usdt-futures&pageSize=3")
+    d["bg_oi"] = get(f"{BG}/open-interest?symbol={s}&productType=usdt-futures")
+    d["bg_price"] = get(f"{BG}/symbol-price?symbol={s}&productType=usdt-futures")
+    d["bg_als"] = get(f"{BG}/account-long-short?symbol={s}&period=1h")
+    d["bg_ls"] = get(f"{BG}/long-short?symbol={s}&period=1h")
+    d["bg_pls"] = get(f"{BG}/position-long-short?symbol={s}&period=1h")
+    d["bg_taker"] = get(f"{BG}/taker-buy-sell?symbol={s}&productType=usdt-futures&period=1h")
+    d["bg_depth"] = get(f"{BG}/merge-depth?symbol={s}&productType=usdt-futures&limit=5")
+    d["bg_ticker"] = get(f"{BG}/ticker?symbol={s}&productType=usdt-futures")
+    out[m] = d
+def corta(x, n=2):
+    if isinstance(x, dict): return {k: corta(v, n) for k, v in list(x.items())[:12]}
+    if isinstance(x, list): return [corta(v, n) for v in x[:n]] + ([f"...{len(x)}"] if len(x) > n else [])
+    return x
+print(json.dumps(corta(out), indent=1))
