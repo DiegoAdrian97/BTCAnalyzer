@@ -12,6 +12,11 @@
   const DAY = 86400000;
   const BINANCE = 'https://fapi.binance.com';
   const BYBIT_TF = { '5m': '5', '15m': '15', '30m': '30', '1h': '60', '4h': '240', '1d': 'D' };
+  // lo que no cotiza en Binance (MELI): velas de Bitget, que si deja leer desde el telefono
+  const SOLO_BITGET = new Set(['MELIUSDT']);
+  const ACCIONES_APP = new Set(['BABAUSDT', 'NVDAUSDT', 'GOOGLUSDT', 'AMDUSDT', 'MELIUSDT']);
+  const BITGET_TF = { '5m': '5m', '15m': '15m', '30m': '30m', '1h': '1H', '4h': '4H', '1d': '1D' };
+  const bitgetVelas = (d) => (d || []).map((r) => [+r[0], +r[1], +r[2], +r[3], +r[4], +r[5]]).sort((a, b) => a[0] - b[0]);
   const banned = {};      // exchange -> hasta cuando (ms) no se le pide nada
   const memo = {};        // cache en memoria: clave -> [cuando, valor]
   // la cripto que se analiza (BTC o ZEC). Lo de BTC se guarda con las claves de siempre; lo demas, con el simbolo adelante.
@@ -113,6 +118,11 @@
 
   // ---------- velas ----------
   async function klines(src, tf, start, limit) {
+    if (src === 'bitget') {      // velas viejas de a 200, hasta endTime (de la mas vieja a la mas nueva)
+      const end = start + limit * TF_MS[tf] - 1;
+      const j = await pedir('bitget', `https://api.bitget.com/api/v2/mix/market/history-candles?symbol=${SYM}&productType=USDT-FUTURES&granularity=${BITGET_TF[tf]}&limit=${limit}&endTime=${end}`);
+      return bitgetVelas(j.data).filter((r) => r[0] >= start);
+    }
     if (src === 'binance') {
       const rows = await pedir('binance', `${BINANCE}/fapi/v1/klines?symbol=${SYM}&interval=${tf}&startTime=${start}&limit=${limit}`);
       return rows.map((r) => [r[0], +r[1], +r[2], +r[3], +r[4], +r[5]]);
@@ -124,6 +134,10 @@
   }
 
   async function lastTwo(src, tf) {
+    if (src === 'bitget') {
+      const j = await pedir('bitget', `https://api.bitget.com/api/v2/mix/market/candles?symbol=${SYM}&productType=USDT-FUTURES&granularity=${BITGET_TF[tf]}&limit=2`);
+      return bitgetVelas(j.data);
+    }
     if (src === 'binance') {
       const rows = await pedir('binance', `${BINANCE}/fapi/v1/klines?symbol=${SYM}&interval=${tf}&limit=2`);
       return rows.map((r) => [r[0], +r[1], +r[2], +r[3], +r[4], +r[5]]);
@@ -134,13 +148,17 @@
 
   /** Velas cerradas: lo guardado en el telefono mas lo nuevo. */
   async function updateCandles(src, tf, days, now) {
-    const key = `${pre()}velas:${src}:${tf}`, tfMs = TF_MS[tf], limit = src === 'binance' ? 1500 : 1000;
+    const key = `${pre()}velas:${src}:${tf}`, tfMs = TF_MS[tf], limit = src === 'binance' ? 1500 : src === 'bitget' ? 200 : 1000;
     let candles = (await dbGet(key)) || [];
     const before = candles.length;
     let since = candles.length ? candles[candles.length - 1][0] + tfMs : now - days * DAY;
     while (since + tfMs <= now) {
       const batch = (await klines(src, tf, since, limit)).filter((c) => c[0] >= since && c[0] + tfMs <= now);
-      if (!batch.length) break;
+      if (!batch.length) {
+        // Bitget no salta solo al primer dia que cotiza: se avanza de a una ventana hasta encontrar velas
+        if (src === 'bitget' && since + limit * tfMs < now) { since += limit * tfMs; continue; }
+        break;
+      }
       candles = candles.concat(batch);
       since = candles[candles.length - 1][0] + tfMs;
     }
@@ -150,12 +168,22 @@
   }
 
   // ---------- datos del momento: open interest, long/short y funding de Bybit, flujo de Bitget y top traders de Binance ----------
+  // (si Bybit no tiene el par, como pasa con algunas acciones: OI y long/short de Binance, funding y base de Bitget)
   // (el servidor usa OKX y BingX, que el navegador no deja leer). Cada parte que falle se saltea.
   const bybitOi = async (limit) => (await pedir('bybit', `https://api.bybit.com/v5/market/open-interest?category=linear&symbol=${SYM}&intervalTime=1h&limit=${limit}`))
     .result.list.map((x) => [+x.timestamp, +x.openInterest]).sort((x, y) => x[0] - y[0]);
   const bybitLs = async (limit) => (await pedir('bybit', `https://api.bybit.com/v5/market/account-ratio?category=linear&symbol=${SYM}&period=1h&limit=${limit}`))
     .result.list.filter((x) => +x.sellRatio > 0).map((x) => [+x.timestamp, +x.buyRatio / +x.sellRatio]).sort((x, y) => x[0] - y[0]);
   const intento = (p) => p.catch(() => null);
+  // respaldo cuando Bybit no tiene el par (acciones): mismos datos de Binance (MELI no esta en Binance)
+  const binanceOi = async (limit) => (await pedir('binance-datos', `${BINANCE}/futures/data/openInterestHist?symbol=${SYM}&period=1h&limit=${limit}`))
+    .map((x) => [+x.timestamp, +x.sumOpenInterest]).sort((x, y) => x[0] - y[0]);
+  const binanceLs = async (limit) => (await pedir('binance-datos', `${BINANCE}/futures/data/globalLongShortAccountRatio?symbol=${SYM}&period=1h&limit=${limit}`))
+    .map((x) => [+x.timestamp, +x.longShortRatio]).sort((x, y) => x[0] - y[0]);
+  const conRespaldo = (a, b) => a().then((r) => { if (!r.length) throw new Error('sin datos'); return r; })
+    .catch((e) => { if (SOLO_BITGET.has(SYM)) throw e; return b(); });
+  const oiSerie = (n) => conRespaldo(() => bybitOi(n), () => binanceOi(n));
+  const lsSerie = (n) => conRespaldo(() => bybitLs(n), () => binanceLs(n));
 
   // funding actual y promedio de los ultimos 7 dias (21 cobros de 8 h): el promedio entra en el termometro.
   // De Bybit: BingX no manda el permiso CORS y el navegador siempre lo bloqueaba (2 pedidos fallidos cada 3 h).
@@ -166,14 +194,26 @@
       pedir('bybit', `https://api.bybit.com/v5/market/funding/history?category=linear&symbol=${SYM}&limit=21`).catch(() => null)]);
     return { tasa: +t.result.list[0].fundingRate, f7: h ? prom(h.result.list.map((x) => +x.fundingRate)) : null, fuente: 'Bybit' };
   }
+  const BG = 'https://api.bitget.com/api/v2/mix/market';
+  async function fundingBitget() {
+    const [t, h] = await Promise.all([
+      pedir('bitget', `${BG}/current-fund-rate?symbol=${SYM}&productType=usdt-futures`),
+      pedir('bitget', `${BG}/history-fund-rate?symbol=${SYM}&productType=usdt-futures&pageSize=21`).catch(() => null)]);
+    return { tasa: +t.data[0].fundingRate, f7: h ? prom(h.data.map((x) => +x.fundingRate)) : null, fuente: 'Bitget' };
+  }
   // compras y ventas a mercado de las ultimas 4 horas (la ultima, en curso) y top traders. El servidor los saca de
   // OKX, pero esos endpoints de OKX no mandan el permiso CORS: en el navegador fallaban siempre y las senales de
   // flujo nunca entraban en la explicacion. Bitget y Binance si dejan leerlos desde una pagina.
   const bitgetTaker = async () => (await pedir('bitget', `https://api.bitget.com/api/v2/mix/market/taker-buy-sell?symbol=${SYM}&productType=usdt-futures&period=1h`))
     .data.map((x) => ({ t: +x.ts, buy: +x.buyVolume, sell: +x.sellVolume })).sort((a, b) => a.t - b.t).slice(-4).map(({ buy, sell }) => ({ buy, sell }));
+  // Bitget no tiene este dato para varias acciones (NVDA, GOOGL, BABA, MELI): respaldo en Binance
+  const binanceTaker = async () => (await pedir('binance-datos', `${BINANCE}/futures/data/takerlongshortRatio?symbol=${SYM}&period=1h&limit=4`))
+    .map((x) => ({ t: +x.timestamp, buy: +x.buyVol, sell: +x.sellVol })).sort((a, b) => a.t - b.t).map(({ buy, sell }) => ({ buy, sell }));
   // con su propio nombre: si Binance limita este pedido, las velas siguen saliendo de Binance
   // perpetuo contra spot: precio de marca e indice de Bybit (cada minuto, con el resto del contexto)
   const bybitBase = async () => { const t = (await pedir('bybit', `https://api.bybit.com/v5/market/tickers?category=linear&symbol=${SYM}`)).result.list[0];
+    return { mark: +t.markPrice, index: +t.indexPrice }; };
+  const bitgetBase = async () => { const t = (await pedir('bitget', `${BG}/symbol-price?symbol=${SYM}&productType=usdt-futures`)).data[0];
     return { mark: +t.markPrice, index: +t.indexPrice }; };
   // opciones de BTC (Deribit, publico y con permiso CORS): libro de opciones y DVOL de 30 dias, cada 10 min
   async function opcionesRaw() {
@@ -202,8 +242,8 @@
     const now = Date.now();
     const liqP = SYM === 'BTCUSDT' ? intento(liqOkx(now)) : Promise.resolve(null);
     const [oi, ls, taker, top, fr, base] = await Promise.all([
-      intento(bybitOi(30)), intento(bybitLs(25)), intento(bitgetTaker()), intento(binanceTop()),
-      intento(cached(`${pre()}funding`, 3 * 3600000, fundingRaw)), intento(bybitBase()),
+      intento(oiSerie(30)), intento(lsSerie(25)), intento(bitgetTaker().catch((e) => { if (SOLO_BITGET.has(SYM)) throw e; return binanceTaker(); })), SOLO_BITGET.has(SYM) ? null : intento(binanceTop()),
+      intento(cached(`${pre()}funding`, 3 * 3600000, () => fundingRaw().catch(fundingBitget))), intento(bybitBase().catch(bitgetBase)),
     ]);
     if (!oi && !ls && !taker && !fr) throw new Error('sin datos del momento');
     return { oi, ls: ls && ls.map((x) => x[1]), taker, top, funding: fr ? fr.tasa : null, funding7: fr ? fr.f7 : null, fundingFuente: fr ? fr.fuente : null,
@@ -211,7 +251,7 @@
   }
 
   async function liqRaw() {
-    const [oi, ls] = await Promise.all([bybitOi(200), bybitLs(200)]);
+    const [oi, ls] = await Promise.all([oiSerie(200), lsSerie(200)]);
     return { oi, ls };
   }
 
@@ -235,15 +275,15 @@
   async function recolectar(onProgress, sym = 'BTCUSDT') {
     SYM = sym;
     const now = Date.now();
-    const src = isBanned('binance') ? 'bybit' : 'binance';
+    const src = SOLO_BITGET.has(sym) ? 'bitget' : isBanned('binance') ? 'bybit' : 'binance';
     const booksP = cached(`${pre()}libros`, 20000, booksRaw).catch(() => []);
     const ctxP = cached(`${pre()}contexto`, 60000, contextRaw).catch(() => null);
     // noticias, ETF y prima de Coinbase: las junta la funcion del servidor (las paginas no pueden leer esas fuentes)
-    // BABA (una accion) tiene sus propias noticias; las criptos comparten las de BTC
-    const accion = sym === 'BABAUSDT', extK = accion ? 'externo:BABA' : 'externo';
+    // cada accion tiene sus propias noticias (empresa, region, sector y bolsa); las criptos comparten las de BTC
+    const accion = ACCIONES_APP.has(sym) ? sym.replace('USDT', '') : null, extK = accion ? `externo:${accion}` : 'externo';
     const extP = cached(extK, 600000, async () => {
       const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), ESPERA_MS);
-      try { const r = await fetch(accion ? 'api/contexto?moneda=BABA' : 'api/contexto', { cache: 'no-store', signal: ctl.signal }); if (!r.ok) throw new Error(r.status); return r.json(); } finally { clearTimeout(tm); }
+      try { const r = await fetch(accion ? `api/contexto?moneda=${accion}` : 'api/contexto', { cache: 'no-store', signal: ctl.signal }); if (!r.ok) throw new Error(r.status); return r.json(); } finally { clearTimeout(tm); }
     }).catch(() => null);
     const liqP = cached(`${pre()}liquidaciones`, 300000, liqRaw).catch(() => null);
     const opcP = sym === 'BTCUSDT' ? cached('opciones', 600000, opcionesRaw).catch(() => null) : Promise.resolve(null);

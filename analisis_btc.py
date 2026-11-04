@@ -225,7 +225,13 @@ MOV_TABLA = {"BTC": {"prob": (8, 12, 19, 32, 43, 60, 68), "veces": (0.8, 0.96, 1
              "SOL": {"prob": (7, 9, 16, 26, 40, 61, 76), "veces": (0.84, 0.94, 1.14, 1.41, 1.77, 2.39, 3.52), "base": 12},
              "XRP": {"prob": (9, 11, 18, 29, 39, 53, 87), "veces": (0.84, 0.94, 1.13, 1.43, 1.68, 2.15, 4.96), "base": 14},
              # BABA: perpetuo de la accion de Alibaba (Binance, desde mediados de 2026: ~5 meses de velas de 5 min)
-             "BABA": {"prob": (13, 24, 24, 48, 65, 86, 100), "veces": (0.75, 1.15, 1.17, 1.94, 2.56, 3.56, 4.57), "base": 22}}
+             "BABA": {"prob": (13, 24, 24, 48, 65, 86, 100), "veces": (0.75, 1.15, 1.17, 1.94, 2.56, 3.56, 4.57), "base": 22},
+             # NVDA, GOOGL y AMD: perpetuos de las acciones en Binance (desde mediados de 2026)
+             "NVDA": {"prob": (7, 26, 34, 46, 69, 89, 100), "veces": (0.71, 1.29, 1.55, 1.85, 2.56, 3.48, 7.52), "base": 22},
+             "GOOGL": {"prob": (10, 25, 36, 50, 58, 96, 100), "veces": (0.78, 1.13, 1.55, 1.95, 2.41, 4.17, 3.31), "base": 23},
+             "AMD": {"prob": (7, 20, 31, 40, 69, 79, 100), "veces": (0.69, 1.17, 1.42, 1.77, 2.56, 3.43, 4.13), "base": 20},
+             # MELI: no cotiza en Binance; velas de 5 min de Bitget (desde agosto de 2026, ~3 meses)
+             "MELI": {"prob": (20, 25, 36, 54, 59, 92, 0), "veces": (0.95, 1.36, 1.56, 2.14, 2.68, 4.1, 1.79), "base": 28}}
 
 
 def movimiento(c5, price, moneda="BTC"):

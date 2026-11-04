@@ -44,7 +44,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
-<script src="app.js?v=c799f259b8"></script>
+<script src="app.js?v=33fcb17a21"></script>
 </head><body><div id="dash-root">
 <style>
   /* Tema: minimalista y moderno. Una sola familia tipografica (la del sistema: SF en el iPhone), superficies planas,
@@ -699,7 +699,9 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       <label class="ab-asset" id="app-moneda" hidden><span class="ab-asset-k">Activo</span>
         <select id="app-moneda-sel" aria-label="Activo que se analiza">
           <option value="BTC">BTC · Bitcoin</option><option value="ZEC">ZEC · Zcash</option><option value="SOL">SOL · Solana</option>
-          <option value="XRP">XRP · Ripple</option><option value="BABA">BABA · Alibaba (acción)</option>
+          <option value="XRP">XRP · Ripple</option>
+          <optgroup label="Acciones (perpetuos)"><option value="NVDA">NVDA · Nvidia</option><option value="GOOGL">GOOGL · Alphabet (Google)</option>
+            <option value="AMD">AMD · AMD</option><option value="BABA">BABA · Alibaba</option><option value="MELI">MELI · Mercado Libre</option></optgroup>
         </select></label>
     </div>
     <div class="ab-top-r" id="precio">
@@ -1159,10 +1161,20 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     if (!window.abLive || (wsTf === S.tf && wsMon === MON())) return;
     if (ws) ws.close();
     wsTf = S.tf; wsMon = MON(); liveBar = null; S.lastTick = undefined;
-    const sock = new WebSocket(`wss://fstream.binance.com/market/ws/${MON().toLowerCase()}usdt@kline_${S.tf}`);
+    // MELI no cotiza en Binance: sus ticks salen de Bitget
+    const bitget = MON() === 'MELI', BG_TF = { '5m': '5m', '15m': '15m', '30m': '30m', '1h': '1H', '4h': '4H', '1d': '1D' };
+    const sock = new WebSocket(bitget ? 'wss://ws.bitget.com/v2/ws/public' : `wss://fstream.binance.com/market/ws/${MON().toLowerCase()}usdt@kline_${S.tf}`);
     ws = sock;
+    if (bitget) {
+      sock.onopen = () => sock.send(JSON.stringify({ op: 'subscribe', args: [{ instType: 'USDT-FUTURES', channel: `candle${BG_TF[S.tf]}`, instId: `${MON()}USDT` }] }));
+      const ping = setInterval(() => { if (sock.readyState === 1) sock.send('ping'); else clearInterval(ping); }, 25000);
+    }
     sock.onmessage = (ev) => {
-      const k = JSON.parse(ev.data).k; if (!k) return;
+      if (ev.data === 'pong') return;
+      const m = JSON.parse(ev.data);
+      let k = m.k;
+      if (bitget) { const d = m.data && m.data[m.data.length - 1]; if (!d) return; k = { t: +d[0], o: d[1], h: d[2], l: d[3], c: d[4], v: d[5] }; }
+      if (!k) return;
       liveBar = { tf: wsTf, t: k.t, o: +k.o, h: +k.h, l: +k.l, c: +k.c, v: +k.v };
       ticks++;
       const pe = root.querySelector('.ab-price');
@@ -1252,7 +1264,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   // Cuando hay una suba o baja fuerte junta lo que coincide en el tiempo: liquidaciones o dinero nuevo en futuros,
   // compras o ventas a mercado, compras desde EE.UU. (prima de Coinbase), entradas o salidas de los ETF y las noticias
   // de esas horas (guerras, la Fed, aranceles, hackeos...). Son coincidencias, no pruebas de la causa.
-  const TEMA_ORDEN = ['Hackeo de exchange', 'Fed y tasas', 'Guerras grandes', 'Gobierno de EE.UU.', 'Grandes gobiernos', 'ETF', 'Hackeo o quiebra', 'Alibaba', 'China', 'Mercado bursátil', 'Cripto'];
+  const TEMA_ORDEN = ['Hackeo de exchange', 'Fed y tasas', 'Guerras grandes', 'Gobierno de EE.UU.', 'Grandes gobiernos', 'ETF', 'Hackeo o quiebra', 'Alibaba', 'Nvidia', 'Alphabet', 'AMD', 'Mercado Libre', 'China', 'Economía de EE.UU.', 'Latinoamérica', 'Chips e IA', 'IA y tecnología', 'Mercado bursátil', 'Cripto'];
+  // acciones (perpetuos): de donde salen sus noticias y desde cuando hay velas
+  const ACC_INFO = { BABA: ['Alibaba, China, Wall Street y Hang Seng', 'Binance', 'mediados de 2026'], NVDA: ['Nvidia, chips e IA, economía de EE.UU. y Wall Street', 'Binance', '2026'],
+    GOOGL: ['Alphabet/Google, IA y tecnología, economía de EE.UU. y Wall Street', 'Binance', '2026'], AMD: ['AMD, chips e IA, economía de EE.UU. y Wall Street', 'Binance', '2026'],
+    MELI: ['Mercado Libre, Latinoamérica (Brasil, Argentina, México) y Wall Street', 'Bitget', 'agosto de 2026'] };
   const haceTxt = (t) => {
     const m = Math.max(0, Math.round((Date.now() - t) / 60000));
     return m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`;
@@ -1813,9 +1829,9 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       meta.append(el('i', 'ab-qp-tag' + (n.tema !== 'Cripto' ? ' ab-qp-hot' : ''), n.tema), `${n.fuente}${n.medios > 1 ? ` y ${n.medios - 1} medio${n.medios > 2 ? 's' : ''} más` : ''} · ${haceTxt(n.t)}`);
       a.append(el('b', '', n.titulo), meta); nb.append(a);
     });
-    const fuentes = MON() === 'BABA' ? 'Titulares de Google Noticias: Alibaba, China, Wall Street y Hang Seng.' : 'Titulares de Google Noticias y CoinDesk; ETF de Farside.';
+    const acc = ACC_INFO[MON()], fuentes = acc ? `Titulares de Google Noticias: ${acc[0]}.` : 'Titulares de Google Noticias y CoinDesk; ETF de Farside.';
     document.getElementById('qp-note').textContent = strong
-      ? `Son cosas que pasaron al mismo tiempo: ayudan a entender el movimiento, no prueban la causa. ${fuentes} Futuros de Binance.`
+      ? `Son cosas que pasaron al mismo tiempo: ayudan a entender el movimiento, no prueban la causa. ${fuentes} Futuros de ${acc ? acc[1] : 'Binance'}.`
       : fuentes;
   }
 
@@ -1885,7 +1901,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     }
     document.getElementById('mov-txt').textContent = mod
       ? `"Movimiento fuerte" = se mueve más del doble de lo habitual, para cualquier lado. La chance la calcula un modelo de árboles entrenado con BTC 2021–2026 (velas de 1 hora, volatilidad, volumen, medias, hora del día y datos de EE.UU.). Probado sin mirar el futuro: en las horas que marca como más peligrosas fue fuerte 35–37% de las veces (una hora cualquiera: 12%), y cuando marca 40% o más, 40–49%. No dice para dónde.`
-      : `"Movimiento fuerte" = la próxima hora se mueve más del doble de lo normal. Probabilidades medidas con ${MON()} 2021–2026 según qué tan agitado está el mercado; se mantuvieron iguales en 2025–26. Dice cuánto se puede mover, no para dónde.`;
+      : `"Movimiento fuerte" = la próxima hora se mueve más del doble de lo normal. Probabilidades medidas con ${ACC_INFO[MON()] ? `velas de ${MON()} desde ${ACC_INFO[MON()][2]} (historia corta: tomalo con cuidado)` : `${MON()} 2021–2026`} según qué tan agitado está el mercado${ACC_INFO[MON()] ? '' : '; se mantuvieron iguales en 2025–26'}. Dice cuánto se puede mover, no para dónde.`;
   }
 
   // ---------- cabecera y precio ----------

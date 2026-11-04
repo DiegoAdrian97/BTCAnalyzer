@@ -110,20 +110,36 @@ desplegable se ve al instante ("Último análisis guardado · actualizando…") 
 de activo mientras se bajan los datos, ese cálculo se descarta. La calibración del rango arma los grupos de casos una
 vez por receta (antes, una vez por plazo): la primera vuelta tarda ~20% menos, con el mismo resultado.
 
-### BABA (Alibaba) en la app
+### Acciones en la app: BABA, NVDA, GOOGL, AMD y MELI
 
-El perpetuo de la acción de Alibaba (`BABAUSDT`, en Binance, Bybit, Bitget y KuCoin) se analiza en la app como una
-cripto más: mismas velas, indicadores, patrones, predicciones con su propio repaso, escenarios, libros, open interest,
-long/short, funding, flujo, mapa de liquidaciones estimado, Fibonacci y el modelo de tabla de "movimiento en la próxima
-hora" medido con sus velas de 5 min (prob. base 22%: se mueve fuerte más seguido que BTC, por la apertura de Wall
-Street). Noticias propias, estrictamente de China y de los mercados: Alibaba, China (economía, gobierno, regulación,
-estímulos, yuan, Hong Kong) y la bolsa (Wall Street, S&P 500, Nasdaq, Hang Seng). La Fed, el gobierno de EE.UU. o una
-guerra entran solo si el titular habla de China o de la bolsa; nada de cripto. El calendario de EE.UU. sigue aparte.
+Los perpetuos de acciones (`BABAUSDT`, `NVDAUSDT`, `GOOGLUSDT`, `AMDUSDT` en Binance; `MELIUSDT` solo en Bitget) se
+analizan en la app como una cripto más: mismas velas, indicadores, patrones, predicciones con su propio repaso,
+escenarios, libros, open interest, long/short, funding, flujo, mapa de liquidaciones estimado, Fibonacci y la tabla de
+"movimiento en la próxima hora" medida con las velas de 5 min de cada una (prob. base 20–28%: se mueven fuerte más
+seguido que BTC, por la apertura de Wall Street). Se eligen en el desplegable, bajo "Acciones (perpetuos)".
+
+Noticias propias de cada una (nada de cripto; el calendario de EE.UU. sigue aparte):
+- **BABA**: Alibaba, China (economía, gobierno, regulación, estímulos, yuan, Hong Kong) y la bolsa (Wall Street, Hang Seng).
+- **NVDA y AMD**: la empresa, chips e IA (TSMC, Intel, controles de exportación a China, data centers), economía de EE.UU. y la bolsa.
+- **GOOGL**: Alphabet/Google (búsqueda, YouTube, Waymo, Gemini, antimonopolio), IA y tecnología, economía de EE.UU. y la bolsa.
+- **MELI**: Mercado Libre (Mercado Pago, Brasil, Argentina, México), Latinoamérica (Selic, Banxico, BCRA, riesgo país, real y peso) y la bolsa.
+
+Cada titular se marca bueno o malo **para esa acción**: se corta lo que viene después de "pese a"/"despite", manda lo que
+le pasa a la empresa (gana un juicio, supera estimaciones, sube la guía, recompra, contrato = bueno; multa, demanda,
+investigación, controles de exportación, baja de recomendación, renuncia del CEO = malo), y en lo macro se invierte el
+sentido cuando subir es malo (inflación, tasas, rendimientos, dólar, desempleo, riesgo país, aranceles, petróleo). Si el
+titular habla primero de un rival, cuenta como neutro. Las mismas reglas valen para BTC (aprobaciones, recortes de
+impuestos, compras, reservas, entradas a ETF = bueno). Python y la app comparten las reglas (`generar_reglas.py` las copia
+a `api/contexto.js`) y `pruebas/sesgo.py` las prueba con 116 titulares reales en ambos lenguajes.
 
 No aplica: termómetro (el ciclo de 4 años y el MVRV/Puell son de BTC), Fear & Greed, ETF de BTC, prima de Coinbase,
-opciones de Deribit, liquidaciones reales de OKX y el modelo de movimiento fuerte (entrenado con BTC). Tampoco entradas
-del bot ni avisos por Telegram (solo análisis, como SOL y XRP). El perpetuo existe desde mediados de 2026: con pocos
-meses de historia, el plazo de 1 día todavía no tiene repaso y usa el método original.
+opciones de Deribit, liquidaciones reales de OKX y el modelo de movimiento fuerte (entrenado con BTC: usan su tabla
+propia). Tampoco entradas del bot ni avisos por Telegram (solo análisis, como SOL y XRP). Con pocos meses de historia,
+el plazo de 1 día todavía no tiene repaso y usa el método original. Si Bybit no tiene el par, open interest, long/short
+y flujo salen de Binance, y funding y precio de marca de Bitget. **MELI**: velas, libro, funding y precio de marca de
+Bitget (en vivo por su WebSocket); no hay historia gratis de open interest, long/short ni flujo, así que le faltan esas
+señales y el mapa de liquidaciones. Existe desde agosto de 2026 y tiene poco volumen: su tabla de movimiento es la más
+débil (el último grupo, con un solo caso, no se usa en la práctica).
 
 ### Criptos en la app: BTC, ZEC, SOL y XRP
 
