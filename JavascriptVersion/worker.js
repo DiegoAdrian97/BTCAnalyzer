@@ -18,17 +18,20 @@ function renombrar(rows, mon) {
   });
 }
 
+let inicio = 0;
 async function ciclo(nueva = false) {
-  if (corriendo) { if (nueva) otraVez = true; return; }
-  corriendo = true;
+  // un ciclo que quedo colgado mas de 90 s (por ejemplo, la app paso a segundo plano en medio de un pedido) no
+  // bloquea los siguientes
+  if (corriendo && Date.now() - inicio < 90000) { if (nueva) otraVez = true; return; }
+  corriendo = true; inicio = Date.now();
   clearTimeout(timer);
   const t0 = Date.now(), sym = SYM, mon = sym.replace('USDT', '');
   try {
     // los arboles del modelo de movimiento fuerte se bajan una vez
     // el termometro y el modelo se reentrenan una vez por mes: con la app abierta dias, se vuelven a pedir cada 6 h
     if (!self.TERMOMETRO || Date.now() - (self.JSON_T || 0) > 6 * 3600000) {
-      try { self.TERMOMETRO = await (await fetch('termometro.json', { cache: 'no-store' })).json(); } catch (e) { /* queda el anterior */ }
-      try { self.MODELO_FUERTE = await (await fetch('modelo_fuerte.json', { cache: 'no-store' })).json(); } catch (e) { /* queda el anterior o la tabla */ }
+      try { self.TERMOMETRO = await (await fetch('termometro.json', { cache: 'no-store', signal: AbortSignal.timeout(15000) })).json(); } catch (e) { /* queda el anterior */ }
+      try { self.MODELO_FUERTE = await (await fetch('modelo_fuerte.json', { cache: 'no-store', signal: AbortSignal.timeout(15000) })).json(); } catch (e) { /* queda el anterior o la tabla */ }
       self.JSON_T = Date.now();
     }
     const input = await Datos.recolectar((texto) => postMessage({ tipo: 'progreso', texto, sym }), sym);

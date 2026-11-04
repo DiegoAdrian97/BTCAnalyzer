@@ -61,14 +61,20 @@
   const isBanned = (eid) => (banned[eid] || 0) > Date.now();
 
   /** Pedido a un exchange. Si limito los pedidos, no se le vuelve a pedir nada hasta que venza la pausa. */
+  // tiempo maximo por pedido: sin esto, un pedido colgado (red del celular, la app en segundo plano) dejaba la
+  // pantalla "cargando velas" para siempre, porque el ciclo siguiente espera a que termine el anterior
+  const ESPERA_MS = 15000;
   async function pedir(eid, url) {
     if (isBanned(eid)) throw new Error(`${eid} en pausa por exceso de pedidos`);
     let res;
+    const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), ESPERA_MS);
     try {
-      res = await fetch(url, { cache: 'no-store' });
+      res = await fetch(url, { cache: 'no-store', signal: ctl.signal });
     } catch (e) {
-      throw new Error(`${eid}: sin conexión`);
+      clearTimeout(tm);
+      throw new Error(ctl.signal.aborted ? `${eid}: no respondió en ${ESPERA_MS / 1000} s` : `${eid}: sin conexión`);
     }
+    clearTimeout(tm);
     if ([418, 429, 403, 451].includes(res.status)) {
       let until = Date.now() + 120000;                        // sin fecha: dos minutos de pausa
       const body = await res.text().catch(() => '');
@@ -82,12 +88,27 @@
     return res.json();
   }
 
+  // cache con un solo pedido en vuelo por clave; si falla, no se reintenta hasta 2 min despues (antes una fuente
+  // caida se volvia a pedir en cada ciclo y cada ciclo la esperaba)
+  const enVuelo = {}, fallo = {};
   async function cached(key, ttl, fn) {
     const hit = memo[key];
     if (hit && Date.now() - hit[0] < ttl) return hit[1];
-    const value = await fn();
-    memo[key] = [Date.now(), value];
-    return value;
+    if (fallo[key] && Date.now() - fallo[key] < Math.min(ttl, 120000)) { if (hit) return hit[1]; throw new Error(`${key}: falló hace poco`); }
+    if (!enVuelo[key]) {
+      enVuelo[key] = (async () => {
+        try { const value = await fn(); memo[key] = [Date.now(), value]; delete fallo[key]; return value; }
+        catch (e) { fallo[key] = Date.now(); throw e; }
+        finally { delete enVuelo[key]; }
+      })();
+    }
+    return enVuelo[key];
+  }
+  /** Lo que no es imprescindible no frena el analisis: si no llega a tiempo, va lo ultimo que se tenia (o nada) y
+   *  el pedido sigue en segundo plano para el ciclo siguiente. */
+  function aTiempo(p, key, ms, def) {
+    const viejo = () => (memo[key] ? memo[key][1] : def);
+    return Promise.race([p.catch(() => viejo()), new Promise((r) => setTimeout(() => r(viejo()), ms))]);
   }
 
   // ---------- velas ----------
@@ -218,7 +239,10 @@
     const booksP = cached(`${pre()}libros`, 20000, booksRaw).catch(() => []);
     const ctxP = cached(`${pre()}contexto`, 60000, contextRaw).catch(() => null);
     // noticias, ETF y prima de Coinbase: las junta la funcion del servidor (las paginas no pueden leer esas fuentes)
-    const extP = cached('externo', 600000, async () => { const r = await fetch('api/contexto', { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); return r.json(); }).catch(() => null);
+    const extP = cached('externo', 600000, async () => {
+      const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), ESPERA_MS);
+      try { const r = await fetch('api/contexto', { cache: 'no-store', signal: ctl.signal }); if (!r.ok) throw new Error(r.status); return r.json(); } finally { clearTimeout(tm); }
+    }).catch(() => null);
     const liqP = cached(`${pre()}liquidaciones`, 300000, liqRaw).catch(() => null);
     const opcP = sym === 'BTCUSDT' ? cached('opciones', 600000, opcionesRaw).catch(() => null) : Promise.resolve(null);
     const candles = {};
@@ -235,8 +259,11 @@
     } catch (e) { /* sin la vela en curso, el analisis igual sirve con las cerradas */ }
     const price = live5m ? live5m[4] : candles['5m'][candles['5m'].length - 1][4];
     const log = (await dbGet(`${pre()}predicciones`)) || [];
-    return { candles, live5m, price, now, ctxRaw: await ctxP, booksRaw: await booksP, liqRaw: await liqP, externo: await extP,
-      opcionesRaw: await opcP, log, fuente: src };
+    // con las velas listas, el resto tiene 3 s mas: lo que falte va con lo ultimo que se tenia
+    const p = pre(), [ctxR, booksR, liqR, extR, opcR] = await Promise.all([aTiempo(ctxP, `${p}contexto`, 3000, null),
+      aTiempo(booksP, `${p}libros`, 3000, []), aTiempo(liqP, `${p}liquidaciones`, 3000, null), aTiempo(extP, 'externo', 3000, null),
+      aTiempo(opcP, 'opciones', 3000, null)]);
+    return { candles, live5m, price, now, ctxRaw: ctxR, booksRaw: booksR, liqRaw: liqR, externo: extR, opcionesRaw: opcR, log, fuente: src };
   }
 
   const Datos = { recolectar, guardarLog: (log, sym = 'BTCUSDT') => dbSet(`${sym === 'BTCUSDT' ? '' : `${sym}:`}predicciones`, log), isBanned };

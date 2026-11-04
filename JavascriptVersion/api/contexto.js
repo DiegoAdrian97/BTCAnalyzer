@@ -64,8 +64,11 @@ function sesgo(titulo, tm = null) {
 }
 const MESES = Object.fromEntries('Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ').map((m, i) => [m, i + 1]));
 
+// Vercel corta la funcion a los ~10 s: todo tiene que terminar antes de LIMITE (si no, la funcion fallaba entera y la app
+// la volvia a esperar en cada ciclo)
+let LIMITE = Infinity;
 async function get(url) {
-  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 12000);
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), Math.max(500, Math.min(12000, LIMITE - Date.now())));
   try {
     const r = await fetch(url, { headers: { 'User-Agent': UA, Accept: '*/*' }, signal: ctl.signal });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -204,7 +207,7 @@ async function traducirMyMemory(lista, limite) {
 async function traducir(rows, feedIngles = false) {
   const hay = (t) => (feedIngles ? !enEspanol(t) : enIngles(t));
   const pend = [...new Set(rows.filter((r) => hay(r.titulo) && !TRAD.has(r.titulo)).map((r) => r.titulo))];
-  const limite = Date.now() + HASTA_MS;
+  const limite = Math.min(Date.now() + HASTA_MS, LIMITE);
   for (const base of TRADUCTORES) {
     const faltan = pend.filter((t) => !TRAD.has(t));
     if (!faltan.length || Date.now() >= limite) break;
@@ -305,7 +308,7 @@ function parseCalendario(txt) {
 }
 async function calendario(nowMs) {
   const iso = (ms) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, '.000Z');
-  const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 12000);
+  const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), Math.max(500, Math.min(12000, LIMITE - Date.now())));
   try {
     const r = await fetch(`https://economic-calendar.tradingview.com/events?from=${iso(nowMs - 86400000)}&to=${iso(nowMs + 8 * 86400000)}&countries=US`,
       { headers: { 'User-Agent': UA, Origin: 'https://www.tradingview.com', Referer: 'https://www.tradingview.com/' }, signal: ctl.signal });
@@ -324,11 +327,14 @@ function miedoCodicia(data) {
     detalle: txt, fng: v, fng_ayer: ayer, fng_clase: clase };
 }
 
-async function externo(nowMs = Date.now()) {
-  const listas = await Promise.all(FEEDS.map(([feed, url]) => get(url).then((x) => traducir(parseRss(x, feed, nowMs), /hl=en|coindesk/.test(url))).catch(() => [])));
-  const rows = juntar(listas);
-  const [etf, pr, cal, fng] = await Promise.all([get(FARSIDE).then(parseFarside).catch(() => []), prima().catch(() => null),
+async function externo(nowMs = Date.now(), limiteMs = Infinity) {
+  LIMITE = limiteMs;
+  // todo en paralelo (antes las noticias y despues el resto: podia pasar los 10 s de Vercel)
+  const [listas, etf, pr, cal, fng] = await Promise.all([
+    Promise.all(FEEDS.map(([feed, url]) => get(url).then((x) => traducir(parseRss(x, feed, nowMs), /hl=en|coindesk/.test(url))).catch(() => []))),
+    get(FARSIDE).then(parseFarside).catch(() => []), prima().catch(() => null),
     calendario(nowMs).catch(() => []), get('https://api.alternative.me/fng/?limit=2').then((x) => miedoCodicia(JSON.parse(x))).catch(() => null)]);
+  const rows = juntar(listas);
   rows.push(...etf, ...cal);
   if (pr) rows.push(pr);
   if (fng) rows.push(fng);
@@ -337,7 +343,7 @@ async function externo(nowMs = Date.now()) {
 
 module.exports = async (req, res) => {
   let rows = [];
-  try { rows = await externo(); } catch (e) { /* sin datos de afuera: la pagina igual funciona */ }
+  try { rows = await externo(Date.now(), Date.now() + 8000); } catch (e) { /* sin datos de afuera: la pagina igual funciona */ }
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=1800');
   res.status(200).send(JSON.stringify({ rows, hora: Date.now() }));
