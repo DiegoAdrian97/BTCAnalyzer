@@ -1,33 +1,33 @@
 """Tabla de movimiento (como tabla_mov.py) con velas de 5 min de OKX, para lo que no esta en Binance (MELI).
 Tambien prueba el formato de las velas de Bitget (la app las usa para MELI). python medir/tabla_mov_okx.py SIM salida.json"""
-import json, math, sys, time, urllib.request, datetime as dt
-import ccxt
+import json, math, sys, time, traceback, urllib.request, datetime as dt
 sym, out = sys.argv[1], sys.argv[2]
 base = sym.replace("USDT", "")
-ex = ccxt.okx({"enableRateLimit": True})
-desde = int(time.time() * 1000) - 400 * 86400000
-rows, t = [], desde
-while True:
-    k = ex.fetch_ohlcv(f"{base}/USDT:USDT", "5m", since=t, limit=100, params={"method": "publicGetMarketHistoryCandles"})
-    k = [x for x in k if x[0] >= t]
-    if not k:
-        if t > time.time() * 1000 - 86400000: break
-        t += 100 * 300000; continue
-    rows += [(x[0], x[2], x[3], x[4]) for x in k]
-    t = k[-1][0] + 300000
-    if t > time.time() * 1000: break
-rows = sorted(set(rows)); n = len(rows); print(sym, n, "desde", dt.datetime.utcfromtimestamp(rows[0][0] / 1000) if rows else None, flush=True)
-prueba = {}
-for nombre, u in (("candles", f"https://api.bitget.com/api/v2/mix/market/candles?symbol={sym}&productType=USDT-FUTURES&granularity=5m&limit=5"),
-                  ("history", f"https://api.bitget.com/api/v2/mix/market/history-candles?symbol={sym}&productType=USDT-FUTURES&granularity=1D&limit=5&endTime={int(time.time()*1000) - 300 * 86400000}"),
-                  ("candles_1d_1000", f"https://api.bitget.com/api/v2/mix/market/candles?symbol={sym}&productType=USDT-FUTURES&granularity=1D&limit=1000")):
-    try:
-        j = json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"}), timeout=20).read())
+get = lambda u: json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"}), timeout=30).read())
+rows, after, err = [], None, None
+try:      # OKX: velas viejas de a 100, de la mas nueva a la mas vieja
+    for _ in range(3000):
+        j = get(f"https://www.okx.com/api/v5/market/history-candles?instId={base}-USDT-SWAP&bar=5m&limit=100" + (f"&after={after}" if after else ""))
         d = j.get("data") or []
+        if not d:
+            err = f"fin: code {j.get('code')} {j.get('msg')}"; break
+        rows += [(int(x[0]), float(x[2]), float(x[3]), float(x[4])) for x in d]
+        after = min(int(x[0]) for x in d); time.sleep(0.12)
+except Exception:
+    err = traceback.format_exc()[-500:]
+rows = sorted(set(rows)); n = len(rows); print(sym, n, "desde", dt.datetime.utcfromtimestamp(rows[0][0] / 1000) if rows else None, err, flush=True)
+prueba = {"okx_filas": n, "okx_desde": rows[0][0] if rows else None, "okx_fin": err}
+for nombre, u in (("candles", f"https://api.bitget.com/api/v2/mix/market/candles?symbol={sym}&productType=USDT-FUTURES&granularity=5m&limit=5"),
+                  ("candles_1d", f"https://api.bitget.com/api/v2/mix/market/candles?symbol={sym}&productType=USDT-FUTURES&granularity=1D&limit=1000"),
+                  ("history_5m", f"https://api.bitget.com/api/v2/mix/market/history-candles?symbol={sym}&productType=USDT-FUTURES&granularity=5m&limit=200&endTime={int(time.time()*1000) - 30 * 86400000}")):
+    try:
+        j = get(u); d = j.get("data") or []
         prueba[nombre] = {"code": j.get("code"), "n": len(d), "primero": d[:1], "ultimo": d[-1:]}
     except Exception as e:
         prueba[nombre] = str(e)[:200]
 json.dump(prueba, open(out.replace(".json", "_bitget.json"), "w"), indent=1)
+if n < 2000:
+    sys.exit(0)
 CORTES = (0.8, 1.0, 1.3, 1.6, 2.0, 2.5)
 af, asl = 2 / 21, 2 / 201; ef = es = None; vr = [1.0] * n
 for i, (_, h, l, c) in enumerate(rows):
