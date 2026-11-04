@@ -1,29 +1,653 @@
 {
- "binanceusdm": "ERR ExchangeNotAvailable binanceusdm GET https://fapi.binance.com/fapi/v1/exchangeInfo 451  {\n  \"code\": 0",
- "bybit": "ERR RateLimitExceeded bybit GET https://api.bybit.com/v5/market/instruments-info?category=spot 403 For",
- "bitget": [
-  "AAPL/USDT:USDT",
-  "AMD/USDT:USDT",
-  "AMZN/USDT:USDT",
-  "BABA/USDT:USDT",
-  "GOOGL/USDT:USDT",
-  "MELI/USDT:USDT",
-  "META/USDT:USDT",
-  "MSFT/USDT:USDT",
-  "NVDA/USDT:USDT",
-  "TSLA/USDT:USDT"
- ],
- "okx": [
-  "AAPL/USDT:USDT",
-  "AMD/USDT:USDT",
-  "AMZN/USDT:USDT",
-  "GOOGL/USDT:USDT",
-  "MELI/USDT:USDT",
-  "META/USDT:USDT",
-  "MSFT/USDT:USDT",
-  "NVDA/USDT:USDT",
-  "TSLA/USDT:USDT"
- ],
- "bingx": [],
- "binance_hist": "ERR binanceusdm GET https://fapi.binance.com/fapi/v1/exchangeInfo 451  {\n  \"code\": 0,\n  \"msg\": \"Service unavailable from a restricted location according to 'b. Eligibility' in https://www.binance.com/en/terms. Please contact customer service if you believe you received this message in error.\"\n}"
+ "MELI": {
+  "bybit_tickers": {
+   "error": "HTTP Error 403: Forbidden"
+  },
+  "bybit_oi": {
+   "error": "HTTP Error 403: Forbidden"
+  },
+  "bybit_ls": {
+   "error": "HTTP Error 403: Forbidden"
+  },
+  "bg_fund": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816976995,
+   "data": [
+    {
+     "symbol": "MELIUSDT",
+     "fundingRate": "0",
+     "fundingRateInterval": "8",
+     "nextUpdate": "1793836800000",
+     "minFundingRate": "-0.01",
+     "maxFundingRate": "0.01"
+    }
+   ]
+  },
+  "bg_fundhist": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816977228,
+   "data": [
+    {
+     "symbol": "MELIUSDT",
+     "fundingRate": "0",
+     "fundingTime": "1793808000000"
+    },
+    {
+     "symbol": "MELIUSDT",
+     "fundingRate": "0",
+     "fundingTime": "1793779200000"
+    },
+    "...3"
+   ]
+  },
+  "bg_oi": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816977437,
+   "data": {
+    "openInterestList": [
+     {
+      "symbol": "MELIUSDT",
+      "size": "138.11800000000018"
+     }
+    ],
+    "ts": "1793816977438"
+   }
+  },
+  "bg_price": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816977656,
+   "data": [
+    {
+     "symbol": "MELIUSDT",
+     "price": "1754.9",
+     "indexPrice": "1753.0396055407303631",
+     "markPrice": "1754.9",
+     "ts": "1793816977657"
+    }
+   ]
+  },
+  "bg_als": {
+   "error": "HTTP Error 400: Bad Request"
+  },
+  "bg_ls": {
+   "error": "HTTP Error 400: Bad Request"
+  },
+  "bg_pls": {
+   "error": "HTTP Error 400: Bad Request"
+  },
+  "bg_taker": {
+   "error": "HTTP Error 400: Bad Request"
+  },
+  "bg_depth": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816978724,
+   "data": {
+    "asks": [
+     [
+      1755.9,
+      0.045
+     ],
+     [
+      1757.2,
+      0.022
+     ],
+     "...5"
+    ],
+    "bids": [
+     [
+      1754.2,
+      0.041
+     ],
+     [
+      1753.5,
+      0.03
+     ],
+     "...5"
+    ],
+    "ts": "1793816978727",
+    "scale": "0.1",
+    "precision": "scale0",
+    "isMaxPrecision": "NO"
+   }
+  }
+ },
+ "NVDA": {
+  "bybit_tickers": {
+   "error": "HTTP Error 403: Forbidden"
+  },
+  "bybit_oi": {
+   "error": "HTTP Error 403: Forbidden"
+  },
+  "bybit_ls": {
+   "error": "HTTP Error 403: Forbidden"
+  },
+  "bg_fund": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816979323,
+   "data": [
+    {
+     "symbol": "NVDAUSDT",
+     "fundingRate": "0.00033",
+     "fundingRateInterval": "8",
+     "nextUpdate": "1793836800000",
+     "minFundingRate": "-0.01",
+     "maxFundingRate": "0.01"
+    }
+   ]
+  },
+  "bg_fundhist": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816979527,
+   "data": [
+    {
+     "symbol": "NVDAUSDT",
+     "fundingRate": "0.000302",
+     "fundingTime": "1793808000000"
+    },
+    {
+     "symbol": "NVDAUSDT",
+     "fundingRate": "0.000233",
+     "fundingTime": "1793779200000"
+    },
+    "...3"
+   ]
+  },
+  "bg_oi": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816979739,
+   "data": {
+    "openInterestList": [
+     {
+      "symbol": "NVDAUSDT",
+      "size": "63504.940000000104"
+     }
+    ],
+    "ts": "1793816979740"
+   }
+  },
+  "bg_price": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816979965,
+   "data": [
+    {
+     "symbol": "NVDAUSDT",
+     "price": "204.3",
+     "indexPrice": "204.1101517471313494",
+     "markPrice": "204.26",
+     "ts": "1793816979966"
+    }
+   ]
+  },
+  "bg_als": {
+   "error": "HTTP Error 400: Bad Request"
+  },
+  "bg_ls": {
+   "error": "HTTP Error 400: Bad Request"
+  },
+  "bg_pls": {
+   "error": "HTTP Error 400: Bad Request"
+  },
+  "bg_taker": {
+   "error": "HTTP Error 400: Bad Request"
+  },
+  "bg_depth": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816981028,
+   "data": {
+    "asks": [
+     [
+      204.26,
+      0.38
+     ],
+     [
+      204.27,
+      1.48
+     ],
+     "...5"
+    ],
+    "bids": [
+     [
+      204.25,
+      0.41
+     ],
+     [
+      204.24,
+      1.98
+     ],
+     "...5"
+    ],
+    "ts": "1793816981030",
+    "scale": "0.01",
+    "precision": "scale0",
+    "isMaxPrecision": "NO"
+   }
+  }
+ },
+ "GOOGL": {
+  "bybit_tickers": {
+   "error": "HTTP Error 403: Forbidden"
+  },
+  "bybit_oi": {
+   "error": "HTTP Error 403: Forbidden"
+  },
+  "bybit_ls": {
+   "error": "HTTP Error 403: Forbidden"
+  },
+  "bg_fund": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816981548,
+   "data": [
+    {
+     "symbol": "GOOGLUSDT",
+     "fundingRate": "0.00001",
+     "fundingRateInterval": "8",
+     "nextUpdate": "1793836800000",
+     "minFundingRate": "-0.01",
+     "maxFundingRate": "0.01"
+    }
+   ]
+  },
+  "bg_fundhist": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816981749,
+   "data": [
+    {
+     "symbol": "GOOGLUSDT",
+     "fundingRate": "0.000127",
+     "fundingTime": "1793808000000"
+    },
+    {
+     "symbol": "GOOGLUSDT",
+     "fundingRate": "0.000416",
+     "fundingTime": "1793779200000"
+    },
+    "...3"
+   ]
+  },
+  "bg_oi": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816981950,
+   "data": {
+    "openInterestList": [
+     {
+      "symbol": "GOOGLUSDT",
+      "size": "181284.04999999958"
+     }
+    ],
+    "ts": "1793816981951"
+   }
+  },
+  "bg_price": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816982166,
+   "data": [
+    {
+     "symbol": "GOOGLUSDT",
+     "price": "291.74",
+     "indexPrice": "291.5786990958286298",
+     "markPrice": "291.73",
+     "ts": "1793816982167"
+    }
+   ]
+  },
+  "bg_als": {
+   "error": "HTTP Error 400: Bad Request"
+  },
+  "bg_ls": {
+   "error": "HTTP Error 400: Bad Request"
+  },
+  "bg_pls": {
+   "error": "HTTP Error 400: Bad Request"
+  },
+  "bg_taker": {
+   "error": "HTTP Error 400: Bad Request"
+  },
+  "bg_depth": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816983192,
+   "data": {
+    "asks": [
+     [
+      291.73,
+      4.2
+     ],
+     [
+      291.74,
+      14.56
+     ],
+     "...5"
+    ],
+    "bids": [
+     [
+      291.69,
+      3.0
+     ],
+     [
+      291.68,
+      5.52
+     ],
+     "...5"
+    ],
+    "ts": "1793816983193",
+    "scale": "0.01",
+    "precision": "scale0",
+    "isMaxPrecision": "NO"
+   }
+  }
+ },
+ "AMD": {
+  "bybit_tickers": {
+   "error": "HTTP Error 403: Forbidden"
+  },
+  "bybit_oi": {
+   "error": "HTTP Error 403: Forbidden"
+  },
+  "bybit_ls": {
+   "error": "HTTP Error 403: Forbidden"
+  },
+  "bg_fund": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816983697,
+   "data": [
+    {
+     "symbol": "AMDUSDT",
+     "fundingRate": "0.00058",
+     "fundingRateInterval": "8",
+     "nextUpdate": "1793836800000",
+     "minFundingRate": "-0.01",
+     "maxFundingRate": "0.01"
+    }
+   ]
+  },
+  "bg_fundhist": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816983897,
+   "data": [
+    {
+     "symbol": "AMDUSDT",
+     "fundingRate": "0.000446",
+     "fundingTime": "1793808000000"
+    },
+    {
+     "symbol": "AMDUSDT",
+     "fundingRate": "0.000397",
+     "fundingTime": "1793779200000"
+    },
+    "...3"
+   ]
+  },
+  "bg_oi": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816984105,
+   "data": {
+    "openInterestList": [
+     {
+      "symbol": "AMDUSDT",
+      "size": "7735.3099999999817"
+     }
+    ],
+    "ts": "1793816984106"
+   }
+  },
+  "bg_price": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816984321,
+   "data": [
+    {
+     "symbol": "AMDUSDT",
+     "price": "484.37",
+     "indexPrice": "483.7339907740542992",
+     "markPrice": "484.31",
+     "ts": "1793816984321"
+    }
+   ]
+  },
+  "bg_als": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816984535,
+   "data": [
+    {
+     "longAccountRatio": "0.6651",
+     "shortAccountRatio": "0.3349",
+     "longShortAccountRatio": "1.9859",
+     "ts": "1793710800000"
+    },
+    {
+     "longAccountRatio": "0.6433",
+     "shortAccountRatio": "0.3567",
+     "longShortAccountRatio": "1.8034",
+     "ts": "1793714400000"
+    },
+    "...30"
+   ]
+  },
+  "bg_ls": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816984740,
+   "data": [
+    {
+     "longRatio": "0.6614",
+     "shortRatio": "0.3386",
+     "longShortRatio": "1.9533",
+     "ts": "1793710800000"
+    },
+    {
+     "longRatio": "0.6461",
+     "shortRatio": "0.3539",
+     "longShortRatio": "1.8256",
+     "ts": "1793714400000"
+    },
+    "...30"
+   ]
+  },
+  "bg_pls": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816984974,
+   "data": [
+    {
+     "longPositionRatio": "0.5191",
+     "shortPositionRatio": "0.4809",
+     "longShortPositionRatio": "1.0794",
+     "ts": "1793710800000"
+    },
+    {
+     "longPositionRatio": "0.513",
+     "shortPositionRatio": "0.487",
+     "longShortPositionRatio": "1.0533",
+     "ts": "1793714400000"
+    },
+    "...30"
+   ]
+  },
+  "bg_taker": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816985183,
+   "data": [
+    {
+     "sellVolume": "768.92",
+     "buyVolume": "743.45",
+     "ts": "1793710800000"
+    },
+    {
+     "sellVolume": "2350.34",
+     "buyVolume": "1939.16",
+     "ts": "1793714400000"
+    },
+    "...30"
+   ]
+  },
+  "bg_depth": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816985379,
+   "data": {
+    "asks": [
+     [
+      484.42,
+      0.04
+     ],
+     [
+      484.43,
+      0.33
+     ],
+     "...5"
+    ],
+    "bids": [
+     [
+      484.22,
+      0.46
+     ],
+     [
+      484.21,
+      0.85
+     ],
+     "...5"
+    ],
+    "ts": "1793816985383",
+    "scale": "0.01",
+    "precision": "scale0",
+    "isMaxPrecision": "NO"
+   }
+  }
+ },
+ "BABA": {
+  "bybit_tickers": {
+   "error": "HTTP Error 403: Forbidden"
+  },
+  "bybit_oi": {
+   "error": "HTTP Error 403: Forbidden"
+  },
+  "bybit_ls": {
+   "error": "HTTP Error 403: Forbidden"
+  },
+  "bg_fund": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816985995,
+   "data": [
+    {
+     "symbol": "BABAUSDT",
+     "fundingRate": "0.000082",
+     "fundingRateInterval": "8",
+     "nextUpdate": "1793836800000",
+     "minFundingRate": "-0.01",
+     "maxFundingRate": "0.01"
+    }
+   ]
+  },
+  "bg_fundhist": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816986202,
+   "data": [
+    {
+     "symbol": "BABAUSDT",
+     "fundingRate": "0.000066",
+     "fundingTime": "1793808000000"
+    },
+    {
+     "symbol": "BABAUSDT",
+     "fundingRate": "0",
+     "fundingTime": "1793779200000"
+    },
+    "...3"
+   ]
+  },
+  "bg_oi": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816986410,
+   "data": {
+    "openInterestList": [
+     {
+      "symbol": "BABAUSDT",
+      "size": "14635.8199999999895"
+     }
+    ],
+    "ts": "1793816986410"
+   }
+  },
+  "bg_price": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816986635,
+   "data": [
+    {
+     "symbol": "BABAUSDT",
+     "price": "107.26",
+     "indexPrice": "107.2262226460786759",
+     "markPrice": "107.26",
+     "ts": "1793816986636"
+    }
+   ]
+  },
+  "bg_als": {
+   "error": "HTTP Error 400: Bad Request"
+  },
+  "bg_ls": {
+   "error": "HTTP Error 400: Bad Request"
+  },
+  "bg_pls": {
+   "error": "HTTP Error 400: Bad Request"
+  },
+  "bg_taker": {
+   "error": "HTTP Error 400: Bad Request"
+  },
+  "bg_depth": {
+   "code": "00000",
+   "msg": "success",
+   "requestTime": 1793816987744,
+   "data": {
+    "asks": [
+     [
+      107.35,
+      3.72
+     ],
+     [
+      107.36,
+      3.72
+     ],
+     "...5"
+    ],
+    "bids": [
+     [
+      107.32,
+      0.2
+     ],
+     [
+      107.3,
+      3.73
+     ],
+     "...5"
+    ],
+    "ts": "1793816987745",
+    "scale": "0.01",
+    "precision": "scale0",
+    "isMaxPrecision": "NO"
+   }
+  }
+ }
 }
