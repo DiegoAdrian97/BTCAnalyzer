@@ -4,19 +4,21 @@ import json, math, sys, time, traceback, urllib.request, datetime as dt
 sym, out = sys.argv[1], sys.argv[2]
 base = sym.replace("USDT", "")
 get = lambda u: json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"}), timeout=30).read())
-rows, after, err = [], None, None
-try:      # OKX: velas viejas de a 100, de la mas nueva a la mas vieja
-    for _ in range(3000):
-        j = get(f"https://www.okx.com/api/v5/market/history-candles?instId={base}-USDT-SWAP&bar=5m&limit=100" + (f"&after={after}" if after else ""))
+rows, fin, err = [], int(time.time() * 1000), None
+try:      # Bitget: velas viejas de a 200 (orden de la mas vieja a la mas nueva), hacia atras con endTime
+    for _ in range(2000):
+        j = get(f"https://api.bitget.com/api/v2/mix/market/history-candles?symbol={sym}&productType=USDT-FUTURES&granularity=5m&limit=200&endTime={fin}")
         d = j.get("data") or []
         if not d:
             err = f"fin: code {j.get('code')} {j.get('msg')}"; break
         rows += [(int(x[0]), float(x[2]), float(x[3]), float(x[4])) for x in d]
-        after = min(int(x[0]) for x in d); time.sleep(0.12)
+        nuevo = min(int(x[0]) for x in d) - 1
+        if nuevo >= fin: break
+        fin = nuevo; time.sleep(0.11)
 except Exception:
     err = traceback.format_exc()[-500:]
 rows = sorted(set(rows)); n = len(rows); print(sym, n, "desde", dt.datetime.utcfromtimestamp(rows[0][0] / 1000) if rows else None, err, flush=True)
-prueba = {"okx_filas": n, "okx_desde": rows[0][0] if rows else None, "okx_fin": err}
+prueba = {"filas": n, "desde": rows[0][0] if rows else None, "fin": err}
 for nombre, u in (("candles", f"https://api.bitget.com/api/v2/mix/market/candles?symbol={sym}&productType=USDT-FUTURES&granularity=5m&limit=5"),
                   ("candles_1d", f"https://api.bitget.com/api/v2/mix/market/candles?symbol={sym}&productType=USDT-FUTURES&granularity=1D&limit=1000"),
                   ("history_5m", f"https://api.bitget.com/api/v2/mix/market/history-candles?symbol={sym}&productType=USDT-FUTURES&granularity=5m&limit=200&endTime={int(time.time()*1000) - 30 * 86400000}")):

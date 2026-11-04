@@ -1,4 +1,4 @@
-name: Tabla movimiento OKX
+name: Tabla movimiento Bitget
 on:
   push:
     branches: [medicion-monedas]
@@ -16,5 +16,5 @@ jobs:
       - run: pip install ccxt && mkdir -p medir/monedas && python medir/tabla_mov_okx.py MELIUSDT medir/monedas/mov_MELIUSDT.json
       - run: |
           git config user.name "DiegoAdrian97"; git config user.email "diegojadrian97@gmail.com"
-          git add medir/monedas/mov_MELIUSDT*.json && git commit -q -m "tabla mov MELI (OKX)" || exit 0
+          git add medir/monedas/mov_MELIUSDT*.json && git commit -q -m "tabla mov MELI (Bitget)" || exit 0
           for i in 1 2 3 4; do git pull --rebase -q && git push -q && break; sleep 10; done
