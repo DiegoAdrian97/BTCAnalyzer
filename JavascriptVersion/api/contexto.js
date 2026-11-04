@@ -14,12 +14,10 @@ const FEEDS = [
   ['cripto', GN_EN + '(hack+OR+hacked+OR+breach+OR+exploit+OR+drained+OR+stolen)+(Binance+OR+Coinbase+OR+Kraken+OR+OKX+OR+Bybit+OR+Bitget+OR+BingX+OR+KuCoin+OR+Tether+OR+exchange)+when:1d'],
   ['cripto', 'https://www.coindesk.com/arc/outboundfeeds/rss/'],
 ];
-// BABA (Alibaba, perpetuo de la accion): nada de cripto. Lo que mueve a una accion china que cotiza en Wall Street: la
-// empresa, China (economia, gobierno, regulacion, estimulos, yuan, Hong Kong), la bolsa (Wall Street, Nasdaq, Hang Seng),
-// la Fed, el gobierno de EE.UU. (aranceles, chips) y las guerras grandes. Sin ETF de BTC, prima de Coinbase ni Fear &
-// Greed. Igual que noticias.py.
-const FEEDS_BABA = [['accion', FEEDS[0][1]], ['accion', FEEDS[1][1]],
-  ['accion', GN + 'China+(econom%C3%ADa+OR+Pek%C3%ADn+OR+aranceles+OR+yuan+OR+%22Xi+Jinping%22+OR+est%C3%ADmulos)+when:1d'],
+// BABA (Alibaba, perpetuo de la accion): estrictamente China (la empresa incluida) y los mercados. La Fed, el gobierno
+// de EE.UU. o una guerra entran solo si el titular habla de China o de la bolsa. Nada de cripto; sin ETF de BTC, prima
+// de Coinbase ni Fear & Greed. Igual que noticias.py.
+const FEEDS_BABA = [['accion', GN + 'China+(econom%C3%ADa+OR+Pek%C3%ADn+OR+aranceles+OR+yuan+OR+%22Xi+Jinping%22+OR+est%C3%ADmulos)+when:1d'],
   ['accion', GN_EN + 'China+(economy+OR+stimulus+OR+PBOC+OR+Beijing+OR+tariffs+OR+%22Xi+Jinping%22+OR+%22tech+stocks%22)+when:1d'],
   ['accion', GN + '%22Wall+Street%22+OR+%22S%26P+500%22+OR+Nasdaq+OR+%22Hang+Seng%22+when:1d'],
   ['accion', GN_EN + '%22stock+market%22+OR+%22Wall+Street%22+OR+Nasdaq+OR+%22Hang+Seng%22+when:1d'],
@@ -27,16 +25,13 @@ const FEEDS_BABA = [['accion', FEEDS[0][1]], ['accion', FEEDS[1][1]],
 const ALIBABA = /alibaba|\bbaba\b|jack ma|alipay|ant group|taobao|tmall|aliexpress|\bqwen\b|aliyun|eddie wu|joe tsai/;
 const CHINA = /\bchina\b|chinese|\bchin[oa]s?\b|beijing|pek[ií]n|xi jinping|pboc|banco popular de china|\byuan\b|renminbi|hong kong|shanghai|shenzhen|taiw[aá]n/;
 const CHINA_SOLO = /xi jinping|pboc|banco popular de china|beijing|pek[ií]n|\byuan\b|renminbi/;
-const BOLSA = /wall street|s&p ?500|\bnasdaq\b|dow jones|\bdow\b|hang seng|\bbolsas?\b|stock market|\bstocks?\b|\bacciones\b|\bnyse\b|\bvix\b|equities|mercado burs[aá]til|[ií]ndices burs/;
+const BOLSA = /\bmercados?\b|\bmarkets?\b|wall street|s&p ?500|\bnasdaq\b|dow jones|\bdow\b|hang seng|\bbolsas?\b|stock market|\bstocks?\b|\bacciones\b|\bnyse\b|\bvix\b|equities|mercado burs[aá]til|[ií]ndices burs/;
 /** Tema de un titular para una accion (BABA): sin cripto. */
 function temaAccion(t) {
   const ali = ALIBABA.test(t);
   if (CRIPTO.test(t) && !ali) return null;
-  if (FED.test(t)) return 'Fed y tasas';
   if (ali) return 'Alibaba';
-  if (GUERRA.test(t) && ACTOR_GRANDE.test(t)) return 'Guerras grandes';
   if (CHINA.test(t) && (CHINA_SOLO.test(t) || POLITICA.test(t) || BOLSA.test(t))) return 'China';
-  if (TEMAS[0][1].test(t)) return 'Gobierno de EE.UU.';
   if (BOLSA.test(t)) return 'Mercado bursátil';
   return null;
 }

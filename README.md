@@ -109,9 +109,9 @@ El perpetuo de la acción de Alibaba (`BABAUSDT`, en Binance, Bybit, Bitget y Ku
 cripto más: mismas velas, indicadores, patrones, predicciones con su propio repaso, escenarios, libros, open interest,
 long/short, funding, flujo, mapa de liquidaciones estimado, Fibonacci y el modelo de tabla de "movimiento en la próxima
 hora" medido con sus velas de 5 min (prob. base 22%: se mueve fuerte más seguido que BTC, por la apertura de Wall
-Street). Noticias propias, sin nada de cripto: Alibaba, China (economía, gobierno, regulación, estímulos, yuan, Hong
-Kong), la bolsa (Wall Street, S&P 500, Nasdaq, Hang Seng), la Fed, el gobierno de EE.UU. (aranceles, chips), las guerras
-grandes y el calendario de EE.UU.
+Street). Noticias propias, estrictamente de China y de los mercados: Alibaba, China (economía, gobierno, regulación,
+estímulos, yuan, Hong Kong) y la bolsa (Wall Street, S&P 500, Nasdaq, Hang Seng). La Fed, el gobierno de EE.UU. o una
+guerra entran solo si el titular habla de China o de la bolsa; nada de cripto. El calendario de EE.UU. sigue aparte.
 
 No aplica: termómetro (el ciclo de 4 años y el MVRV/Puell son de BTC), Fear & Greed, ETF de BTC, prima de Coinbase,
 opciones de Deribit, liquidaciones reales de OKX y el modelo de movimiento fuerte (entrenado con BTC). Tampoco entradas

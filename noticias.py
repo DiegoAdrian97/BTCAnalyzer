@@ -30,9 +30,9 @@ FEEDS = [
     ("cripto", "https://www.coindesk.com/arc/outboundfeeds/rss/"),
 ]
 # BABA (Alibaba, perpetuo de la accion): noticias del mundo y de la empresa; sin ETF de BTC, prima ni Fear & Greed
-# (nada de cripto: la empresa, China, la bolsa, la Fed, el gobierno de EE.UU. y las guerras grandes). Igual que contexto.js
-FEEDS_BABA = [("accion", FEEDS[0][1]), ("accion", FEEDS[1][1]),
-              ("accion", GN + "China+(econom%C3%ADa+OR+Pek%C3%ADn+OR+aranceles+OR+yuan+OR+%22Xi+Jinping%22+OR+est%C3%ADmulos)+when:1d"),
+# (estrictamente China, la empresa incluida, y los mercados: la Fed, el gobierno de EE.UU. o una guerra entran solo si
+# el titular habla de China o de la bolsa; nada de cripto). Igual que contexto.js
+FEEDS_BABA = [("accion", GN + "China+(econom%C3%ADa+OR+Pek%C3%ADn+OR+aranceles+OR+yuan+OR+%22Xi+Jinping%22+OR+est%C3%ADmulos)+when:1d"),
               ("accion", GN_EN + "China+(economy+OR+stimulus+OR+PBOC+OR+Beijing+OR+tariffs+OR+%22Xi+Jinping%22+OR+%22tech+stocks%22)+when:1d"),
               ("accion", GN + "%22Wall+Street%22+OR+%22S%26P+500%22+OR+Nasdaq+OR+%22Hang+Seng%22+when:1d"),
               ("accion", GN_EN + "%22stock+market%22+OR+%22Wall+Street%22+OR+Nasdaq+OR+%22Hang+Seng%22+when:1d"),
@@ -40,7 +40,7 @@ FEEDS_BABA = [("accion", FEEDS[0][1]), ("accion", FEEDS[1][1]),
 ALIBABA = r"alibaba|\bbaba\b|jack ma|alipay|ant group|taobao|tmall|aliexpress|\bqwen\b|aliyun|eddie wu|joe tsai"
 CHINA = r"\bchina\b|chinese|\bchin[oa]s?\b|beijing|pek[ií]n|xi jinping|pboc|banco popular de china|\byuan\b|renminbi|hong kong|shanghai|shenzhen|taiw[aá]n"
 CHINA_SOLO = r"xi jinping|pboc|banco popular de china|beijing|pek[ií]n|\byuan\b|renminbi"
-BOLSA = r"wall street|s&p ?500|\bnasdaq\b|dow jones|\bdow\b|hang seng|\bbolsas?\b|stock market|\bstocks?\b|\bacciones\b|\bnyse\b|\bvix\b|equities|mercado burs[aá]til|[ií]ndices burs"
+BOLSA = r"\bmercados?\b|\bmarkets?\b|wall street|s&p ?500|\bnasdaq\b|dow jones|\bdow\b|hang seng|\bbolsas?\b|stock market|\bstocks?\b|\bacciones\b|\bnyse\b|\bvix\b|equities|mercado burs[aá]til|[ií]ndices burs"
 FARSIDE = "https://farside.co.uk/bitcoin-etf-flow-all-data/"
 # Solo lo que de verdad mueve a BTC (pedido de Diego): guerras grandes (con una potencia o una zona caliente de por
 # medio), el gobierno de EE.UU. (Casa Blanca, Congreso, Fed, Tesoro, SEC, aranceles) y los gobiernos grandes (China,
@@ -109,16 +109,10 @@ def tema_accion(t):
     ali = re.search(ALIBABA, t)
     if re.search(CRIPTO, t) and not ali:
         return None
-    if re.search(FED, t):
-        return "Fed y tasas"
     if ali:
         return "Alibaba"
-    if re.search(GUERRA, t) and re.search(ACTOR_GRANDE, t):
-        return "Guerras grandes"
     if re.search(CHINA, t) and (re.search(CHINA_SOLO, t) or re.search(POLITICA, t) or re.search(BOLSA, t)):
         return "China"
-    if re.search(TEMAS[0][1], t):
-        return "Gobierno de EE.UU."
     if re.search(BOLSA, t):
         return "Mercado bursátil"
     return None
