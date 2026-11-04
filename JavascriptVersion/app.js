@@ -41,46 +41,6 @@
     el.querySelector('span').textContent = texto || '';
   };
 
-  // ---------- interruptor Web | Holograma: el holograma se abre encima, en la misma pagina ----------
-  let holo = null;
-  // el holograma muestra la prediccion de BTC
-  const sendHolo = () => { const r = porMoneda.BTC; if (holo && r) holo.contentWindow.postMessage({ tipo: 'analisis', rows: r }, location.origin); };
-  const markMode = (m) => document.querySelectorAll('#app-modo button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.app === m)));
-  function openHolo() {
-    if (holo) return;
-    holo = document.createElement('iframe');
-    holo.src = 'holograma.html?embed=1';
-    holo.title = 'Holograma';
-    holo.allow = 'camera; fullscreen; autoplay';
-    holo.style.cssText = 'position:fixed;inset:0;width:100vw;height:100dvh;border:0;z-index:100;background:#000';
-    document.body.append(holo);
-    document.documentElement.style.overflow = 'hidden';
-    markMode('holo');
-    try { localStorage.setItem('app-modo', 'holo'); } catch (e) { /* sin almacenamiento */ }
-  }
-  function closeHolo() {
-    if (!holo) return;
-    holo.remove(); holo = null;
-    document.documentElement.style.overflow = '';
-    markMode('web');
-    try { localStorage.setItem('app-modo', 'web'); } catch (e) { /* idem */ }
-    redraw();
-  }
-  window.addEventListener('message', (ev) => {
-    if (ev.origin !== location.origin || !ev.data) return;
-    if (ev.data.tipo === 'holo-salir') closeHolo();
-    else if (ev.data.tipo === 'holo-listo') sendHolo();
-  });
-  document.addEventListener('DOMContentLoaded', () => {
-    const sw = document.getElementById('app-modo');
-    if (!sw) return;
-    sw.hidden = false;
-    sw.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) (b.dataset.app === 'holo' ? openHolo : closeHolo)(); });
-    let saved = null;
-    try { saved = localStorage.getItem('app-modo'); } catch (e) { /* idem */ }
-    if (saved === 'holo' || new URLSearchParams(location.search).get('modo') === 'holograma') openHolo();
-  });
-
   const worker = new Worker(`worker.js${VER}`);
   const sym = () => `${moneda}USDT`;
   function elegir(m) {
@@ -109,14 +69,14 @@
       const mon = (m.sym || 'BTCUSDT').replace('USDT', '');
       if (m.guardado && porMoneda[mon]) return;           // ya hay uno nuevo: el guardado no hace falta
       porMoneda[mon] = m.rows;
-      if (m.sym && m.sym !== sym()) { if (holo) sendHolo(); return; }
+      if (m.sym && m.sym !== sym()) return;
       rows = m.rows;
       window.abAnalyses = m.numero;
       if (m.guardado) {
         const min = Math.max(1, Math.round((Date.now() - m.hora) / 60000));
         estado(`Último análisis guardado (hace ${min < 60 ? `${min} min` : `${Math.round(min / 60)} h`}) · actualizando…`);
       } else estado(m.fuente === 'bybit' ? 'Binance limitó los pedidos: por ahora las velas salen de Bybit.' : '');
-      if (holo) sendHolo(); else redraw();      // con el holograma abierto, la pagina de abajo no se redibuja
+      redraw();
     } else if (m.tipo === 'progreso' && !rows) {
       estado(`Preparando el primer análisis… ${m.texto}`);
     } else if (m.tipo === 'error') {

@@ -44,7 +44,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
-<script src="app.js?v=4663ed7037"></script>
+<script src="app.js?v=c799f259b8"></script>
 </head><body><div id="dash-root">
 <style>
   /* Tema: minimalista y moderno. Una sola familia tipografica (la del sistema: SF en el iPhone), superficies planas,
@@ -490,7 +490,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     .ab-only-touch { display: inline; } .ab-only-mouse { display: none; }
   }
   .ab-sigchip { white-space: nowrap; }
-  /* interruptor Web | Holograma */
+  /* selector de activo (version JS) */
   .ab-asset { display: inline-flex; align-items: center; gap: 8px; width: max-content; padding: 3px 4px 3px 12px; border-radius: 999px;
     border: 1px solid var(--line); background: var(--panel); position: relative; }
   .ab-asset[hidden] { display: none; }
@@ -501,11 +501,6 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
   .ab-asset select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   .ab-asset option { color: var(--ink); background: var(--panel); }
-  .ab-appmode { display: inline-flex; width: max-content; padding: 3px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); }
-  .ab-appmode[hidden] { display: none; }
-  .ab-appmode button { font: inherit; font-size: var(--cds-font-size-caption); font-weight: 600; padding: 6px 14px; border: 0; border-radius: 999px; background: transparent; color: var(--mute); cursor: pointer; }
-  .ab-appmode button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
-  .ab-appmode button[data-app="holo"]:hover { color: #2ad8ff; }
 
   /* que esta pasando: el porque de los movimientos fuertes */
   .ab-qp[hidden] { display: none; }
@@ -706,10 +701,6 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
           <option value="BTC">BTC · Bitcoin</option><option value="ZEC">ZEC · Zcash</option><option value="SOL">SOL · Solana</option>
           <option value="XRP">XRP · Ripple</option><option value="BABA">BABA · Alibaba (acción)</option>
         </select></label>
-      <!-- interruptor de la version JS (Vercel): Web | Holograma -->
-      <div class="ab-appmode" id="app-modo" role="group" aria-label="Modo de la app" hidden>
-        <button type="button" data-app="web" aria-pressed="true">Web</button><button type="button" data-app="holo" aria-pressed="false">✦ Holograma</button>
-      </div>
     </div>
     <div class="ab-top-r" id="precio">
       <div class="ab-top-price">

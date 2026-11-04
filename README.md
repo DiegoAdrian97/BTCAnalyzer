@@ -389,22 +389,6 @@ BingX no se usa en esta versión: su API no acepta pedidos desde páginas web. P
 en el teléfono el flujo de compras y ventas a mercado sale de Bitget y los top traders de Binance; antes esos pedidos a OKX
 fallaban siempre y esas señales no entraban en la explicación. El funding, de Bybit.
 
-### Modo holograma
-
-En esta versión, el interruptor **Web | Holograma** de arriba abre el gráfico de BTC, SOL o XRP en 3D, con brillo
-de neón, encima del análisis (`holograma.html`, `holograma.js` y `manos.js`). Recuerda el último modo elegido.
-
-- **Ventana 3D**: con "Seguir mi cabeza" (⚙), la cámara ve dónde estás y el gráfico se dibuja con la perspectiva
-  de una ventana real: parece salir de la pantalla. Elegí en ⚙ el tamaño de la pantalla (MacBook, monitor 27",
-  TV 43") y dónde está la cámara respecto de ella.
-- **Reflejo**: pantalla acostada mirando hacia arriba y una lámina transparente a 45° encima (Pepper's ghost).
-  Fondo negro puro; la imagen se puede espejar, dar vuelta y rotar hasta que se lea bien en la lámina.
-- **Manos** (✋): pellizcar y mover arrastra, pellizcar con las dos manos hace zoom, puño gira, palma abierta
-  deslizando cambia de cripto (de costado) o de temporalidad (arriba/abajo), palma quieta reinicia la vista.
-  Todo se procesa en el navegador con MediaPipe; la imagen de la cámara no sale del equipo.
-- **iPhone como proyector**: ⚙ → "Enlazar el iPhone" muestra un QR; con el iPhone acostado bajo la lámina, las
-  manos frente a la cámara de la Mac mueven el gráfico del iPhone (conexión directa entre los dos navegadores).
-
 Si cambiás `dashboard/index.html`, regenerá la página de esta versión antes del push:
 
 ```
@@ -422,7 +406,7 @@ python JavascriptVersion/generar_pagina.py
 | `aprendizaje.py` | Aprendizaje automático: equipo de expertos (recetas, modelo en línea, tasa base), pesos y confianza aprendidos, medición contra la tasa base |
 | `dashboard/index.html` | La página del dashboard |
 | `render.yaml` | Configuración para Render |
-| `JavascriptVersion/` | La versión que corre entera en el teléfono (Vercel): `analisis.js`, `indicadores.js`, `aprendizaje.js`, `datos.js`, `worker.js`; holograma: `holograma.html`, `holograma.js`, `manos.js` |
+| `JavascriptVersion/` | La versión que corre entera en el teléfono (Vercel): `analisis.js`, `indicadores.js`, `aprendizaje.js`, `datos.js`, `worker.js` |
 | `medir_contexto.py` | Mide con años de historia si una señal o idea nueva le gana a la tasa base antes de sumarla |
 | `JavascriptVersion/api/posiciones.js` | Tus posiciones y órdenes de BingX, solo lectura (Vercel) |
 | `backtest_*.py`, `grid_bot_zec.py` | Backtests y bot de grilla (BingX demo) |
