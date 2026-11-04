@@ -9,7 +9,7 @@
   let rows = null;
   const fns = [];
   // la cripto que se analiza: BTC, ZEC, SOL o XRP (cada una con su ultimo analisis guardado para volver enseguida)
-  const MONEDAS = ['BTC', 'ZEC', 'SOL', 'XRP'];
+  const MONEDAS = ['BTC', 'ZEC', 'SOL', 'XRP', 'BABA'];
   let moneda = 'BTC';
   try { const g = localStorage.getItem('app-moneda'); moneda = MONEDAS.includes(g) ? g : 'BTC'; } catch (e) { /* sin almacenamiento */ }
   window.abMoneda = moneda;

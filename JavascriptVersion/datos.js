@@ -239,9 +239,11 @@
     const booksP = cached(`${pre()}libros`, 20000, booksRaw).catch(() => []);
     const ctxP = cached(`${pre()}contexto`, 60000, contextRaw).catch(() => null);
     // noticias, ETF y prima de Coinbase: las junta la funcion del servidor (las paginas no pueden leer esas fuentes)
-    const extP = cached('externo', 600000, async () => {
+    // BABA (una accion) tiene sus propias noticias; las criptos comparten las de BTC
+    const accion = sym === 'BABAUSDT', extK = accion ? 'externo:BABA' : 'externo';
+    const extP = cached(extK, 600000, async () => {
       const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), ESPERA_MS);
-      try { const r = await fetch('api/contexto', { cache: 'no-store', signal: ctl.signal }); if (!r.ok) throw new Error(r.status); return r.json(); } finally { clearTimeout(tm); }
+      try { const r = await fetch(accion ? 'api/contexto?moneda=BABA' : 'api/contexto', { cache: 'no-store', signal: ctl.signal }); if (!r.ok) throw new Error(r.status); return r.json(); } finally { clearTimeout(tm); }
     }).catch(() => null);
     const liqP = cached(`${pre()}liquidaciones`, 300000, liqRaw).catch(() => null);
     const opcP = sym === 'BTCUSDT' ? cached('opciones', 600000, opcionesRaw).catch(() => null) : Promise.resolve(null);
@@ -261,7 +263,7 @@
     const log = (await dbGet(`${pre()}predicciones`)) || [];
     // con las velas listas, el resto tiene 3 s mas: lo que falte va con lo ultimo que se tenia
     const p = pre(), [ctxR, booksR, liqR, extR, opcR] = await Promise.all([aTiempo(ctxP, `${p}contexto`, 3000, null),
-      aTiempo(booksP, `${p}libros`, 3000, []), aTiempo(liqP, `${p}liquidaciones`, 3000, null), aTiempo(extP, 'externo', 3000, null),
+      aTiempo(booksP, `${p}libros`, 3000, []), aTiempo(liqP, `${p}liquidaciones`, 3000, null), aTiempo(extP, extK, 3000, null),
       aTiempo(opcP, 'opciones', 3000, null)]);
     return { candles, live5m, price, now, ctxRaw: ctxR, booksRaw: booksR, liqRaw: liqR, externo: extR, opcionesRaw: opcR, log, fuente: src };
   }

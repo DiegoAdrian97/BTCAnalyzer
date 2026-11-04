@@ -34,7 +34,7 @@ if (CFG.v !== 2) Object.assign(CFG, { brillo: 0, barrido: false, v: 2 });   // l
 if (Q.get('modo') === 'reflejo') { CFG.modo = 'reflejo'; CFG.diag = 6.1; }
 const save = () => { try { localStorage.setItem('holo-ajustes', JSON.stringify(CFG)); } catch (e) { /* idem */ } };
 
-const ASSETS = [{ sym: 'BTCUSDT', name: 'BTC' }, { sym: 'SOLUSDT', name: 'SOL' }, { sym: 'XRPUSDT', name: 'XRP' }, { sym: 'ZECUSDT', name: 'ZEC' }];
+const ASSETS = [{ sym: 'BTCUSDT', name: 'BTC' }, { sym: 'SOLUSDT', name: 'SOL' }, { sym: 'XRPUSDT', name: 'XRP' }, { sym: 'ZECUSDT', name: 'ZEC' }, { sym: 'BABAUSDT', name: 'BABA' }];
 const TFS = ['1m', '5m', '15m', '1h', '4h', '1d'];
 const TF_MS = { '1m': 6e4, '5m': 3e5, '15m': 9e5, '1h': 36e5, '4h': 144e5, '1d': 864e5 };
 const TF_LBL = { '1m': '1m', '5m': '5m', '15m': '15m', '1h': '1h', '4h': '4h', '1d': '1D' };

@@ -103,6 +103,19 @@ menciona cuando el precio está a menos de 0,4% de uno que rebotó 55% o más.
 `pruebas/paridad.py` corre en GitHub Actions en cada push: los indicadores, Fibonacci, el termómetro (BTC y alts) y el
 modelo de movimiento fuerte tienen que dar lo mismo en las dos versiones.
 
+### BABA (Alibaba) en la app
+
+El perpetuo de la acción de Alibaba (`BABAUSDT`, en Binance, Bybit, Bitget y KuCoin) se analiza en la app como una
+cripto más: mismas velas, indicadores, patrones, predicciones con su propio repaso, escenarios, libros, open interest,
+long/short, funding, flujo, mapa de liquidaciones estimado, Fibonacci y el modelo de tabla de "movimiento en la próxima
+hora" medido con sus velas de 5 min (prob. base 22%: se mueve fuerte más seguido que BTC, por la apertura de Wall
+Street). Noticias propias (Alibaba en español e inglés, más el mundo y el calendario de EE.UU.).
+
+No aplica: termómetro (el ciclo de 4 años y el MVRV/Puell son de BTC), Fear & Greed, ETF de BTC, prima de Coinbase,
+opciones de Deribit, liquidaciones reales de OKX y el modelo de movimiento fuerte (entrenado con BTC). Tampoco entradas
+del bot ni avisos por Telegram (solo análisis, como SOL y XRP). El perpetuo existe desde mediados de 2026: con pocos
+meses de historia, el plazo de 1 día todavía no tiene repaso y usa el método original.
+
 ### Criptos en la app: BTC, ZEC, SOL y XRP
 
 La app (versión JavaScript) analiza BTC, ZEC, SOL y XRP con las mismas cuentas: gráfico, predicciones, niveles,

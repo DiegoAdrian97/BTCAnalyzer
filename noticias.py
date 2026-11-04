@@ -29,6 +29,9 @@ FEEDS = [
     ("cripto", GN_EN + "(hack+OR+hacked+OR+breach+OR+exploit+OR+drained+OR+stolen)+(Binance+OR+Coinbase+OR+Kraken+OR+OKX+OR+Bybit+OR+Bitget+OR+BingX+OR+KuCoin+OR+Tether+OR+exchange)+when:1d"),
     ("cripto", "https://www.coindesk.com/arc/outboundfeeds/rss/"),
 ]
+# BABA (Alibaba, perpetuo de la accion): noticias del mundo y de la empresa; sin ETF de BTC, prima ni Fear & Greed
+FEEDS_BABA = [FEEDS[0], FEEDS[1], ("alibaba", GN + "Alibaba+when:1d"), ("alibaba", GN_EN + "Alibaba+OR+%22BABA+stock%22+when:1d")]
+ALIBABA = r"alibaba|\bbaba\b|jack ma|alipay|ant group|taobao|tmall|aliexpress|\bqwen\b|aliyun|eddie wu|joe tsai"
 FARSIDE = "https://farside.co.uk/bitcoin-etf-flow-all-data/"
 # Solo lo que de verdad mueve a BTC (pedido de Diego): guerras grandes (con una potencia o una zona caliente de por
 # medio), el gobierno de EE.UU. (Casa Blanca, Congreso, Fed, Tesoro, SEC, aranceles) y los gobiernos grandes (China,
@@ -65,7 +68,7 @@ SESGO = [
     (1, r"\bsube|\bsuben|subida|se dispar|r[eé]cord|m[aá]ximo hist|rall|surge|soar|jump|rebot|rebound|recupera|entradas|inflows?|aprueb|approv|adopt|compra|\bbuys?\b|acumula|dovish|acuerdo|\bdeal\b|alivio|optimis"),
     (-1, r"\bcae\b|\bcaen\b|ca[ií]da|desplom|derrumb|hund|pierde|retroced|plunge|\bdrops?\b|\bfalls?\b|crash|slump|tumble|sell-?off|venta masiva|liquidac|liquidat|quiebra|bankrupt|demanda|lawsuit|investiga|salidas|outflows?|guerra|\bwar\b|misil|missile|ataque|attack|\bstrikes?\b|bombard|escalad|sanci|arancel|tariff|hawkish|recesi|recession|shutdown|miedo|\bfear\b|p[aá]nico|panic|temor|slides?|slips?"),
 ]
-IMPACTO = {"Hackeo de exchange": 3, "Fed y tasas": 3, "Guerras grandes": 3, "Gobierno de EE.UU.": 3, "Grandes gobiernos": 2, "ETF": 2, "Hackeo o quiebra": 2, "Cripto": 1}
+IMPACTO = {"Hackeo de exchange": 3, "Fed y tasas": 3, "Guerras grandes": 3, "Gobierno de EE.UU.": 3, "Grandes gobiernos": 2, "ETF": 2, "Hackeo o quiebra": 2, "Alibaba": 2, "Cripto": 1}
 
 
 def sesgo(titulo, tm=None):
@@ -106,6 +109,8 @@ def tema(titulo, feed):
             return name
         if name == "Gobierno de EE.UU." and (re.search(INSTITUCION, t) or (re.search(PAIS, t) and re.search(POLITICA, t))):
             return "Grandes gobiernos"
+    if feed == "alibaba" and re.search(ALIBABA, t):
+        return "Alibaba"
     return "Cripto" if re.search(CRIPTO, t) else None
 
 
@@ -418,6 +423,12 @@ def externo(now_ms=None, moneda="BTC"):
             print(f"({nombre} no disponible: {type(e).__name__})")
             return None
 
+    if moneda == "BABA":
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            feeds = [(pool.submit(intento, f"noticias {url[:40]}", lambda f=feed, u=url: parse_rss(_get(u), f, now_ms)),
+                      bool(re.search(r"hl=en", url))) for feed, url in FEEDS_BABA]
+            cal = pool.submit(intento, "calendario economico", lambda: _calendario(now_ms))
+            return juntar([traducir(x.result() or [], ing) for x, ing in feeds]) + (cal.result() or [])
     # todas las fuentes a la vez: si alguna tarda, no frena al resto
     with ThreadPoolExecutor(max_workers=6) as pool:
         feeds = [(pool.submit(intento, f"noticias {url[:40]}", lambda f=feed, u=url: parse_rss(_get(u), f, now_ms)),

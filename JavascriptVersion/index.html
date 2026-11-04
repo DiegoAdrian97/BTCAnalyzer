@@ -44,7 +44,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
-<script src="app.js?v=674ffe20e8"></script>
+<script src="app.js?v=4265367af8"></script>
 </head><body><div id="dash-root">
 <style>
   /* Tema: minimalista y moderno. Una sola familia tipografica (la del sistema: SF en el iPhone), superficies planas,
@@ -692,7 +692,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       </div>
       <!-- version JS (Vercel): que cripto se analiza -->
       <div class="ab-appmode" id="app-moneda" role="group" aria-label="Cripto" hidden>
-        <button type="button" data-m="BTC" aria-pressed="true">BTC</button><button type="button" data-m="ZEC" aria-pressed="false">ZEC</button><button type="button" data-m="SOL" aria-pressed="false">SOL</button><button type="button" data-m="XRP" aria-pressed="false">XRP</button>
+        <button type="button" data-m="BTC" aria-pressed="true">BTC</button><button type="button" data-m="ZEC" aria-pressed="false">ZEC</button><button type="button" data-m="SOL" aria-pressed="false">SOL</button><button type="button" data-m="XRP" aria-pressed="false">XRP</button><button type="button" data-m="BABA" aria-pressed="false" title="Alibaba (perpetuo de la acción)">BABA</button>
       </div>
       <!-- interruptor de la version JS (Vercel): Web | Holograma -->
       <div class="ab-appmode" id="app-modo" role="group" aria-label="Modo de la app" hidden>
@@ -1249,7 +1249,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   // Cuando hay una suba o baja fuerte junta lo que coincide en el tiempo: liquidaciones o dinero nuevo en futuros,
   // compras o ventas a mercado, compras desde EE.UU. (prima de Coinbase), entradas o salidas de los ETF y las noticias
   // de esas horas (guerras, la Fed, aranceles, hackeos...). Son coincidencias, no pruebas de la causa.
-  const TEMA_ORDEN = ['Hackeo de exchange', 'Fed y tasas', 'Guerras grandes', 'Gobierno de EE.UU.', 'Grandes gobiernos', 'ETF', 'Hackeo o quiebra', 'Cripto'];
+  const TEMA_ORDEN = ['Hackeo de exchange', 'Fed y tasas', 'Guerras grandes', 'Gobierno de EE.UU.', 'Grandes gobiernos', 'ETF', 'Hackeo o quiebra', 'Alibaba', 'Cripto'];
   const haceTxt = (t) => {
     const m = Math.max(0, Math.round((Date.now() - t) / 60000));
     return m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`;

@@ -14,6 +14,10 @@ const FEEDS = [
   ['cripto', GN_EN + '(hack+OR+hacked+OR+breach+OR+exploit+OR+drained+OR+stolen)+(Binance+OR+Coinbase+OR+Kraken+OR+OKX+OR+Bybit+OR+Bitget+OR+BingX+OR+KuCoin+OR+Tether+OR+exchange)+when:1d'],
   ['cripto', 'https://www.coindesk.com/arc/outboundfeeds/rss/'],
 ];
+// BABA (Alibaba, perpetuo de la accion en Binance, Bybit y Bitget): noticias del mundo y de la empresa; sin ETF de BTC,
+// prima de Coinbase ni Fear & Greed (son de cripto). Igual que noticias.py.
+const FEEDS_BABA = [FEEDS[0], FEEDS[1], ['alibaba', GN + 'Alibaba+when:1d'], ['alibaba', GN_EN + 'Alibaba+OR+%22BABA+stock%22+when:1d']];
+const ALIBABA = /alibaba|\bbaba\b|jack ma|alipay|ant group|taobao|tmall|aliexpress|\bqwen\b|aliyun|eddie wu|joe tsai/;
 const FARSIDE = 'https://farside.co.uk/bitcoin-etf-flow-all-data/';
 // Solo lo que de verdad mueve a BTC: guerras grandes (con una potencia o una zona caliente de por medio), el gobierno
 // de EE.UU., los gobiernos grandes (China, UE, Japon, Reino Unido, Rusia, India, G7, OPEP), los ETF de BTC, los
@@ -48,7 +52,7 @@ const SESGO = [
   [1, '\\bsube|\\bsuben|subida|se dispar|r[eé]cord|m[aá]ximo hist|rall|surge|soar|jump|rebot|rebound|recupera|entradas|inflows?|aprueb|approv|adopt|compra|\\bbuys?\\b|acumula|dovish|acuerdo|\\bdeal\\b|alivio|optimis'],
   [-1, '\\bcae\\b|\\bcaen\\b|ca[ií]da|desplom|derrumb|hund|pierde|retroced|plunge|\\bdrops?\\b|\\bfalls?\\b|crash|slump|tumble|sell-?off|venta masiva|liquidac|liquidat|quiebra|bankrupt|demanda|lawsuit|investiga|salidas|outflows?|guerra|\\bwar\\b|misil|missile|ataque|attack|\\bstrikes?\\b|bombard|escalad|sanci|arancel|tariff|hawkish|recesi|recession|shutdown|miedo|\\bfear\\b|p[aá]nico|panic|temor|slides?|slips?'],
 ];
-const IMPACTO = { 'Hackeo de exchange': 3, 'Fed y tasas': 3, 'Guerras grandes': 3, 'Gobierno de EE.UU.': 3, 'Grandes gobiernos': 2, ETF: 2, 'Hackeo o quiebra': 2, Cripto: 1 };
+const IMPACTO = { 'Hackeo de exchange': 3, 'Fed y tasas': 3, 'Guerras grandes': 3, 'Gobierno de EE.UU.': 3, 'Grandes gobiernos': 2, ETF: 2, 'Hackeo o quiebra': 2, Alibaba: 2, Cripto: 1 };
 function sesgo(titulo, tm = null) {
   let t = titulo.toLowerCase(), score = 0;
   // la Fed haciendo lo que el mercado ya esperaba no sorprende: neutral
@@ -89,6 +93,7 @@ function tema(titulo, feed) {
     if (rx.test(t)) return name;
     if (name === 'Gobierno de EE.UU.' && (INSTITUCION.test(t) || (PAIS.test(t) && POLITICA.test(t)))) return 'Grandes gobiernos';
   }
+  if (feed === 'alibaba' && ALIBABA.test(t)) return 'Alibaba';
   return CRIPTO.test(t) ? 'Cripto' : null;
 }
 
@@ -327,8 +332,14 @@ function miedoCodicia(data) {
     detalle: txt, fng: v, fng_ayer: ayer, fng_clase: clase };
 }
 
-async function externo(nowMs = Date.now(), limiteMs = Infinity) {
+async function externo(nowMs = Date.now(), limiteMs = Infinity, moneda = 'BTC') {
   LIMITE = limiteMs;
+  if (moneda === 'BABA') {
+    const [listas, cal] = await Promise.all([
+      Promise.all(FEEDS_BABA.map(([feed, url]) => get(url).then((x) => traducir(parseRss(x, feed, nowMs), /hl=en/.test(url))).catch(() => []))),
+      calendario(nowMs).catch(() => [])]);
+    return juntar(listas).concat(cal);
+  }
   // todo en paralelo (antes las noticias y despues el resto: podia pasar los 10 s de Vercel)
   const [listas, etf, pr, cal, fng] = await Promise.all([
     Promise.all(FEEDS.map(([feed, url]) => get(url).then((x) => traducir(parseRss(x, feed, nowMs), /hl=en|coindesk/.test(url))).catch(() => []))),
@@ -343,7 +354,8 @@ async function externo(nowMs = Date.now(), limiteMs = Infinity) {
 
 module.exports = async (req, res) => {
   let rows = [];
-  try { rows = await externo(Date.now(), Date.now() + 8000); } catch (e) { /* sin datos de afuera: la pagina igual funciona */ }
+  const moneda = /^[A-Z]{2,6}$/.test(String((req.query && req.query.moneda) || '')) ? req.query.moneda : 'BTC';
+  try { rows = await externo(Date.now(), Date.now() + 8000, moneda); } catch (e) { /* sin datos de afuera: la pagina igual funciona */ }
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=1800');
   res.status(200).send(JSON.stringify({ rows, hora: Date.now() }));
