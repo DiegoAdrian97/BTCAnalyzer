@@ -1249,7 +1249,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   // Cuando hay una suba o baja fuerte junta lo que coincide en el tiempo: liquidaciones o dinero nuevo en futuros,
   // compras o ventas a mercado, compras desde EE.UU. (prima de Coinbase), entradas o salidas de los ETF y las noticias
   // de esas horas (guerras, la Fed, aranceles, hackeos...). Son coincidencias, no pruebas de la causa.
-  const TEMA_ORDEN = ['Hackeo de exchange', 'Fed y tasas', 'Guerras grandes', 'Gobierno de EE.UU.', 'Grandes gobiernos', 'ETF', 'Hackeo o quiebra', 'Alibaba', 'Cripto'];
+  const TEMA_ORDEN = ['Hackeo de exchange', 'Fed y tasas', 'Guerras grandes', 'Gobierno de EE.UU.', 'Grandes gobiernos', 'ETF', 'Hackeo o quiebra', 'Alibaba', 'China', 'Mercado bursátil', 'Cripto'];
   const haceTxt = (t) => {
     const m = Math.max(0, Math.round((Date.now() - t) / 60000));
     return m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`;
@@ -1806,13 +1806,14 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     rel.forEach((n) => {
       const a = el('a', 'ab-qp-n'); a.href = n.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
       const meta = el('span');
-      if (n.sesgo === 'alcista' || n.sesgo === 'bajista') meta.append(el('i', 'ab-qp-s ab-' + n.sesgo, n.sesgo === 'alcista' ? '▲ buena para BTC' : '▼ mala para BTC'));
+      if (n.sesgo === 'alcista' || n.sesgo === 'bajista') meta.append(el('i', 'ab-qp-s ab-' + n.sesgo, n.sesgo === 'alcista' ? `▲ buena para ${MON()}` : `▼ mala para ${MON()}`));
       meta.append(el('i', 'ab-qp-tag' + (n.tema !== 'Cripto' ? ' ab-qp-hot' : ''), n.tema), `${n.fuente}${n.medios > 1 ? ` y ${n.medios - 1} medio${n.medios > 2 ? 's' : ''} más` : ''} · ${haceTxt(n.t)}`);
       a.append(el('b', '', n.titulo), meta); nb.append(a);
     });
+    const fuentes = MON() === 'BABA' ? 'Titulares de Google Noticias: Alibaba, China, Wall Street y Hang Seng.' : 'Titulares de Google Noticias y CoinDesk; ETF de Farside.';
     document.getElementById('qp-note').textContent = strong
-      ? 'Son cosas que pasaron al mismo tiempo: ayudan a entender el movimiento, no prueban la causa. Titulares de Google Noticias y CoinDesk; ETF de Farside; futuros de Binance.'
-      : 'Titulares de Google Noticias y CoinDesk; ETF de Farside.';
+      ? `Son cosas que pasaron al mismo tiempo: ayudan a entender el movimiento, no prueban la causa. ${fuentes} Futuros de Binance.`
+      : fuentes;
   }
 
   // ---------- calendario economico de EE.UU. (importancia alta) ----------
