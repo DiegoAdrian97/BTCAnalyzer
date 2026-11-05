@@ -1,11 +1,12 @@
 # BTCAnalyzer
 
 Analista de BTC/USDT perpetuo con un dashboard en vivo: predicción por plazo (5 min a 1 día),
-gráfico con escenarios, figuras, divergencias, liquidaciones estimadas, libros de órdenes y más de
+gráfico con figuras, divergencias, liquidaciones estimadas, libros de órdenes y más de
 30 indicadores. Datos públicos de Binance Futures, Bybit, OKX, Bitget y BingX (no usa claves).
 
 El gráfico usa el motor de TradingView ([Lightweight Charts](https://www.tradingview.com/lightweight-charts/)): mismas velas, ejes, mira y
-gestos, con las marcas del analista encima (escenarios, cono, patrones, divergencias, ondas, FVG, liquidaciones y niveles).
+gestos, con las marcas del analista encima (patrones, divergencias, ondas, FVG, liquidaciones y niveles). La simulación de
+futuro (velas típico, alcista y bajista y su cono) ya no se dibuja: `SIN_FUTURO` en `dashboard/index.html`.
 Herramientas: **Mi plan** (las compras que faltan de `plan_compras.json`, tu promedio, la próxima toma de ganancias y la
 liquidación, como líneas con nombre), **Medir** (Shift + arrastrar o el botón: %, precio, velas y tiempo entre dos puntos),
 **Imán** (la mira y los puntos de Medir se pegan a la apertura, máximo, mínimo o cierre; Cmd/Ctrl mientras medís lo invierte), escala **Log**, **»** para volver a la última vela, **Imagen** (en el iPhone se comparte, en la compu se baja) y teclas con el

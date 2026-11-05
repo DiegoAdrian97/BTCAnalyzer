@@ -762,7 +762,7 @@
 
   <section class="ab-card" id="grafico" aria-labelledby="graf-t">
       <div class="ab-card-head ab-graf-head">
-        <div><span class="ab-kicker">Gráfico</span><h2 id="graf-t">Dónde está BTC y hacia dónde suele ir desde acá</h2></div>
+        <div><span class="ab-kicker">Gráfico</span><h2 id="graf-t">Dónde está BTC</h2></div>
         <div class="ab-head-act">
           <button type="button" class="ab-iconbtn ab-round" id="help-btn" aria-expanded="false" aria-controls="chart-help" aria-label="Cómo se usa el gráfico" title="Cómo se usa">?</button>
           <button type="button" class="ab-iconbtn ab-round ab-fs-btn" id="fs-btn" aria-pressed="false" aria-label="Ver el gráfico en pantalla completa" title="Pantalla completa">⤢</button>
@@ -779,7 +779,7 @@
           <button type="button" data-tf="1w" aria-pressed="false" title="Semanal (sin predicción: pocas velas para medirla)">1S</button>
           <button type="button" data-tf="1M" aria-pressed="false" title="Mensual (sin predicción: pocas velas para medirla)">1M</button>
         </nav>
-        <nav class="ab-seg ab-small" id="scens" aria-label="Escenario">
+        <nav class="ab-seg ab-small" id="scens" aria-label="Escenario" style="display: none">
           <span class="ab-seg-thumb"></span>
           <button type="button" data-scen="tipico" aria-pressed="true">Típico</button>
           <button type="button" data-scen="alcista" aria-pressed="false">Alcista</button>
@@ -808,7 +808,7 @@
           <button type="button" class="ab-iconbtn" id="medir-btn" aria-pressed="false" title="Medir: arrastrá en el gráfico para ver el % y las velas entre dos puntos (con el mouse: Shift + arrastrar; tecla M)">Medir</button>
           <button type="button" class="ab-iconbtn" id="iman-btn" aria-pressed="false" title="Imán: la mira y los puntos de Medir se pegan a la apertura, máximo, mínimo o cierre de la vela más cercana (tecla I; mientras medís, Cmd o Ctrl lo invierte)">Imán</button>
           <button type="button" class="ab-iconbtn" id="foto-btn" title="Guardar o compartir una imagen del gráfico">Imagen</button>
-          <button type="button" class="ab-iconbtn" id="replay" title="Repetir la animación del escenario">↻</button>
+          <button type="button" class="ab-iconbtn" id="replay" title="Repetir la animación del escenario" style="display: none">↻</button>
         </div>
       </div>
       <p class="ab-note ab-help" id="chart-help" hidden><span class="ab-only-mouse">Arrastrá el gráfico para moverte · rueda: zoom · arrastrá el eje de precios o el de horas para estirarlos · arrastrá el borde de abajo del precio o de cada indicador para hacerlo más alto o más bajo · doble clic en un eje: vuelve ese eje a como estaba (en el de horas, todos los paneles) · doble clic en el gráfico: ajusta todo · Shift + arrastrar: medir % y velas · teclas (con el mouse sobre el gráfico): ← → moverse, + − zoom, 0 ajustar, L logarítmica, M medir, I imán (Cmd/Ctrl mientras medís lo invierte), 1 a 6 temporalidad, F pantalla completa, Esc borrar la medición</span><span class="ab-only-touch">Arrastrá con un dedo para moverte · pellizcá para zoom (de costado: velas; vertical: precios) · arrastrá los ejes para estirarlos · arrastrá la manija de abajo de cada panel para cambiar su alto · doble toque en un eje lo vuelve a como estaba · tocá una vela para ver sus datos · "Medir" y arrastrá: % y velas entre dos puntos ("Imán" los pega a la apertura, máximo, mínimo o cierre)</span></p>
@@ -919,6 +919,7 @@
   const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
   const TF_TXT = { '5m': '5 min', '15m': '15 min', '30m': '30 min', '1h': '1 hora', '4h': '4 horas', '1d': 'Diario', '1w': 'Semanal', '1M': 'Mensual' };
   const SCEN_TXT = { tipico: 'típico', alcista: 'alcista', bajista: 'bajista' };
+  const SIN_FUTURO = true;     // Diego pidio sacar del grafico la simulacion de futuro (tipico, alcista y bajista)
   const tz = { timeZone: 'America/Argentina/Buenos_Aires' };
   const fmtT = (t, tf) => new Date(Number(t)).toLocaleString('es-AR', tf === '1d' ? { ...tz, day: '2-digit', month: '2-digit' }
     : { ...tz, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
@@ -929,7 +930,7 @@
   const PLAZO_VIEW = { '5 min': '5m', '15 min': '15m', '1 hora': '1h', '4 horas': '4h', '1 día': '1d' };
   const S = { plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
     layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, liq: true, osc: true, plan: true, opc: true }, log: false, medir: false, iman: false };
-  const defBars = () => (window.innerWidth < 600 ? 62 : 102);  // incluye las 12 del futuro posible; en el telefono, menos para que se lean
+  const defBars = () => (window.innerWidth < 600 ? 50 : 90);  // en el telefono, menos para que se lean
   S.nbars = defBars();
   // en el celu arranca con lo esencial (velas, medias, patrones y liquidaciones); el resto se prende en "Capas"
   if (window.innerWidth < 600) Object.assign(S.layers, { bb: false, fvg: false, ondas: false, osc: false });
@@ -1927,7 +1928,7 @@
     document.title = `${fp(num(s.precio))} · ${MON()}`;
     document.getElementById('moneda-lbl').textContent = MON();
     document.getElementById('ab-title').textContent = `Analista ${MON()}`;
-    document.getElementById('graf-t').textContent = `Dónde está ${MON()} y hacia dónde suele ir desde acá`;
+    document.getElementById('graf-t').textContent = `Dónde está ${MON()}`;
     const put = (id, v, d) => { const e = document.getElementById(id); e.textContent = v === null ? '—' : sg(v, d);
       e.classList.toggle('ab-up-t', v > 0); e.classList.toggle('ab-down-t', v < 0); };
     put('c24', num(s.cambio_24h), 2); put('c7', num(s.cambio_7d), 2); put('c200', num(s.sma200d_dist), 1);
@@ -2804,10 +2805,10 @@
       else if (liveBar.t > lastA.t) all.push({ ...liveBar, e20: null, e50: null, bu: null, bl: null, rsi: null, macd: null, sig: null, hist: null });
     }
     const price = liveBar && liveBar.tf === tf ? liveBar.c : num(sum.precio);
-    const ghosts = pick(rows, 'escenario', tf).filter((r) => r.escenario === S.scen)
+    const ghosts = SIN_FUTURO ? [] : pick(rows, 'escenario', tf).filter((r) => r.escenario === S.scen)
       .map((r) => ({ k: num(r.paso), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), desde: r.desde })).sort((a, b) => a.k - b.k)
       .map((g) => ({ ...g, t: lastA.t + g.k * tfMs }));
-    const cone = pick(rows, 'cono', tf).map((r) => ({ k: num(r.paso), lo: num(r.p10), mid: num(r.p50), hi: num(r.p90) })).sort((a, b) => a.k - b.k)
+    const cone = SIN_FUTURO ? [] : pick(rows, 'cono', tf).map((r) => ({ k: num(r.paso), lo: num(r.p10), mid: num(r.p50), hi: num(r.p90) })).sort((a, b) => a.k - b.k)
       .map((c) => ({ ...c, t: lastA.t + c.k * tfMs }));
     const futN = Math.max(ghosts.length, cone.length);
     const fvgs = L.fvg ? pick(rows, 'fvg', tf).map((r) => ({ up: r.tipo === 'alcista', t: num(r.t), lo: num(r.bajo), hi: num(r.alto) })) : [];
@@ -2960,7 +2961,7 @@
         `RSI ${rTxt}; ${mTxt}. Las barras son la diferencia entre las dos líneas. Si hay divergencias, se marcan con la misma línea en el precio y en el indicador.`);
     }
     document.getElementById('ex-n').textContent = leg.children.length || '';
-    document.getElementById('scen-note').textContent = ghosts.length ? '' : 'No hay suficientes situaciones parecidas para armar escenarios en esta temporalidad.';
+    document.getElementById('scen-note').textContent = ghosts.length || SIN_FUTURO ? '' : 'No hay suficientes situaciones parecidas para armar escenarios en esta temporalidad.';
 
     // que velas forman cada marca: se encienden al resaltarla
     const ex = {};
