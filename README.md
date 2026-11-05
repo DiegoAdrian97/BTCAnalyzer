@@ -128,7 +128,7 @@ desplegable se ve al instante ("Último análisis guardado · actualizando…") 
 de activo mientras se bajan los datos, ese cálculo se descarta. La calibración del rango arma los grupos de casos una
 vez por receta (antes, una vez por plazo): la primera vuelta tarda ~20% menos, con el mismo resultado.
 
-### Acciones en la app: BABA, NVDA, GOOGL, AMD y MELI
+### Acciones en la app: AAPL, NVDA, MSFT, GOOGL, AMZN, SPCX, META, TSLA, AMD, BABA, MELI y el índice QQQ
 
 Los perpetuos de acciones (`BABAUSDT`, `NVDAUSDT`, `GOOGLUSDT`, `AMDUSDT` en Binance; `MELIUSDT` solo en Bitget) se
 analizan en la app como una cripto más: mismas velas, indicadores, patrones, predicciones con su propio repaso,
@@ -136,11 +136,19 @@ escenarios, libros, open interest, long/short, funding, flujo, mapa de liquidaci
 "movimiento en la próxima hora" medida con las velas de 5 min de cada una (prob. base 20–28%: se mueven fuerte más
 seguido que BTC, por la apertura de Wall Street). Se eligen en el desplegable, bajo "Acciones (perpetuos)".
 
+Las del Nasdaq (AAPL, MSFT, AMZN, SPCX, META, TSLA) y QQQ (el Nasdaq 100) cotizan en futuros de Binance desde enero–mayo
+de 2026; tienen todo lo de NVDA y GOOGL. QQQ sigue al índice entero: tiene menos movimientos fuertes (prob. base 18%).
+
 Noticias propias de cada una (nada de cripto; el calendario de EE.UU. sigue aparte):
 - **BABA**: Alibaba, China (economía, gobierno, regulación, estímulos, yuan, Hong Kong) y la bolsa (Wall Street, Hang Seng).
 - **NVDA y AMD**: la empresa, chips e IA (TSMC, Intel, controles de exportación a China, data centers), economía de EE.UU. y la bolsa.
 - **GOOGL**: Alphabet/Google (búsqueda, YouTube, Waymo, Gemini, antimonopolio), IA y tecnología, economía de EE.UU. y la bolsa.
 - **MELI**: Mercado Libre (Mercado Pago, Brasil, Argentina, México), Latinoamérica (Selic, Banxico, BCRA, riesgo país, real y peso) y la bolsa.
+- **AAPL, MSFT, AMZN y META**: la empresa (iPhone, Azure, AWS, Instagram...), IA y tecnología, economía de EE.UU. y la bolsa.
+  En META, "meta" sola no cuenta (en castellano es "objetivo": "la meta de inflación").
+- **SPCX**: SpaceX, Starlink y Starship (y Elon Musk), espacio y defensa (contratos del Pentágono, NASA), EE.UU. y la bolsa.
+- **TSLA**: Tesla y Elon Musk, autos eléctricos y robotaxis (BYD, Rivian, Waymo como rivales), EE.UU. y la bolsa.
+- **QQQ**: el Nasdaq, las grandes tecnológicas (las 7 magníficas), economía de EE.UU. y la bolsa.
 
 Cada titular se marca bueno o malo **para esa acción**: se corta lo que viene después de "pese a"/"despite", manda lo que
 le pasa a la empresa (gana un juicio, supera estimaciones, sube la guía, recompra, contrato = bueno; multa, demanda,
@@ -148,7 +156,7 @@ investigación, controles de exportación, baja de recomendación, renuncia del 
 sentido cuando subir es malo (inflación, tasas, rendimientos, dólar, desempleo, riesgo país, aranceles, petróleo). Si el
 titular habla primero de un rival, cuenta como neutro. Las mismas reglas valen para BTC (aprobaciones, recortes de
 impuestos, compras, reservas, entradas a ETF = bueno). Python y la app comparten las reglas (`generar_reglas.py` las copia
-a `api/contexto.js`) y `pruebas/sesgo.py` las prueba con 116 titulares reales en ambos lenguajes.
+a `api/contexto.js`) y `pruebas/sesgo.py` las prueba con 138 titulares reales en ambos lenguajes.
 
 No aplica: termómetro (el ciclo de 4 años y el MVRV/Puell son de BTC), Fear & Greed, ETF de BTC, prima de Coinbase,
 opciones de Deribit, liquidaciones reales de OKX y el modelo de movimiento fuerte (entrenado con BTC: usan su tabla

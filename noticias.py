@@ -29,7 +29,7 @@ FEEDS = [
     ("cripto", GN_EN + "(hack+OR+hacked+OR+breach+OR+exploit+OR+drained+OR+stolen)+(Binance+OR+Coinbase+OR+Kraken+OR+OKX+OR+Bybit+OR+Bitget+OR+BingX+OR+KuCoin+OR+Tether+OR+exchange)+when:1d"),
     ("cripto", "https://www.coindesk.com/arc/outboundfeeds/rss/"),
 ]
-# ---------- acciones (perpetuos de BABA, NVDA, GOOGL, AMD y MELI) ----------
+# ---------- acciones (perpetuos de BABA, NVDA, GOOGL, AMD, AAPL, MSFT, AMZN, SPCX, META, TSLA, QQQ y MELI) ----------
 # Nada de cripto. Para cada una: la empresa, su pais o region (la economia que la mueve), su sector si tiene uno claro
 # y la bolsa. Un titular de un rival solo (sin la empresa) entra al sector como neutral. Igual que contexto.js.
 BOLSA = r"\bmercados?\b|\bmarkets?\b|wall street|s&p ?500|\bnasdaq\b|dow jones|\bdow\b|hang seng|\bbolsas?\b|stock market|\bstocks?\b|\bacciones\b|\bnyse\b|\bvix\b|equities|mercado burs[aá]til|[ií]ndices burs|merval|ibovespa|bovespa"
@@ -42,6 +42,10 @@ LATAM_SOLO = r"milei|caputo|\bbcra\b|\bselic\b|banco central do brasil|copom|ban
 ECON = r"econom|arancel|tariff|inflaci|inflation|tasas?\b|\brates?\b|comercio|\btrade\b|bolsa|\bstocks?\b|mercados?|markets?|recesi|recession|empleo|\bjobs?\b|\bpib\b|\bgdp\b|deuda|\bdebt|d[eé]ficit|impuesto|\btax|est[ií]mulo|stimulus|banco central|central bank|\bpeso\b|\breal\b|d[oó]lar|dollar|chips?\b|semiconduct|exporta|importa|\bexport|\bimport|blacklist|lista negra|sanci|regula|gobierno|government|presidente|president|ministr|acuerdo|\bdeal\b|yields?|rendimiento|bonos|consumo|consumer|ventas|sales|industria|manufactur|crecimiento|growth"
 CHIPS_IA = r"semiconduct|\bchips?\b|chipmakers?|\bgpus?\b|inteligencia artificial|\bai\b|\bia\b|data ?cent|centros? de datos|\btsmc\b|\bhbm\b|export controls|controles (?:a las )?exportaci|\bsox\b"
 TEC_IA = r"inteligencia artificial|\bai\b|\bia\b|big tech|gigantes tecnol|antimonopol|antitrust|publicidad digital|digital ad|buscador|search engine|\bcloud\b|la nube|openai|chatgpt|tech stocks|tecnol[oó]gicas"
+AUTOS_EV = r"autos? el[eé]ctric|veh[ií]culos? el[eé]ctric|electric vehicles?|\bevs?\b|bater[ií]as?|batter(?:y|ies)|automotriz|automotive|carmakers?|automakers?|robotaxis?|conducci[oó]n aut[oó]noma|self-driving|autonomous|\bfsd\b"
+ESPACIO = r"espacial|\bespacio\b|\bspace\b|sat[eé]lites?|satellites?|cohetes?|rockets?|\bnasa\b|\borbit|[oó]rbita|lanzamiento|launch|defensa|defense|pent[aá]gono|pentagon|\bfaa\b"
+MEGA_TEC = TEC_IA + r"|\bapple\b|nvidia|microsoft|amazon|alphabet|google|meta platforms|tesla|broadcom|magn[ií]ficos|magnificent seven|\bmag 7\b"
+NUNCA = r"\b\B"          # sin rivales
 _GN = lambda q: GN + q + "+when:1d"
 _GN_EN = lambda q: GN_EN + q + "+when:1d"
 BOLSA_FEEDS = [_GN("%22Wall+Street%22+OR+%22S%26P+500%22+OR+Nasdaq"), _GN_EN("%22stock+market%22+OR+%22Wall+Street%22+OR+Nasdaq")]
@@ -69,6 +73,34 @@ ACCIONES = {
             "region": "Economía de EE.UU.", "region_rx": EEUU, "region_solo": EEUU_SOLO, "sector": "Chips e IA", "sector_rx": CHIPS_IA,
             "rivales": r"nvidia|intel\b|qualcomm|broadcom|\barm\b|huawei",
             "feeds": [_GN("AMD+(acciones+OR+chips+OR+%22Lisa+Su%22)"), _GN_EN("AMD+(stock+OR+shares+OR+chips+OR+%22Lisa+Su%22)")] + CHIPS_FEEDS + EEUU_FEEDS + BOLSA_FEEDS},
+    "AAPL": {"empresa": "Apple", "rx": r"\bapple\b|iphone|\bipad|macbook|\bmac\b|tim cook|app store|apple intelligence|vision pro|\baapl\b|airpods|\bios\b",
+             "region": "Economía de EE.UU.", "region_rx": EEUU, "region_solo": EEUU_SOLO, "sector": "IA y tecnología", "sector_rx": TEC_IA,
+             "rivales": r"samsung|huawei|xiaomi|google|alphabet|microsoft|\bmeta\b|openai|android",
+             "feeds": [_GN("Apple+(iPhone+OR+acciones+OR+%22Tim+Cook%22)"), _GN_EN("Apple+(stock+OR+shares+OR+iPhone+OR+earnings+OR+%22Tim+Cook%22)")] + EEUU_FEEDS + BOLSA_FEEDS},
+    "MSFT": {"empresa": "Microsoft", "rx": r"microsoft|\bmsft\b|satya nadella|nadella|\bazure\b|copilot|windows|xbox|linkedin|\bbing\b",
+             "region": "Economía de EE.UU.", "region_rx": EEUU, "region_solo": EEUU_SOLO, "sector": "IA y tecnología", "sector_rx": TEC_IA,
+             "rivales": r"google|alphabet|amazon|\baws\b|apple|oracle|salesforce|\bmeta\b|anthropic",
+             "feeds": [_GN("Microsoft"), _GN_EN("Microsoft+(stock+OR+shares+OR+Azure+OR+earnings+OR+OpenAI)")] + EEUU_FEEDS + BOLSA_FEEDS},
+    "AMZN": {"empresa": "Amazon", "rx": r"amazon|\bamzn\b|\baws\b|andy jassy|jassy|jeff bezos|prime video|\balexa\b|kuiper|whole foods",
+             "region": "Economía de EE.UU.", "region_rx": EEUU, "region_solo": EEUU_SOLO, "sector": "IA y tecnología", "sector_rx": TEC_IA,
+             "rivales": r"walmart|shopify|\btemu\b|shein|alibaba|microsoft|azure|google cloud|mercado ?libre|starlink",
+             "feeds": [_GN("Amazon+(acciones+OR+AWS+OR+Jassy)"), _GN_EN("Amazon+(stock+OR+shares+OR+AWS+OR+earnings+OR+Jassy)")] + EEUU_FEEDS + BOLSA_FEEDS},
+    "SPCX": {"empresa": "SpaceX", "rx": r"spacex|\bspcx\b|starlink|starship|falcon 9|falcon heavy|\bdragon\b|gwynne shotwell|shotwell|elon musk|\bmusk\b|\bxai\b",
+             "region": "Economía de EE.UU.", "region_rx": EEUU, "region_solo": EEUU_SOLO, "sector": "Espacio y defensa", "sector_rx": ESPACIO,
+             "rivales": r"blue origin|rocket lab|kuiper|united launch|\bula\b|boeing|arianespace|oneweb|eutelsat",
+             "feeds": [_GN("SpaceX+OR+Starlink"), _GN_EN("SpaceX+OR+Starlink+OR+Starship+OR+%22SPCX+stock%22"), _GN_EN("%22space+industry%22+OR+satellite+OR+NASA+launch+OR+Pentagon+contract")] + EEUU_FEEDS + BOLSA_FEEDS},
+    "META": {"empresa": "Meta", "rx": r"meta platforms|facebook|instagram|whatsapp|zuckerberg|\bthreads\b|\bllama\b|reality labs|\bmeta[' ]s\b|acciones de meta|\bmeta (?:ai|stock|shares|acciones|earnings|lanza|anuncia|presenta|compra|despide|invierte|recorta|planea|gana|pierde|sube|cae|supera|launch|announc|unveil|buy|cut|plan|beat|miss|report|rais|lay|hir|spend|invest|sign|win|los|surg|jump|fall|drop|slid|rall|tops|tumbl|soar|sink|plung|hit)",
+             "region": "Economía de EE.UU.", "region_rx": EEUU, "region_solo": EEUU_SOLO, "sector": "IA y tecnología", "sector_rx": TEC_IA,
+             "rivales": r"tiktok|bytedance|snap\b|snapchat|google|alphabet|youtube|\bx\.com\b|openai|apple",
+             "feeds": [_GN("%22Meta+Platforms%22+OR+Zuckerberg+OR+Instagram+OR+WhatsApp"), _GN_EN("%22Meta+Platforms%22+OR+%22Meta+stock%22+OR+Zuckerberg")] + EEUU_FEEDS + BOLSA_FEEDS},
+    "TSLA": {"empresa": "Tesla", "rx": r"tesla|\btsla\b|elon musk|\bmusk\b|cybertruck|robotaxi|optimus|model [3ysx]\b|gigafactory|autopilot|\bfsd\b",
+             "region": "Economía de EE.UU.", "region_rx": EEUU, "region_solo": EEUU_SOLO, "sector": "Autos eléctricos", "sector_rx": AUTOS_EV,
+             "rivales": r"\bbyd\b|rivian|lucid|waymo|\bnio\b|xpeng|\bford\b|general motors|\bgm\b|volkswagen|toyota|xiaomi",
+             "feeds": [_GN("Tesla+OR+%22Elon+Musk%22"), _GN_EN("Tesla+(stock+OR+shares+OR+deliveries+OR+robotaxi+OR+earnings)"), _GN_EN("%22electric+vehicles%22+OR+%22EV+sales%22+OR+robotaxi")] + EEUU_FEEDS + BOLSA_FEEDS},
+    "QQQ": {"empresa": "Nasdaq 100", "rx": r"nasdaq|\bqqq\b|\bndx\b",
+            "region": "Economía de EE.UU.", "region_rx": EEUU, "region_solo": EEUU_SOLO, "sector": "Grandes tecnológicas", "sector_rx": MEGA_TEC,
+            "rivales": NUNCA,
+            "feeds": [_GN("Nasdaq+OR+%22Wall+Street%22+OR+%22acciones+tecnol%C3%B3gicas%22"), _GN_EN("Nasdaq+OR+QQQ+OR+%22tech+stocks%22+OR+%22Magnificent+Seven%22")] + EEUU_FEEDS + BOLSA_FEEDS},
     "MELI": {"empresa": "Mercado Libre", "rx": r"mercado ?libre|\bmeli\b|mercado pago|galperin|szarfsztejn",
              "region": "Latinoamérica", "region_rx": LATAM, "region_solo": LATAM_SOLO, "sector": None, "sector_rx": None,
              "rivales": r"amazon|shopee|\btemu\b|shein|magalu|nubank|ual[aá]",
@@ -150,7 +182,7 @@ FUERTE_ACCION_BUENO = [r"(?:wins?|gana) (?:dismissal|the case|lawsuit|appeal|rul
                        r"(?:ingresos|ventas|ganancias|beneficios) r[eé]cord|record (?:revenue|sales|profit|earnings|quarter)",
                        r"upgrades?\b|upgraded|mejora (?:de )?(?:la )?recomendaci[oó]n|eleva (?:el )?precio objetivo|raises? (?:price )?target|price target (?:raised|hike)",
                        r"recompra|buyback|share repurchase|aumenta (?:el )?dividendo|dividend (?:hike|increase)",
-                       r"wins? (?:a |an )?(?:\$?[\d,.]+ ?(?:billion|million|bn|mn)?[- ]?(?:dollar )?)?(?:contract|deal|order)|gana (?:un |el )?contrato|contrato (?:millonario|de \d)|multibillion|acuerdo (?:millonario|con)|alianza|partnership|se asocia|asociaci[oó]n con",
+                       r"wins? (?:a |an )?(?:\$?[\d,.]+ ?(?:billion|million|bn|mn)?[- ]?(?:dollar )?)?(?:[a-z.-]+ ){0,2}(?:contract|deal|order)|gana (?:un |el )?contrato|contrato (?:millonario|de \d)|multibillion|acuerdo (?:millonario|con)|alianza|partnership|se asocia|asociaci[oó]n con",
                        r"aprobaci[oó]n|approv|obtiene (?:la )?licencia|wins? (?:a )?license|licencia bancaria|autoriza"]
 FUERTE_ACCION_MALO = [r"\bmiss(?:es|ed)?\b|no alcanza (?:las )?(?:estimaciones|expectativas)|decepciona|disappoint|por debajo de (?:las )?(?:estimaciones|expectativas)",
                       r"cuts? (?:its |full-year )?(?:guidance|forecast|outlook)|recorta (?:sus |su |la |el )?(?:previsi[oó]n|previsiones|perspectivas|pron[oó]stico)|weak (?:guidance|outlook|forecast)|previsiones? d[eé]bil",
