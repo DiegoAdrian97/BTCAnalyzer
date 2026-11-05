@@ -97,6 +97,16 @@
     }
   };
   // con la app en segundo plano no se analiza: ahorra bateria y datos
-  document.addEventListener('visibilitychange', () => worker.postMessage(document.hidden ? { tipo: 'pausa' } : { tipo: 'seguir', sym: sym() }));
+  document.addEventListener('visibilitychange', () => { worker.postMessage(document.hidden ? { tipo: 'pausa' } : { tipo: 'seguir', sym: sym() }); if (!document.hidden) nuevaVersion(); });
+  // el iPhone deja la app "dormida" con el codigo viejo aunque haya una version nueva publicada: al volver a la app
+  // (y cada 5 min) se compara con version.txt y, si cambio, se recarga sola
+  async function nuevaVersion() {
+    if (!window.AB_PAGINA) return;
+    try {
+      const v = (await (await fetch(`version.txt?t=${Date.now()}`, { cache: 'no-store' })).text()).trim();
+      if (/^[0-9a-f]{10}$/.test(v) && v !== window.AB_PAGINA) location.reload();
+    } catch (e) { /* sin conexion: se prueba la proxima vez */ }
+  }
+  setInterval(() => { if (!document.hidden) nuevaVersion(); }, 5 * 60000);
   document.addEventListener('DOMContentLoaded', () => { if (!rows) estado('Preparando el análisis…'); });
 })();

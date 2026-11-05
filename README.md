@@ -137,6 +137,10 @@ tiene sus propias fuentes de datos (`fuentes(sym)` en `datos.js`): un pedido de 
 activo a la vista. El activo elegido vive en un solo lugar, `window.abActivo` (`app.js`): `get()`, `set()`,
 `subscribe()` y `listo()`; las partes de la página se suscriben (como un Context de React, sin React).
 
+**Se actualiza sola**: el iPhone deja la app dormida con el código viejo aunque haya una versión nueva publicada.
+`generar_pagina.py` escribe la huella de la página en `version.txt` y en la página; al volver a la app (y cada 5 min)
+se comparan y, si cambió, se recarga.
+
 ### Acciones en la app: AAPL, NVDA, MSFT, GOOGL, AMZN, SPCX, META, TSLA, AMD, BABA, MELI y el índice QQQ
 
 Los perpetuos de acciones (`BABAUSDT`, `NVDAUSDT`, `GOOGLUSDT`, `AMDUSDT` en Binance; `MELIUSDT` solo en Bitget) se

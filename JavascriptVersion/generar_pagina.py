@@ -55,6 +55,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
+<script>window.AB_PAGINA = "__PAG__";</script>
 <script src="app.js?v=__VER__"></script>
 </head><body><div id="dash-root">
 __PAGE__
@@ -93,9 +94,15 @@ def main():
     if os.path.exists(plan):
         with open(plan, encoding="utf-8") as f:
             page = page.replace("/*PLAN*/null/*FIN*/", json.dumps(json.load(f), ensure_ascii=False).replace("</", "<\\/"))
+    import hashlib
+    html = SHELL.replace("__PAGE__", page).replace("__VER__", version())
+    pag = hashlib.sha1(html.encode("utf-8")).hexdigest()[:10]      # huella de la pagina entera (diseno incluido)
     with open(OUT, "w", encoding="utf-8", newline="\n") as f:
-        f.write(SHELL.replace("__PAGE__", page).replace("__VER__", version()))
-    print("listo:", OUT)
+        f.write(html.replace("__PAG__", pag))
+    # la app abierta en el iPhone compara su huella con esta: si hay una version nueva, se recarga sola
+    with open(os.path.join(HERE, "version.txt"), "w", encoding="utf-8", newline="\n") as f:
+        f.write(pag + "\n")
+    print("listo:", OUT, pag)
 
 
 if __name__ == "__main__":

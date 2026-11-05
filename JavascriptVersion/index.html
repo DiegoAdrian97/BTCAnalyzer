@@ -44,7 +44,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
-<script src="app.js?v=d0d9f6fac0"></script>
+<script>window.AB_PAGINA = "82170eb687";</script>
+<script src="app.js?v=a9d791e444"></script>
 </head><body><div id="dash-root">
 <style>
   /* Tema: minimalista y moderno. Una sola familia tipografica (la del sistema: SF en el iPhone), superficies planas,
@@ -141,15 +142,13 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 
   /* secciones plegables */
   .ab-more-list { display: grid; gap: var(--cds-gap-sm); }
-  /* noticias de "Que esta pasando": cerradas hasta que se toca */
-  .ab-qp-drop { border: 1px solid var(--line); border-radius: 12px; margin: 6px 0; }
-  .ab-qp-drop > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; padding: 10px 12px; min-height: 44px; }
-  .ab-qp-drop > summary::-webkit-details-marker { display: none; }
-  .ab-qp-drop > summary:hover { background: var(--soft); border-radius: 12px; }
-  .ab-qp-drop .ab-qp-cnt { font-size: 12px; color: var(--mute); font-weight: 600; }
-  .ab-qp-car { margin-left: auto; width: 8px; height: 8px; border-right: 2px solid var(--mute); border-bottom: 2px solid var(--mute); transform: rotate(45deg); transition: transform .2s; }
-  .ab-qp-drop[open] .ab-qp-car { transform: rotate(-135deg); }
-  .ab-qp-drop > .ab-qp-news { padding: 0 12px 10px; }
+  /* "Que esta pasando": cerrado hasta que se toca (el titulo y si hay movimiento fuerte se ven siempre) */
+  .ab-qp-all > summary { cursor: pointer; list-style: none; align-items: center; flex-wrap: nowrap; gap: 10px; min-height: 44px; margin: 0; }
+  .ab-qp-all > summary::-webkit-details-marker { display: none; }
+  .ab-qp-all > summary h2 { margin-right: auto; }
+  .ab-qp-all[open] > summary { margin-bottom: 10px; }
+  .ab-qp-car { flex: none; width: 9px; height: 9px; border-right: 2px solid var(--mute); border-bottom: 2px solid var(--mute); transform: translateY(-2px) rotate(45deg); transition: transform .2s; }
+  .ab-qp-all[open] .ab-qp-car { transform: translateY(2px) rotate(-135deg); }
   .ab-more { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
   .ab-more summary:hover { background: var(--soft); border-radius: 14px; }
   .ab-more summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 12px;
@@ -755,16 +754,17 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     <div id="tm-body"></div>
   </aside>
   <section class="ab-card ab-qp" id="que-pasa" aria-labelledby="qp-t" data-source="analisis" hidden>
-    <div class="ab-card-head"><h2 id="qp-t">Qué está pasando</h2><span class="ab-kicker" id="qp-k"></span></div>
-    <p class="ab-qp-big" id="qp-big"></p>
-    <p class="ab-qp-sum" id="qp-sum"></p>
-    <ul class="ab-qp-list" id="qp-fact"></ul>
-    <p class="ab-qp-clima" id="qp-clima"></p>
-    <details class="ab-qp-drop" id="qp-news-box">
-      <summary><span class="ab-kicker" id="qp-news-t">Noticias</span><b class="ab-qp-cnt" id="qp-news-n"></b><i class="ab-qp-car" aria-hidden="true"></i></summary>
+    <!-- cerrado hasta que se toca (pedido de Diego): adentro, el movimiento, lo que coincide y las noticias -->
+    <details class="ab-qp-all" id="qp-box">
+      <summary class="ab-card-head"><h2 id="qp-t">Qué está pasando</h2><span class="ab-kicker" id="qp-k"></span><i class="ab-qp-car" aria-hidden="true"></i></summary>
+      <p class="ab-qp-big" id="qp-big"></p>
+      <p class="ab-qp-sum" id="qp-sum"></p>
+      <ul class="ab-qp-list" id="qp-fact"></ul>
+      <p class="ab-qp-clima" id="qp-clima"></p>
+      <span class="ab-kicker" id="qp-news-t">Noticias</span><b class="ab-qp-cnt" id="qp-news-n" hidden></b>
       <div class="ab-qp-news" id="qp-news"></div>
+      <p class="ab-note" id="qp-note"></p>
     </details>
-    <p class="ab-note" id="qp-note"></p>
   </section>
 
   <section class="ab-card" id="compras" aria-labelledby="cmp-t" hidden>
