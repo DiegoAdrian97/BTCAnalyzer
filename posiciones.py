@@ -47,6 +47,10 @@ def estado(plan, m, bajo, alto, precio):
     out.update(promedio=prom, cantidad=cantidad, nocional=nocional, valor=valor, pnl=valor - nocional,
                pnl_pct=(valor - nocional) / margen * 100, apalancamiento_real=valor / (margen + valor - nocional),
                liquidacion=liq, dist_liq=(1 - liq / precio) * 100 if liq else None)   # cuanto tendria que caer
+    pend = [c for c in cs if c not in hechas]      # si baja hasta la liquidacion, antes se ejecutan estas
+    if pend:
+        out["liq_plan"] = liquidacion(nocional + sum(c["orden"] for c in pend), cantidad + sum(c["orden"] / c["precio"] for c in pend),
+                                      margen + sum(c["orden"] / lev for c in pend), r)
     g = plan.get("ganancias") or {}
     if g:
         out["ganancias"] = [{"k": k, "precio": prom * (1 + g["cada"] * k), "vender": cantidad * g["vender"],

@@ -1511,6 +1511,9 @@
     const prom = nocional / cantidad, valor = cantidad * d.precio, liq = vivo && vivo.liquidacion ? vivo.liquidacion : liqDe(nocional, cantidad, margen);
     Object.assign(out, { promedio: prom, cantidad, nocional, valor, pnl: valor - nocional, pnl_pct: (valor - nocional) / margen * 100,
       apalancamiento_real: valor / (margen + valor - nocional), liquidacion: liq, dist_liq: liq ? (1 - liq / d.precio) * 100 : null });
+    // si el precio baja hasta la liquidacion, antes se ejecutan las compras que faltan: la liquidacion de verdad es esta
+    const pend = cs.filter((c) => !hechas.includes(c));
+    if (pend.length) out.liq_plan = liqDe(nocional + sum(pend, (c) => c.orden), cantidad + sum(pend, (c) => c.orden / c.precio), margen + sum(pend, (c) => c.orden / lev));
     const g = P.ganancias;
     if (g) out.ganancias = Array.from({ length: g.niveles || 4 }, (_, i) => { const k = i + 1, px = prom * (1 + g.cada * k);
       return { k, precio: px, vender: cantidad * g.vender, usdt: cantidad * g.vender * px, alcanzado: d.alto !== undefined && d.alto >= px }; });
@@ -1564,17 +1567,20 @@
       cell('Margen', `${f0(e.margen)} USDT`); cell('Posición', `${f0(e.valor)} USDT`); cell('Apalancamiento real', `${f1(e.apalancamiento_real)}x`);
       cell('Liquidación', e.liquidacion ? `${fp(e.liquidacion)} (${f0(e.dist_liq)}% abajo)` : 'no se liquida', e.liquidacion && e.dist_liq < 15 ? 'ab-pos-bad' : '');
       box.append(kv);
-      const pp = e.liquidacion ? pisoProb(m, d.precio, e.liquidacion) : null, n95 = pisoNivel(m, d.precio, 95), n90 = pisoNivel(m, d.precio, 90);
+      const lr = e.liq_plan || e.liquidacion, pp = lr ? pisoProb(m, d.precio, lr) : null, n95 = pisoNivel(m, d.precio, 95), n90 = pisoNivel(m, d.precio, 90);
       if (n95) {
         const rg = el('div', 'ab-pos-rg');
         rg.style.setProperty('--rg-col', pp === null ? 'var(--color-ok)' : pp > 0.2 ? 'var(--color-bad)' : pp > 0.05 ? 'var(--color-warn)' : 'var(--color-ok)');
-        if (pp !== null) rg.append('Chance de tocar tu liquidación en los próximos 6 meses: ', el('b', '', `${pp < 0.01 ? 'menos de 1' : f0(pp * 100)}%`), '. ');
+        if (pp !== null) {
+          rg.append('Chance de tocar tu liquidación en los próximos 6 meses: ', el('b', '', `${pp < 0.01 ? 'menos de 1' : f0(pp * 100)}%`),
+            e.liq_plan ? ` (contando las compras que faltan, que se ejecutarían en la bajada: liquidación en ${fp(e.liq_plan)}). ` : '. ');
+        }
         else rg.append('Esta posición no se liquida. ');
         rg.append(`En 6 meses ${m} no baja de ${fp(n90)} con 90% de confianza, ni de ${fp(n95)} con 95%. Para que el riesgo sea de 5% o menos, la liquidación tiene que quedar debajo de ${fp(n95)}.`);
         const bj = ((PISO.anteriores || {})[m] || []).filter((a) => a[1] === 'bajista');
         if (bj.length) {
           const peor = bj.reduce((a, b) => (b[2] < a[2] ? b : a)), lv = d.precio * (1 + peor[2] / 100);
-          rg.append(` En años bajistas anteriores, desde esta fecha cayó hasta ${bj.map((a) => `${f0(Math.abs(a[2]))}% (${a[0]})`).join(', ')}: con la peor, ${fp(lv)}, tu liquidación ${!e.liquidacion || e.liquidacion < lv ? 'aguantaría' : 'no aguantaría'}.`);
+          rg.append(` En años bajistas anteriores, desde esta fecha cayó hasta ${bj.map((a) => `${f0(Math.abs(a[2]))}% (${a[0]})`).join(', ')}: con la peor, ${fp(lv)}, tu liquidación ${!lr || lr < lv ? 'aguantaría' : 'no aguantaría'}.`);
         }
         box.append(el('p', 'ab-pos-sec', 'Riesgo a 6 meses'), rg);
       }
