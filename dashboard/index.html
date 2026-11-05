@@ -225,12 +225,6 @@
   .ab-graf-head { align-items: flex-start; flex-wrap: nowrap; }
   .ab-graf-head > div:first-child { display: grid; gap: 2px; min-width: 0; flex: 1 1 auto; }
   .ab-head-act { display: flex; gap: 6px; flex: none; }
-  /* acciones: el grafico de TradingView (la accion en la bolsa, con toda su historia) */
-  #chart-src { margin: 0 0 10px; }
-  .ab-tv { height: 540px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line, color-mix(in srgb, var(--ink) 12%, transparent)); }
-  .ab-tv .tradingview-widget-container, .ab-tv .tradingview-widget-container__widget { height: 100%; width: 100%; }
-  @media (min-width: 900px) { .ab-tv { height: 640px; } }
-  .ab-tv-cp { font-size: 11px; color: var(--mute); margin: 6px 2px 0; } .ab-tv-cp a { color: inherit; }
   .ab-tip[hidden] { display: none; }
   @media (max-width: 600px) { .ab-gauge { max-width: 200px; } }
   .ab-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -787,13 +781,6 @@
           <button type="button" class="ab-iconbtn ab-round" id="help-btn" aria-expanded="false" aria-controls="chart-help" aria-label="Cómo se usa el gráfico" title="Cómo se usa">?</button>
           <button type="button" class="ab-iconbtn ab-round ab-fs-btn" id="fs-btn" aria-pressed="false" aria-label="Ver el gráfico en pantalla completa" title="Pantalla completa">⤢</button>
         </div></div>
-      <nav class="ab-seg ab-small" id="chart-src" aria-label="Qué gráfico" style="display: none">
-        <span class="ab-seg-thumb"></span>
-        <button type="button" data-src="tv" aria-pressed="true">TradingView · la acción</button>
-        <button type="button" data-src="app" aria-pressed="false">App · perpetuo</button>
-      </nav>
-      <div class="ab-tv" id="tv-box" hidden></div>
-      <p class="ab-tv-cp" id="tv-cp" hidden></p>
       <div class="ab-tools">
         <nav class="ab-seg ab-small" id="tfs" aria-label="Velas del gráfico">
           <span class="ab-seg-thumb"></span>
@@ -1013,44 +1000,6 @@
   });
   const placeTf = seg(document.getElementById('tfs'), 'data-tf', (v) => { S.tf = v; S.hz = null; S.offset = 0; draw(); });
   const placeSc = seg(document.getElementById('scens'), 'data-scen', (v) => { S.scen = v; draw(); });
-  // Acciones: el grafico de TradingView (widget gratis) con la accion en la bolsa y toda su historia. Es una ventana
-  // cerrada: el analisis de la app sigue con el perpetuo y sus marcas se ven en "App · perpetuo".
-  const TV_SIMBOLO = { NVDA: 'NASDAQ:NVDA', GOOGL: 'NASDAQ:GOOGL', AMD: 'NASDAQ:AMD', AAPL: 'NASDAQ:AAPL', MSFT: 'NASDAQ:MSFT', AMZN: 'NASDAQ:AMZN',
-    SPCX: 'NASDAQ:SPCX', META: 'NASDAQ:META', TSLA: 'NASDAQ:TSLA', QQQ: 'NASDAQ:QQQ', BABA: 'NYSE:BABA', MELI: 'NASDAQ:MELI' };
-  let tvFuente = 'tv', tvHecho = '';
-  try { tvFuente = localStorage.getItem('ab-grafico') === 'app' ? 'app' : 'tv'; } catch (e) { /* idem */ }
-  const srcNav = document.getElementById('chart-src');
-  srcNav.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.src === tvFuente)));
-  const placeSrc = seg(srcNav, 'data-src', (v) => {
-    tvFuente = v; try { localStorage.setItem('ab-grafico', v); } catch (e) { /* idem */ }
-    drawTv(); if (v === 'app' && S.rows) requestAnimationFrame(() => { draw(); window.dispatchEvent(new Event('resize')); });
-  });
-  function drawTv() {
-    const sym = TV_SIMBOLO[MON()], usar = !!sym && tvFuente === 'tv';
-    const box = document.getElementById('tv-box'), cp = document.getElementById('tv-cp');
-    srcNav.style.display = sym ? '' : 'none';
-    if (sym) requestAnimationFrame(placeSrc);
-    box.hidden = !usar; cp.hidden = !usar;
-    if (!sym && tvHecho) { box.textContent = ''; tvHecho = ''; }     // una cripto: se cierra el de TradingView (bateria)
-    ['.ab-tools', '#chart', '#ex-box', '#scen-note', '#help-btn', '#fs-btn'].forEach((q) => { const e = document.querySelector(`#grafico ${q}`); if (e) e.style.display = usar ? 'none' : ''; });
-    if (!usar) return;
-    const clave = `${sym}|${oscuro() ? 'oscuro' : 'claro'}`;
-    if (clave === tvHecho) return;
-    tvHecho = clave;
-    box.textContent = '';
-    const cont = el('div', 'tradingview-widget-container'), sc = document.createElement('script');
-    cont.append(el('div', 'tradingview-widget-container__widget'));
-    sc.type = 'text/javascript'; sc.async = true; sc.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
-    sc.textContent = JSON.stringify({ autosize: true, symbol: sym, interval: 'D', timezone: 'America/Argentina/Buenos_Aires',
-      theme: oscuro() ? 'dark' : 'light', style: '1', locale: 'es', allow_symbol_change: false, calendar: false, withdateranges: true,
-      hide_side_toolbar: window.innerWidth < 600, details: false, support_host: 'https://www.tradingview.com' });
-    cont.append(sc); box.append(cont);
-    cp.textContent = '';
-    const a = document.createElement('a'); a.href = `https://es.tradingview.com/symbols/${sym.replace(':', '-')}/`; a.target = '_blank'; a.rel = 'noopener nofollow';
-    a.textContent = `${sym} en TradingView`;
-    cp.append(a, ' · la acción en la bolsa, con toda su historia. El análisis de la app usa el perpetuo: sus marcas, en "App · perpetuo".');
-  }
-  if (window.abActivo) window.abActivo.subscribe(() => drawTv());
   document.getElementById('layers').addEventListener('click', (e) => {
     const b = e.target.closest('[data-layer]'); if (!b) return;
     const k = b.dataset.layer; S.layers[k] = !S.layers[k]; syncLayers(); draw();
@@ -1088,7 +1037,7 @@
     const t = oscuro() ? 'light' : 'dark';
     document.documentElement.dataset.theme = t;
     try { localStorage.setItem('ab-tema', t); } catch (e) { /* sin almacenamiento: vale hasta recargar */ }
-    pintarTema(); if (S.rows) draw(); drawTv();
+    pintarTema(); if (S.rows) draw();
   });
   // sin eleccion propia, si el sistema cambia de tema tambien se redibuja
   sisOscuro.addEventListener('change', () => { if (!document.documentElement.dataset.theme) { pintarTema(); if (S.rows) draw(); } });
@@ -1246,6 +1195,7 @@
   // la cripto que se analiza (la version JS puede elegir ZEC) y precio con los decimales que hacen falta
   // el activo a la vista: del contexto de la app (app.js) o BTC en la pagina del servidor
   function MON() { return window.abActivo ? window.abActivo.get() : window.abMoneda || 'BTC'; }
+  const ES_CRIPTO = (m) => ['BTC', 'ZEC', 'SOL', 'XRP'].includes(m);     // el plan de compras y las posiciones son solo de estas
   function fp(x) { return x === null || x === undefined ? '—' : Math.abs(x) >= 1000 ? f0(x) : Math.abs(x) >= 10 ? ar.format(',.2f')(x) : ar.format(',.4f')(x); }
 
   function draw() {
@@ -1288,7 +1238,6 @@
     drawNote(sum);
     drawHits(rows);
     placeTf(); placeSc();
-    drawTv();
     connectLive();
     if (first) { first = false; setTimeout(() => root.classList.remove('ab-first'), 1800); }
   }
@@ -1373,7 +1322,7 @@
   }
   function drawCompras() {
     const sec = document.getElementById('compras'), body = document.getElementById('cmp-body');
-    if (!PLAN_COMPRAS || ACC_INFO[MON()]) { sec.hidden = true; return; }      // el plan es de criptos: con una accion no se muestra
+    if (!PLAN_COMPRAS || !ES_CRIPTO(MON())) { sec.hidden = true; return; }      // el plan es de criptos: con una accion o el QQQ no se muestra
     sec.hidden = false; body.replaceChildren();
     const mons = [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))];
     mons.forEach((m) => {
@@ -1441,7 +1390,11 @@
   }
   window.abPlanEstado = planEstado;
   // al cambiar de activo (contexto de app.js): mostrar u ocultar el plan y las posiciones
-  if (window.abActivo) window.abActivo.subscribe(() => { drawCompras(); drawPosiciones(); });
+  if (window.abActivo) window.abActivo.subscribe(() => {
+    drawCompras(); drawPosiciones();
+    const chip = document.querySelector('#layers [data-layer="plan"]'), con = !!PLAN_COMPRAS && ES_CRIPTO(MON());   // capa "Mi plan": solo criptos
+    if (chip && chip.hidden === con) { chip.hidden = !con; syncLayers(); }
+  });
   // minimo probable a 6 meses (modelo de armar_termometro.py, viene en la fila 'piso' del analisis; como analisis.js)
   let PISO = null;
   try { PISO = JSON.parse(localStorage.getItem('ab-piso')) || null; } catch (e) { PISO = null; }
@@ -1461,7 +1414,7 @@
   }
   function drawPosiciones() {
     const sec = document.getElementById('posiciones'), body = document.getElementById('pos-body');
-    if (!PLAN_COMPRAS || ACC_INFO[MON()]) { sec.hidden = true; return; }
+    if (!PLAN_COMPRAS || !ES_CRIPTO(MON())) { sec.hidden = true; return; }
     sec.hidden = false; body.replaceChildren();
     const sgn = (x, f = f0) => `${x >= 0 ? '+' : '−'}${f(Math.abs(x))}`;
     [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))].forEach((m) => {
@@ -2953,7 +2906,8 @@
     // tu plan (plan_compras.json): en tinta neutra para no confundirlo con las marcas del analisis
     d.plan = 0;
     const planChip = document.querySelector('#layers [data-layer="plan"]');
-    if (planChip && planChip.hidden === !!PLAN_COMPRAS) { planChip.hidden = !PLAN_COMPRAS; syncLayers(); }
+    const conPlan = !!PLAN_COMPRAS && ES_CRIPTO(MON());          // la capa "Mi plan" tampoco va en las acciones
+    if (planChip && planChip.hidden === conPlan) { planChip.hidden = !conPlan; syncLayers(); }
     if (L.plan && PLAN_COMPRAS) {
       const m = MON(), dat = CMP.datos[m], line = (price, color, style, width, title) => {
         G.plines.push(G.c.createPriceLine({ price, color, lineWidth: width, lineStyle: style, axisLabelVisible: true, title })); d.plan += 1;
