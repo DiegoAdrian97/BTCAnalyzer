@@ -1397,6 +1397,12 @@ def analyze():
             rows.append(tm)
     except Exception as e:
         print(f"(termometro no disponible: {type(e).__name__}: {e})")
+    try:                                   # minimo probable en los proximos 6 meses (termometro.piso)
+        pi = termometro.piso("BTC", [b[4] for b in candles["1d"]], price)
+        if pi:
+            rows.append(pi)
+    except Exception as e:
+        print(f"(minimo a 6 meses no disponible: {type(e).__name__}: {e})")
     lado = coinciden(rows)
     for r in rows:
         if r["tabla"] == "plazo" and r["plazo"] == "1 hora":

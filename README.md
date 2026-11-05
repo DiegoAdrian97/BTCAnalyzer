@@ -236,6 +236,19 @@ En "Compra fuerte", 12 meses después XRP estaba más arriba el 100% de las vece
 ninguna de las dos. **ZEC no tiene medidor**: su "barato" siguió abaratándose durante años (2018–2024) y después
 explotó; con esta lógica no se puede anticipar (AUC 0,6).
 
+### Mínimo probable en 6 meses (para elegir el apalancamiento)
+
+En el termómetro y en "Mis posiciones" (BTC, SOL, XRP y ZEC): el precio del que cada cripto no baja en los próximos 180
+días con 50, 80, 90 y 95% de confianza, y la **chance de que toque tu liquidación** en ese plazo (verde hasta 5%,
+amarillo hasta 20%, rojo arriba). Es mitad lo que cayó cada moneda en su historia (el mínimo de las 180 velas diarias
+siguientes contra el cierre) y mitad lo mismo en unidades de su volatilidad de un año (juntando las cuatro).
+
+Medido año por año 2019–2026 sin mirar el futuro: el piso del 90% se rompió el 9,8% de las veces en 2019–22 y el 6,6%
+en 2023–26; el del 95%, 5,0% y 0,8%; el del 80%, 22% y 19%. Con BTC solo: 8% (90%) y 4% (95%). Se probó contra la
+historia sola, la volatilidad de 90 o 180 días, el estado del termómetro y una regresión por cuantiles (se sobreajusta):
+esta mezcla fue la más pareja en los dos tramos. No sabe si "los mínimos ya pasaron": mide cuánto suele caer cada una
+en 6 meses. `armar_termometro.py` lo rehace cada semana (`piso` en `termometro.json`).
+
 ### Reentrenamiento semanal
 
 El día 2 de cada mes una tarea de GitHub (`.github/workflows/reentrenar.yml`) baja las velas de 1 hora de BTC

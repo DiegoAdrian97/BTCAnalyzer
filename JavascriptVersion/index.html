@@ -44,7 +44,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
-<script src="app.js?v=33fcb17a21"></script>
+<script src="app.js?v=71cf555cbe"></script>
 </head><body><div id="dash-root">
 <style>
   /* Tema: minimalista y moderno. Una sola familia tipografica (la del sistema: SF en el iPhone), superficies planas,
@@ -592,6 +592,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   .ab-pos-kv div { display: grid; } .ab-pos-kv small { color: var(--mute); } .ab-pos-kv b { font-size: 14px; font-variant-numeric: tabular-nums; }
   .ab-pos-sec { font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; color: var(--mute); margin-top: 6px; }
   .ab-pos-ok { color: var(--color-ok); } .ab-pos-bad { color: var(--color-bad); }
+  .ab-pos-rg { border-radius: 10px; padding: 8px 10px; font-size: var(--cds-font-size-caption); border-left: 3px solid var(--rg-col, var(--mute));
+    background: color-mix(in srgb, var(--rg-col, var(--ink)) 9%, transparent); }
+  .ab-pos-rg b { color: var(--rg-col, inherit); }
+  .ab-piso { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 4px 0 6px; }
+  .ab-piso > div { border-radius: 8px; padding: 6px 4px; text-align: center; background: color-mix(in srgb, var(--ink) 6%, transparent); }
+  .ab-piso small { display: block; color: var(--mute); font-size: 11px; } .ab-piso b { font-size: 13px; }
   .ab-pos-pz { border-radius: 10px; padding: 8px 10px; font-size: var(--cds-font-size-caption); background: color-mix(in srgb, var(--ink) 6%, transparent); }
   .ab-pos-pz.on { background: color-mix(in srgb, var(--color-ok) 16%, transparent); }
   .ab-title-row { display: flex; align-items: center; gap: 10px; position: relative; }
@@ -1243,6 +1249,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     drawMovimiento(rows);
     drawQuePasa(rows, sum);
     drawTermometro(rows);
+    const pi = pick(rows, 'piso')[0];
+    if (pi && pi.modelo) { PISO = pi.modelo; try { localStorage.setItem('ab-piso', JSON.stringify(PISO)); } catch (e) { /* sin almacenamiento */ } drawPosiciones(); }
     if (window.abNotif) window.abNotif.filas(rows);
     drawCompras();
     drawLearning(rows);
@@ -1405,6 +1413,23 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   window.abPlanEstado = planEstado;
   // al cambiar de activo: mostrar u ocultar el plan y las posiciones (despues de que app.js cambie window.abMoneda)
   document.addEventListener('change', (ev) => { if (ev.target && ev.target.id === 'app-moneda-sel') setTimeout(() => { drawCompras(); drawPosiciones(); }, 0); });
+  // minimo probable a 6 meses (modelo de armar_termometro.py, viene en la fila 'piso' del analisis; como analisis.js)
+  let PISO = null;
+  try { PISO = JSON.parse(localStorage.getItem('ab-piso')) || null; } catch (e) { PISO = null; }
+  const pisoCdf = (x, xs, ys) => { if (x <= xs[0]) return 0; if (x >= xs[xs.length - 1]) return 1;
+    for (let i = 1; i < xs.length; i++) if (x <= xs[i]) { const lo = xs[i - 1], hi = xs[i]; return hi === lo ? ys[i - 1] : ys[i - 1] + ((ys[i] - ys[i - 1]) * (x - lo)) / (hi - lo); }
+    return 1; };
+  function pisoProb(m, precio, nivel) {          // probabilidad (0-1) de que el minimo de 6 meses quede debajo de 'nivel'
+    if (!PISO || !PISO.vol[m] || !(precio > 0) || !(nivel > 0)) return null;
+    const x = Math.log(nivel / precio), pz = pisoCdf(x / PISO.vol[m], PISO.z, PISO.grid), own = PISO.own[m];
+    return own ? 0.5 * pz + 0.5 * pisoCdf(x, own, PISO.grid) : pz;
+  }
+  function pisoNivel(m, precio, conf) {          // precio que no se rompe en 6 meses con 'conf' % de confianza
+    if (!PISO || !PISO.vol[m]) return null;
+    let lo = precio * Math.exp(-6), hi = precio * Math.E;
+    for (let k = 0; k < 60; k++) { const mid = Math.sqrt(lo * hi); if (pisoProb(m, precio, mid) < 1 - conf / 100) lo = mid; else hi = mid; }
+    return Math.sqrt(lo * hi);
+  }
   function drawPosiciones() {
     const sec = document.getElementById('posiciones'), body = document.getElementById('pos-body');
     if (!PLAN_COMPRAS || ACC_INFO[MON()]) { sec.hidden = true; return; }
@@ -1421,6 +1446,15 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       cell('Margen', `${f0(e.margen)} USDT`); cell('Posición', `${f0(e.valor)} USDT`); cell('Apalancamiento real', `${f1(e.apalancamiento_real)}x`);
       cell('Liquidación', e.liquidacion ? `${fp(e.liquidacion)} (${f0(e.dist_liq)}% abajo)` : 'no se liquida', e.liquidacion && e.dist_liq < 15 ? 'ab-pos-bad' : '');
       box.append(kv);
+      const pp = e.liquidacion ? pisoProb(m, d.precio, e.liquidacion) : null, n95 = pisoNivel(m, d.precio, 95), n90 = pisoNivel(m, d.precio, 90);
+      if (n95) {
+        const rg = el('div', 'ab-pos-rg');
+        rg.style.setProperty('--rg-col', pp === null ? 'var(--color-ok)' : pp > 0.2 ? 'var(--color-bad)' : pp > 0.05 ? 'var(--color-warn)' : 'var(--color-ok)');
+        if (pp !== null) rg.append('Chance de tocar tu liquidación en los próximos 6 meses: ', el('b', '', `${pp < 0.01 ? 'menos de 1' : f0(pp * 100)}%`), '. ');
+        else rg.append('Esta posición no se liquida. ');
+        rg.append(`En 6 meses ${m} no baja de ${fp(n90)} con 90% de confianza, ni de ${fp(n95)} con 95%. Para que el riesgo sea de 5% o menos, la liquidación tiene que quedar debajo de ${fp(n95)}.`);
+        box.append(el('p', 'ab-pos-sec', 'Riesgo a 6 meses'), rg);
+      }
       if (e.ganancias) {
         box.append(el('p', 'ab-pos-sec', 'Toma de ganancias (a spot)'));
         let prox = false;
@@ -1701,7 +1735,13 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     if (mv && mv.modelo_1h !== undefined && mv.modelo_1h !== null) li2(`Chance de movimiento fuerte en 4 h: ${f0(num(mv.modelo_4h))}% (lo normal ${f0(num(mv.modelo_base_4h))}%).`);
     const rs = pick(rows, 'resumen')[0];
     if (rs && rs.rating_1d !== undefined) li2(`Sesgo técnico diario: ${num(rs.rating_1d) > 0.1 ? 'compra' : num(rs.rating_1d) < -0.1 ? 'venta' : 'neutral'} (${ar.format('+.2f')(num(rs.rating_1d))}).`);
-    body.append(big, sc, pasado, el('p', 'ab-tm-sec', 'Qué lo forma'), comp,
+    const pis = pick(rows, 'piso')[0], pisoEls = [];
+    if (pis) {
+      const g = el('div', 'ab-piso');
+      pis.niveles.forEach(([conf, v]) => { const c = el('div'); c.append(el('small', '', `${conf}%`), el('b', '', fp(num(v))), el('small', '', `${sg((num(v) / num(pis.precio) - 1) * 100, 0)}`)); g.append(c); });
+      pisoEls.push(el('p', 'ab-tm-sec', 'Mínimo probable en 6 meses'), el('p', 'ab-hero-sub', `Con cada confianza, ${mon} no baja de ese precio en los próximos 6 meses (volatilidad de un año: ${f0(num(pis.vol))}%). Sirve para elegir el apalancamiento: tu liquidación debería quedar debajo del de 90–95%.`), g);
+    }
+    body.append(big, sc, pasado, ...pisoEls, el('p', 'ab-tm-sec', 'Qué lo forma'), comp,
       el('p', 'ab-tm-sec', 'Momento del ciclo (la otra mitad)'), el('p', 'ab-hero-sub', `${t.año}, ${(FASE[t.fase] || (() => t.fase))(t.avance)}.`),
       ...reglaFng(t),
       ...(fg ? [el('p', 'ab-tm-sec', 'Fear & Greed Index'), fngGauge(num(fg.fng), fg.fng_clase || String(fg.valor).split(' · ')[1] || '', fg.fng_ayer)] : []),

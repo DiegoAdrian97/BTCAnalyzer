@@ -87,6 +87,9 @@ def py():
         "fibonacci": A.fibonacci(H4),
         "termometro": termometro.termometro([b[4] for b in D1], D1[-1][4] * 1.01, now_ms=AHORA, f7=-0.00001),
         "termometro_alt": termometro.termometro_alt("XRP", ALT[-600:], ALT[-1][4], now_ms=AHORA),
+        "piso": termometro.piso("BTC", [b[4] for b in D1], D1[-1][4] * 1.01),
+        "piso_alt": termometro.piso("SOL", [b[4] for b in ALT], ALT[-1][4]),
+        "piso_prob": [termometro.piso_prob(termometro._datos()["piso"], m, x, v) for m, x, v in (("BTC", -0.2, 0.3), ("ZEC", -0.7, 0.9), ("XRP", 0.1, 0.4), ("NADA", -0.3, 0.5))],
         "fuerte": fuerte.prever(H1),
         "liq_reales": A.liq_reales([tuple(x) for x in LIQ], AHORA),
         "aprender": {k: v for k, v in apr.aprender(H1, *entrada_apr(H1)[:1], 4, 200, entrada_apr(H1)[1]).items()
@@ -111,6 +114,9 @@ console.log(JSON.stringify({
   calificar: [c[0], c[1]], zigzag: piv, fvg: Ind.fvg(d.H4), divergencias: Ind.divergencias(d.H4, piv), fibonacci: A.fibonacci(d.H4),
   termometro: A.termometro(d.D1.map((b) => b[4]), d.D1[d.D1.length - 1][4] * 1.01, T, null, d.AHORA, -0.00001),
   termometro_alt: A.termometroAlt('XRP', d.ALT.slice(-600), d.ALT[d.ALT.length - 1][4], T, d.AHORA),
+  piso: A.piso('BTC', d.D1.map((b) => b[4]), d.D1[d.D1.length - 1][4] * 1.01, T),
+  piso_alt: A.piso('SOL', d.ALT.map((b) => b[4]), d.ALT[d.ALT.length - 1][4], T),
+  piso_prob: [['BTC', -0.2, 0.3], ['ZEC', -0.7, 0.9], ['XRP', 0.1, 0.4], ['NADA', -0.3, 0.5]].map(([m, x, v]) => A.pisoProb(T.piso, m, x, v)),
   fuerte: Fu.prever(M, d.H1), contexto: A.context(d.raw, d.H1), liq_reales: A.liqReales(d.LIQ, d.AHORA),
   explain: Object.fromEntries(Object.entries(d.CASOS).map(([k, v]) => [k, A.explain(v, 77860.0, d.SPEC_1H)])),
   registro: (() => { const cl = {}; Object.entries(d.LOG_CIERRES).forEach(([tf, xs]) => { cl[tf] = new Map(xs); });

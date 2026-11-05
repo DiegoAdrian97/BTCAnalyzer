@@ -87,8 +87,9 @@ def diario_largo():
     return [out[k] for k in sorted(out)]
 
 
-def alts_diario(monedas=("XRP", "SOL")):
-    """Velas diarias de XRP y SOL con toda su historia: Bitfinex (desde que cotiza) y Binance spot por encima."""
+def alts_diario(monedas=("XRP", "SOL", "ZEC")):
+    """Velas diarias de XRP, SOL y ZEC con toda su historia: Bitfinex (desde que cotiza) y Binance spot por encima.
+    ZEC no tiene termometro, pero entra en el minimo probable a 6 meses (armar_termometro.piso_modelo)."""
     out = {}
     for m in monedas:
         d = {}

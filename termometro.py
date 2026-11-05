@@ -40,6 +40,57 @@ def fase(y):
     return "bajista" if y % 4 == 2 else f"alcista {(y - 3) % 4 + 1}"
 
 
+def _interp(x, xs, ys):
+    """como numpy.interp, con 0 a la izquierda y 1 a la derecha (probabilidad acumulada)"""
+    if x <= xs[0]:
+        return 0.0
+    if x >= xs[-1]:
+        return 1.0
+    for i in range(1, len(xs)):
+        if x <= xs[i]:
+            lo, hi = xs[i - 1], xs[i]
+            return ys[i - 1] if hi == lo else ys[i - 1] + (ys[i] - ys[i - 1]) * (x - lo) / (hi - lo)
+    return 1.0
+
+
+def piso_prob(P, moneda, x, vol):
+    """Probabilidad de que el minimo de los proximos 180 dias quede por debajo de exp(x) veces el precio de hoy."""
+    own = P["own"].get(moneda)
+    pz = _interp(x / vol, P["z"], P["grid"])
+    return pz if own is None else 0.5 * pz + 0.5 * _interp(x, own, P["grid"])
+
+
+def _dec(v):
+    return 0 if v >= 1000 else 2 if v >= 10 else 4
+
+
+def piso(moneda, closes_d, price, T=None):
+    """Minimo probable en los proximos 6 meses (armar_termometro.piso_modelo): 'no baja de' cada precio con 50, 80, 90
+    y 95% de confianza. closes_d: cierres diarios ya cerrados (hacen falta 366). None si no hay modelo o datos."""
+    T = T or _datos()
+    P = T.get("piso")
+    if not P or price <= 0 or len(closes_d) < 366:
+        return None
+    lr = [math.log(closes_d[i] / closes_d[i - 1]) for i in range(len(closes_d) - 365, len(closes_d))]
+    med = sum(lr) / 365
+    vol = math.sqrt(sum((v - med) ** 2 for v in lr) / 365) * math.sqrt(P["dias"])
+    if vol <= 0:
+        return None
+    niveles = []
+    for conf in (50, 80, 90, 95):
+        lo, hi = -6.0, 1.0
+        for _ in range(60):
+            mid = (lo + hi) / 2
+            if piso_prob(P, moneda, mid, vol) < 1 - conf / 100:
+                lo = mid
+            else:
+                hi = mid
+        v = price * math.exp((lo + hi) / 2)
+        niveles.append([conf, round(v, _dec(v))])
+    return {"tabla": "piso", "moneda": moneda, "dias": P["dias"], "precio": price, "vol": round(vol * 100, 1), "niveles": niveles,
+            "modelo": {"grid": P["grid"], "z": P["z"], "own": P["own"], "vol": {**P["vol"], moneda: round(vol, 6)}}}
+
+
 def termometro_alt(moneda, velas_d, price, T=None, now_ms=None):
     """Medidor de XRP o SOL: su propio barato o caro (con su historia, armar_termometro.py) y el ciclo de BTC.
     velas_d: velas diarias cerradas [t, o, h, l, c, v]. None si no hay datos para esa moneda."""

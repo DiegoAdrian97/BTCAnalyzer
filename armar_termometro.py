@@ -2,7 +2,7 @@
 
     python armar_termometro.py btc_diario.json [fng.json] [alts_diario.json] [onchain.json]
         (velas diarias de BTC desde 2011, p. ej. Bitstamp; historial del Fear & Greed Index de api.alternative.me;
-         velas diarias de XRP y SOL con toda su historia, {"XRP": [[t, o, h, l, c, v], ...], ...})
+         velas diarias de XRP, SOL y ZEC con toda su historia, {"XRP": [[t, o, h, l, c, v], ...], ...})
 
 Medido con BTC 2015-2026 (ver README): lo que mejor marco las buenas zonas de compra a 6-12 meses fue que tan lejos
 esta el precio de su media de 200 semanas, cuanto cayo desde el maximo historico y cuanto subio o bajo en el ultimo
@@ -53,6 +53,37 @@ PESO_VALUACION = 0.5
 # (Compra fuerte 95% contra 63% a 30 dias); con funding alto, menos. AUC a 30/90/180 dias +0,005; a 12 meses -0,007.
 FUNDING = {"peso": 0.03, "bajo": 0.0, "alto": 0.0003}
 ZONAS_S = [(0.75, 9.0, "Compra fuerte"), (0.60, 0.75, "Buen momento de compra"), (0.45, 0.60, "Cuidado: caro"), (-9.0, 0.45, "Zona de venta")]
+
+
+# Minimo probable en los proximos 6 meses (para elegir el apalancamiento): mitad lo que cayo cada moneda en su historia
+# (el minimo de las proximas 180 velas diarias contra el cierre) y mitad lo mismo en unidades de su volatilidad de un año
+# (juntando BTC, SOL, XRP y ZEC). Medido año por año 2019-2026 sin mirar el futuro: el piso del 90% se rompio el 9,8% de
+# las veces en 2019-22 y el 6,6% en 2023-26 (el del 95%: 5,0% y 0,8%; el del 80%: 22% y 19%). Probado contra la
+# historia sola, la volatilidad de 90 o 180 dias, el estado del termometro y una regresion por cuantiles (esta ultima se
+# sobreajusta): esta mezcla fue la mas pareja en los dos tramos.
+PISO_H = 180
+PISO_GRID = [0.005] + [k / 100 for k in range(1, 100)] + [0.995]
+PISO_DESDE = {"BTC": 1325376000000, "ZEC": 1483228800000}       # BTC desde 2012; ZEC desde 2017 (antes, velas raras)
+
+
+def piso_modelo(series):
+    """series: {moneda: [[t, o, h, l, c, v], ...]} diarias. Cuantiles del minimo a 180 dias (log del minimo / cierre)
+    de cada moneda y, juntando todas, en unidades de su volatilidad de 365 dias; y la volatilidad de hoy."""
+    own, zs, vol_hoy = {}, [], {}
+    for m, rows in series.items():
+        rows = [r for r in rows if r[0] >= PISO_DESDE.get(m, 0)]
+        c = np.array([r[4] for r in rows], float); lo = np.array([r[3] for r in rows], float); n = len(c)
+        if n < 365 + PISO_H + 30:
+            continue
+        lr = np.diff(np.log(c))
+        vol = np.array([lr[i - 365:i].std() * np.sqrt(PISO_H) if i >= 365 else np.nan for i in range(n)])
+        y = np.array([np.log(lo[i + 1:i + 1 + PISO_H].min() / c[i]) if i + PISO_H < n else np.nan for i in range(n)])
+        ok = np.isfinite(y)
+        own[m] = [round(float(x), 6) for x in np.quantile(y[ok], PISO_GRID)]
+        ok2 = ok & np.isfinite(vol); zs.append(y[ok2] / vol[ok2])
+        vol_hoy[m] = round(float(vol[-1]), 6)
+    z = [round(float(x), 6) for x in np.quantile(np.concatenate(zs), PISO_GRID)]
+    return {"dias": PISO_H, "grid": PISO_GRID, "z": z, "own": own, "vol": vol_hoy}
 
 
 def X_ciclo(años, avance):
@@ -241,6 +272,9 @@ def main():
         A = json.load(open(sys.argv[3]))
         out["alts"] = {m: alt(A[m], cs, t, Pc) for m, cs in ALTS.items() if len(A.get(m) or []) > 1500}
         json.dump(out, open("JavascriptVersion/termometro.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+        out["piso"] = piso_modelo({"BTC": B, **{m: A[m] for m in ("SOL", "XRP", "ZEC") if len(A.get(m) or []) > 600}})
+        json.dump(out, open("JavascriptVersion/termometro.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+        print("piso: vol de hoy", out["piso"]["vol"])
         for m, v in out["alts"].items():
             print(m, [(z["nombre"], z["sube_365"], z["mediana_365"], z["dias_365"]) for z in v["zonas"]])
     print(json.dumps(zonas_s, ensure_ascii=False, indent=1)); print("hoy: temperatura", round(float(T[-1]), 1), "ciclo", modelo["intercepto"], modelo["pesos"])

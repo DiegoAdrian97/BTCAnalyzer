@@ -92,6 +92,39 @@
     return 100;
   }
   function fase(y) { return y % 4 === 2 ? 'bajista' : `alcista ${(((y - 3) % 4) + 4) % 4 + 1}`; }
+  // minimo probable en los proximos 6 meses (como piso de termometro.py)
+  const ACCIONES_PISO = new Set(['BABA', 'NVDA', 'GOOGL', 'AMD', 'MELI']);
+  function interpCdf(x, xs, ys) {
+    if (x <= xs[0]) return 0;
+    if (x >= xs[xs.length - 1]) return 1;
+    for (let i = 1; i < xs.length; i++) {
+      if (x <= xs[i]) { const lo = xs[i - 1], hi = xs[i]; return hi === lo ? ys[i - 1] : ys[i - 1] + ((ys[i] - ys[i - 1]) * (x - lo)) / (hi - lo); }
+    }
+    return 1;
+  }
+  /** Probabilidad de que el minimo de los proximos 180 dias quede debajo de exp(x) veces el precio de hoy. */
+  function pisoProb(P, moneda, x, vol) {
+    const own = P.own[moneda], pz = interpCdf(x / vol, P.z, P.grid);
+    return own ? 0.5 * pz + 0.5 * interpCdf(x, own, P.grid) : pz;
+  }
+  const decPiso = (v) => (v >= 1000 ? 0 : v >= 10 ? 2 : 4);
+  function piso(moneda, closesD, price, T) {
+    const P = T && T.piso;
+    if (!P || price <= 0 || closesD.length < 366) return null;
+    const lr = []; for (let i = closesD.length - 365; i < closesD.length; i++) lr.push(Math.log(closesD[i] / closesD[i - 1]));
+    let med = 0; lr.forEach((v) => { med += v; }); med /= 365;
+    let sq = 0; lr.forEach((v) => { sq += (v - med) ** 2; });
+    const vol = Math.sqrt(sq / 365) * Math.sqrt(P.dias);
+    if (!(vol > 0)) return null;
+    const niveles = [50, 80, 90, 95].map((conf) => {
+      let lo = -6, hi = 1;
+      for (let k = 0; k < 60; k++) { const mid = (lo + hi) / 2; if (pisoProb(P, moneda, mid, vol) < 1 - conf / 100) lo = mid; else hi = mid; }
+      const v = price * Math.exp((lo + hi) / 2);
+      return [conf, rnd(v, decPiso(v))];
+    });
+    return { tabla: 'piso', moneda, dias: P.dias, precio: price, vol: rnd(vol * 100, 1), niveles,
+      modelo: { grid: P.grid, z: P.z, own: P.own, vol: { ...P.vol, [moneda]: rnd(vol, 6) } } };
+  }
   /** Medidor de XRP o SOL (como termometro_alt de termometro.py): su barato o caro y el ciclo de BTC. */
   function termometroAlt(moneda, velasD, price, T, nowMs = Date.now()) {
     const A = T && T.alts && T.alts[moneda], md = T && T.medidor;
@@ -1035,6 +1068,10 @@
       const tm = termometroAlt(input.moneda, candles['1d'], price, root.TERMOMETRO, now);
       if (tm) rows.push(tm);
     }
+    if (root.TERMOMETRO && root.TERMOMETRO.piso && !ACCIONES_PISO.has(input.moneda || 'BTC')) {   // minimo probable a 6 meses
+      const pi = piso(input.moneda || 'BTC', candles['1d'].map((b) => b[4]), price, root.TERMOMETRO);
+      if (pi) rows.push(pi);
+    }
     const lado = coinciden(rows);
     rows.forEach((r) => { if (r.tabla === 'plazo' && r.plazo === '1 hora') r.coinciden = lado; });
     const explanation = [];
@@ -1048,7 +1085,7 @@
     return { rows, log };
   }
 
-  const Analisis = { analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, liqReales };
+  const Analisis = { piso, pisoProb, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, liqReales };
   root.Analisis = Analisis;
   if (typeof module !== 'undefined' && module.exports) module.exports = Analisis;
 })(typeof self !== 'undefined' ? self : globalThis);
