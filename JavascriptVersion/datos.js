@@ -67,7 +67,20 @@
   // tiempo maximo por pedido: sin esto, un pedido colgado (red del celular, la app en segundo plano) dejaba la
   // pantalla "cargando velas" para siempre, porque el ciclo siguiente espera a que termine el anterior
   const ESPERA_MS = 15000;
+  // Ritmo por exchange: con 17 activos analizandose de fondo, Bitget cortaba (sus limites son por segundo: ~20
+  // pedidos/s para velas y libros, y 1 por segundo para el flujo de compras y ventas). Cada grupo espera su turno.
+  const RITMO = { bitget: 80, 'bitget-flujo': 1100 };      // ms minimos entre dos pedidos del mismo grupo
+  const turno = {};
+  async function esperarTurno(eid) {
+    const gap = RITMO[eid];
+    if (!gap) return;
+    const ahora = Date.now(), t = Math.max(ahora, turno[eid] || 0);
+    turno[eid] = t + gap;
+    if (t > ahora) await new Promise((r) => setTimeout(r, t - ahora));
+  }
   async function pedir(eid, url) {
+    if (isBanned(eid)) throw new Error(`${eid} en pausa por exceso de pedidos`);
+    await esperarTurno(eid);
     if (isBanned(eid)) throw new Error(`${eid} en pausa por exceso de pedidos`);
     let res;
     const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), ESPERA_MS);
@@ -79,7 +92,7 @@
     }
     clearTimeout(tm);
     if ([418, 429, 403, 451].includes(res.status)) {
-      let until = Date.now() + 120000;                        // sin fecha: dos minutos de pausa
+      let until = Date.now() + (eid.startsWith('bitget') ? 30000 : 120000);   // sin fecha: pausa (Bitget limita por segundo: 30 s)
       const body = await res.text().catch(() => '');
       const m = /banned until (\d+)/.exec(body);
       if (m) until = Number(m[1]);
@@ -93,7 +106,7 @@
 
   // cache con un solo pedido en vuelo por clave; si falla, no se reintenta hasta 2 min despues (antes una fuente
   // caida se volvia a pedir en cada ciclo y cada ciclo la esperaba)
-  const enVuelo = {}, fallo = {};
+  const enVuelo = {}, fallo = {}, sinDato = {};
   async function cached(key, ttl, fn) {
     const hit = memo[key];
     if (hit && Date.now() - hit[0] < ttl) return hit[1];
@@ -207,8 +220,17 @@
     // compras y ventas a mercado de las ultimas 4 horas (la ultima, en curso) y top traders. El servidor los saca de
     // OKX, pero esos endpoints de OKX no mandan el permiso CORS: en el navegador fallaban siempre y las senales de
     // flujo nunca entraban en la explicacion. Bitget y Binance si dejan leerlos desde una pagina.
-    const bitgetTaker = async () => (await pedir('bitget', `https://api.bitget.com/api/v2/mix/market/taker-buy-sell?symbol=${SYM}&productType=usdt-futures&period=1h`))
-      .data.map((x) => ({ t: +x.ts, buy: +x.buyVolume, sell: +x.sellVolume })).sort((a, b) => a.t - b.t).slice(-4).map(({ buy, sell }) => ({ buy, sell }));
+    const bitgetTaker = async () => {
+      const k = `${pre()}sin-flujo-bitget`;
+      if (Date.now() - (sinDato[k] || 0) < 86400000) throw new Error('Bitget no tiene el flujo de este par');
+      try {
+        return (await pedir('bitget-flujo', `https://api.bitget.com/api/v2/mix/market/taker-buy-sell?symbol=${SYM}&productType=usdt-futures&period=1h`))
+          .data.map((x) => ({ t: +x.ts, buy: +x.buyVolume, sell: +x.sellVolume })).sort((a, b) => a.t - b.t).slice(-4).map(({ buy, sell }) => ({ buy, sell }));
+      } catch (e) {
+        if (/error 400/.test(e.message)) sinDato[k] = Date.now();      // NVDA, GOOGL, BABA, MELI...: no se vuelve a pedir en un dia
+        throw e;
+      }
+    };
     // Bitget no tiene este dato para varias acciones (NVDA, GOOGL, BABA, MELI): respaldo en Binance
     const binanceTaker = async () => (await pedir('binance-datos', `${BINANCE}/futures/data/takerlongshortRatio?symbol=${SYM}&period=1h&limit=4`))
       .map((x) => ({ t: +x.timestamp, buy: +x.buyVol, sell: +x.sellVol })).sort((a, b) => a.t - b.t).map(({ buy, sell }) => ({ buy, sell }));

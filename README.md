@@ -143,6 +143,12 @@ Binance con todos y el de Bitget para MELI; si no llegan, cada 15 s por pedido c
 desplegable; ✓ marca los que ya tienen su análisis listo. Se cierra deslizando a la derecha, tocando afuera o con ✕, y
 los WebSocket se cierran con él.
 
+**Ritmo de pedidos**: con todos los activos de fondo, Bitget limitaba (corta por segundo). Ahora cada grupo de
+pedidos espera su turno (`RITMO` en `datos.js`): Bitget como mucho ~12 por segundo y su flujo de compras y ventas uno
+por segundo, en su propio grupo (si lo limita, no frena las velas de MELI ni los libros). Los pares que Bitget no tiene
+(el flujo de NVDA, GOOGL, BABA, MELI...) no se le vuelven a pedir en un día: van directo a Binance. Si igual limita,
+la pausa es de 30 s (antes 2 min).
+
 **Se actualiza sola**: el iPhone deja la app dormida con el código viejo aunque haya una versión nueva publicada.
 `generar_pagina.py` escribe la huella de la página en `version.txt` y en la página; al volver a la app (y cada 5 min)
 se comparan y, si cambió, se recarga.
