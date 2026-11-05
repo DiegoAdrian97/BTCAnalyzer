@@ -1,1 +1,65 @@
-{"bitget": ["SPXUSDT", "QQQUSDT", "SPYUSDT", "TQQQUSDT", "NDX100USDT"], "okx": ["QQQ-USDT-SWAP", "SPX-USDT-SWAP", "SPY-USDT-SWAP", "TQQQ-USDT-SWAP", "US100-USDT-SWAP", "US500-USDT-SWAP"], "binance": {"QQQ": ["QQQUSDT-1d-2026-04-06.zip", 212], "SPY": ["SPYUSDT-1d-2026-04-06.zip", 212], "SPX": ["SPXUSDT-1d-2024-12-10.zip", 500], "TQQQ": ["TQQQUSDT-1d-2026-06-29.zip", 128]}}
+{
+"bitget": [
+{
+"symbol": "DIAUSDT",
+"baseCoin": "DIA",
+"launchTime": "",
+"symbolType": "perpetual",
+"fundInterval": "4"
+},
+{
+"symbol": "SPYUSDT",
+"baseCoin": "SPY",
+"launchTime": "",
+"symbolType": "perpetual",
+"fundInterval": "8"
+},
+{
+"symbol": "DIASTOCKUSDT",
+"baseCoin": "DIASTOCK",
+"launchTime": "",
+"symbolType": "perpetual",
+"fundInterval": "8"
+}
+],
+"okx": [
+{
+"instId": "SPY-USDT-SWAP",
+"listTime": "1772614800000",
+"instFamily": "SPY-USDT",
+"ctVal": "1",
+"ctValCcy": "SPY"
+},
+{
+"instId": "US500-USDT-SWAP",
+"listTime": "1789030800000",
+"instFamily": "US500-USDT",
+"ctVal": "1",
+"ctValCcy": "US500"
+}
+],
+"binance": {
+"DIA": [
+"DIAUSDT-1d-2024-10-02.zip",
+500
+],
+"SPY": [
+"SPYUSDT-1d-2026-04-06.zip",
+212
+]
+},
+"bitget_precio": {
+"DIAUSDT": [
+"0.1366",
+"42379.2505"
+],
+"SPYUSDT": [
+"751.74",
+"4526174.5172"
+],
+"DIASTOCKUSDT": [
+"528.18",
+"15521.4981"
+]
+}
+}
