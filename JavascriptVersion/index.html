@@ -44,8 +44,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
-<script>window.AB_PAGINA = "82170eb687";</script>
-<script src="app.js?v=a9d791e444"></script>
+<script>window.AB_PAGINA = "8a8b7d4cb6";</script>
+<script src="app.js?v=4464ce8a3f"></script>
 </head><body><div id="dash-root">
 <style>
   /* Tema: minimalista y moderno. Una sola familia tipografica (la del sistema: SF en el iPhone), superficies planas,
@@ -503,6 +503,27 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     border: 1px solid var(--line); background: var(--panel); position: relative; }
   .ab-asset[hidden] { display: none; }
   .ab-asset-k { font-size: var(--cds-font-size-caption); color: var(--mute); }
+  /* panel lateral con todos los activos y su precio en vivo (en el celular se abre deslizando desde el borde derecho) */
+  .ab-act-panel { position: fixed; right: 0; top: 0; bottom: 0; z-index: 1003; width: min(340px, 88vw); background: var(--panel);
+    border-left: 1px solid var(--line); box-shadow: -12px 0 32px rgba(0, 0, 0, .18); overflow-y: auto; overscroll-behavior: contain;
+    padding: max(14px, env(safe-area-inset-top)) 12px max(14px, env(safe-area-inset-bottom)); transform: translateX(100%); transition: transform .22s ease; }
+  .ab-act-panel.on { transform: none; }
+  .ab-act-fondo { position: fixed; inset: 0; z-index: 1002; background: rgba(0, 0, 0, .35); opacity: 0; transition: opacity .2s; }
+  .ab-act-fondo.on { opacity: 1; }
+  .ab-act-head { display: flex; align-items: center; gap: 8px; margin: 0 2px 4px; }
+  .ab-act-head h2 { margin: 0; font-size: 1.1rem; } .ab-act-head .ab-kicker { margin-right: auto; }
+  .ab-act-g { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--mute); margin: 12px 8px 2px; }
+  .ab-act-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; width: 100%; min-height: 48px;
+    padding: 8px 10px; border: 0; border-radius: 10px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .ab-act-row:hover, .ab-act-row:focus-visible { background: var(--soft); }
+  .ab-act-row[aria-current="true"] { background: var(--soft); box-shadow: inset 3px 0 0 var(--ink); }
+  .ab-act-row b { font-size: 14px; } .ab-act-row small { display: block; color: var(--mute); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ab-act-row i { font-style: normal; color: var(--color-ok); font-size: 11px; margin-left: 4px; }
+  .ab-act-p { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 14px; transition: color .4s; }
+  .ab-act-p.sube { color: var(--color-ok); } .ab-act-p.baja { color: var(--color-bad); }
+  .ab-act-c { font-variant-numeric: tabular-nums; font-size: 12px; min-width: 56px; text-align: right; color: var(--mute); }
+  .ab-act-c.up { color: var(--color-ok); } .ab-act-c.dn { color: var(--color-bad); }
+  @media (prefers-reduced-motion: reduce) { .ab-act-panel, .ab-act-fondo, .ab-act-p { transition: none; } }
   .ab-asset select { font: inherit; font-size: var(--cds-font-size-caption); font-weight: 650; color: var(--paper); background: var(--ink);
     border: 0; border-radius: 999px; padding: 6px 30px 6px 14px; min-height: 30px; cursor: pointer; appearance: none; -webkit-appearance: none;
     background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
@@ -723,6 +744,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
             <option value="SPCX">SPCX · SpaceX</option><option value="META">META · Meta</option><option value="TSLA">TSLA · Tesla</option>
             <option value="AMD">AMD · AMD</option><option value="BABA">BABA · Alibaba</option><option value="MELI">MELI · Mercado Libre</option></optgroup>
         </select></label>
+      <button type="button" class="ab-iconbtn ab-round" id="act-btn" aria-label="Ver todos los activos con su precio" title="Todos los activos (en el celular: deslizá desde el borde derecho)" hidden>
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg></button>
     </div>
     <div class="ab-top-r" id="precio">
       <div class="ab-top-price">
@@ -748,6 +771,13 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       <button type="button" class="ab-iconbtn ab-round" id="nt-m-x" aria-label="Cerrar">✕</button></div>
     <div id="nt-m-body"></div>
   </div>
+  <div class="ab-act-fondo" id="act-fondo" hidden></div>
+  <aside class="ab-act-panel" id="act-panel" aria-labelledby="act-t" role="dialog" aria-modal="true" hidden>
+    <div class="ab-act-head"><h2 id="act-t">Activos</h2><span class="ab-kicker">precio · 24 h · en vivo</span>
+      <button type="button" class="ab-iconbtn ab-round" id="act-x" aria-label="Cerrar">✕</button></div>
+    <div id="act-list"></div>
+    <p class="ab-note">Perpetuos (MELI de Bitget; los demás de Binance). Tocá uno para analizarlo. ✓ = su análisis ya está listo.</p>
+  </aside>
   <aside class="ab-tm-panel" id="tm-panel" aria-labelledby="tm-t" role="dialog" aria-modal="true" hidden>
     <div class="ab-tm-head"><div><span class="ab-kicker" id="tm-kick">Ciclo de BTC · semanas o meses</span><h2 id="tm-t" style="margin:2px 0 0">Termómetro de compra y venta</h2></div>
       <button type="button" class="ab-iconbtn ab-round" id="tm-x" aria-label="Cerrar">✕</button></div>
@@ -1244,6 +1274,112 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   // el activo a la vista: del contexto de la app (app.js) o BTC en la pagina del servidor
   function MON() { return window.abActivo ? window.abActivo.get() : window.abMoneda || 'BTC'; }
   const ES_CRIPTO = (m) => ['BTC', 'ZEC', 'SOL', 'XRP'].includes(m);     // el plan de compras y las posiciones son solo de estas
+  // ---------- panel lateral: todos los activos con su precio en vivo (solo en la app, que tiene varios activos) ----------
+  (function panelActivos() {
+    const A = window.abActivo, panel = document.getElementById('act-panel'), fondo = document.getElementById('act-fondo');
+    const sel = document.getElementById('app-moneda-sel'), lista = document.getElementById('act-list'), btn = document.getElementById('act-btn');
+    if (!A || !panel || !sel) return;
+    btn.hidden = false;
+    const P = {}, filas = {};               // precio y apertura de 24 h de cada activo; la fila de cada uno
+    // los grupos y nombres salen del desplegable (asi lo que se agregue ahi aparece aca)
+    const grupos = [{ titulo: 'Criptos', items: [] }];
+    [...sel.children].forEach((ch) => {
+      if (ch.tagName === 'OPTGROUP') grupos.push({ titulo: ch.label, items: [...ch.children] });
+      else grupos[0].items.push(ch);
+    });
+    grupos.forEach((g) => {
+      if (!g.items.length) return;
+      lista.append(el('p', 'ab-act-g', g.titulo));
+      g.items.forEach((o) => {
+        const m = o.value, nombre = (o.textContent.split('·')[1] || '').trim();
+        const b = el('button', 'ab-act-row'); b.type = 'button';
+        const izq = el('span'); izq.append(el('b', '', m), el('i'), el('small', '', nombre));
+        const pr = el('span', 'ab-act-p', '—'), ch = el('span', 'ab-act-c', '');
+        b.append(izq, pr, ch);
+        b.addEventListener('click', () => { cerrar(); A.set(m); });
+        lista.append(b); filas[m] = { b, pr, ch, listo: izq.querySelector('i') };
+      });
+    });
+    function pintar(m) {
+      const f = filas[m], x = P[m];
+      if (!f || !x) return;
+      const antes = f.pr.dataset.v ? +f.pr.dataset.v : null;
+      f.pr.textContent = fp(x.c); f.pr.dataset.v = x.c;
+      if (antes !== null && antes !== x.c) { f.pr.classList.remove('sube', 'baja'); f.pr.classList.add(x.c > antes ? 'sube' : 'baja'); clearTimeout(f.tm); f.tm = setTimeout(() => f.pr.classList.remove('sube', 'baja'), 700); }
+      const c = x.o > 0 ? (x.c / x.o - 1) * 100 : null;
+      f.ch.textContent = c === null ? '' : sg(c, 2); f.ch.className = 'ab-act-c' + (c > 0 ? ' up' : c < 0 ? ' dn' : '');
+    }
+    function marcar() {
+      Object.entries(filas).forEach(([m, f]) => { f.b.setAttribute('aria-current', String(m === A.get())); f.listo.textContent = A.listo(m) ? '✓' : ''; });
+    }
+    // en vivo: Binance (un solo WebSocket con todos) y Bitget para MELI; si no llega nada, cada 15 s por pedido comun
+    let ws = null, wsBg = null, ping = null, rep = null;
+    const llegada = {};
+    const nuevo = (m, c, o) => { if (!(c > 0)) return; P[m] = { c, o }; llegada[m] = Date.now(); pintar(m); };
+    async function porPedido(m) {
+      try {
+        if (m === 'MELI') { const d = (await (await fetch('https://api.bitget.com/api/v2/mix/market/ticker?symbol=MELIUSDT&productType=usdt-futures', { cache: 'no-store' })).json()).data[0]; nuevo(m, +d.lastPr, +d.open24h); }
+        else { const d = await (await fetch(`https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=${m}USDT`, { cache: 'no-store' })).json(); nuevo(m, +d.lastPrice, +d.openPrice); }
+      } catch (e) { /* se prueba en la proxima vuelta */ }
+    }
+    function conectar() {
+      const syms = A.todos().filter((m) => m !== 'MELI').map((m) => `${m.toLowerCase()}usdt@miniTicker`).join('/');
+      try {
+        ws = new WebSocket(`wss://fstream.binance.com/market/stream?streams=${syms}`);
+        ws.onmessage = (e) => { try { const d = JSON.parse(e.data).data; if (d && d.s) nuevo(d.s.replace('USDT', ''), +d.c, +d.o); } catch (x) { /* mensaje raro */ } };
+      } catch (e) { ws = null; }
+      try {
+        wsBg = new WebSocket('wss://ws.bitget.com/v2/ws/public');
+        wsBg.onopen = () => { wsBg.send(JSON.stringify({ op: 'subscribe', args: [{ instType: 'USDT-FUTURES', channel: 'ticker', instId: 'MELIUSDT' }] })); ping = setInterval(() => { try { wsBg.send('ping'); } catch (x) { /* cerrado */ } }, 25000); };
+        wsBg.onmessage = (e) => { if (e.data === 'pong') return; try { const d = (JSON.parse(e.data).data || [])[0]; if (d && d.lastPr) nuevo('MELI', +d.lastPr, +d.open24h); } catch (x) { /* idem */ } };
+      } catch (e) { wsBg = null; }
+      const vuelta = () => { A.todos().filter((m) => Date.now() - (llegada[m] || 0) > 15000).forEach(porPedido); };
+      rep = setTimeout(function otra() { vuelta(); rep = setTimeout(otra, 15000); }, 3500);
+    }
+    function desconectar() {
+      [ws, wsBg].forEach((w) => { try { if (w) w.close(); } catch (e) { /* ya cerrado */ } });
+      ws = wsBg = null; clearInterval(ping); clearTimeout(rep);
+    }
+    const abierto = () => !panel.hidden;
+    function abrir() {
+      if (abierto()) return;
+      // mientras llega el precio en vivo: el del ultimo analisis de cada uno
+      A.todos().forEach((m) => { if (!P[m]) { const r = A.precio(m); if (r) { P[m] = r; pintar(m); } } });
+      marcar(); panel.hidden = false; fondo.hidden = false;
+      requestAnimationFrame(() => { panel.classList.add('on'); fondo.classList.add('on'); });
+      document.body.style.overflow = 'hidden'; conectar();
+      const act = filas[A.get()]; if (act) act.b.scrollIntoView({ block: 'nearest' });
+    }
+    function cerrar() {
+      if (!abierto()) return;
+      panel.classList.remove('on'); fondo.classList.remove('on'); document.body.style.overflow = '';
+      desconectar();
+      setTimeout(() => { panel.hidden = true; fondo.hidden = true; }, 230);
+    }
+    btn.addEventListener('click', abrir);
+    document.getElementById('act-x').addEventListener('click', cerrar);
+    fondo.addEventListener('click', cerrar);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && abierto()) cerrar(); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden && abierto()) cerrar(); });
+    A.subscribe(marcar);
+    // gesto: arrastrar desde el borde derecho hacia la izquierda abre; dentro del panel, hacia la derecha cierra
+    let t0 = null;
+    document.addEventListener('touchstart', (e) => {
+      if (e.touches.length !== 1) { t0 = null; return; }
+      const x = e.touches[0].clientX, y = e.touches[0].clientY;
+      if (!abierto() && x > window.innerWidth - 22) t0 = { x, y, modo: 'abrir' };
+      else if (abierto() && panel.contains(e.target)) t0 = { x, y, modo: 'cerrar' };
+      else t0 = null;
+    }, { passive: true, capture: true });
+    document.addEventListener('touchmove', (e) => {
+      if (!t0) return;
+      const dx = e.touches[0].clientX - t0.x, dy = e.touches[0].clientY - t0.y;
+      if (Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(dx)) { t0 = null; return; }    // es un scroll vertical
+      if (t0.modo === 'abrir' && dx < -8) { e.preventDefault(); e.stopPropagation(); if (dx < -45) { t0 = null; abrir(); } }
+      else if (t0.modo === 'cerrar' && dx > 60 && Math.abs(dx) > 2 * Math.abs(dy)) { t0 = null; cerrar(); }
+    }, { passive: false, capture: true });
+    document.addEventListener('touchend', () => { t0 = null; }, { passive: true, capture: true });
+  })();
   function fp(x) { return x === null || x === undefined ? '—' : Math.abs(x) >= 1000 ? f0(x) : Math.abs(x) >= 10 ? ar.format(',.2f')(x) : ar.format(',.4f')(x); }
 
   function draw() {

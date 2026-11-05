@@ -21,6 +21,12 @@
     set: (m) => elegir(m),
     subscribe(fn) { subs.add(fn); return () => subs.delete(fn); },
     listo: (m) => !!porMoneda[m],      // si ya tiene analisis en memoria (elegirlo es instantaneo)
+    precio: (m) => {                    // precio y apertura de 24 h del ultimo analisis (para mostrar algo al toque)
+      const r = porMoneda[m] && porMoneda[m].find((x) => x.tabla === 'resumen');
+      if (!r || !(+r.precio > 0)) return null;
+      const c = +r.precio, ch = +r.cambio_24h;
+      return { c, o: Number.isFinite(ch) ? c / (1 + ch / 100) : c };
+    },
   };
   Object.defineProperty(window, 'abMoneda', { get: () => moneda, configurable: true });
   const porMoneda = {}, horaMoneda = {};
