@@ -145,6 +145,11 @@ escenarios, libros, open interest, long/short, funding, flujo, mapa de liquidaci
 "movimiento en la próxima hora" medida con las velas de 5 min de cada una (prob. base 20–28%: se mueven fuerte más
 seguido que BTC, por la apertura de Wall Street). Se eligen en el desplegable, bajo "Acciones (perpetuos)".
 
+**Gráfico de TradingView**: en las acciones, arriba del gráfico se elige "TradingView · la acción" (el widget gratis de
+TradingView con la acción en la bolsa, NASDAQ:NVDA o NYSE:BABA, con toda su historia y sus herramientas; arranca en
+diario) o "App · perpetuo" (el gráfico de siempre, con las marcas del análisis). Se recuerda la elección. El widget es
+una ventana cerrada: la app no lee sus datos, así que el análisis sigue con el perpetuo.
+
 Las del Nasdaq (AAPL, MSFT, AMZN, SPCX, META, TSLA) y QQQ (el Nasdaq 100) cotizan en futuros de Binance desde enero–mayo
 de 2026; tienen todo lo de NVDA y GOOGL. QQQ sigue al índice entero: tiene menos movimientos fuertes (prob. base 18%).
 
