@@ -84,6 +84,11 @@ en silencio: así un reinicio de Render no la pierde. No lo borres.
   0,863), a 12 meses queda igual (0,965 → 0,963). Solo, el MVRV anticipa menos que lo que ya había (0,77 a 12 meses),
   por eso no pesa más. El de hoy se estima con lo último de CoinMetrics (el reentrenamiento ahora es semanal).
 - **Hash ribbons y emisión de stablecoins:** no anticiparon de forma pareja (en 2023–26, al revés): quedaron afuera.
+- **Índice FRELDI** (Fear & Greed, RSI 14 diario, distancia a la EMA de 200, volumen contra el máximo del mes, liquidez de
+  la semana y DXY, de 0 a 100; su fórmula exacta no es pública, se reconstruyó con percentiles sin mirar el futuro): no
+  anticipa. AUC de que BTC suba entre 0,40 y 0,48 de 1 a 365 días (2019–26; menos de 0,5 es al revés). Su zona de
+  "acumulación" (>80) subió 6% de las veces a 90 días y la de "distribución" (<25), 75%. Sumado al medidor lo empeora en
+  todos los plazos (12 meses: 0,962 → 0,949 con 10%). Quedó afuera.
 - **Liquidaciones reales** (OKX, BTC-USDT, la última hora): en "Qué está pasando" y en la campanita cuando hay una
   barrida (2 M USD o más de un lado en 15 min solo en OKX). Sin peso en las probabilidades: no hay historia gratis
   para medir qué pasa después.
