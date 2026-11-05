@@ -1,27 +1,22 @@
-import json, urllib.request, time
-def get(u):
-    try:
-        return json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "analista"}), timeout=20).read())
-    except Exception as e:
-        return {"error": str(e)[:150]}
-DESDE = 1759276800000          # 01/10/2025
-DIA = 86400000
+import json, urllib.request, csv, io
+UA = {"User-Agent": "Mozilla/5.0"}
+def raw(u):
+    return urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=60).read().decode()
 out = {}
-for m in ["BTC", "SOL", "XRP", "ZEC"]:
-    filas = {}
-    t = DESDE
-    while t < time.time() * 1000:
-        j = get(f"https://api.bitget.com/api/v2/mix/market/history-candles?symbol={m}USDT&productType=usdt-futures&granularity=1D&endTime={t + 90 * DIA}&limit=90")
-        for r in (j.get("data") or []):
-            filas[int(r[0])] = r
-        t += 90 * DIA
-    v = sorted(filas.values(), key=lambda r: int(r[0]))
-    if not v: out[m] = "sin datos"; continue
-    lo = min(v, key=lambda r: float(r[3])); hi = max(v, key=lambda r: float(r[2]))
-    # minimos por mes
-    meses = {}
-    for r in v:
-        k = time.strftime("%Y-%m", time.gmtime(int(r[0]) / 1000)); meses[k] = min(meses.get(k, 1e18), float(r[3]))
-    out[m] = {"n": len(v), "desde": time.strftime("%Y-%m-%d", time.gmtime(int(v[0][0]) / 1000)), "hasta": time.strftime("%Y-%m-%d", time.gmtime(int(v[-1][0]) / 1000)),
-              "minimo": [float(lo[3]), time.strftime("%Y-%m-%d", time.gmtime(int(lo[0]) / 1000))], "maximo": [float(hi[2]), time.strftime("%Y-%m-%d", time.gmtime(int(hi[0]) / 1000))], "min_mes": meses}
-print(json.dumps(out, indent=1))
+for nom, sid in (("fred_broad", "DTWEXBGS"), ("fred_major", "DTWEXM"), ("fred_afe", "DTWEXAFEGS")):
+    try:
+        rows = [r for r in csv.reader(io.StringIO(raw(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={sid}")))][1:]
+        out[nom] = [[r[0], float(r[1])] for r in rows if len(r) > 1 and r[1] not in (".", "")]
+    except Exception as e:
+        out[nom] = "error " + str(e)[:150]
+try:
+    j = json.loads(raw("https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB?range=max&interval=1d"))
+    r = j["chart"]["result"][0]; out["yahoo_dxy"] = [[t, c] for t, c in zip(r["timestamp"], r["indicators"]["quote"][0]["close"]) if c]
+except Exception as e:
+    out["yahoo_dxy"] = "error " + str(e)[:150]
+try:
+    rows = list(csv.reader(io.StringIO(raw("https://stooq.com/q/d/l/?s=dx.f&i=d"))))[1:]
+    out["stooq_dxy"] = [[r[0], float(r[4])] for r in rows if len(r) > 4]
+except Exception as e:
+    out["stooq_dxy"] = "error " + str(e)[:150]
+print(json.dumps(out))
