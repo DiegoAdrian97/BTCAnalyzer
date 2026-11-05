@@ -1288,7 +1288,7 @@
   }
   function drawCompras() {
     const sec = document.getElementById('compras'), body = document.getElementById('cmp-body');
-    if (!PLAN_COMPRAS) { sec.hidden = true; return; }
+    if (!PLAN_COMPRAS || ACC_INFO[MON()]) { sec.hidden = true; return; }      // el plan es de criptos: con una accion no se muestra
     sec.hidden = false; body.replaceChildren();
     const mons = [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))];
     mons.forEach((m) => {
@@ -1355,9 +1355,11 @@
     return out;
   }
   window.abPlanEstado = planEstado;
+  // al cambiar de activo: mostrar u ocultar el plan y las posiciones (despues de que app.js cambie window.abMoneda)
+  document.addEventListener('change', (ev) => { if (ev.target && ev.target.id === 'app-moneda-sel') setTimeout(() => { drawCompras(); drawPosiciones(); }, 0); });
   function drawPosiciones() {
     const sec = document.getElementById('posiciones'), body = document.getElementById('pos-body');
-    if (!PLAN_COMPRAS) { sec.hidden = true; return; }
+    if (!PLAN_COMPRAS || ACC_INFO[MON()]) { sec.hidden = true; return; }
     sec.hidden = false; body.replaceChildren();
     const sgn = (x, f = f0) => `${x >= 0 ? '+' : '−'}${f(Math.abs(x))}`;
     [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))].forEach((m) => {
