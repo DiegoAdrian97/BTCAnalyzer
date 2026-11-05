@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        sym: [AAPLUSDT, MSFTUSDT, AMZNUSDT, SPCXUSDT, METAUSDT, TSLAUSDT, QQQUSDT]
+        sym: [SPYUSDT]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
