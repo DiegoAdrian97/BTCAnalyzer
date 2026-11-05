@@ -137,8 +137,9 @@ tiene sus propias fuentes de datos (`fuentes(sym)` en `datos.js`): un pedido de 
 activo a la vista. El activo elegido vive en un solo lugar, `window.abActivo` (`app.js`): `get()`, `set()`,
 `subscribe()` y `listo()`; las partes de la página se suscriben (como un Context de React, sin React).
 
-**Panel de activos**: en el celular, arrastrando desde el borde derecho hacia la izquierda (o con el botón ≡ al lado
-del selector) se abre un panel con todos los activos, su precio y el cambio de 24 h en vivo (un solo WebSocket de
+**Panel de activos** (es el selector: el desplegable ya no se muestra): se abre tocando el botón del activo de arriba
+("Activo BTC · Bitcoin ≡"), la pestaña ‹ del borde derecho o, en el celular, arrastrando desde ese borde hacia la
+izquierda. Es un panel con todos los activos, su precio y el cambio de 24 h en vivo (un solo WebSocket de
 Binance con todos y el de Bitget para MELI; si no llegan, cada 15 s por pedido común). Tocar uno es como elegirlo en el
 desplegable; ✓ marca los que ya tienen su análisis listo. Se cierra deslizando a la derecha, tocando afuera o con ✕, y
 los WebSocket se cierran con él.

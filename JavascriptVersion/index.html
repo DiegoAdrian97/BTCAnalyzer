@@ -31,7 +31,7 @@
 html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }   /* sin zoom por doble toque */
 body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14px var(--font-anthropic-sans); }
 /* abierta desde la pantalla de inicio del iPhone: respeta la isla y la barra de abajo */
-#dash-root { padding-top: max(24px, env(safe-area-inset-top)); padding-bottom: max(40px, calc(env(safe-area-inset-bottom) + 56px));
+#dash-root { padding-top: max(24px, calc(env(safe-area-inset-top) + 22px)); padding-bottom: max(40px, calc(env(safe-area-inset-bottom) + 56px));
   padding-left: max(16px, var(--dash-gutter, 24px), env(safe-area-inset-left)); padding-right: max(16px, var(--dash-gutter, 24px), env(safe-area-inset-right)); }
 #estado-app { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(14px, env(safe-area-inset-bottom)); z-index: 20;
   display: flex; align-items: center; gap: 8px; max-width: min(34rem, calc(100vw - 32px)); padding: 9px 14px; border-radius: 999px;
@@ -44,8 +44,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
-<script>window.AB_PAGINA = "e5629fd57f";</script>
-<script src="app.js?v=a7826c0c28"></script>
+<script>window.AB_PAGINA = "494ef10f91";</script>
+<script src="app.js?v=30a0bfc83f"></script>
 </head><body><div id="dash-root">
 <style>
   /* Tema: minimalista y moderno. Una sola familia tipografica (la del sistema: SF en el iPhone), superficies planas,
@@ -73,6 +73,9 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
      grafico grande con panel de probabilidades al costado, y debajo senales, niveles, ondas, indicadores. */
   /* sin zoom por doble toque en el iPhone (el pellizco sigue andando); el grafico usa sus propios gestos */
   #dash-root { --dash-gutter: clamp(12px, 3vw, 32px); touch-action: manipulation; }
+  /* hidden oculta siempre: las tarjetas tienen display: grid y eso le ganaba al atributo (el plan y las posiciones
+     seguian a la vista en las acciones aunque estuvieran marcadas como ocultas) */
+  #dash-root [hidden] { display: none !important; }
   .ab { --up: var(--color-ok); --down: var(--color-bad); --mute: var(--color-fg-muted); --line: var(--color-border-line);
     --panel: var(--color-panel); --ink: var(--color-fg); --paper: var(--color-bg);
     --serif: var(--font-anthropic-sans); --sans: var(--font-anthropic-sans);
@@ -506,8 +509,17 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   /* panel lateral con todos los activos y su precio en vivo (en el celular se abre deslizando desde el borde derecho) */
   .ab-act-panel { position: fixed; right: 0; top: 0; bottom: 0; z-index: 1003; width: min(340px, 88vw); background: var(--panel);
     border-left: 1px solid var(--line); box-shadow: -12px 0 32px rgba(0, 0, 0, .18); overflow-y: auto; overscroll-behavior: contain;
-    padding: max(14px, env(safe-area-inset-top)) 12px max(14px, env(safe-area-inset-bottom)); transform: translateX(100%); transition: transform .22s ease; }
+    padding: calc(env(safe-area-inset-top) + 14px) 12px max(14px, env(safe-area-inset-bottom)); transform: translateX(100%); transition: transform .22s ease; }
   .ab-act-panel.on { transform: none; }
+  .ab-act-chip { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 14px 6px 16px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--panel); color: inherit; font: inherit; cursor: pointer; }
+  .ab-act-chip b { font-size: 15px; font-weight: 650; } .ab-act-chip svg { color: var(--mute); }
+  .ab-act-chip:hover { background: var(--soft); }
+  /* pestana en el borde derecho: indica que se puede deslizar (y al tocarla abre el panel) */
+  .ab-act-borde { position: fixed; right: 0; top: 40%; z-index: 900; width: 20px; height: 72px; padding: 0; border: 1px solid var(--line);
+    border-right: 0; border-radius: 12px 0 0 12px; background: color-mix(in srgb, var(--panel) 88%, transparent); color: var(--mute);
+    font-size: 20px; line-height: 1; cursor: pointer; box-shadow: -4px 0 14px rgba(0, 0, 0, .12); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  .ab-act-borde span { display: block; transform: translateX(-1px); }
   .ab-act-fondo { position: fixed; inset: 0; z-index: 1002; background: rgba(0, 0, 0, .35); opacity: 0; transition: opacity .2s; }
   .ab-act-fondo.on { opacity: 1; }
   .ab-act-head { display: flex; align-items: center; gap: 8px; margin: 0 2px 4px; }
@@ -744,7 +756,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
             <option value="SPCX">SPCX · SpaceX</option><option value="META">META · Meta</option><option value="TSLA">TSLA · Tesla</option>
             <option value="AMD">AMD · AMD</option><option value="BABA">BABA · Alibaba</option><option value="MELI">MELI · Mercado Libre</option></optgroup>
         </select></label>
-      <button type="button" class="ab-iconbtn ab-round" id="act-btn" aria-label="Ver todos los activos con su precio" title="Todos los activos (en el celular: deslizá desde el borde derecho)" hidden>
+      <button type="button" class="ab-act-chip" id="act-btn" aria-label="Elegir activo" title="Elegir activo (en el celular también: deslizá desde el borde derecho)" hidden>
+        <span class="ab-asset-k">Activo</span><b id="act-chip-t">BTC · Bitcoin</b>
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg></button>
     </div>
     <div class="ab-top-r" id="precio">
@@ -771,6 +784,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       <button type="button" class="ab-iconbtn ab-round" id="nt-m-x" aria-label="Cerrar">✕</button></div>
     <div id="nt-m-body"></div>
   </div>
+  <button type="button" class="ab-act-borde" id="act-borde" aria-label="Abrir la lista de activos" title="Activos" hidden><span aria-hidden="true">‹</span></button>
   <div class="ab-act-fondo" id="act-fondo" hidden></div>
   <aside class="ab-act-panel" id="act-panel" aria-labelledby="act-t" role="dialog" aria-modal="true" hidden>
     <div class="ab-act-head"><h2 id="act-t">Activos</h2><span class="ab-kicker">precio · 24 h · en vivo</span>
@@ -1280,6 +1294,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     const sel = document.getElementById('app-moneda-sel'), lista = document.getElementById('act-list'), btn = document.getElementById('act-btn');
     if (!A || !panel || !sel) return;
     btn.hidden = false;
+    const borde = document.getElementById('act-borde'), chipT = document.getElementById('act-chip-t');
+    borde.hidden = false;
+    const ponerChip = () => { const o = [...sel.options].find((x) => x.value === A.get()); chipT.textContent = o ? o.textContent : A.get(); };
+    ponerChip(); A.subscribe(ponerChip);
+    borde.addEventListener('click', () => abrir());
     const P = {}, filas = {};               // precio y apertura de 24 h de cada activo; la fila de cada uno
     // los grupos y nombres salen del desplegable (asi lo que se agregue ahi aparece aca)
     const grupos = [{ titulo: 'Criptos', items: [] }];
@@ -1345,7 +1364,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       if (abierto()) return;
       // mientras llega el precio en vivo: el del ultimo analisis de cada uno
       A.todos().forEach((m) => { if (!P[m]) { const r = A.precio(m); if (r) { P[m] = r; pintar(m); } } });
-      marcar(); panel.hidden = false; fondo.hidden = false;
+      marcar(); panel.hidden = false; fondo.hidden = false; document.getElementById('act-borde').hidden = true;
       requestAnimationFrame(() => { panel.classList.add('on'); fondo.classList.add('on'); });
       document.body.style.overflow = 'hidden'; conectar();
       const act = filas[A.get()]; if (act) act.b.scrollIntoView({ block: 'nearest' });
@@ -1354,7 +1373,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       if (!abierto()) return;
       panel.classList.remove('on'); fondo.classList.remove('on'); document.body.style.overflow = '';
       desconectar();
-      setTimeout(() => { panel.hidden = true; fondo.hidden = true; }, 230);
+      setTimeout(() => { panel.hidden = true; fondo.hidden = true; document.getElementById('act-borde').hidden = false; }, 230);
     }
     btn.addEventListener('click', abrir);
     document.getElementById('act-x').addEventListener('click', cerrar);

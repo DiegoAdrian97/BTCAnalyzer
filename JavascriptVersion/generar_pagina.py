@@ -42,7 +42,7 @@ SHELL = """<!doctype html>
 html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }   /* sin zoom por doble toque */
 body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14px var(--font-anthropic-sans); }
 /* abierta desde la pantalla de inicio del iPhone: respeta la isla y la barra de abajo */
-#dash-root { padding-top: max(24px, env(safe-area-inset-top)); padding-bottom: max(40px, calc(env(safe-area-inset-bottom) + 56px));
+#dash-root { padding-top: max(24px, calc(env(safe-area-inset-top) + 22px)); padding-bottom: max(40px, calc(env(safe-area-inset-bottom) + 56px));
   padding-left: max(16px, var(--dash-gutter, 24px), env(safe-area-inset-left)); padding-right: max(16px, var(--dash-gutter, 24px), env(safe-area-inset-right)); }
 #estado-app { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(14px, env(safe-area-inset-bottom)); z-index: 20;
   display: flex; align-items: center; gap: 8px; max-width: min(34rem, calc(100vw - 32px)); padding: 9px 14px; border-radius: 999px;

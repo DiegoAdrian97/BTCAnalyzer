@@ -72,9 +72,9 @@
     redraw();
   }
   document.addEventListener('DOMContentLoaded', () => {
+    // el desplegable queda oculto (lo usa el panel lateral para los nombres y grupos); se elige desde el panel
     const sw = document.getElementById('app-moneda');
     if (!sw) return;
-    sw.hidden = false;
     const sel = document.getElementById('app-moneda-sel');
     sel.value = moneda;
     sel.addEventListener('change', () => elegir(sel.value));
