@@ -89,6 +89,7 @@
     META: { prob: [11,  28,  36,  52,  78,  92,  100], veces: [0.75,  1.27,  1.55,  2.13,  3.18,  4.94,  6.39], base: 25 },
     TSLA: { prob: [9,  29,  40,  57,  82,  89,  100], veces: [0.71,  1.37,  1.72,  2.23,  3.48,  4.71,  6.85], base: 25 },
     QQQ: { prob: [5,  15,  25,  50,  61,  61,  50], veces: [0.72,  1.11,  1.35,  2.01,  2.31,  2.5,  2.4], base: 18 },
+    SPY: { prob: [5, 15, 24, 48, 63, 70, 100], veces: [0.77, 1.03, 1.32, 1.94, 2.36, 2.43, 2.33], base: 17 },
     // MELI: velas de Bitget (como analisis_btc.py)
     MELI: { prob: [20, 25, 36, 54, 59, 92, 0], veces: [0.95, 1.36, 1.56, 2.14, 2.68, 4.1, 1.79], base: 28 } };
   function percentil(v, q) {
@@ -101,7 +102,7 @@
   }
   function fase(y) { return y % 4 === 2 ? 'bajista' : `alcista ${(((y - 3) % 4) + 4) % 4 + 1}`; }
   // minimo probable en los proximos 6 meses (como piso de termometro.py)
-  const ACCIONES_PISO = new Set(['BABA', 'NVDA', 'GOOGL', 'AMD', 'AAPL', 'MSFT', 'AMZN', 'SPCX', 'META', 'TSLA', 'QQQ', 'MELI']);
+  const ACCIONES_PISO = new Set(['BABA', 'NVDA', 'GOOGL', 'AMD', 'AAPL', 'MSFT', 'AMZN', 'SPCX', 'META', 'TSLA', 'QQQ', 'SPY', 'MELI']);
   function interpCdf(x, xs, ys) {
     if (x <= xs[0]) return 0;
     if (x >= xs[xs.length - 1]) return 1;

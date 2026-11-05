@@ -44,8 +44,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
-<script>window.AB_PAGINA = "8a8b7d4cb6";</script>
-<script src="app.js?v=4464ce8a3f"></script>
+<script>window.AB_PAGINA = "a0230ac18b";</script>
+<script src="app.js?v=e6760af0c9"></script>
 </head><body><div id="dash-root">
 <style>
   /* Tema: minimalista y moderno. Una sola familia tipografica (la del sistema: SF en el iPhone), superficies planas,
@@ -738,7 +738,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
         <select id="app-moneda-sel" aria-label="Activo que se analiza">
           <option value="BTC">BTC · Bitcoin</option><option value="ZEC">ZEC · Zcash</option><option value="SOL">SOL · Solana</option>
           <option value="XRP">XRP · Ripple</option>
-          <optgroup label="Índice (perpetuo)"><option value="QQQ">QQQ · Nasdaq 100</option></optgroup>
+          <optgroup label="Índices (perpetuos)"><option value="SPY">SPY · S&amp;P 500</option><option value="QQQ">QQQ · Nasdaq 100</option></optgroup>
           <optgroup label="Acciones (perpetuos)"><option value="AAPL">AAPL · Apple</option><option value="NVDA">NVDA · Nvidia</option>
             <option value="MSFT">MSFT · Microsoft</option><option value="GOOGL">GOOGL · Alphabet (Google)</option><option value="AMZN">AMZN · Amazon</option>
             <option value="SPCX">SPCX · SpaceX</option><option value="META">META · Meta</option><option value="TSLA">TSLA · Tesla</option>
@@ -1430,7 +1430,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   // Cuando hay una suba o baja fuerte junta lo que coincide en el tiempo: liquidaciones o dinero nuevo en futuros,
   // compras o ventas a mercado, compras desde EE.UU. (prima de Coinbase), entradas o salidas de los ETF y las noticias
   // de esas horas (guerras, la Fed, aranceles, hackeos...). Son coincidencias, no pruebas de la causa.
-  const TEMA_ORDEN = ['Hackeo de exchange', 'Fed y tasas', 'Guerras grandes', 'Gobierno de EE.UU.', 'Grandes gobiernos', 'ETF', 'Hackeo o quiebra', 'Alibaba', 'Nvidia', 'Alphabet', 'AMD', 'Apple', 'Microsoft', 'Amazon', 'SpaceX', 'Meta', 'Tesla', 'Nasdaq 100', 'Mercado Libre', 'China', 'Economía de EE.UU.', 'Latinoamérica', 'Chips e IA', 'IA y tecnología', 'Grandes tecnológicas', 'Autos eléctricos', 'Espacio y defensa', 'Mercado bursátil', 'Cripto'];
+  const TEMA_ORDEN = ['Hackeo de exchange', 'Fed y tasas', 'Guerras grandes', 'Gobierno de EE.UU.', 'Grandes gobiernos', 'ETF', 'Hackeo o quiebra', 'Alibaba', 'Nvidia', 'Alphabet', 'AMD', 'Apple', 'Microsoft', 'Amazon', 'SpaceX', 'Meta', 'Tesla', 'Nasdaq 100', 'S&P 500', 'Mercado Libre', 'China', 'Economía de EE.UU.', 'Latinoamérica', 'Chips e IA', 'IA y tecnología', 'Grandes tecnológicas', 'Autos eléctricos', 'Espacio y defensa', 'Mercado bursátil', 'Cripto'];
   // acciones (perpetuos): de donde salen sus noticias y desde cuando hay velas
   const ACC_INFO = { BABA: ['Alibaba, China, Wall Street y Hang Seng', 'Binance', 'mediados de 2026'], NVDA: ['Nvidia, chips e IA, economía de EE.UU. y Wall Street', 'Binance', '2026'],
     GOOGL: ['Alphabet/Google, IA y tecnología, economía de EE.UU. y Wall Street', 'Binance', '2026'], AMD: ['AMD, chips e IA, economía de EE.UU. y Wall Street', 'Binance', '2026'],
@@ -1438,6 +1438,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     AMZN: ['Amazon (y AWS), IA y tecnología, economía de EE.UU. y Wall Street', 'Binance', 'febrero de 2026'], SPCX: ['SpaceX y Starlink, espacio y defensa, economía de EE.UU. y Wall Street', 'Binance', 'mayo de 2026'],
     META: ['Meta (Facebook, Instagram, WhatsApp), IA y tecnología, economía de EE.UU. y Wall Street', 'Binance', 'marzo de 2026'], TSLA: ['Tesla y Elon Musk, autos eléctricos, economía de EE.UU. y Wall Street', 'Binance', 'enero de 2026'],
     QQQ: ['el Nasdaq, las grandes tecnológicas, la economía de EE.UU. y Wall Street', 'Binance', 'abril de 2026'],
+    SPY: ['el S&P 500, las grandes tecnológicas, la economía de EE.UU. y Wall Street', 'Binance', 'abril de 2026'],
     MELI: ['Mercado Libre, Latinoamérica (Brasil, Argentina, México) y Wall Street', 'Bitget', 'agosto de 2026'] };
   const haceTxt = (t) => {
     const m = Math.max(0, Math.round((Date.now() - t) / 60000));

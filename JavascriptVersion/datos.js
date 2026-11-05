@@ -14,7 +14,7 @@
   const BYBIT_TF = { '5m': '5', '15m': '15', '30m': '30', '1h': '60', '4h': '240', '1d': 'D' };
   // lo que no cotiza en Binance (MELI): velas de Bitget, que si deja leer desde el telefono
   const SOLO_BITGET = new Set(['MELIUSDT']);
-  const ACCIONES_APP = new Set(['BABAUSDT', 'NVDAUSDT', 'GOOGLUSDT', 'AMDUSDT', 'AAPLUSDT', 'MSFTUSDT', 'AMZNUSDT', 'SPCXUSDT', 'METAUSDT', 'TSLAUSDT', 'QQQUSDT', 'MELIUSDT']);
+  const ACCIONES_APP = new Set(['BABAUSDT', 'NVDAUSDT', 'GOOGLUSDT', 'AMDUSDT', 'AAPLUSDT', 'MSFTUSDT', 'AMZNUSDT', 'SPCXUSDT', 'METAUSDT', 'TSLAUSDT', 'QQQUSDT', 'SPYUSDT', 'MELIUSDT']);
   const BITGET_TF = { '5m': '5m', '15m': '15m', '30m': '30m', '1h': '1H', '4h': '4H', '1d': '1D' };
   const bitgetVelas = (d) => (d || []).map((r) => [+r[0], +r[1], +r[2], +r[3], +r[4], +r[5]]).sort((a, b) => a[0] - b[0]);
   const banned = {};      // exchange -> hasta cuando (ms) no se le pide nada

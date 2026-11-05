@@ -147,7 +147,7 @@ los WebSocket se cierran con él.
 `generar_pagina.py` escribe la huella de la página en `version.txt` y en la página; al volver a la app (y cada 5 min)
 se comparan y, si cambió, se recarga.
 
-### Acciones en la app: AAPL, NVDA, MSFT, GOOGL, AMZN, SPCX, META, TSLA, AMD, BABA, MELI y el índice QQQ
+### Acciones en la app: AAPL, NVDA, MSFT, GOOGL, AMZN, SPCX, META, TSLA, AMD, BABA, MELI y los índices SPY y QQQ
 
 Los perpetuos de acciones (`BABAUSDT`, `NVDAUSDT`, `GOOGLUSDT`, `AMDUSDT` en Binance; `MELIUSDT` solo en Bitget) se
 analizan en la app como una cripto más: mismas velas, indicadores, patrones, predicciones con su propio repaso,
@@ -156,7 +156,9 @@ escenarios, libros, open interest, long/short, funding, flujo, mapa de liquidaci
 seguido que BTC, por la apertura de Wall Street). Se eligen en el desplegable, bajo "Acciones (perpetuos)".
 
 Las del Nasdaq (AAPL, MSFT, AMZN, SPCX, META, TSLA) y QQQ (el Nasdaq 100) cotizan en futuros de Binance desde enero–mayo
-de 2026; tienen todo lo de NVDA y GOOGL. QQQ sigue al índice entero: tiene menos movimientos fuertes (prob. base 18%).
+de 2026; tienen todo lo de NVDA y GOOGL. QQQ y SPY (el S&P 500, desde abril de 2026) siguen al índice entero: tienen
+menos movimientos fuertes (prob. base 18% y 17%). El Dow Jones no está: su único perpetuo (DIASTOCKUSDT en Bitget) mueve
+~15.000 USDT por día, demasiado poco para leerlo (DIAUSDT de Binance es otra cosa, una cripto).
 
 Noticias propias de cada una (nada de cripto; el calendario de EE.UU. sigue aparte):
 - **BABA**: Alibaba, China (economía, gobierno, regulación, estímulos, yuan, Hong Kong) y la bolsa (Wall Street, Hang Seng).
@@ -167,7 +169,7 @@ Noticias propias de cada una (nada de cripto; el calendario de EE.UU. sigue apar
   En META, "meta" sola no cuenta (en castellano es "objetivo": "la meta de inflación").
 - **SPCX**: SpaceX, Starlink y Starship (y Elon Musk), espacio y defensa (contratos del Pentágono, NASA), EE.UU. y la bolsa.
 - **TSLA**: Tesla y Elon Musk, autos eléctricos y robotaxis (BYD, Rivian, Waymo como rivales), EE.UU. y la bolsa.
-- **QQQ**: el Nasdaq, las grandes tecnológicas (las 7 magníficas), economía de EE.UU. y la bolsa.
+- **QQQ** y **SPY**: el Nasdaq o el S&P 500, las grandes tecnológicas (las 7 magníficas), economía de EE.UU. y la bolsa.
 
 Cada titular se marca bueno o malo **para esa acción**: se corta lo que viene después de "pese a"/"despite", manda lo que
 le pasa a la empresa (gana un juicio, supera estimaciones, sube la guía, recompra, contrato = bueno; multa, demanda,
@@ -175,7 +177,7 @@ investigación, controles de exportación, baja de recomendación, renuncia del 
 sentido cuando subir es malo (inflación, tasas, rendimientos, dólar, desempleo, riesgo país, aranceles, petróleo). Si el
 titular habla primero de un rival, cuenta como neutro. Las mismas reglas valen para BTC (aprobaciones, recortes de
 impuestos, compras, reservas, entradas a ETF = bueno). Python y la app comparten las reglas (`generar_reglas.py` las copia
-a `api/contexto.js`) y `pruebas/sesgo.py` las prueba con 138 titulares reales en ambos lenguajes.
+a `api/contexto.js`) y `pruebas/sesgo.py` las prueba con 142 titulares reales en ambos lenguajes.
 
 No aplica: termómetro (el ciclo de 4 años y el MVRV/Puell son de BTC), Fear & Greed, ETF de BTC, prima de Coinbase,
 opciones de Deribit, liquidaciones reales de OKX y el modelo de movimiento fuerte (entrenado con BTC: usan su tabla
