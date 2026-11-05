@@ -141,6 +141,15 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 
   /* secciones plegables */
   .ab-more-list { display: grid; gap: var(--cds-gap-sm); }
+  /* noticias de "Que esta pasando": cerradas hasta que se toca */
+  .ab-qp-drop { border: 1px solid var(--line); border-radius: 12px; margin: 6px 0; }
+  .ab-qp-drop > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; padding: 10px 12px; min-height: 44px; }
+  .ab-qp-drop > summary::-webkit-details-marker { display: none; }
+  .ab-qp-drop > summary:hover { background: var(--soft); border-radius: 12px; }
+  .ab-qp-drop .ab-qp-cnt { font-size: 12px; color: var(--mute); font-weight: 600; }
+  .ab-qp-car { margin-left: auto; width: 8px; height: 8px; border-right: 2px solid var(--mute); border-bottom: 2px solid var(--mute); transform: rotate(45deg); transition: transform .2s; }
+  .ab-qp-drop[open] .ab-qp-car { transform: rotate(-135deg); }
+  .ab-qp-drop > .ab-qp-news { padding: 0 12px 10px; }
   .ab-more { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
   .ab-more summary:hover { background: var(--soft); border-radius: 14px; }
   .ab-more summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 12px;
@@ -757,8 +766,10 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     <p class="ab-qp-sum" id="qp-sum"></p>
     <ul class="ab-qp-list" id="qp-fact"></ul>
     <p class="ab-qp-clima" id="qp-clima"></p>
-    <span class="ab-kicker" id="qp-news-t">Noticias</span>
-    <div class="ab-qp-news" id="qp-news"></div>
+    <details class="ab-qp-drop" id="qp-news-box">
+      <summary><span class="ab-kicker" id="qp-news-t">Noticias</span><b class="ab-qp-cnt" id="qp-news-n"></b><i class="ab-qp-car" aria-hidden="true"></i></summary>
+      <div class="ab-qp-news" id="qp-news"></div>
+    </details>
     <p class="ab-note" id="qp-note"></p>
   </section>
 
@@ -1942,6 +1953,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     }
     const nb = document.getElementById('qp-news'); nb.replaceChildren();
     document.getElementById('qp-news-t').textContent = strong ? `Noticias de esas horas` : 'Noticias de las últimas 24 h';
+    document.getElementById('qp-news-n').textContent = rel.length ? `${rel.length}` : '';
     if (!rel.length) nb.append(el('p', 'ab-note', news.length ? 'Sin noticias relevantes en esas horas.' : 'No se pudieron leer las noticias ahora.'));
     rel.forEach((n) => {
       const a = el('a', 'ab-qp-n'); a.href = n.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
