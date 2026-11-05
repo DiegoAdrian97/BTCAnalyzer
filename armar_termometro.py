@@ -83,7 +83,32 @@ def piso_modelo(series):
         ok2 = ok & np.isfinite(vol); zs.append(y[ok2] / vol[ok2])
         vol_hoy[m] = round(float(vol[-1]), 6)
     z = [round(float(x), 6) for x in np.quantile(np.concatenate(zs), PISO_GRID)]
-    return {"dias": PISO_H, "grid": PISO_GRID, "z": z, "own": own, "vol": vol_hoy}
+    return {"dias": PISO_H, "grid": PISO_GRID, "z": z, "own": own, "vol": vol_hoy, "analogos": analogos(series)}
+
+
+def analogos(series):
+    """Para comparar con años anteriores (bajistas y alcistas): cuanto cayo cada moneda en los 180 dias siguientes a
+    cada fecha del año (cada 7 dias). No entra en las probabilidades: separar año bajista, semestre o mes no mejoro en
+    los dos tramos (2019-22 mejora con el año bajista; 2023-26 empeora)."""
+    import datetime as dt
+    out = {}
+    for m, rows in series.items():
+        rows = [r for r in rows if r[0] >= PISO_DESDE.get(m, 0)]
+        dia = {int(r[0] // 86400000): k for k, r in enumerate(rows)}
+        lo = [r[3] for r in rows]; c = [r[4] for r in rows]; n = len(rows); a = {}
+        for y in range(dt.datetime.fromtimestamp(rows[0][0] / 1000, dt.timezone.utc).year, 2100):
+            base = int(dt.datetime(y, 1, 1, tzinfo=dt.timezone.utc).timestamp() // 86400)
+            fila = []
+            for doy in range(1, 367, 7):
+                i = dia.get(base + doy - 1)
+                if i is not None and i + PISO_H < n:
+                    fila.append([doy, round((min(lo[i + 1:i + 1 + PISO_H]) / c[i] - 1) * 100, 1)])
+            if fila:
+                a[str(y)] = fila
+            if base * 86400000 > rows[-1][0]:
+                break
+        out[m] = a
+    return out
 
 
 def X_ciclo(años, avance):

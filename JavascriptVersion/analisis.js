@@ -19,7 +19,7 @@
   // temporalidad: [dias de historia, horizontes de probabilidad en velas]
   const TIMEFRAMES = { '5m': [30, [3, 12]], '15m': [90, [4, 16]], '30m': [180, [4, 16]], '1h': [365, [4, 24]], '4h': [730, [3, 6]], '1d': [1500, [3, 7]] };
   const TF_MS = { '5m': 300000, '15m': 900000, '30m': 1800000, '1h': 3600000, '4h': 14400000, '1d': 86400000 };
-  const TF_TXT = { '5m': '5 min', '15m': '15 min', '30m': '30 min', '1h': '1 hora', '4h': '4 horas', '1d': 'diario' };
+  const TF_TXT = { '5m': '5 min', '15m': '15 min', '30m': '30 min', '1h': '1 hora', '4h': '4 horas', '1d': 'diario', '1w': 'semanal', '1M': 'mensual' };
   const NICE_STEPS = [];      // como en Python: 1, 2,5 y 5 por cada potencia de 10
   for (let k = -4; k < 6; k++) for (const m of [1, 2.5, 5]) NICE_STEPS.push(m * 10 ** k);
 
@@ -108,7 +108,7 @@
     return own ? 0.5 * pz + 0.5 * interpCdf(x, own, P.grid) : pz;
   }
   const decPiso = (v) => (v >= 1000 ? 0 : v >= 10 ? 2 : 4);
-  function piso(moneda, closesD, price, T) {
+  function piso(moneda, closesD, price, T, nowMs = Date.now()) {
     const P = T && T.piso;
     if (!P || price <= 0 || closesD.length < 366) return null;
     const lr = []; for (let i = closesD.length - 365; i < closesD.length; i++) lr.push(Math.log(closesD[i] / closesD[i - 1]));
@@ -122,8 +122,21 @@
       const v = price * Math.exp((lo + hi) / 2);
       return [conf, rnd(v, decPiso(v))];
     });
-    return { tabla: 'piso', moneda, dias: P.dias, precio: price, vol: rnd(vol * 100, 1), niveles,
-      modelo: { grid: P.grid, z: P.z, own: P.own, vol: { ...P.vol, [moneda]: rnd(vol, 6) } } };
+    // años anteriores desde esta misma fecha (bajistas y alcistas): cuanto cayo en los 180 dias siguientes
+    const d = new Date(nowMs), doy = Math.floor((Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - Date.UTC(d.getUTCFullYear(), 0, 1)) / 86400000) + 1;
+    const anterioresDe = (m) => {
+      const out = [];
+      Object.keys((P.analogos || {})[m] || {}).sort().forEach((y) => {
+        const fila = P.analogos[m][y];
+        let mejor = fila[0]; fila.forEach((e) => { if (Math.abs(e[0] - doy) < Math.abs(mejor[0] - doy)) mejor = e; });
+        if (Math.abs(mejor[0] - doy) <= 4) out.push([+y, fase(+y), mejor[1]]);
+      });
+      return out;
+    };
+    const todas = {}; Object.keys(P.analogos || {}).sort().forEach((m) => { todas[m] = anterioresDe(m); });
+    const anteriores = todas[moneda] || [];
+    return { tabla: 'piso', moneda, dias: P.dias, precio: price, vol: rnd(vol * 100, 1), niveles, anteriores,
+      modelo: { grid: P.grid, z: P.z, own: P.own, vol: { ...P.vol, [moneda]: rnd(vol, 6) }, anteriores: todas } };
   }
   /** Medidor de XRP o SOL (como termometro_alt de termometro.py): su barato o caro y el ciclo de BTC. */
   function termometroAlt(moneda, velasD, price, T, nowMs = Date.now()) {
@@ -691,6 +704,53 @@
   [1, 2, 3, 4, 5].forEach((k) => ['t', 'p', 'nombre'].forEach((f) => { NO_LINES[`pt${k}_${f}`] = null; }));
 
   /** Patron de velas en las ultimas dos velas (con su historial de aciertos) y figura del grafico vigente. */
+  // Velas semanales y mensuales armadas con las diarias (como velas_largas / analisis_largo de analisis_btc.py).
+  // Llevan grafico, indicadores, giros, Elliott, FVG, patrones y divergencias; no prediccion (pocas velas para repasarla).
+  const TF_LARGOS = { '1w': 7 * 1440, '1M': 30 * 1440 };
+  function inicioLargo(t, tf) {
+    const k = Math.floor(t / 86400000);
+    if (tf === '1w') return (k - ((k + 3) % 7)) * 86400000;
+    const d = new Date(t); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
+  }
+  function velasLargas(d1, tf, ultimaEnCurso = false) {
+    let grupos = [];
+    d1.forEach((b) => {
+      const k = inicioLargo(b[0], tf), g = grupos[grupos.length - 1];
+      if (g && g[0] === k) { g[2] = Math.max(g[2], b[2]); g[3] = Math.min(g[3], b[3]); g[4] = b[4]; g[5] += b[5]; }
+      else grupos.push([k, b[1], b[2], b[3], b[4], b[5], b[0]]);
+    });
+    if (grupos.length && grupos[0][6] > grupos[0][0]) grupos = grupos.slice(1);
+    if (!grupos.length) return [[], false];
+    const ult = grupos[grupos.length - 1][0], sig = inicioLargo(ult + (tf === '1M' ? 32 : 7) * 86400000, tf);
+    return [grupos.map((g) => g.slice(0, 6)), ultimaEnCurso || sig > d1[d1.length - 1][0] + 86400000];
+  }
+  function analisisLargo(d1, tf, price, ultimaEnCurso = false) {
+    const [bars, partial] = velasLargas(d1, tf, ultimaEnCurso);
+    if (bars.length < 30) return [];
+    const tfMin = TF_LARGOS[tf], closes = bars.map((b) => b[4]);
+    const [indRows, summary, overlays] = Ind.calificar(bars);
+    const e20 = Ind.ema(closes, 20), e50 = Ind.ema(closes, 50), e200 = Ind.ema(closes, 200);
+    const rsi = Ind.rsi(closes), [ml, ms, mh] = Ind.macd(closes), i = bars.length - 1;
+    const reg = Apr.regimenes(bars, e200), pivots = Ind.zigzag(bars);
+    const [waveLabels, waveDesc, waveTarget, waveNow, waveShort] = Ind.elliott(pivots, bars);
+    const cross = [i, i - 1].map((k) => (mh[k] > 0 && mh[k - 1] <= 0 ? 'alcista' : mh[k] < 0 && mh[k - 1] >= 0 ? 'bajista' : null)).find((x) => x) || null;
+    const rows = [{ tabla: 'marco', tf, tendencia: trendWord(closes[i], e20[i], e50[i], e200[i]), ...summary, macd_cruce: cross, ema50: rp(e50[i]),
+      ema200: bars.length >= 200 ? rp(e200[i]) : null, similares: 0, criterio: '', elliott: waveDesc, elliott_objetivo: rp(waveTarget), elliott_curso: waveNow,
+      elliott_corto: waveShort, regimen: reg[i] === null ? null : Apr.REGIMENES[reg[i]], velas: bars.length, sin_prediccion: true }];
+    indRows.forEach((r) => rows.push({ tabla: 'indicador', tf, ...r }));
+    const tail = pivots.slice(-10), offset = tail.length - waveLabels.length;
+    tail.forEach(([kind, k, p], n) => rows.push({ tabla: 'giro', tf, t: bars[k][0], precio: rp(p), tipo: kind, onda: n >= offset ? waveLabels[n - offset] : '', en_curso: n === tail.length - 1 }));
+    Ind.fvg(bars).forEach((z) => rows.push({ tabla: 'fvg', tf, tipo: z.tipo, t: z.t, bajo: rp(z.bajo), alto: rp(z.alto) }));
+    patterns(tf, bars, pivots, e20, 3, tfMin, partial).forEach((r) => rows.push(r));
+    Ind.divergencias(bars, pivots).forEach((d) => rows.push({ tabla: 'divergencia', tf, ...d, p1: rp(d.p1), p2: rp(d.p2) }));
+    for (let k = Math.max(0, i - CHART_BARS + 1); k <= i; k++) {
+      const [t, o, h, l, c, v] = bars[k];
+      rows.push({ tabla: 'vela', tf, t, o, h, l, c, v: rnd(v, 2), en_curso: partial && k === i,
+        ema20: rp(overlays.ema20[k]), ema50: rp(overlays.ema50[k]), bb_up: rp(overlays.bb_up[k]), bb_lo: rp(overlays.bb_lo[k]),
+        rsi: rnd(rsi[k], 1), macd: rnd(ml[k], decPrecio(price) + 1), macd_senal: rnd(ms[k], decPrecio(price) + 1), macd_hist: rnd(mh[k], decPrecio(price) + 1) });
+    }
+    return rows;
+  }
   function patterns(tf, bars, pivots, e20, horizon, tfMin, partial) {
     const o = bars.map((b) => b[1]), h = bars.map((b) => b[2]), l = bars.map((b) => b[3]), c = bars.map((b) => b[4]);
     const atr = Ind.dmi(h, l, c)[3];
@@ -969,6 +1029,8 @@
       }
     });
 
+    Object.keys(TF_LARGOS).forEach((tf) => analisisLargo(full['1d'], tf, price, full['1d'].length > candles['1d'].length).forEach((r) => rows.push(r)));   // semanal y mensual
+
     // una prediccion por plazo, cada una con la temporalidad que mas casos tiene para ese plazo
     PLAZOS.forEach(([name, tf, h]) => {
       const fit = tune(tf, series[tf], h);
@@ -1069,7 +1131,7 @@
       if (tm) rows.push(tm);
     }
     if (root.TERMOMETRO && root.TERMOMETRO.piso && !ACCIONES_PISO.has(input.moneda || 'BTC')) {   // minimo probable a 6 meses
-      const pi = piso(input.moneda || 'BTC', candles['1d'].map((b) => b[4]), price, root.TERMOMETRO);
+      const pi = piso(input.moneda || 'BTC', candles['1d'].map((b) => b[4]), price, root.TERMOMETRO, now);
       if (pi) rows.push(pi);
     }
     const lado = coinciden(rows);
@@ -1085,7 +1147,7 @@
     return { rows, log };
   }
 
-  const Analisis = { piso, pisoProb, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, liqReales };
+  const Analisis = { piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, liqReales };
   root.Analisis = Analisis;
   if (typeof module !== 'undefined' && module.exports) module.exports = Analisis;
 })(typeof self !== 'undefined' ? self : globalThis);

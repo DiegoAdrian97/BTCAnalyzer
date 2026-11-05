@@ -929,9 +929,82 @@ def liquidation_map_bybit(h1, hours=168):
     return ind.mapa_liquidaciones(price_by_hour, oi[-hours:], ls, after)
 
 
-TF_TXT = {"5m": "5 min", "15m": "15 min", "30m": "30 min", "1h": "1 hora", "4h": "4 horas", "1d": "diario"}
+TF_TXT = {"5m": "5 min", "15m": "15 min", "30m": "30 min", "1h": "1 hora", "4h": "4 horas", "1d": "diario", "1w": "semanal", "1M": "mensual"}
 NO_LINES = {"l1_t": None, "l1_p": None, "l1_m": None, "l1_nombre": None, "l2_t": None, "l2_p": None, "l2_m": None,
             "l2_nombre": None, **{f"pt{k}_{f}": None for k in (1, 2, 3, 4, 5) for f in ("t", "p", "nombre")}}
+
+
+# Velas semanales y mensuales: se arman con las diarias (1.500 dias: ~214 semanas y ~49 meses). Llevan grafico,
+# indicadores, giros, Elliott, FVG, patrones y divergencias; no prediccion: hay pocas velas para repasarla.
+TF_LARGOS = {"1w": 7 * 1440, "1M": 30 * 1440}
+
+
+def _inicio_largo(t, tf):
+    """Inicio (ms, UTC) de la semana (lunes, como Binance) o del mes que contiene t."""
+    k = t // 86_400_000
+    if tf == "1w":
+        return (k - (k + 3) % 7) * 86_400_000
+    d = datetime.fromtimestamp(t / 1000, tz=timezone.utc)
+    return int(datetime(d.year, d.month, 1, tzinfo=timezone.utc).timestamp() * 1000)
+
+
+def velas_largas(d1, tf, ultima_en_curso=False):
+    """Velas semanales ('1w') o mensuales ('1M') con las diarias [t, o, h, l, c, v]. Se descarta la primera si empieza
+    a mitad del periodo. Devuelve (velas, la ultima esta en curso)."""
+    grupos = []
+    for b in d1:
+        k = _inicio_largo(b[0], tf)
+        if grupos and grupos[-1][0] == k:
+            g = grupos[-1]
+            g[2], g[3], g[4], g[5] = max(g[2], b[2]), min(g[3], b[3]), b[4], g[5] + b[5]
+        else:
+            grupos.append([k, b[1], b[2], b[3], b[4], b[5], b[0]])
+    if grupos and grupos[0][6] > grupos[0][0]:
+        grupos = grupos[1:]
+    if not grupos:
+        return [], False
+    siguiente = _inicio_largo(grupos[-1][0] + 32 * 86_400_000 if tf == "1M" else grupos[-1][0] + 7 * 86_400_000, tf)
+    en_curso = ultima_en_curso or siguiente > d1[-1][0] + 86_400_000
+    return [g[:6] for g in grupos], en_curso
+
+
+def analisis_largo(d1, tf, price, ultima_en_curso=False):
+    """Filas del grafico y del analisis tecnico semanal o mensual (sin prediccion)."""
+    bars, partial = velas_largas(d1, tf, ultima_en_curso)
+    if len(bars) < 30:
+        return []
+    tf_min = TF_LARGOS[tf]
+    closes = [b[4] for b in bars]
+    ind_rows, summary, overlays = ind.calificar(bars)
+    e20, e50, e200 = ind.ema(closes, 20), ind.ema(closes, 50), ind.ema(closes, 200)
+    rsi = ind.rsi(closes)
+    ml, ms, mh = ind.macd(closes)
+    i = len(bars) - 1
+    reg = apr.regimenes(bars, e200)
+    pivots = ind.zigzag(bars)
+    wave_labels, wave_desc, wave_target, wave_now, wave_short = ind.elliott(pivots, bars)
+    crosses = ("alcista" if mh[k] > 0 and mh[k - 1] <= 0 else "bajista" if mh[k] < 0 and mh[k - 1] >= 0 else None for k in (i, i - 1))
+    rows = [{"tabla": "marco", "tf": tf, "tendencia": trend_word(closes[i], e20[i], e50[i], e200[i]), **summary,
+             "macd_cruce": next((x for x in crosses if x), None), "ema50": rp(e50[i]), "ema200": rp(e200[i]) if len(bars) >= 200 else None,
+             "similares": 0, "criterio": "", "elliott": wave_desc, "elliott_objetivo": rp(wave_target), "elliott_curso": wave_now,
+             "elliott_corto": wave_short, "regimen": None if reg[i] is None else apr.REGIMENES[reg[i]], "velas": len(bars), "sin_prediccion": True}]
+    rows += [{"tabla": "indicador", "tf": tf, **r} for r in ind_rows]
+    tail = pivots[-10:]
+    offset = len(tail) - len(wave_labels)
+    for n, (kind, k, p) in enumerate(tail):
+        rows.append({"tabla": "giro", "tf": tf, "t": bars[k][0], "precio": rp(p), "tipo": kind,
+                     "onda": wave_labels[n - offset] if n >= offset else "", "en_curso": n == len(tail) - 1})
+    rows += [{"tabla": "fvg", "tf": tf, "tipo": z["tipo"], "t": z["t"], "bajo": rp(z["bajo"]), "alto": rp(z["alto"])} for z in ind.fvg(bars)]
+    rows += patterns(tf, bars, pivots, e20, 3, tf_min, partial)
+    rows += [{"tabla": "divergencia", "tf": tf, **d, "p1": rp(d["p1"]), "p2": rp(d["p2"])} for d in ind.divergencias(bars, pivots)]
+    for k in range(max(0, i - CHART_BARS + 1), i + 1):
+        t, o_, h_, l_, c_, v_ = bars[k]
+        rows.append({"tabla": "vela", "tf": tf, "t": t, "o": o_, "h": h_, "l": l_, "c": c_, "v": round(v_, 2), "en_curso": partial and k == i,
+                     "ema20": rp(overlays["ema20"][k]), "ema50": rp(overlays["ema50"][k]), "bb_up": rp(overlays["bb_up"][k]),
+                     "bb_lo": rp(overlays["bb_lo"][k]), "rsi": None if rsi[k] is None else round(rsi[k], 1),
+                     "macd": round(ml[k], dec_precio(price) + 1), "macd_senal": round(ms[k], dec_precio(price) + 1),
+                     "macd_hist": round(mh[k], dec_precio(price) + 1)})
+    return rows
 
 
 def patterns(tf, bars, pivots, e20, horizon, tf_min, partial=False):
@@ -1291,6 +1364,9 @@ def analyze():
                          "rsi": None if rsi[k] is None else round(rsi[k], 1), "macd": round(ml[k], dec_precio(price) + 1),
                          "macd_senal": round(ms[k], dec_precio(price) + 1), "macd_hist": round(mh[k], dec_precio(price) + 1)})
 
+    for tf in TF_LARGOS:                  # semanal y mensual con las diarias (sin prediccion)
+        rows += analisis_largo(full["1d"], tf, price, len(full["1d"]) > len(candles["1d"]))
+
     # una prediccion por plazo, cada una con la temporalidad que mas casos tiene para ese plazo
     for name, tf, h, *_ in PLAZOS:
         fit = tune(tf, series[tf], h)
@@ -1398,7 +1474,7 @@ def analyze():
     except Exception as e:
         print(f"(termometro no disponible: {type(e).__name__}: {e})")
     try:                                   # minimo probable en los proximos 6 meses (termometro.piso)
-        pi = termometro.piso("BTC", [b[4] for b in candles["1d"]], price)
+        pi = termometro.piso("BTC", [b[4] for b in candles["1d"]], price, now_ms=now_ms)
         if pi:
             rows.append(pi)
     except Exception as e:

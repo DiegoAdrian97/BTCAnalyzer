@@ -89,12 +89,24 @@ en silencio: así un reinicio de Render no la pierde. No lo borres.
   anticipa. AUC de que BTC suba entre 0,40 y 0,48 de 1 a 365 días (2019–26; menos de 0,5 es al revés). Su zona de
   "acumulación" (>80) subió 6% de las veces a 90 días y la de "distribución" (<25), 75%. Sumado al medidor lo empeora en
   todos los plazos (12 meses: 0,962 → 0,949 con 10%). Quedó afuera.
+- **Otros indicadores de ciclo** (noviembre 2026, mismo método, sumados al "barato o caro"): MVRV Z, múltiplo de Mayer
+  (200 días), media de 2 años, Pi Cycle, ley de potencia, Thermocap, Metcalfe (direcciones activas), hash price y
+  volatilidad de 90 días; y en el ciclo, los días desde el máximo y la ley de potencia. Ninguno mejoró en 2019–22 y en
+  2023–26 a la vez (los mejores: +0,01 en un tramo y −0,01 en el otro). El medidor ya separa 0,96–0,99 a 12 meses:
+  quedan afuera.
 - **Liquidaciones reales** (OKX, BTC-USDT, la última hora): en "Qué está pasando" y en la campanita cuando hay una
   barrida (2 M USD o más de un lado en 15 min solo en OKX). Sin peso en las probabilidades: no hay historia gratis
   para medir qué pasa después.
 - **Calibración:** las predicciones del repaso ya salen calibradas (lo que dice 60% pasa ~56–60%; error medio 0,5–1,5
   puntos en 2020–2026). Corregirlas aparte no mejoró fuera de muestra, así que solo se muestra el gráfico "¿Las
   probabilidades son honestas?" en "Cómo viene aprendiendo".
+
+### Velas semanales y mensuales
+
+Botones **1S** y **1M** en el gráfico, para todos los activos: se arman con las 1.500 velas diarias (~214 semanas y ~49
+meses; la semana empieza el lunes, como en Binance) y se actualizan en vivo. Tienen indicadores, sesgo técnico, giros,
+Elliott, FVG, patrones y divergencias, pero no predicción ni escenarios: con tan pocas velas no se puede repasar si
+acertaría. En la mensual, la EMA de 200 no se muestra (hacen falta 200 meses).
 
 ### Fibonacci
 
@@ -248,6 +260,13 @@ en 2023–26; el del 95%, 5,0% y 0,8%; el del 80%, 22% y 19%. Con BTC solo: 8% (
 historia sola, la volatilidad de 90 o 180 días, el estado del termómetro y una regresión por cuantiles (se sobreajusta):
 esta mezcla fue la más pareja en los dos tramos. No sabe si "los mínimos ya pasaron": mide cuánto suele caer cada una
 en 6 meses. `armar_termometro.py` lo rehace cada semana (`piso` en `termometro.json`).
+
+**Comparado con años anteriores** (desde la misma fecha, el mínimo de los 6 meses siguientes, cada año y su fase del
+ciclo): en los años bajistas anteriores BTC cayó 55% (2014), 51% (2018) y 27% (2022) desde principios de noviembre, y en
+los tres el piso del ciclo llegó entre 12 y 13 meses después del máximo. Se muestra al lado (y en "Mis posiciones" dice si
+tu liquidación aguantaría la peor), pero no entra en las probabilidades: separar por año bajista mejoró 2019–22 y empeoró
+2023–26; por semestre, por las 4 fases o por mes del año, peor. Por mes de inicio no hay estacionalidad clara (mediana del
+mínimo de 6 meses entre −17% y −27%, salvo octubre −9%).
 
 ### Reentrenamiento semanal
 

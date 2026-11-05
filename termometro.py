@@ -64,7 +64,7 @@ def _dec(v):
     return 0 if v >= 1000 else 2 if v >= 10 else 4
 
 
-def piso(moneda, closes_d, price, T=None):
+def piso(moneda, closes_d, price, T=None, now_ms=None):
     """Minimo probable en los proximos 6 meses (armar_termometro.piso_modelo): 'no baja de' cada precio con 50, 80, 90
     y 95% de confianza. closes_d: cierres diarios ya cerrados (hacen falta 366). None si no hay modelo o datos."""
     T = T or _datos()
@@ -87,8 +87,23 @@ def piso(moneda, closes_d, price, T=None):
                 hi = mid
         v = price * math.exp((lo + hi) / 2)
         niveles.append([conf, round(v, _dec(v))])
+    # años anteriores desde esta misma fecha (bajistas y alcistas): cuanto cayo en los 180 dias siguientes
+    import time
+    from datetime import datetime, timezone
+    d = datetime.fromtimestamp((now_ms or time.time() * 1000) / 1000, tz=timezone.utc)
+    doy = d.timetuple().tm_yday
+    def anteriores_de(m):
+        out = []
+        for y, fila in sorted((P.get("analogos") or {}).get(m, {}).items()):
+            mejor = min(fila, key=lambda e: abs(e[0] - doy))
+            if abs(mejor[0] - doy) <= 4:
+                out.append([int(y), fase(int(y)), mejor[1]])
+        return out
+    todas = {m: anteriores_de(m) for m in sorted(P.get("analogos") or {})}
+    anteriores = todas.get(moneda, [])
     return {"tabla": "piso", "moneda": moneda, "dias": P["dias"], "precio": price, "vol": round(vol * 100, 1), "niveles": niveles,
-            "modelo": {"grid": P["grid"], "z": P["z"], "own": P["own"], "vol": {**P["vol"], moneda: round(vol, 6)}}}
+            "anteriores": anteriores,
+            "modelo": {"grid": P["grid"], "z": P["z"], "own": P["own"], "vol": {**P["vol"], moneda: round(vol, 6)}, "anteriores": todas}}
 
 
 def termometro_alt(moneda, velas_d, price, T=None, now_ms=None):

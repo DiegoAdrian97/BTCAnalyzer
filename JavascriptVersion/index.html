@@ -44,7 +44,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
-<script src="app.js?v=71cf555cbe"></script>
+<script src="app.js?v=7392065a1c"></script>
 </head><body><div id="dash-root">
 <style>
   /* Tema: minimalista y moderno. Una sola familia tipografica (la del sistema: SF en el iPhone), superficies planas,
@@ -598,6 +598,9 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   .ab-piso { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 4px 0 6px; }
   .ab-piso > div { border-radius: 8px; padding: 6px 4px; text-align: center; background: color-mix(in srgb, var(--ink) 6%, transparent); }
   .ab-piso small { display: block; color: var(--mute); font-size: 11px; } .ab-piso b { font-size: 13px; }
+  .ab-ant { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 6px; }
+  .ab-ant span { font-size: 11px; border-radius: 6px; padding: 2px 6px; background: color-mix(in srgb, var(--ink) 6%, transparent); }
+  .ab-ant span.baj { background: color-mix(in srgb, var(--color-bad) 14%, transparent); font-weight: 650; }
   .ab-pos-pz { border-radius: 10px; padding: 8px 10px; font-size: var(--cds-font-size-caption); background: color-mix(in srgb, var(--ink) 6%, transparent); }
   .ab-pos-pz.on { background: color-mix(in srgb, var(--color-ok) 16%, transparent); }
   .ab-title-row { display: flex; align-items: center; gap: 10px; position: relative; }
@@ -821,6 +824,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
           <button type="button" data-tf="1h" aria-pressed="true">1h</button>
           <button type="button" data-tf="4h" aria-pressed="false">4h</button>
           <button type="button" data-tf="1d" aria-pressed="false">1D</button>
+          <button type="button" data-tf="1w" aria-pressed="false" title="Semanal (sin predicción: pocas velas para medirla)">1S</button>
+          <button type="button" data-tf="1M" aria-pressed="false" title="Mensual (sin predicción: pocas velas para medirla)">1M</button>
         </nav>
         <nav class="ab-seg ab-small" id="scens" aria-label="Escenario">
           <span class="ab-seg-thumb"></span>
@@ -960,7 +965,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   const f0 = ar.format(',.0f'), f1 = ar.format(',.1f'), f2 = ar.format(',.2f');
   const sg = (v, d = 2) => (v > 0 ? '+' : '') + ar.format(`,.${d}f`)(v) + '%';
   const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
-  const TF_TXT = { '5m': '5 min', '15m': '15 min', '30m': '30 min', '1h': '1 hora', '4h': '4 horas', '1d': 'Diario' };
+  const TF_TXT = { '5m': '5 min', '15m': '15 min', '30m': '30 min', '1h': '1 hora', '4h': '4 horas', '1d': 'Diario', '1w': 'Semanal', '1M': 'Mensual' };
   const SCEN_TXT = { tipico: 'típico', alcista: 'alcista', bajista: 'bajista' };
   const tz = { timeZone: 'America/Argentina/Buenos_Aires' };
   const fmtT = (t, tf) => new Date(Number(t)).toLocaleString('es-AR', tf === '1d' ? { ...tz, day: '2-digit', month: '2-digit' }
@@ -976,7 +981,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   S.nbars = defBars();
   // en el celu arranca con lo esencial (velas, medias, patrones y liquidaciones); el resto se prende en "Capas"
   if (window.innerWidth < 600) Object.assign(S.layers, { bb: false, fvg: false, ondas: false, osc: false });
-  const TF_MIN = { '5m': 5, '15m': 15, '30m': 30, '1h': 60, '4h': 240, '1d': 1440 };
+  const TF_MIN = { '5m': 5, '15m': 15, '30m': 30, '1h': 60, '4h': 240, '1d': 1440, '1w': 10080, '1M': 43200 };
   const dur = (min) => (min < 60 ? `${min} min` : min < 1440 ? `${Math.round(min / 60)} h` : `${Math.round(min / 1440)} d`);
   const M = (v) => `${f1(v)} M USD`;
   let ghostTimer = null, first = true, ghostK = 0;
@@ -1143,7 +1148,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     const tg = e.target || {};
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(tg.tagName || '') || tg.isContentEditable) return;
     const ts = G.chart.timeScale(), r = ts.getVisibleLogicalRange();
-    const tfs = ['5m', '15m', '30m', '1h', '4h', '1d'], k = e.key.toLowerCase();
+    const tfs = ['5m', '15m', '30m', '1h', '4h', '1d', '1w', '1M'], k = e.key.toLowerCase();
     if ((k === 'arrowleft' || k === 'arrowright') && r) {
       const step = Math.max(1, (r.to - r.from) * 0.15) * (k === 'arrowleft' ? -1 : 1);
       ts.setVisibleLogicalRange({ from: r.from + step, to: r.to + step });
@@ -1168,7 +1173,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     if (ws) ws.close();
     wsTf = S.tf; wsMon = MON(); liveBar = null; S.lastTick = undefined;
     // MELI no cotiza en Binance: sus ticks salen de Bitget
-    const bitget = MON() === 'MELI', BG_TF = { '5m': '5m', '15m': '15m', '30m': '30m', '1h': '1H', '4h': '4H', '1d': '1D' };
+    const bitget = MON() === 'MELI', BG_TF = { '5m': '5m', '15m': '15m', '30m': '30m', '1h': '1H', '4h': '4H', '1d': '1D', '1w': '1W', '1M': '1M' };
     const sock = new WebSocket(bitget ? 'wss://ws.bitget.com/v2/ws/public' : `wss://fstream.binance.com/market/ws/${MON().toLowerCase()}usdt@kline_${S.tf}`);
     ws = sock;
     if (bitget) {
@@ -1453,6 +1458,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
         if (pp !== null) rg.append('Chance de tocar tu liquidación en los próximos 6 meses: ', el('b', '', `${pp < 0.01 ? 'menos de 1' : f0(pp * 100)}%`), '. ');
         else rg.append('Esta posición no se liquida. ');
         rg.append(`En 6 meses ${m} no baja de ${fp(n90)} con 90% de confianza, ni de ${fp(n95)} con 95%. Para que el riesgo sea de 5% o menos, la liquidación tiene que quedar debajo de ${fp(n95)}.`);
+        const bj = ((PISO.anteriores || {})[m] || []).filter((a) => a[1] === 'bajista');
+        if (bj.length) {
+          const peor = bj.reduce((a, b) => (b[2] < a[2] ? b : a)), lv = d.precio * (1 + peor[2] / 100);
+          rg.append(` En años bajistas anteriores, desde esta fecha cayó hasta ${bj.map((a) => `${f0(Math.abs(a[2]))}% (${a[0]})`).join(', ')}: con la peor, ${fp(lv)}, tu liquidación ${!e.liquidacion || e.liquidacion < lv ? 'aguantaría' : 'no aguantaría'}.`);
+        }
         box.append(el('p', 'ab-pos-sec', 'Riesgo a 6 meses'), rg);
       }
       if (e.ganancias) {
@@ -1740,6 +1750,14 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       const g = el('div', 'ab-piso');
       pis.niveles.forEach(([conf, v]) => { const c = el('div'); c.append(el('small', '', `${conf}%`), el('b', '', fp(num(v))), el('small', '', `${sg((num(v) / num(pis.precio) - 1) * 100, 0)}`)); g.append(c); });
       pisoEls.push(el('p', 'ab-tm-sec', 'Mínimo probable en 6 meses'), el('p', 'ab-hero-sub', `Con cada confianza, ${mon} no baja de ese precio en los próximos 6 meses (volatilidad de un año: ${f0(num(pis.vol))}%). Sirve para elegir el apalancamiento: tu liquidación debería quedar debajo del de 90–95%.`), g);
+      const ant = pis.anteriores || [];
+      if (ant.length) {
+        const ch = el('div', 'ab-ant');
+        ant.forEach(([y, fz, v]) => { const x = el('span', fz === 'bajista' ? 'baj' : '', `${y} ${fz === 'bajista' ? 'bajista' : fz.replace('alcista ', 'alc. ')} ${sg(num(v), 0)}`); x.title = `Desde esta fecha de ${y}: mínimo de los 6 meses siguientes`; ch.append(x); });
+        const bj = ant.filter((a) => a[1] === 'bajista').map((a) => num(a[2]));
+        const txt = bj.length ? `En los años bajistas anteriores, desde esta misma fecha cayó entre ${f0(Math.abs(Math.max(...bj)))}% y ${f0(Math.abs(Math.min(...bj)))}% en los 6 meses siguientes (hoy serían ${fp(num(pis.precio) * (1 + Math.max(...bj) / 100))} a ${fp(num(pis.precio) * (1 + Math.min(...bj) / 100))}). No entra en las probabilidades de arriba: separar por año del ciclo o por mes no mejoró la medición.` : '';
+        pisoEls.push(el('p', 'ab-tm-sec', 'Desde esta fecha en años anteriores'), ch, ...(txt ? [el('p', 'ab-hero-sub', txt)] : []));
+      }
     }
     body.append(big, sc, pasado, ...pisoEls, el('p', 'ab-tm-sec', 'Qué lo forma'), comp,
       el('p', 'ab-tm-sec', 'Momento del ciclo (la otra mitad)'), el('p', 'ab-hero-sub', `${t.año}, ${(FASE[t.fase] || (() => t.fase))(t.avance)}.`),
@@ -2243,7 +2261,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       const b = el('button'); b.type = 'button'; b.setAttribute('aria-pressed', String(m.tf === S.tf)); b.title = `${TF_TXT[m.tf]}: ${m.rating_txt}`;
       const i = el('i'); i.style.background = r > .1 ? 'var(--color-ok)' : r < -.1 ? 'var(--color-bad)' : 'var(--color-fg-muted)';
       i.style.opacity = String(.35 + Math.min(1, Math.abs(r) * 1.6) * .65);
-      b.append(el('span', '', m.tf), i); b.addEventListener('click', () => setTf(m.tf)); strip.append(b);
+      b.append(el('span', '', m.tf === '1w' ? '1S' : m.tf), i); b.addEventListener('click', () => setTf(m.tf)); strip.append(b);
     });
   }
 
@@ -2276,7 +2294,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   const p2 = (v) => String(v).padStart(2, '0');
   function fmtSec(s) {
     const d = new Date(s * 1000), dd = `${p2(d.getUTCDate())}/${p2(d.getUTCMonth() + 1)}`;
-    return S.tf === '1d' ? `${DIAS[d.getUTCDay()]} ${dd}/${String(d.getUTCFullYear()).slice(2)}` : `${DIAS[d.getUTCDay()]} ${dd} ${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`;
+    return ['1d', '1w', '1M'].includes(S.tf) ? `${DIAS[d.getUTCDay()]} ${dd}/${String(d.getUTCFullYear()).slice(2)}` : `${DIAS[d.getUTCDay()]} ${dd} ${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`;
   }
   // una capa de dibujo propia sobre el grafico (canvas, en pixeles de pantalla); opcionalmente con una etiqueta en el eje
   class Capa {
