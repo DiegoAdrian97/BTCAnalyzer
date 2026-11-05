@@ -128,6 +128,15 @@ desplegable se ve al instante ("Último análisis guardado · actualizando…") 
 de activo mientras se bajan los datos, ese cálculo se descarta. La calibración del rango arma los grupos de casos una
 vez por receta (antes, una vez por plazo): la primera vuelta tarda ~20% menos, con el mismo resultado.
 
+**Todos los activos en segundo plano** (`worker.js`): el que estás mirando se analiza primero y se rehace cada 12 s; en
+los huecos entre un ciclo y otro se analizan los demás de a uno (uno cada ~8 s, y cada uno a lo sumo cada 10 min), así
+que al cambiar de activo ya están su análisis y su gráfico. Si elegís otro mientras se baja uno de fondo, ese se deja y
+va primero el elegido. Con 16 activos, la primera vez tarda ~2 minutos en tenerlos todos y baja ~70 MB de velas (una
+sola vez: quedan guardadas en el teléfono; después solo lo nuevo, pidiendo justo las velas que faltan). Cada activo
+tiene sus propias fuentes de datos (`fuentes(sym)` en `datos.js`): un pedido de fondo no se puede mezclar con el del
+activo a la vista. El activo elegido vive en un solo lugar, `window.abActivo` (`app.js`): `get()`, `set()`,
+`subscribe()` y `listo()`; las partes de la página se suscriben (como un Context de React, sin React).
+
 ### Acciones en la app: AAPL, NVDA, MSFT, GOOGL, AMZN, SPCX, META, TSLA, AMD, BABA, MELI y el índice QQQ
 
 Los perpetuos de acciones (`BABAUSDT`, `NVDAUSDT`, `GOOGLUSDT`, `AMDUSDT` en Binance; `MELIUSDT` solo en Bitget) se
@@ -446,7 +455,8 @@ conexión, no se duerme como Render y no hay límites de pedidos compartidos. Es
 4. En el iPhone abrí la dirección en Safari → **Compartir → Agregar a inicio**: queda como una app a pantalla completa.
 
 La primera vez baja el historial de velas (unos segundos) y lo guarda en el teléfono; después solo
-pide lo nuevo. Reanaliza todo cada ~12 segundos mientras está abierta y se pausa en segundo plano.
+pide lo nuevo. Reanaliza el activo a la vista cada ~12 segundos y los demás en segundo plano (ver "Más rápido al
+abrir"), y se pausa con la app en segundo plano.
 BingX no se usa en esta versión: su API no acepta pedidos desde páginas web. Por lo mismo (OKX no manda el permiso CORS),
 en el teléfono el flujo de compras y ventas a mercado sale de Bitget y los top traders de Binance; antes esos pedidos a OKX
 fallaban siempre y esas señales no entraban en la explicación. El funding, de Bybit.

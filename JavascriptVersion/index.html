@@ -44,7 +44,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
-<script src="app.js?v=179a7c4838"></script>
+<script src="app.js?v=d0d9f6fac0"></script>
 </head><body><div id="dash-root">
 <style>
   /* Tema: minimalista y moderno. Una sola familia tipografica (la del sistema: SF en el iPhone), superficies planas,
@@ -1230,7 +1230,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 
 
   // la cripto que se analiza (la version JS puede elegir ZEC) y precio con los decimales que hacen falta
-  function MON() { return window.abMoneda || 'BTC'; }
+  // el activo a la vista: del contexto de la app (app.js) o BTC en la pagina del servidor
+  function MON() { return window.abActivo ? window.abActivo.get() : window.abMoneda || 'BTC'; }
   function fp(x) { return x === null || x === undefined ? '—' : Math.abs(x) >= 1000 ? f0(x) : Math.abs(x) >= 10 ? ar.format(',.2f')(x) : ar.format(',.4f')(x); }
 
   function draw() {
@@ -1424,8 +1425,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     return out;
   }
   window.abPlanEstado = planEstado;
-  // al cambiar de activo: mostrar u ocultar el plan y las posiciones (despues de que app.js cambie window.abMoneda)
-  document.addEventListener('change', (ev) => { if (ev.target && ev.target.id === 'app-moneda-sel') setTimeout(() => { drawCompras(); drawPosiciones(); }, 0); });
+  // al cambiar de activo (contexto de app.js): mostrar u ocultar el plan y las posiciones
+  if (window.abActivo) window.abActivo.subscribe(() => { drawCompras(); drawPosiciones(); });
   // minimo probable a 6 meses (modelo de armar_termometro.py, viene en la fila 'piso' del analisis; como analisis.js)
   let PISO = null;
   try { PISO = JSON.parse(localStorage.getItem('ab-piso')) || null; } catch (e) { PISO = null; }

@@ -12,8 +12,18 @@
   const MONEDAS = ['BTC', 'ZEC', 'SOL', 'XRP', 'BABA', 'NVDA', 'GOOGL', 'AMD', 'AAPL', 'MSFT', 'AMZN', 'SPCX', 'META', 'TSLA', 'QQQ', 'MELI'];
   let moneda = 'BTC';
   try { const g = localStorage.getItem('app-moneda'); moneda = MONEDAS.includes(g) ? g : 'BTC'; } catch (e) { /* sin almacenamiento */ }
-  window.abMoneda = moneda;
-  const porMoneda = {};
+  // Contexto del activo (como un Context de React, sin React): una sola fuente de verdad de que activo se esta mirando.
+  // Las partes de la pagina se suscriben y se enteran cuando cambia; el worker lo usa para priorizar ese analisis.
+  const subs = new Set();
+  window.abActivo = {
+    get: () => moneda,
+    todos: () => MONEDAS.slice(),
+    set: (m) => elegir(m),
+    subscribe(fn) { subs.add(fn); return () => subs.delete(fn); },
+    listo: (m) => !!porMoneda[m],      // si ya tiene analisis en memoria (elegirlo es instantaneo)
+  };
+  Object.defineProperty(window, 'abMoneda', { get: () => moneda, configurable: true });
+  const porMoneda = {}, horaMoneda = {};
   const redraw = () => fns.forEach((f) => f());
   window.abLive = true;            // la pagina se conecta sola al WebSocket de Binance para los ticks
   window.abPosicionesApi = 'api/posiciones';   // BingX en vivo (solo lectura): ver api/posiciones.js
@@ -44,13 +54,15 @@
   const worker = new Worker(`worker.js${VER}`);
   const sym = () => `${moneda}USDT`;
   function elegir(m) {
-    if (m === moneda) return;
-    moneda = m; window.abMoneda = m;
+    if (m === moneda || !MONEDAS.includes(m)) return;
+    moneda = m;
     try { localStorage.setItem('app-moneda', m); } catch (e) { /* idem */ }
     const sel = document.getElementById('app-moneda-sel'); if (sel && sel.value !== m) sel.value = m;
     rows = porMoneda[m] || null;
     if (!rows) estado(`Preparando el análisis de ${m}…`);
+    else { const min = Math.round((Date.now() - (horaMoneda[m] || Date.now())) / 60000); estado(min >= 1 ? `Análisis de hace ${min} min (hecho en segundo plano) · actualizando…` : ''); }
     worker.postMessage({ tipo: 'seguir', sym: sym() });
+    subs.forEach((fn) => { try { fn(m); } catch (e) { /* una parte que falle no frena a las demas */ } });
     redraw();
   }
   document.addEventListener('DOMContentLoaded', () => {
@@ -61,15 +73,16 @@
     sel.value = moneda;
     sel.addEventListener('change', () => elegir(sel.value));
   });
-  worker.postMessage({ tipo: 'seguir', sym: sym() });
+  // el elegido primero; los demas se van analizando en segundo plano (worker.js)
+  worker.postMessage({ tipo: 'seguir', sym: sym(), todos: MONEDAS });
   worker.onmessage = (ev) => {
     const m = ev.data;
     if (m.sym && m.sym !== sym() && m.tipo !== 'analisis') return;
     if (m.tipo === 'analisis') {
       const mon = (m.sym || 'BTCUSDT').replace('USDT', '');
       if (m.guardado && porMoneda[mon]) return;           // ya hay uno nuevo: el guardado no hace falta
-      porMoneda[mon] = m.rows;
-      if (m.sym && m.sym !== sym()) return;
+      porMoneda[mon] = m.rows; horaMoneda[mon] = m.guardado ? m.hora : Date.now();
+      if (m.sym && m.sym !== sym()) return;                // de fondo: queda listo para cuando lo elijan
       rows = m.rows;
       window.abAnalyses = m.numero;
       if (m.guardado) {

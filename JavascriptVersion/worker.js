@@ -1,14 +1,20 @@
 /*
  * El analisis corre aca, en segundo plano, para que la pantalla no se trabe mientras calcula.
- * Repite cada INTERVALO ms mientras la app esta a la vista; se pausa cuando no.
- * Analiza BTC o ZEC (la app elige): mismas cuentas; en los textos, el nombre de la cripto.
+ * Prioridad: el activo que se esta mirando se rehace cada INTERVALO ms. En los huecos entre un ciclo y otro se
+ * analizan los demas activos de a uno (cada uno a lo sumo cada FONDO_CADA ms): al cambiar de activo ya esta su
+ * analisis (y su grafico) y no hay que esperar. Todo se pausa con la app en segundo plano.
  */
 importScripts(...['indicadores.js', 'aprendizaje.js', 'fuerte.js', 'analisis.js', 'datos.js'].map((f) => f + self.location.search));
 
-const INTERVALO = 12000;
-let pausado = false, corriendo = false, timer = null, numero = 0, SYM = 'BTCUSDT', otraVez = false;
+const INTERVALO = 12000;            // el activo a la vista
+const FONDO_CADA = 10 * 60000;      // cada uno de los demas
+const FONDO_PAUSA = 8000;           // entre dos analisis de fondo (Binance cobra peso por cada pedido de velas)
+const TOPE = 90000;                 // un ciclo colgado (red del celular) no frena a los siguientes
+let pausado = true, ACTIVO = 'BTCUSDT', todos = [], numero = 0, proximo = 0, ultimoFondo = 0;
+let corriendo = false, pedirActivo = false, despertar = null, interrumpir = null;
+const hecho = {}, guardado = {}, mostrado = {};
 
-/** En los textos del analisis dice BTC: para otra cripto se cambia el nombre. */
+/** En los textos del analisis dice BTC: para otro activo se cambia el nombre. */
 function renombrar(rows, mon) {
   if (mon === 'BTC') return rows;
   return rows.map((r) => {
@@ -18,59 +24,100 @@ function renombrar(rows, mon) {
   });
 }
 
-let inicio = 0;
-const guardado = {}, mostrado = {};
 /** Al abrir la app o elegir otro activo: el ultimo analisis guardado en el telefono, al toque (despues llega el nuevo). */
 async function mostrarGuardado(sym) {
   if (mostrado[sym]) return;
   mostrado[sym] = true;
   try {
     const u = await Datos.ultimo(sym);
-    if (u && u.rows && sym === SYM) postMessage({ tipo: 'analisis', rows: u.rows, numero: 0, guardado: true, hora: u.hora, sym });
+    if (u && u.rows && sym === ACTIVO) postMessage({ tipo: 'analisis', rows: u.rows, numero: 0, guardado: true, hora: u.hora, sym });
   } catch (e) { /* sin guardado */ }
 }
-async function ciclo(nueva = false) {
-  // un ciclo que quedo colgado mas de 90 s (por ejemplo, la app paso a segundo plano en medio de un pedido) no
-  // bloquea los siguientes
-  if (corriendo && Date.now() - inicio < 90000) { if (nueva) otraVez = true; return; }
-  corriendo = true; inicio = Date.now();
-  clearTimeout(timer);
-  const t0 = Date.now(), sym = SYM, mon = sym.replace('USDT', '');
+
+// el termometro y el modelo de movimiento fuerte: una vez, y cada 6 h con la app abierta dias
+async function cargarModelos() {
+  if (self.TERMOMETRO && Date.now() - (self.JSON_T || 0) < 6 * 3600000) return;
+  try { self.TERMOMETRO = await (await fetch('termometro.json', { cache: 'no-store', signal: AbortSignal.timeout(15000) })).json(); } catch (e) { /* queda el anterior */ }
+  try { self.MODELO_FUERTE = await (await fetch('modelo_fuerte.json', { cache: 'no-store', signal: AbortSignal.timeout(15000) })).json(); } catch (e) { /* queda el anterior o la tabla */ }
+  self.JSON_T = Date.now();
+}
+const conTope = (p) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('tardó demasiado')), TOPE))]);
+
+function calcular(sym, input) {
+  const mon = sym.replace('USDT', '');
+  input.moneda = mon;
+  const { rows, log } = Analisis.analizar(input);
+  Datos.guardarLog(log, sym);
+  return renombrar(rows, mon);
+}
+
+async function cicloActivo() {
+  const t0 = Date.now(), sym = ACTIVO;
   try {
-    // los arboles del modelo de movimiento fuerte se bajan una vez
-    // el termometro y el modelo se reentrenan una vez por mes: con la app abierta dias, se vuelven a pedir cada 6 h
-    if (!self.TERMOMETRO || Date.now() - (self.JSON_T || 0) > 6 * 3600000) {
-      try { self.TERMOMETRO = await (await fetch('termometro.json', { cache: 'no-store', signal: AbortSignal.timeout(15000) })).json(); } catch (e) { /* queda el anterior */ }
-      try { self.MODELO_FUERTE = await (await fetch('modelo_fuerte.json', { cache: 'no-store', signal: AbortSignal.timeout(15000) })).json(); } catch (e) { /* queda el anterior o la tabla */ }
-      self.JSON_T = Date.now();
-    }
-    const input = await Datos.recolectar((texto) => postMessage({ tipo: 'progreso', texto, sym }), sym);
-    if (sym !== SYM) throw new Error('cambio');           // eligieron otro activo mientras bajaban los datos: no se calcula este
-    input.moneda = mon;
-    const { rows, log } = Analisis.analizar(input);
-    Datos.guardarLog(log, sym);
-    numero += 1;
-    const salida = renombrar(rows, mon);
-    if (sym === SYM) postMessage({ tipo: 'analisis', rows: salida, numero, ms: Date.now() - t0, fuente: input.fuente, sym });
-    if (Date.now() - (guardado[sym] || 0) > 60000) { guardado[sym] = Date.now(); Datos.guardarUltimo(sym, salida); }
+    await cargarModelos();
+    const input = await conTope(Datos.recolectar((texto) => postMessage({ tipo: 'progreso', texto, sym }), sym));
+    if (sym !== ACTIVO) return;                    // eligieron otro activo mientras bajaban los datos: no se calcula este
+    const rows = calcular(sym, input);
+    numero += 1; hecho[sym] = Date.now();
+    postMessage({ tipo: 'analisis', rows, numero, ms: Date.now() - t0, fuente: input.fuente, sym });
+    if (Date.now() - (guardado[sym] || 0) > 60000) { guardado[sym] = Date.now(); Datos.guardarUltimo(sym, rows); }
   } catch (e) {
-    if (!(e && e.message === 'cambio')) postMessage({ tipo: 'error', texto: e && e.message ? e.message : String(e), sym });
+    if (sym === ACTIVO) postMessage({ tipo: 'error', texto: e && e.message ? e.message : String(e), sym });
+  }
+}
+
+/** Un activo que no se esta mirando. Si eligen otro activo mientras bajan sus datos, se deja (no frena al elegido). */
+async function cicloFondo(sym) {
+  hecho[sym] = Date.now(); ultimoFondo = Date.now();     // aunque falle, se reintenta en la proxima vuelta
+  try {
+    await cargarModelos();
+    const corte = new Promise((r) => { interrumpir = r; });
+    const input = await Promise.race([conTope(Datos.recolectar(null, sym)), corte.then(() => null)]);
+    interrumpir = null;
+    if (!input || pedirActivo) { hecho[sym] = 0; return; }
+    const rows = calcular(sym, input);
+    postMessage({ tipo: 'analisis', rows, numero: 0, fondo: true, hora: Date.now(), sym });
+    guardado[sym] = Date.now(); Datos.guardarUltimo(sym, rows);
+  } catch (e) { /* se reintenta en la proxima vuelta */ }
+  interrumpir = null;
+}
+
+function siguienteFondo() {
+  const ahora = Date.now();
+  return todos.filter((s) => s !== ACTIVO && ahora - (hecho[s] || 0) > FONDO_CADA).sort((a, b) => (hecho[a] || 0) - (hecho[b] || 0))[0] || null;
+}
+const dormir = (ms) => new Promise((r) => { despertar = r; setTimeout(r, ms); });
+
+async function bucle() {
+  if (corriendo) return;
+  corriendo = true;
+  while (!pausado) {
+    if (pedirActivo || Date.now() >= proximo) {
+      pedirActivo = false;
+      await cicloActivo();
+      proximo = Date.now() + INTERVALO;
+      continue;
+    }
+    const s = Date.now() - ultimoFondo >= FONDO_PAUSA && proximo - Date.now() > 2500 ? siguienteFondo() : null;
+    if (s) { await cicloFondo(s); continue; }
+    await dormir(Math.max(250, Math.min(proximo, ultimoFondo + FONDO_PAUSA) - Date.now()));
   }
   corriendo = false;
-  if (otraVez) { otraVez = false; if (!pausado) { ciclo(); return; } }     // pidieron otra cripto mientras calculaba
-  if (!pausado) timer = setTimeout(ciclo, Math.max(2000, INTERVALO - (Date.now() - t0)));
 }
 
 onmessage = (ev) => {
-  if (ev.data.tipo === 'pausa') {
+  const d = ev.data;
+  if (d.tipo === 'pausa') {
     pausado = true;
-    clearTimeout(timer);
-  } else if (ev.data.tipo === 'seguir') {
-    const cambio = !!ev.data.sym && ev.data.sym !== SYM;
-    if (ev.data.sym) SYM = ev.data.sym;
+    if (despertar) despertar();
+  } else if (d.tipo === 'seguir') {
+    if (d.todos) todos = d.todos.map((m) => `${m}USDT`);
+    if (d.sym && d.sym !== ACTIVO) { ACTIVO = d.sym; if (interrumpir) interrumpir(); }
+    pedirActivo = true;              // al volver a la app o cambiar de activo: el elegido primero
     pausado = false;
-    mostrarGuardado(SYM);
-    ciclo(cambio);
+    mostrarGuardado(ACTIVO);
+    if (despertar) despertar();
+    bucle();
   }
 };
 
