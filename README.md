@@ -7,6 +7,8 @@ gráfico con figuras, divergencias, liquidaciones estimadas, libros de órdenes 
 El gráfico usa el motor de TradingView ([Lightweight Charts](https://www.tradingview.com/lightweight-charts/)): mismas velas, ejes, mira y
 gestos, con las marcas del analista encima (patrones, divergencias, ondas, FVG, liquidaciones y niveles). La simulación de
 futuro (velas típico, alcista y bajista y su cono) ya no se dibuja: `SIN_FUTURO` en `dashboard/index.html`.
+Capa **EMA 20 / 50 / 200**: azul, naranja y una gris más gruesa (la EMA 200 de esa temporalidad, en todos los activos;
+solo aparece donde hay 200 velas para calcularla, así que en la mensual no).
 Herramientas: **Mi plan** (las compras que faltan de `plan_compras.json`, tu promedio, la próxima toma de ganancias y la
 liquidación, como líneas con nombre), **Medir** (Shift + arrastrar o el botón: %, precio, velas y tiempo entre dos puntos),
 **Imán** (la mira y los puntos de Medir se pegan a la apertura, máximo, mínimo o cierre; Cmd/Ctrl mientras medís lo invierte), escala **Log**, **»** para volver a la última vela, **Imagen** (en el iPhone se comparte, en la compu se baja) y teclas con el

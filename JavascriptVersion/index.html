@@ -44,8 +44,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
-<script>window.AB_PAGINA = "494ef10f91";</script>
-<script src="app.js?v=30a0bfc83f"></script>
+<script>window.AB_PAGINA = "e7929ff6c5";</script>
+<script src="app.js?v=0befa5d939"></script>
 </head><body><div id="dash-root">
 <style>
   /* Tema: minimalista y moderno. Una sola familia tipografica (la del sistema: SF en el iPhone), superficies planas,
@@ -895,7 +895,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       </div>
       <div class="ab-capas" id="capas">
         <div class="ab-chips" id="layers">
-          <button type="button" class="ab-chipbtn" data-layer="ema" aria-pressed="true"><i style="background: var(--ab-c0)"></i>EMA 20 / 50</button>
+          <button type="button" class="ab-chipbtn" data-layer="ema" aria-pressed="true"><i style="background: var(--ab-c0)"></i>EMA 20 / 50 / 200</button>
           <button type="button" class="ab-chipbtn" data-layer="bb" aria-pressed="true"><i style="background: var(--color-fg-muted)"></i>Bollinger</button>
           <button type="button" class="ab-chipbtn" data-layer="fvg" aria-pressed="true"><i style="background: var(--color-ok)"></i>FVG</button>
           <button type="button" class="ab-chipbtn" data-layer="patrones" aria-pressed="true"><i style="background: var(--color-warn)"></i>Patrones</button>
@@ -2860,6 +2860,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.84, bottom: 0 }, visible: false });
     G.e20 = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet, color: P.c0, lineWidth: 1 });
     G.e50 = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet, color: P.c1, lineWidth: 1 });
+    G.e200 = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet, color: alpha(P.fg, 0.7), lineWidth: 2 });
     G.ghost = chart.addSeries(LW.CandlestickSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet, upColor: alpha(P.up, 0.25), downColor: alpha(P.dn, 0.25), borderVisible: true,
       borderUpColor: alpha(P.up, 0.85), borderDownColor: alpha(P.dn, 0.85), wickUpColor: alpha(P.up, 0.6), wickDownColor: alpha(P.dn, 0.6) });
     G.c = chart.addSeries(LW.CandlestickSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, upColor: P.up, downColor: P.dn, borderVisible: false, wickUpColor: P.up, wickDownColor: P.dn,
@@ -2939,7 +2940,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     if (d.narrow && !fut) { const r = el('div', 'ab-ohlc-r'); r.append(kv('Máx', fp(b.h)), kv('Mín', fp(b.l))); rows.push(r); }
     if (!fut) {
       const r2 = el('div', 'ab-ohlc-r');
-      if (S.layers.ema && b.e20 !== null) r2.append(kv('EMA 20 ', fp(b.e20), P.c0), kv('EMA 50 ', b.e50 === null ? '—' : fp(b.e50), P.c1));
+      if (S.layers.ema && b.e20 !== null) r2.append(kv('EMA 20 ', fp(b.e20), P.c0), kv('EMA 50 ', b.e50 === null ? '—' : fp(b.e50), P.c1), ...(b.e200 === null || b.e200 === undefined ? [] : [kv('EMA 200 ', fp(b.e200), alpha(P.fg, 0.75))]));
       r2.append(kv('Vol ', `${f1(b.v)}`, alpha(col, 1)));
       rows.push(r2);
     }
@@ -2999,7 +3000,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
         : { ...b.bar, color: alpha(b.bar.close >= b.bar.open ? P.up : P.dn, 0.15), wickColor: alpha(b.bar.close >= b.bar.open ? P.up : P.dn, 0.15) })));
       G.wasFocus = !!k;
     }
-    G.e20.applyOptions({ color: dim(P.c0, 'ema') }); G.e50.applyOptions({ color: dim(P.c1, 'ema') });
+    G.e20.applyOptions({ color: dim(P.c0, 'ema') }); G.e50.applyOptions({ color: dim(P.c1, 'ema') }); G.e200.applyOptions({ color: dim(alpha(P.fg, 0.7), 'ema') });
     G.bbU.applyOptions({ color: dim(alpha(P.mute, 0.4), 'bb') }); G.bbL.applyOptions({ color: dim(alpha(P.mute, 0.4), 'bb') });
     G.ghost.applyOptions({ visible: !k || k === 'futuro' });
     G.under.update(); G.over.update();
@@ -3031,13 +3032,13 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     G.P = P;
     G.chart.applyOptions({ handleScroll: { vertTouchDrag: !!S.fs } });
     const all = pick(rows, 'vela', tf).map((r) => ({ t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), v: num(r.v), en: !!r.en_curso,
-      e20: num(r.ema20), e50: num(r.ema50), bu: num(r.bb_up), bl: num(r.bb_lo),
+      e20: num(r.ema20), e50: num(r.ema50), e200: num(r.ema200), bu: num(r.bb_up), bl: num(r.bb_lo),
       rsi: num(r.rsi), macd: num(r.macd), sig: num(r.macd_senal), hist: num(r.macd_hist) })).sort((a, b) => a.t - b.t);
     if (!all.length) return;
     const lastIdx = all.length - 1, lastA = all[lastIdx];         // la ultima vela del analisis: de ahi sale el futuro
     if (liveBar && liveBar.tf === tf) {
       if (liveBar.t === lastA.t) all[lastIdx] = { ...lastA, h: liveBar.h, l: liveBar.l, c: liveBar.c, v: liveBar.v };
-      else if (liveBar.t > lastA.t) all.push({ ...liveBar, e20: null, e50: null, bu: null, bl: null, rsi: null, macd: null, sig: null, hist: null });
+      else if (liveBar.t > lastA.t) all.push({ ...liveBar, e20: null, e50: null, e200: null, bu: null, bl: null, rsi: null, macd: null, sig: null, hist: null });
     }
     const price = liveBar && liveBar.tf === tf ? liveBar.c : num(sum.precio);
     const ghosts = SIN_FUTURO ? [] : pick(rows, 'escenario', tf).filter((r) => r.escenario === S.scen)
@@ -3079,7 +3080,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     G.c.setData(d.cdata.map((b) => b.bar));
     G.vol.setData(all.map((b) => ({ time: T2(b.t), value: b.v, color: alpha(b.c >= b.o ? P.up : P.dn, 0.3) })));
     const line = (k) => all.filter((b) => b[k] !== null).map((b) => ({ time: T2(b.t), value: b[k] }));
-    G.e20.setData(L.ema ? line('e20') : []); G.e50.setData(L.ema ? line('e50') : []);
+    G.e20.setData(L.ema ? line('e20') : []); G.e50.setData(L.ema ? line('e50') : []); G.e200.setData(L.ema ? line('e200') : []);
     G.bbU.setData(L.bb ? line('bu') : []); G.bbL.setData(L.bb ? line('bl') : []);
     if (G.rsi) {
       G.rsi.setData(line('rsi'));
@@ -3184,6 +3185,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       'Círculos con letras o números:', `conteo de Elliott. ${mk ? mk.elliott : ''}.`);
     if (L.fvg && fvgs.length) item('fvg', CC(alpha(P.up, 0.35)), 'Franjas verdes o rojas:', 'huecos (FVG) que el precio dejó sin operar; suele volver a llenarlos.');
     if (L.ema) item('ema', { background: `linear-gradient(90deg, ${P.c0} 50%, ${P.c1} 50%)` }, 'Líneas azul y naranja:', 'medias móviles EMA 20 y EMA 50.');
+    if (L.ema && d.all.some((b) => b.e200 !== null && b.e200 !== undefined)) item('ema', { background: alpha(P.fg, 0.7) }, 'Línea gris gruesa:', 'media móvil EMA 200 (la tendencia de fondo de esta temporalidad; en la mensual no hay 200 velas para calcularla).');
     if (L.bb) item('bb', CC(alpha(P.fg, 0.12)), 'Banda gris:', 'Bollinger, el rango normal del precio en las últimas 20 velas.');
     if (L.liq && liq.length) item('liq', { background: `linear-gradient(90deg, ${P.dn}, ${P.up})` }, 'Barras junto al eje de precios:',
       'liquidaciones estimadas. Rojas: longs que se liquidan si baja; verdes: shorts si sube. Pasá el mouse o tocá ahí para ver los USD.');

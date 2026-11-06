@@ -755,7 +755,7 @@
     for (let k = Math.max(0, i - CHART_BARS + 1); k <= i; k++) {
       const [t, o, h, l, c, v] = bars[k];
       rows.push({ tabla: 'vela', tf, t, o, h, l, c, v: rnd(v, 2), en_curso: partial && k === i,
-        ema20: rp(overlays.ema20[k]), ema50: rp(overlays.ema50[k]), bb_up: rp(overlays.bb_up[k]), bb_lo: rp(overlays.bb_lo[k]),
+        ema20: rp(overlays.ema20[k]), ema50: rp(overlays.ema50[k]), ema200: k >= 199 ? rp(e200[k]) : null, bb_up: rp(overlays.bb_up[k]), bb_lo: rp(overlays.bb_lo[k]),
         rsi: rnd(rsi[k], 1), macd: rnd(ml[k], decPrecio(price) + 1), macd_senal: rnd(ms[k], decPrecio(price) + 1), macd_hist: rnd(mh[k], decPrecio(price) + 1) });
     }
     return rows;
@@ -1033,7 +1033,7 @@
       for (let k = Math.max(0, i - CHART_BARS + 1); k <= i; k++) {
         const [t, o, h, l, c, v] = bars[k];
         rows.push({ tabla: 'vela', tf, t, o, h, l, c, v: rnd(v, 2), en_curso: partial && k === i,
-          ema20: rp(overlays.ema20[k]), ema50: rp(overlays.ema50[k]), bb_up: rp(overlays.bb_up[k]), bb_lo: rp(overlays.bb_lo[k]),
+          ema20: rp(overlays.ema20[k]), ema50: rp(overlays.ema50[k]), ema200: k >= 199 ? rp(e200[k]) : null, bb_up: rp(overlays.bb_up[k]), bb_lo: rp(overlays.bb_lo[k]),
           rsi: rnd(rsi[k], 1), macd: rnd(ml[k], decPrecio(price) + 1), macd_senal: rnd(ms[k], decPrecio(price) + 1), macd_hist: rnd(mh[k], decPrecio(price) + 1) });
       }
     });

@@ -1009,7 +1009,8 @@ def analisis_largo(d1, tf, price, ultima_en_curso=False):
     for k in range(max(0, i - CHART_BARS + 1), i + 1):
         t, o_, h_, l_, c_, v_ = bars[k]
         rows.append({"tabla": "vela", "tf": tf, "t": t, "o": o_, "h": h_, "l": l_, "c": c_, "v": round(v_, 2), "en_curso": partial and k == i,
-                     "ema20": rp(overlays["ema20"][k]), "ema50": rp(overlays["ema50"][k]), "bb_up": rp(overlays["bb_up"][k]),
+                     "ema20": rp(overlays["ema20"][k]), "ema50": rp(overlays["ema50"][k]), "ema200": rp(e200[k]) if k >= 199 else None,
+                     "bb_up": rp(overlays["bb_up"][k]),
                      "bb_lo": rp(overlays["bb_lo"][k]), "rsi": None if rsi[k] is None else round(rsi[k], 1),
                      "macd": round(ml[k], dec_precio(price) + 1), "macd_senal": round(ms[k], dec_precio(price) + 1),
                      "macd_hist": round(mh[k], dec_precio(price) + 1)})
@@ -1368,6 +1369,7 @@ def analyze():
             rows.append({"tabla": "vela", "tf": tf, "t": t, "o": o_, "h": h_, "l": l_, "c": c_, "v": round(v_, 2),
                          "en_curso": partial and k == i,
                          "ema20": rp(overlays["ema20"][k]), "ema50": rp(overlays["ema50"][k]),
+                         "ema200": rp(e200[k]) if k >= 199 else None,       # con menos de 200 velas atras no vale
                          "bb_up": rp(overlays["bb_up"][k]),
                          "bb_lo": rp(overlays["bb_lo"][k]),
                          "rsi": None if rsi[k] is None else round(rsi[k], 1), "macd": round(ml[k], dec_precio(price) + 1),
