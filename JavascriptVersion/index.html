@@ -46,7 +46,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
 <script src="lib/d3-7.9.0.min.js"></script>
 <script src="lib/lightweight-charts-5.1.0.js"></script>
-<script>window.AB_PAGINA = "2c8f2a6d37";</script>
+<script>window.AB_PAGINA = "4fdf607cb6";</script>
 <script src="app.js?v=ec90573d33"></script>
 </head><body><div id="dash-root">
 <style>
@@ -1840,7 +1840,10 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     bxb.hidden = !BX_API; bxb.textContent = bxClave() ? 'Desconectar BingX' : 'Conectar BingX';
     document.getElementById('pos-bx-nota').hidden = !BX.ok;
   }
-  if (PLAN_COMPRAS) { setTimeout(cmpPrecios, 500); setInterval(() => { if (!document.hidden) cmpPrecios(); }, 15000); }
+  if (PLAN_COMPRAS) {
+    setTimeout(cmpPrecios, 500); setInterval(() => { if (!document.hidden) cmpPrecios(); }, 15000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) cmpPrecios(); });     // al volver a la app, al toque
+  }
   if (PLAN_COMPRAS && BX_API) {
     document.getElementById('bx-btn').addEventListener('click', () => {
       if (bxClave()) { try { localStorage.removeItem('ab-bingx-clave'); } catch (e) { /* idem */ } Object.assign(BX, { ok: false, error: null }); drawCompras(); drawPosiciones(); return; }
@@ -1850,6 +1853,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       bxLeer();
     });
     bxLeer(); setInterval(() => { if (!document.hidden) bxLeer(); }, 60000);
+    // al volver a la app: posiciones y ordenes al toque (antes podian tener hasta un minuto)
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) bxLeer(); });
   }
 
   // ---------- notificaciones en la pagina (no por Telegram) ----------

@@ -1789,7 +1789,10 @@
     bxb.hidden = !BX_API; bxb.textContent = bxClave() ? 'Desconectar BingX' : 'Conectar BingX';
     document.getElementById('pos-bx-nota').hidden = !BX.ok;
   }
-  if (PLAN_COMPRAS) { setTimeout(cmpPrecios, 500); setInterval(() => { if (!document.hidden) cmpPrecios(); }, 15000); }
+  if (PLAN_COMPRAS) {
+    setTimeout(cmpPrecios, 500); setInterval(() => { if (!document.hidden) cmpPrecios(); }, 15000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) cmpPrecios(); });     // al volver a la app, al toque
+  }
   if (PLAN_COMPRAS && BX_API) {
     document.getElementById('bx-btn').addEventListener('click', () => {
       if (bxClave()) { try { localStorage.removeItem('ab-bingx-clave'); } catch (e) { /* idem */ } Object.assign(BX, { ok: false, error: null }); drawCompras(); drawPosiciones(); return; }
@@ -1799,6 +1802,8 @@
       bxLeer();
     });
     bxLeer(); setInterval(() => { if (!document.hidden) bxLeer(); }, 60000);
+    // al volver a la app: posiciones y ordenes al toque (antes podian tener hasta un minuto)
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) bxLeer(); });
   }
 
   // ---------- notificaciones en la pagina (no por Telegram) ----------
