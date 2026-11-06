@@ -45,6 +45,13 @@ En el dashboard: sección "Cómo viene aprendiendo".
 
 ### Próximas compras (plan de Diego)
 
+**Plan privado** (para que nadie lo vea, aunque tenga acceso a este repositorio): el plan va en un repositorio
+privado (`DiegoAdrian97/BTCAnalyzer-plan`, archivo `plan_compras.json`). La función `api/posiciones` lo lee con un token
+de GitHub de solo lectura (`PLAN_GITHUB_TOKEN` en Vercel) y lo entrega solo con la contraseña de BingX; Render y los
+avisos de Telegram lo leen con el mismo token (`PLAN_GITHUB_TOKEN` en Render; `util.leer_plan()`). En la PC, sin token,
+sirve un `plan_compras.json` local. Si estás conectado pero el plan no llega, Mis posiciones muestra igual el PnL en
+vivo y dice qué falta.
+
 **Solo con BingX conectado**: Tu plan (Próximas compras), Mis posiciones, la capa "Mi plan" del gráfico y sus avisos
 se ven solo si en ese navegador se conectó BingX con la contraseña de Vercel (`POSICIONES_CLAVE`) y el servidor la
 aceptó. Sin conectar, arriba (al lado de la campanita) aparece una llave para hacerlo; "Desconectar BingX" lo oculta

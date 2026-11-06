@@ -893,14 +893,14 @@ def _revisar(rows, velas=None):
                    f"puede acelerarse. Es una estimación con open interest y long/short, no un pronóstico.")
 
 
-PLAN_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "plan_compras.json")
 CERCA_COMPRA = 0.03          # recordar cargar la orden cuando el precio esta a 3% o menos
 
 
 def _plan():
+    """El plan privado (util.leer_plan: repositorio privado con PLAN_GITHUB_TOKEN, o plan_compras.json local)."""
     try:
-        with open(PLAN_FILE, encoding="utf-8") as f:
-            return json.load(f)
+        import util
+        return util.leer_plan()
     except Exception:
         return None
 

@@ -1584,7 +1584,10 @@
   }
 
   // ---------- proximas compras: el plan de plan_compras.json, con donde esta el precio y que ya se ejecuto ----------
-  const PLAN_COMPRAS = /*PLAN*/null/*FIN*/;
+  // el plan de compras: en la version del telefono llega del servidor (api/posiciones) recien con la contraseña de BingX;
+  // ya no va adentro de la pagina publicada (generar_pagina.py solo lo mete si existe plan_compras.json en la carpeta)
+  let PLAN_COMPRAS = /*PLAN*/null/*FIN*/;
+  const PLAN_EMBEBIDO = PLAN_COMPRAS;          // al desconectar, el que vino del servidor se olvida
   const CMP = { datos: {}, hora: null };
   // ---------- BingX en vivo (solo lectura; api/posiciones.js de Vercel): posiciones y ordenes reales ----------
   // Conectado, "Mis posiciones" sale de BingX (no del JSON) y una compra del plan esta "cargada" si hay una orden limite
@@ -1603,6 +1606,8 @@
       const r = await fetch(BX_API, { headers: { 'x-clave': clave }, cache: 'no-store' });
       if (r.status !== 401 && r.status !== 503) BX.autorizado = true;     // la contraseña paso (aunque BingX falle un rato)
       const j = await r.json();
+      if (j.plan && typeof j.plan === 'object' && Array.isArray(j.plan.compras)) PLAN_COMPRAS = j.plan;   // el plan privado
+      BX.planError = j.plan_error || null;
       if (j.ok) { Object.assign(BX, { ok: true, posiciones: j.posiciones || {}, ordenes: j.ordenes, hora: new Date(j.hora), error: null }); pnlRef(); }
       else {
         Object.assign(BX, { ok: false, error: j.error || `error ${r.status}` });
@@ -1756,8 +1761,14 @@
   }
   function drawPosiciones() {
     const sec = document.getElementById('posiciones'), body = document.getElementById('pos-body');
-    if (!PLAN_OK() || !ES_CRIPTO(MON())) { sec.hidden = true; if (typeof pnlConectar === 'function') pnlConectar(); return; }
+    const soloBx = !PLAN_COMPRAS && !!BX_API && BX.autorizado;      // conectado pero sin el plan privado: igual el PnL en vivo
+    if ((!PLAN_OK() && !soloBx) || !ES_CRIPTO(MON())) { sec.hidden = true; if (typeof pnlConectar === 'function') pnlConectar(); return; }
     sec.hidden = false; body.replaceChildren();
+    if (soloBx) {
+      body.append(el('p', 'ab-note', `Conectado a BingX, pero no llegó tu plan privado${BX.planError ? ` (${BX.planError})` : ''}. Revisá en Vercel la variable PLAN_GITHUB_TOKEN (token de solo lectura del repositorio privado del plan).`));
+      document.getElementById('pos-hora').textContent = BX.ok ? `BingX en vivo · ${BX.hora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}` : BX.error ? `BingX: ${BX.error}` : '—';
+      pnlPintar(); pnlConectar(); return;
+    }
     const sgn = (x, f = f0) => `${x >= 0 ? '+' : '−'}${f(Math.abs(x))}`;
     [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))].forEach((m) => {
       const d = CMP.datos[m], e = planEstado(m, d), box = el('div', 'ab-cmp'), h = el('div', 'ab-cmp-h');
@@ -1866,24 +1877,24 @@
     } catch (e) { PNL.ws = null; }
   }
   document.addEventListener('visibilitychange', () => { if (document.hidden) { if (PNL.ws) { const w = PNL.ws; PNL.ws = null; PNL.syms = ''; try { w.close(); } catch (e) { /* idem */ } } } else pnlConectar(); });
-  if (PLAN_COMPRAS) {
+  {                                                           // cmpPrecios no hace nada hasta que haya plan visible
     setTimeout(cmpPrecios, 500); setInterval(() => { if (!document.hidden) cmpPrecios(); }, 15000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) cmpPrecios(); });     // al volver a la app, al toque
   }
   // mostrar u ocultar todo lo del plan segun si BingX esta conectado (y la llave del encabezado para conectarlo)
   function planVisible() {
     const llave = document.getElementById('bx-llave');
-    if (llave) llave.hidden = !BX_API || !PLAN_COMPRAS || BX.autorizado;
+    if (llave) llave.hidden = !BX_API || BX.autorizado;
     if (PLAN_OK() && !CMP.hora) cmpPrecios();               // recien conectado: los precios del plan al toque
     drawCompras(); drawPosiciones();
     const chip = document.querySelector('#layers [data-layer="plan"]'), con = PLAN_OK() && ES_CRIPTO(MON());
     if (chip && chip.hidden === con) { chip.hidden = !con; syncLayers(); if (S.rows) drawChart(S.rows, S.sum); }
   }
-  if (PLAN_COMPRAS && BX_API) {
+  if (BX_API) {
     const conectar = async () => {
       if (bxClave()) {                                     // desconectar: se olvida la contraseña y se oculta el plan
         try { localStorage.removeItem('ab-bingx-clave'); } catch (e) { /* idem */ }
-        Object.assign(BX, { ok: false, error: null, autorizado: false, posiciones: null, ordenes: null }); planVisible(); return;
+        Object.assign(BX, { ok: false, error: null, autorizado: false, posiciones: null, ordenes: null }); PLAN_COMPRAS = PLAN_EMBEBIDO; planVisible(); return;
       }
       const c = window.prompt('Contraseña de BingX (la que pusiste en Vercel como POSICIONES_CLAVE):');
       if (!c) return;

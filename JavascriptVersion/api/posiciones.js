@@ -5,7 +5,10 @@
  * Las claves van en las variables de entorno de Vercel (Settings -> Environment Variables), nunca en el codigo:
  *   BINGX_API_KEY, BINGX_API_SECRET  una clave de API de BingX con permiso SOLO DE LECTURA (sin operar ni retirar)
  *   POSICIONES_CLAVE                 una contraseña tuya: la pagina la pide una vez y la manda en cada pedido
- * Sin las tres, o con la contraseña mal, no devuelve nada. La respuesta no se guarda en ningun cache.
+ *   PLAN_GITHUB_TOKEN                token de GitHub de SOLO LECTURA del repositorio privado del plan (PLAN_REPO,
+ *                                    por defecto DiegoAdrian97/BTCAnalyzer-plan): el plan de compras ya no esta en el
+ *                                    repositorio publico ni en la pagina; se entrega aca, solo con la contraseña
+ * Sin las tres primeras, o con la contraseña mal, no devuelve nada. La respuesta no se guarda en ningun cache.
  */
 const crypto = require('crypto');
 
@@ -53,6 +56,20 @@ function ordenes(data) {
   return out;
 }
 
+/** El plan de compras, del repositorio privado (un minuto en memoria). null si no hay token. */
+let planCache = null;
+async function leerPlan() {
+  const tok = process.env.PLAN_GITHUB_TOKEN, repo = process.env.PLAN_REPO || 'DiegoAdrian97/BTCAnalyzer-plan';
+  if (!tok) return null;
+  if (planCache && Date.now() - planCache[0] < 60000) return planCache[1];
+  const r = await fetch(`https://api.github.com/repos/${repo}/contents/plan_compras.json`, { signal: AbortSignal.timeout(8000),
+    headers: { Authorization: `Bearer ${tok}`, Accept: 'application/vnd.github.raw+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': UA } });
+  if (!r.ok) throw new Error(`plan privado: GitHub ${r.status}`);
+  const plan = JSON.parse(await r.text());
+  planCache = [Date.now(), plan];
+  return plan;
+}
+
 function claveOk(dada, esperada) {
   const a = Buffer.from(String(dada || '')), b = Buffer.from(String(esperada || ''));
   return a.length === b.length && b.length >= 8 && crypto.timingSafeEqual(a, b);
@@ -64,12 +81,15 @@ module.exports = async (req, res) => {
   const { BINGX_API_KEY: key, BINGX_API_SECRET: secret, POSICIONES_CLAVE: clave } = process.env;
   if (!key || !secret || !clave) { res.status(503).send(JSON.stringify({ ok: false, error: 'Faltan las variables BINGX_API_KEY, BINGX_API_SECRET y POSICIONES_CLAVE en Vercel' })); return; }
   if (!claveOk(req.headers['x-clave'], clave)) { res.status(401).send(JSON.stringify({ ok: false, error: 'Contraseña incorrecta' })); return; }
+  let planError = null;
+  const planP = leerPlan().catch((e) => { planError = String(e.message || e).slice(0, 120); return planCache ? planCache[1] : null; });
   try {
-    const [pos, ord] = await Promise.all([pedir('/openApi/swap/v2/user/positions', {}, key, secret),
-      pedir('/openApi/swap/v2/trade/openOrders', {}, key, secret).catch(() => null)]);
-    res.status(200).send(JSON.stringify({ ok: true, hora: Date.now(), posiciones: posiciones(pos), ordenes: ord ? ordenes(ord) : null }));
+    const [pos, ord, plan] = await Promise.all([pedir('/openApi/swap/v2/user/positions', {}, key, secret),
+      pedir('/openApi/swap/v2/trade/openOrders', {}, key, secret).catch(() => null), planP]);
+    res.status(200).send(JSON.stringify({ ok: true, hora: Date.now(), posiciones: posiciones(pos), ordenes: ord ? ordenes(ord) : null, plan, plan_error: planError }));
   } catch (e) {
-    res.status(502).send(JSON.stringify({ ok: false, error: String(e.message || e).slice(0, 200) }));
+    // BingX fallo: el plan igual va (la contraseña ya se verifico)
+    res.status(502).send(JSON.stringify({ ok: false, error: String(e.message || e).slice(0, 200), plan: await planP, plan_error: planError }));
   }
 };
 module.exports.firmar = firmar;
