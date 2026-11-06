@@ -331,8 +331,15 @@
   .ab-explain { display: grid; gap: 4px; }
   /* mantener apretado no selecciona el texto ni abre el menu de copiar */
   .ab-ex-link { border-radius: 6px; padding: 3px 6px; margin-inline: -6px; transition: background .15s;
-    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; cursor: default; }
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; cursor: pointer; }
   .ab-ex-link.is-on { background: color-mix(in srgb, var(--color-fg) 9%, transparent); }
+  /* marcado con un clic o un toque (queda hasta volver a tocarlo): fondo mas fuerte, barra a la izquierda y ✓ */
+  .ab-ex-link.is-sel { background: color-mix(in srgb, var(--color-fg) 14%, transparent); box-shadow: inset 3px 0 0 var(--ink); }
+  .ab-ex-link.is-sel > span > b:first-child::before { content: '✓ '; }
+  .ab-ex-link:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .ab-ex-limpiar { justify-self: start; margin: 0 0 6px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel);
+    color: var(--ink); font: inherit; font-size: var(--cds-font-size-caption); cursor: pointer; }
+  .ab-ex-limpiar[hidden] { display: none; }
   @media (hover: hover) { .ab-ex-link:hover { background: color-mix(in srgb, var(--color-fg) 9%, transparent); } }
   .ab-chart svg [data-ex], .ab-chart svg .ab-candle, .ab-chart svg .ab-vol-up, .ab-chart svg .ab-vol-dn { transition: opacity .2s ease; }
   .ab-chart svg.is-focus [data-ex]:not(.ex-on), .ab-chart svg.is-focus .ab-candle,
@@ -575,7 +582,30 @@
   #grafico.ab-fs { position: fixed; inset: 0; z-index: 60; margin: 0; max-width: none; border-radius: 0; border: 0; resize: none;
     display: flex; flex-direction: column; gap: 6px; overflow: hidden;
     padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
-  #grafico.ab-fs > .ab-card-head > div:first-child, #grafico.ab-fs #help-btn, #grafico.ab-fs #chart-help, #grafico.ab-fs #ex-box, #grafico.ab-fs #scen-note { display: none; }
+  #grafico.ab-fs > .ab-card-head > div:first-child, #grafico.ab-fs #help-btn, #grafico.ab-fs #chart-help, #grafico.ab-fs #scen-note { display: none; }
+  /* en pantalla completa, "Que estas viendo" va en un panel a la derecha: fijo en pantallas anchas; en el celular se
+     abre con el boton ⓘ (y se cierra con ✕, deslizando a la derecha o con Esc) */
+  #ex-fs-btn { display: none; }
+  #grafico.ab-fs #ex-box { display: block; position: absolute; top: 0; right: 0; bottom: 0; width: var(--ab-ex-w); z-index: 5; margin: 0;
+    border-top: 0; border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto; overscroll-behavior: contain;
+    padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) 12px; }
+  #grafico.ab-fs #ex-box summary { cursor: default; padding-top: 2px; }
+  #grafico.ab-fs #ex-box summary::after { display: none; }
+  #grafico.ab-fs #ex-box .ab-explain { grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 900px) {
+    #grafico.ab-fs { --ab-ex-w: 300px; padding-right: calc(var(--ab-ex-w) + 8px); }
+    #grafico.ab-fs > .ab-card-head.ab-graf-head { right: calc(var(--ab-ex-w) + 8px); }
+  }
+  @media (max-width: 899.98px) {
+    #grafico.ab-fs { --ab-ex-w: min(320px, 86vw); }
+    #grafico.ab-fs #ex-fs-btn { display: inline-grid; }
+    #grafico.ab-fs #ex-box { transform: translateX(100%); visibility: hidden; transition: transform .22s ease, visibility .22s; box-shadow: -12px 0 32px rgba(0, 0, 0, .25); }
+    #grafico.ab-fs.ab-fs-ex #ex-box { transform: none; visibility: visible; }
+    #grafico.ab-fs #ex-box summary { cursor: pointer; }
+    #grafico.ab-fs #ex-box summary::after { display: inline; content: '✕'; margin-left: auto; font-size: 15px; transform: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { #grafico.ab-fs #ex-box { transition: none; } }
+  html.ab-fs-on #act-borde, html.ab-fs-on .ab-tm-tab { display: none !important; }     /* las pestañas del borde no tapan el grafico */
   #grafico.ab-fs .ab-capas { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; flex: none; }
   #grafico.ab-fs .ab-capas > * { flex: none; }
   #grafico.ab-fs .ab-tools, #grafico.ab-fs .ab-zoom { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; flex: none; }
@@ -835,6 +865,7 @@
         <div><span class="ab-kicker">Gráfico</span><h2 id="graf-t">Dónde está BTC</h2></div>
         <div class="ab-head-act">
           <button type="button" class="ab-iconbtn ab-round" id="help-btn" aria-expanded="false" aria-controls="chart-help" aria-label="Cómo se usa el gráfico" title="Cómo se usa">?</button>
+          <button type="button" class="ab-iconbtn ab-round" id="ex-fs-btn" aria-expanded="false" aria-controls="ex-box" aria-label="Qué estás viendo" title="Qué estás viendo">ⓘ</button>
           <button type="button" class="ab-iconbtn ab-round ab-fs-btn" id="fs-btn" aria-pressed="false" aria-label="Ver el gráfico en pantalla completa" title="Pantalla completa">⤢</button>
         </div></div>
       <div class="ab-tools">
@@ -884,7 +915,8 @@
       <p class="ab-note ab-help" id="chart-help" hidden><span class="ab-only-mouse">Arrastrá el gráfico para moverte · rueda: zoom · arrastrá el eje de precios o el de horas para estirarlos · arrastrá el borde de abajo del precio o de cada indicador para hacerlo más alto o más bajo · doble clic en un eje: vuelve ese eje a como estaba (en el de horas, todos los paneles) · doble clic en el gráfico: ajusta todo · Shift + arrastrar: medir % y velas · teclas (con el mouse sobre el gráfico): ← → moverse, + − zoom, 0 ajustar, L logarítmica, M medir, I imán (Cmd/Ctrl mientras medís lo invierte), 1 a 6 temporalidad, F pantalla completa, Esc borrar la medición</span><span class="ab-only-touch">Arrastrá con un dedo para moverte · pellizcá para zoom (de costado: velas; vertical: precios) · arrastrá los ejes para estirarlos · arrastrá la manija de abajo de cada panel para cambiar su alto · doble toque en un eje lo vuelve a como estaba · tocá una vela para ver sus datos · "Medir" y arrastrá: % y velas entre dos puntos ("Imán" los pega a la apertura, máximo, mínimo o cierre)</span></p>
       <div class="ab-chart dash-skeleton" id="chart" data-source="analisis"></div>
       <details class="ab-exbox" id="ex-box"><summary>Qué estás viendo <b id="ex-n"></b></summary>
-        <div class="ab-explain" id="legend"></div></details>
+        <div class="ab-explain" id="legend"></div>
+        <button type="button" class="ab-ex-limpiar" id="ex-limpiar" hidden>Quitar marcas</button></details>
       <p class="ab-note" id="scen-note"></p>
     </section>
 
@@ -1105,8 +1137,23 @@
   pintarTema();
 
   const card = document.getElementById('grafico'), fsBtn = document.getElementById('fs-btn');
+  const exBox = document.getElementById('ex-box'), exFsBtn = document.getElementById('ex-fs-btn');
+  let exAbierto = exBox.open;                     // como estaba "Que estas viendo" antes de la pantalla completa
+  const exPanel = (on) => { card.classList.toggle('ab-fs-ex', on); exFsBtn.setAttribute('aria-expanded', String(on)); };
+  exFsBtn.addEventListener('click', () => exPanel(!card.classList.contains('ab-fs-ex')));
+  // en pantalla completa el titulo no pliega el panel: en el celular lo cierra
+  exBox.querySelector('summary').addEventListener('click', (e) => { if (!S.fs) return; e.preventDefault(); if (window.innerWidth < 900) exPanel(false); });
+  let exX = null;
+  exBox.addEventListener('touchstart', (e) => { exX = S.fs && e.touches.length === 1 ? [e.touches[0].clientX, e.touches[0].clientY] : null; }, { passive: true });
+  exBox.addEventListener('touchend', (e) => {
+    if (!exX) return; const t = e.changedTouches[0], dx = t.clientX - exX[0], dy = t.clientY - exX[1]; exX = null;
+    if (dx > 60 && Math.abs(dx) > 2 * Math.abs(dy) && window.innerWidth < 900) exPanel(false);       // deslizar a la derecha lo cierra
+  }, { passive: true });
   function setFs(on, native = true) {
+    if (on && !S.fs) exAbierto = exBox.open;
     S.fs = on;
+    exBox.open = on ? true : exAbierto;
+    if (!on) exPanel(false);
     card.classList.toggle('ab-fs', on);
     document.documentElement.classList.toggle('ab-fs-on', on);
     fsBtn.setAttribute('aria-pressed', String(on));
@@ -1125,6 +1172,7 @@
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (G.med || S.medir) { setMedir(false); return; }      // primero se borra la medicion
+    if (S.fs && card.classList.contains('ab-fs-ex')) { exPanel(false); return; }   // despues, el panel de "Que estas viendo"
     if (S.fs) setFs(false);
   });
   document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && S.fs) setFs(false, false); });
@@ -1394,6 +1442,7 @@
     document.addEventListener('touchstart', (e) => {
       if (e.touches.length !== 1) { t0 = null; return; }
       const x = e.touches[0].clientX, y = e.touches[0].clientY;
+      if (document.documentElement.classList.contains('ab-fs-on')) { t0 = null; return; }     // en pantalla completa el borde es del grafico
       if (!abierto() && x > window.innerWidth - 22) t0 = { x, y, modo: 'abrir' };
       else if (abierto() && panel.contains(e.target)) t0 = { x, y, modo: 'cerrar' };
       else t0 = null;
@@ -2214,8 +2263,7 @@
   const endHold = (tap) => {
     if (!hold) return;
     clearTimeout(hold.timer);
-    if (hold.on) focusEx(S.sticky || null);                    // se solto despues de mantener: vuelve a como estaba
-    else if (tap && Date.now() - hold.t < 400) { S.sticky = S.sticky === hold.key ? null : hold.key; focusEx(S.sticky); }
+    if (hold.on) { exSinClick = Date.now(); focusEx(null); }    // se solto despues de mantener: vuelve a como estaba (y no marca)
     hold = null;
   };
   document.addEventListener('pointermove', (e) => {
@@ -2224,11 +2272,23 @@
   document.addEventListener('pointerup', () => endHold(true));
   document.addEventListener('pointercancel', () => endHold(false));
 
-  function focusEx(key) {
-    S.focus = key;
-    applyFocus();          // en el grafico: lo señalado y sus velas quedan encendidos, el resto se apaga
-    document.querySelectorAll('#legend [data-ex]').forEach((n) => n.classList.toggle('is-on', n.dataset.ex === key));
+  // Marcados (clic o toque corto, tipo interruptor: pueden ser varios) mas la vista previa (mouse encima o dedo apretado):
+  // eso queda encendido en el grafico y el resto se apaga
+  let exSinClick = 0;
+  S.sel = new Set(); S.hoverEx = null;
+  function focusEx(key) { S.hoverEx = key; refocus(); }
+  function toggleEx(key) { if (S.sel.has(key)) S.sel.delete(key); else S.sel.add(key); refocus(); }
+  function refocus() {
+    const F = new Set(S.sel); if (S.hoverEx) F.add(S.hoverEx);
+    S.focus = F.size ? F : null;
+    applyFocus();
+    document.querySelectorAll('#legend [data-ex]').forEach((n) => {
+      const k = n.dataset.ex; n.classList.toggle('is-on', k === S.hoverEx); n.classList.toggle('is-sel', S.sel.has(k)); n.setAttribute('aria-pressed', String(S.sel.has(k)));
+    });
+    const lim = document.getElementById('ex-limpiar');
+    if (lim) { lim.hidden = !S.sel.size; lim.textContent = `Quitar marcas (${S.sel.size})`; }
   }
+  document.getElementById('ex-limpiar').addEventListener('click', () => { S.sel.clear(); refocus(); });
 
   // ---------- plazos ----------
   function drawPlazos(rows) {
@@ -2519,7 +2579,7 @@
   // coordenadas: x de cualquier hora (tambien del futuro, donde todavia no hay velas) e y de un precio
   const X = (t) => G.chart.timeScale().logicalToCoordinate((t - G.d.t0) / G.d.tfMs);
   const Y = (p, s = G.c) => (p === null || p === undefined ? null : s.priceToCoordinate(p));
-  const dimA = (k) => (S.focus && S.focus !== k ? 0.12 : 1);
+  const dimA = (k) => (S.focus && !S.focus.has(k) ? 0.12 : 1);
   function pillC(ctx, x, y, text, col, solid, anchor, w) {
     ctx.font = `600 10.5px ${G.P.font}`;
     const tw = ctx.measureText(text).width + 14;
@@ -3009,16 +3069,17 @@
   // el foco de "Que estas viendo": lo señalado queda encendido y el resto se apaga
   function applyFocus() {
     if (!G.chart || !G.d) return;
-    const k = S.focus, P = G.P, set = k && S.exCandles ? S.exCandles[k] : null;
-    const dim = (c, key) => (k && k !== key ? alpha(c, 0.15) : c);
+    const k = S.focus, P = G.P;                       // lo encendido: un Set de claves (o null)
+    const set = new Set(); if (k && S.exCandles) k.forEach((x) => { if (S.exCandles[x]) S.exCandles[x].forEach((t) => set.add(t)); });
+    const dim = (c, key) => (k && !k.has(key) ? alpha(c, 0.15) : c);
     if (k || G.wasFocus) {
-      G.c.setData(G.d.cdata.map((b) => (!k || (set && set.has(b.ms)) ? b.bar
+      G.c.setData(G.d.cdata.map((b) => (!k || set.has(b.ms) ? b.bar
         : { ...b.bar, color: alpha(b.bar.close >= b.bar.open ? P.up : P.dn, 0.15), wickColor: alpha(b.bar.close >= b.bar.open ? P.up : P.dn, 0.15) })));
       G.wasFocus = !!k;
     }
     G.e20.applyOptions({ color: dim(P.c0, 'ema') }); G.e50.applyOptions({ color: dim(P.c1, 'ema') }); G.e200.applyOptions({ color: dim(alpha(P.fg, 0.7), 'ema') });
     G.bbU.applyOptions({ color: dim(alpha(P.mute, 0.4), 'bb') }); G.bbL.applyOptions({ color: dim(alpha(P.mute, 0.4), 'bb') });
-    G.ghost.applyOptions({ visible: !k || k === 'futuro' });
+    G.ghost.applyOptions({ visible: !k || k.has('futuro') });
     G.under.update(); G.over.update();
   }
 
@@ -3174,11 +3235,14 @@
     const item = (k, sw, title, text) => {
       const r = el('div', 'ab-ex-item ab-ex-link'), i = el('i'); Object.assign(i.style, sw);
       const t = el('span'); t.append(el('b', '', title), ' ', text); r.append(i, t); leg.append(r);
-      r.dataset.ex = k;
-      // mouse: al pasar por encima. Dedo: ver exHold (mantener apretado o toque corto; deslizar no activa nada)
+      r.dataset.ex = k; r.setAttribute('role', 'button'); r.tabIndex = 0;
+      // mouse: al pasar por encima se ve; clic lo marca o desmarca. Dedo: mantener apretado lo muestra mientras se
+      // sostiene (ver exHold); un toque corto lo marca o desmarca; deslizar no hace nada
       r.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') focusEx(k); });
-      r.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') focusEx(S.sticky || null); });
+      r.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') focusEx(null); });
       r.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') exHold(k, e); });
+      r.addEventListener('click', () => { if (Date.now() - exSinClick > 600) toggleEx(k); });
+      r.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleEx(k); } });
       r.addEventListener('contextmenu', (e) => e.preventDefault());
     };
     const CC = (c) => ({ background: c }), DD = (c) => ({ background: 'transparent', border: `1.5px dashed ${c}` });
@@ -3235,7 +3299,11 @@
     const srLv = pick(rows, 'explicacion').filter((e) => e.plazo === S.plazo && e.tipo === 'vigilar' && e.precio !== null && e.precio !== undefined).map((e) => num(e.precio));
     ex.sr = new Set(all.filter((b) => srLv.some((v) => b.l <= v && v <= b.h)).map((b) => b.t));
     S.exCandles = ex;
-    focusEx(S.focus);
+    // lo marcado que ya no esta en la lista (otra temporalidad, una capa apagada) se desmarca
+    const hay = new Set([...document.querySelectorAll('#legend [data-ex]')].map((n) => n.dataset.ex));
+    S.sel.forEach((x) => { if (!hay.has(x)) S.sel.delete(x); });
+    if (S.hoverEx && !hay.has(S.hoverEx)) S.hoverEx = null;
+    refocus();
   }
 
   // ---------- probabilidades ----------
