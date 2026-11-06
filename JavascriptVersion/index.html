@@ -44,7 +44,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <script src="lib/d3-7.9.0.min.js"></script>
 <script src="lib/lightweight-charts-5.1.0.js"></script>
-<script>window.AB_PAGINA = "fceb5ce9c8";</script>
+<script>window.AB_PAGINA = "92031a9a4d";</script>
 <script src="app.js?v=ec90573d33"></script>
 </head><body><div id="dash-root">
 <style>
@@ -1309,8 +1309,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       const m = JSON.parse(ev.data);
       let k = m.k;
       if (bitget) { const d = m.data && m.data[m.data.length - 1]; if (!d) return; k = { t: +d[0], o: d[1], h: d[2], l: d[3], c: d[4], v: d[5] }; }
-      if (!k) return;
-      liveBar = { tf: wsTf, t: k.t, o: +k.o, h: +k.h, l: +k.l, c: +k.c, v: +k.v };
+      if (!k || sock !== ws) return;                  // un mensaje tardio del WebSocket anterior (otro activo) no cuenta
+      liveBar = { tf: wsTf, mon: wsMon, t: k.t, o: +k.o, h: +k.h, l: +k.l, c: +k.c, v: +k.v };
       ticks++;
       const pe = root.querySelector('.ab-price');
       if (pe && pe.firstChild) {
@@ -3266,7 +3266,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 
   // un tick del WebSocket: mueve la ultima vela al instante, sin rehacer el grafico
   function liveTick() {
-    if (!G.chart || !G.d || G.tf !== S.tf || !liveBar || liveBar.tf !== S.tf) return;
+    if (!G.chart || !G.d || G.tf !== S.tf || !liveBar || liveBar.tf !== S.tf || liveBar.mon !== MON() || G.mon !== MON()) return;
     const t = T2(liveBar.t), d = G.d;
     if (liveBar.t < d.all[d.all.length - 1].t) return;
     try {
@@ -3294,11 +3294,14 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       rsi: num(r.rsi), macd: num(r.macd), sig: num(r.macd_senal), hist: num(r.macd_hist) })).sort((a, b) => a.t - b.t);
     if (!all.length) return;
     const lastIdx = all.length - 1, lastA = all[lastIdx];         // la ultima vela del analisis: de ahi sale el futuro
-    if (liveBar && liveBar.tf === tf) {
+    // la vela en vivo solo si es de este activo: al pasar de ZEC a BTC, la ultima vela de ZEC (1.300) se metia en el
+    // grafico de BTC y la escala quedaba de 1.300 a 100.000
+    const vivo = liveBar && liveBar.tf === tf && liveBar.mon === MON() ? liveBar : null;
+    if (vivo) {
       if (liveBar.t === lastA.t) all[lastIdx] = { ...lastA, h: liveBar.h, l: liveBar.l, c: liveBar.c, v: liveBar.v };
       else if (liveBar.t > lastA.t) all.push({ ...liveBar, e20: null, e50: null, e200: null, bu: null, bl: null, rsi: null, macd: null, sig: null, hist: null });
     }
-    const price = liveBar && liveBar.tf === tf ? liveBar.c : num(sum.precio);
+    const price = vivo ? vivo.c : num(sum.precio);
     const ghosts = SIN_FUTURO ? [] : pick(rows, 'escenario', tf).filter((r) => r.escenario === S.scen)
       .map((r) => ({ k: num(r.paso), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), desde: r.desde })).sort((a, b) => a.k - b.k)
       .map((g) => ({ ...g, t: lastA.t + g.k * tfMs }));
