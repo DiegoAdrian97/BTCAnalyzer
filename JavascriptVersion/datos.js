@@ -78,28 +78,19 @@
     turno[eid] = t + gap;
     if (t > ahora) await new Promise((r) => setTimeout(r, t - ahora));
   }
-  // pedidos lentos (mas de LENTO_MS, o que no respondieron): los ultimos, para ver en la pagina que fuente frena al celular
-  const LENTO_MS = 2500, lentos = [];
-  function anotarLento(eid, url, ms, error) {
-    const u = new URL(url), que = u.pathname.split('/').filter(Boolean).slice(-2).join('/');
-    lentos.push({ eid, que, ms: Math.round(ms), t: Date.now(), error: error || null });
-    if (lentos.length > 40) lentos.splice(0, lentos.length - 40);
-  }
   async function pedir(eid, url) {
     if (isBanned(eid)) throw new Error(`${eid} en pausa por exceso de pedidos`);
     await esperarTurno(eid);
     if (isBanned(eid)) throw new Error(`${eid} en pausa por exceso de pedidos`);
     let res;
-    const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), ESPERA_MS), t0 = Date.now();
+    const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), ESPERA_MS);
     try {
       res = await fetch(url, { cache: 'no-store', signal: ctl.signal });
     } catch (e) {
       clearTimeout(tm);
-      anotarLento(eid, url, Date.now() - t0, ctl.signal.aborted ? 'no respondió' : 'sin conexión');
       throw new Error(ctl.signal.aborted ? `${eid}: no respondió en ${ESPERA_MS / 1000} s` : `${eid}: sin conexión`);
     }
     clearTimeout(tm);
-    if (Date.now() - t0 > LENTO_MS) anotarLento(eid, url, Date.now() - t0);
     if ([418, 429, 403, 451].includes(res.status)) {
       let until = Date.now() + (eid.startsWith('bitget') ? 30000 : 120000);   // sin fecha: pausa (Bitget limita por segundo: 30 s)
       const body = await res.text().catch(() => '');
@@ -335,11 +326,7 @@
     const accion = ACCIONES_APP.has(sym) ? sym.replace('USDT', '') : null, extK = accion ? `externo:${accion}` : 'externo';
     const extP = cached(extK, 600000, async () => {
       const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), ESPERA_MS);
-      const t0 = Date.now(), u = new URL(accion ? `api/contexto?moneda=${accion}` : 'api/contexto', self.location.href);
-      try {
-        const r = await fetch(u, { cache: 'no-store', signal: ctl.signal }); if (!r.ok) throw new Error(r.status);
-        const j = await r.json(); if (Date.now() - t0 > LENTO_MS) anotarLento('vercel', u.href, Date.now() - t0); return j;
-      } catch (e) { anotarLento('vercel', u.href, Date.now() - t0, ctl.signal.aborted ? 'no respondió' : 'falló'); throw e; } finally { clearTimeout(tm); }
+      try { const r = await fetch(accion ? `api/contexto?moneda=${accion}` : 'api/contexto', { cache: 'no-store', signal: ctl.signal }); if (!r.ok) throw new Error(r.status); return r.json(); } finally { clearTimeout(tm); }
     }).catch(() => null);
     const liqP = cached(`${pre()}liquidaciones`, 300000, liqRaw).catch(() => null);
     const opcP = sym === 'BTCUSDT' ? cached('opciones', 600000, opcionesRaw).catch(() => null) : Promise.resolve(null);
@@ -367,7 +354,6 @@
   // el ultimo analisis de cada activo, guardado en el telefono: al abrir la app se muestra al toque mientras se calcula
   const ultimo = (sym) => dbGet(`ultimo:${sym}`);
   const guardarUltimo = (sym, rows) => dbSet(`ultimo:${sym}`, { hora: Date.now(), rows });
-  const Datos = { recolectar, ultimo, guardarUltimo, guardarLog: (log, sym = 'BTCUSDT') => dbSet(`${sym === 'BTCUSDT' ? '' : `${sym}:`}predicciones`, log), isBanned,
-    lentos: () => lentos.slice() };
+  const Datos = { recolectar, ultimo, guardarUltimo, guardarLog: (log, sym = 'BTCUSDT') => dbSet(`${sym === 'BTCUSDT' ? '' : `${sym}:`}predicciones`, log), isBanned };
   root.Datos = Datos;
 })(typeof self !== 'undefined' ? self : globalThis);

@@ -404,7 +404,6 @@
   .ab-sigchip.ab-venta { color: var(--down); background: color-mix(in srgb, var(--down) 12%, transparent); }
   .ab-novote { color: var(--mute); font-size: 10.5px; }
 
-  .ab-claude { margin: 0; white-space: pre-line; font-size: var(--cds-font-size-body); line-height: 1.6; max-width: 74ch; }
   .ab-foot { margin: 0; font-size: var(--cds-font-size-caption); color: var(--mute); max-width: 90ch; line-height: 1.5; }
   .ab-fail { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 440px; color: var(--mute); font-size: var(--cds-font-size-caption); }
   .ab-fail i { width: .375rem; height: .375rem; border-radius: 50%; background: var(--color-bad); }
@@ -552,7 +551,6 @@
   .ab-apr-stat small { font-size: var(--cds-font-size-caption); color: var(--mute); line-height: 1.3; }
   .ab-apr-stat b { font-family: var(--serif); font-weight: 400; font-size: clamp(1.25rem, 3.4vw, 1.7rem); font-variant-numeric: tabular-nums; line-height: 1.15; }
   .ab-apr-stat span { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--mute); }
-  .ab-vel-lista { margin: 4px 0 0; padding-left: 1.1em; display: grid; gap: 4px; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
   .ab-apr-chart svg { display: block; width: 100%; overflow: visible; }
   .ab-apr-chart text { font-size: 10.5px; fill: var(--mute); font-variant-numeric: tabular-nums; }
   .ab-tbl tr.ab-sel td { background: color-mix(in srgb, var(--ink) 6%, transparent); }
@@ -968,17 +966,9 @@
         </div>
       </div>
     </details>
-    <details class="ab-more" id="noticias">
-      <summary><span>Noticias y lectura de Claude</span></summary>
-      <div class="ab-more-body"><p class="ab-claude" id="nota" data-source="analisis" data-field="nota_claude" data-where="tabla=resumen">—</p></div>
-    </details>
     <details class="ab-more" id="aciertos" data-source="analisis">
       <summary><span>¿Viene acertando?</span></summary>
       <div class="ab-more-body"><div id="hits"></div></div>
-    </details>
-    <details class="ab-more" id="velocidad">
-      <summary><span>Velocidad de la app en este celular</span><span class="ab-kicker" id="vel-k"></span></summary>
-      <div class="ab-more-body"><div id="vel"></div></div>
     </details>
   </div>
 
@@ -1455,7 +1445,6 @@
     document.getElementById('prob-tf').textContent = `a ${S.plazo}`;
     document.getElementById('ond-tf').textContent = TF_TXT[S.tf]; document.getElementById('ind-tf').textContent = TF_TXT[S.tf];
     Object.keys(PEREZOSOS).forEach(perezoso);
-    drawNote(sum);
     placeTf(); placeSc();
     connectLive();
     if (first) { first = false; setTimeout(() => root.classList.remove('ab-first'), 1800); }
@@ -1464,7 +1453,7 @@
   // Lo que esta dentro de un desplegable cerrado no se dibuja en cada analisis (cada 12 s): se dibuja al abrirlo y,
   // mientras siga abierto, con cada analisis. Antes se armaba todo aunque no se viera.
   const PEREZOSOS = { probabilidades: () => drawProbs(S.rows, S.sum), senales: () => drawSignals(S.rows), niveles: () => drawLevels(S.rows, S.sum),
-    ondas: () => drawWaves(S.rows), indicadores: () => drawIndicators(S.rows), aciertos: () => drawHits(S.rows), velocidad: () => drawVelocidad() };
+    ondas: () => drawWaves(S.rows), indicadores: () => drawIndicators(S.rows), aciertos: () => drawHits(S.rows) };
   const pendiente = new Set();
   function perezoso(id) {
     const d = document.getElementById(id);
@@ -1474,9 +1463,8 @@
   }
   Object.keys(PEREZOSOS).forEach((id) => {
     const d = document.getElementById(id);
-    if (d) d.addEventListener('toggle', () => { if (d.open && pendiente.has(id) && (S.rows || id === 'velocidad')) perezoso(id); });
+    if (d) d.addEventListener('toggle', () => { if (d.open && pendiente.has(id) && S.rows) perezoso(id); });
   });
-  if (window.abVelocidad) window.abVelocidad.onCambio(() => perezoso('velocidad'));
 
   // "Como viene aprendiendo" cambia pocas veces por hora: se redibuja solo si cambiaron sus filas, el plazo, el ancho o el tema
   let aprFirma = '', aprAncho = window.innerWidth;
@@ -1485,32 +1473,6 @@
     const firma = JSON.stringify([S.plazo, aprAncho, window.abOscuro ? window.abOscuro() : 0, pick(rows, 'aprendizaje'), pick(rows, 'aprendizaje_curva')]);
     if (firma === aprFirma) return;
     aprFirma = firma; drawLearning(rows);
-  }
-
-  // ---------- velocidad real en este telefono (la mide app.js; no sale del telefono) ----------
-  function drawVelocidad() {
-    const box = document.getElementById('vel'); if (!box || !window.abVelocidad) return;
-    const V = window.abVelocidad.ahora(), H = window.abVelocidad.historia();
-    const seg = (ms) => (ms === null || ms === undefined ? '—' : ms < 1000 ? `${f0(ms)} ms` : `${f1(ms / 1000)} s`);
-    const med = (xs) => { const v = xs.filter((x) => x !== null && x !== undefined).sort((a, b) => a - b); return v.length ? v[Math.floor(v.length / 2)] : null; };
-    const ciclo = med(V.ciclos);
-    document.getElementById('vel-k').textContent = V.abrir !== null ? `abre en ${seg(V.abrir)}` : '';
-    const top = el('div', 'ab-apr-top');
-    const st = (t, v, sub) => { const d = el('div', 'ab-apr-stat'); d.append(el('small', '', t), el('b', '', v), el('span', '', sub || '')); return d; };
-    top.append(st('Primer pintado', seg(V.abrir), V.red ? `red ${V.red.toUpperCase()}` : ''),
-      st('Análisis en pantalla', seg(V.primero), V.primero !== null && V.nuevo !== null && V.primero < V.nuevo ? 'el guardado, al toque' : ''),
-      st('Análisis nuevo', seg(V.nuevo), ciclo !== null ? `cada uno tarda ${seg(ciclo)}` : ''));
-    const hist = H.filter((x) => x.nuevo !== null);
-    const lineas = [];
-    if (hist.length >= 3) lineas.push(`En las últimas ${hist.length} aperturas (mediana): pinta en ${seg(med(hist.map((x) => x.abrir)))}, muestra un análisis en ${seg(med(hist.map((x) => x.primero)))} y el nuevo en ${seg(med(hist.map((x) => x.nuevo)))}.`);
-    const grupos = {};
-    V.lentos.forEach((x) => { const k = `${x.eid} · ${x.que}`; const g = grupos[k] || (grupos[k] = { k, n: 0, max: 0, t: 0, error: null }); g.n += 1; g.max = Math.max(g.max, x.ms); g.t = Math.max(g.t, x.t); if (x.error) g.error = x.error; });
-    const gs = Object.values(grupos).sort((a, b) => b.t - a.t).slice(0, 6);
-    const lista = el('ul', 'ab-vel-lista');
-    if (!gs.length) lista.append(el('li', '', 'Ningún pedido tardó más de 2,5 s desde que abriste la app.'));
-    gs.forEach((g) => lista.append(el('li', '', `${g.k}: ${g.error || `hasta ${seg(g.max)}`}${g.n > 1 ? ` (${g.n} veces)` : ''} · ${haceTxt(g.t)}`)));
-    box.replaceChildren(top, ...(lineas.length ? [el('p', 'ab-note', lineas.join(' '))] : []), el('p', 'ab-kicker', 'Pedidos lentos (más de 2,5 s) o caídos'), lista,
-      el('p', 'ab-note', 'Se mide en este teléfono y queda guardado solo acá (no se manda a ningún lado). Sirve para ver si la app anda lenta y qué fuente la frena.'));
   }
 
   // ---------- que esta pasando: por que se mueve fuerte ----------
@@ -3457,11 +3419,6 @@
       const det = el('td', '', r.detalle); if (!r.vota) det.append(el('span', 'ab-novote', (r.detalle ? ' · ' : '') + 'no vota'));
       tr.append(el('td', '', r.indicador), el('td', 'r', r.valor === null ? '' : f2(num(r.valor))), sig, det); tb.append(tr);
     });
-  }
-
-  function drawNote(s) {
-    document.getElementById('nota').textContent = s.nota_claude ||
-      'Todavía no hay lectura de noticias en este análisis. La rutina programada la agrega en cada corrida (8, 12, 16, 20 y 0 h): qué pasó, qué eventos vienen con horario y si refuerzan o contradicen el análisis técnico.';
   }
 
   function drawHits(rows) {

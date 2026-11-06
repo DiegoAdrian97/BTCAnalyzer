@@ -64,7 +64,7 @@ async function cicloActivo() {
     if (sym !== ACTIVO) return;                    // eligieron otro activo mientras bajaban los datos: no se calcula este
     const rows = calcular(sym, input);
     numero += 1; hecho[sym] = Date.now();
-    postMessage({ tipo: 'analisis', rows, numero, ms: Date.now() - t0, fuente: input.fuente, sym, lentos: Datos.lentos() });
+    postMessage({ tipo: 'analisis', rows, numero, ms: Date.now() - t0, fuente: input.fuente, sym });
     if (Date.now() - (guardado[sym] || 0) > 60000) { guardado[sym] = Date.now(); Datos.guardarUltimo(sym, rows); }
   } catch (e) {
     if (sym === ACTIVO) postMessage({ tipo: 'error', texto: e && e.message ? e.message : String(e), sym });

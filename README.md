@@ -175,11 +175,8 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
   por pedido, 4 criptos cada 15 s); el panel de activos sin WebSocket pide todos los precios en un pedido (antes 16).
 - **Esqueletos de carga**: mientras llega el primer análisis, bloques grises con brillo en la predicción, el sesgo y
   el gráfico. **Dibujo perezoso**: los desplegables cerrados (probabilidades, señales, niveles, ondas, indicadores,
-  aciertos y velocidad) no se dibujan en cada análisis, sino al abrirlos; "Cómo viene aprendiendo" solo si cambió.
+  aciertos) no se dibujan en cada análisis, sino al abrirlos; "Cómo viene aprendiendo" solo si cambió.
   Las filas del análisis se indexan por tabla una vez (antes cada búsqueda recorría ~3.000 filas, ~60 veces).
-- **Velocidad real** (desplegable "Velocidad de la app en este celular"): cuánto tarda en pintar, en mostrar el
-  análisis y cada análisis, la mediana de las últimas aperturas y los pedidos lentos (más de 2,5 s) o caídos, por
-  fuente. Se mide y se guarda solo en el teléfono.
 - No aplican (no hay base de datos ni servidor propio con tráfico): consultas N+1, índices de base, pool de
   conexiones, Redis, colas de trabajo, varias instancias y OpenTelemetry. Sus equivalentes ya estaban: caché de Vercel
   de 10 min para las noticias, cachés en memoria por fuente, velas guardadas en el teléfono y el worker como cola.

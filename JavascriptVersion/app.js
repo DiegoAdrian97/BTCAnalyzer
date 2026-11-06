@@ -57,23 +57,7 @@
     el.querySelector('span').textContent = texto || '';
   };
 
-  // Velocidad real en este telefono (sin servicios de afuera): cuanto tarda en pintar, en mostrar el primer analisis y
-  // cada analisis, y que pedidos vienen lentos. Se guardan las ultimas aperturas; la pagina lo muestra en "Velocidad".
-  const VEL = { abrir: null, primero: null, nuevo: null, ciclos: [], lentos: [], red: null };
-  let velHist = [];
-  try { velHist = JSON.parse(localStorage.getItem('ab-velocidad') || '[]'); if (!Array.isArray(velHist)) velHist = []; } catch (e) { velHist = []; }
-  try { new PerformanceObserver((l) => l.getEntries().forEach((e) => { if (e.name === 'first-contentful-paint') VEL.abrir = Math.round(e.startTime); })).observe({ type: 'paint', buffered: true }); } catch (e) { /* sin medicion */ }
-  try { const c = navigator.connection; if (c) VEL.red = c.effectiveType || null; } catch (e) { /* idem */ }
-  let velAvisar = null;
-  function velGuardar() {
-    if (VEL.nuevo === null) return;
-    const h = velHist.filter((x) => x.id !== VEL.id).concat([{ id: VEL.id, t: Date.now(), abrir: VEL.abrir, primero: VEL.primero, nuevo: VEL.nuevo, red: VEL.red,
-      ciclo: VEL.ciclos.length ? VEL.ciclos.slice().sort((a, b) => a - b)[Math.floor(VEL.ciclos.length / 2)] : null }]).slice(-30);
-    velHist = h;
-    try { localStorage.setItem('ab-velocidad', JSON.stringify(h)); } catch (e) { /* sin almacenamiento */ }
-  }
-  VEL.id = Date.now();
-  window.abVelocidad = { ahora: () => ({ ...VEL, ciclos: VEL.ciclos.slice(), lentos: VEL.lentos.slice() }), historia: () => velHist.slice(), onCambio: (fn) => { velAvisar = fn; } };
+  try { localStorage.removeItem('ab-velocidad'); } catch (e) { /* lo que guardaba la seccion Velocidad (ya no esta) */ }
 
   const worker = new Worker(`worker.js${VER}`);
   const sym = () => `${moneda}USDT`;
@@ -105,14 +89,6 @@
     if (m.tipo === 'analisis') {
       const mon = (m.sym || 'BTCUSDT').replace('USDT', '');
       if (m.guardado && porMoneda[mon]) return;           // ya hay uno nuevo: el guardado no hace falta
-      if (!m.fondo) {
-        if (VEL.primero === null) VEL.primero = Math.round(performance.now());
-        if (!m.guardado && VEL.nuevo === null) VEL.nuevo = Math.round(performance.now());
-        if (m.ms) { VEL.ciclos.push(m.ms); if (VEL.ciclos.length > 30) VEL.ciclos.shift(); }
-        if (m.lentos) VEL.lentos = m.lentos;
-        if (!m.guardado) velGuardar();
-        if (velAvisar) { try { velAvisar(); } catch (e) { /* idem */ } }
-      }
       porMoneda[mon] = m.rows; horaMoneda[mon] = m.guardado ? m.hora : Date.now();
       if (m.sym && m.sym !== sym()) return;                // de fondo: queda listo para cuando lo elijan
       rows = m.rows;
