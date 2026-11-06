@@ -46,7 +46,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
 <script src="lib/d3-7.9.0.min.js"></script>
 <script src="lib/lightweight-charts-5.1.0.js"></script>
-<script>window.AB_PAGINA = "adb0f12396";</script>
+<script>window.AB_PAGINA = "7de591f8dc";</script>
 <script src="app.js?v=ec90573d33"></script>
 </head><body><div id="dash-root">
 <style>
@@ -733,13 +733,14 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   .ab-cal-bar i, .ab-cal-bar b { position: absolute; top: -3px; width: 3px; height: 16px; border-radius: 2px; }
   .ab-cal-bar i { background: var(--mute); } .ab-cal-bar b { background: var(--ink); }
   .ab-cmp-grid { display: grid; gap: var(--cds-gap-md); grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); }
-  .ab-cmp { border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: grid; gap: 6px; align-content: start; }
+  .ab-cmp { border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: grid; gap: 6px; align-content: start; min-width: 0; overflow: hidden; }
   .ab-cmp-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
   .ab-cmp-h b { font-size: 16px; } .ab-cmp-h span { font-size: var(--cds-font-size-caption); color: var(--mute); font-variant-numeric: tabular-nums; }
   .ab-cmp-row { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: var(--cds-font-size-caption);
     font-variant-numeric: tabular-nums; padding: 6px 8px; border-radius: 8px; background: var(--soft); }
   .ab-cmp-row b { font-size: 13px; } .ab-cmp-row em { font-style: normal; color: var(--mute); display: block; }
-  .ab-cmp-row .st { text-align: right; font-weight: 600; white-space: nowrap; }
+  /* el estado va a la derecha y, si es largo, baja de renglon (antes no cortaba y se salia de la tarjeta) */
+  .ab-cmp-row .st { text-align: right; font-weight: 600; max-width: 11rem; text-wrap: balance; overflow-wrap: anywhere; }
   .ab-cmp-row.ok { background: color-mix(in srgb, var(--color-ok) 14%, transparent); } .ab-cmp-row.ok .st { color: var(--color-ok); }
   .ab-cmp-row.carga { outline: 2px solid var(--color-bad); outline-offset: -2px; } .ab-cmp-row.carga .st { color: var(--color-bad); }
   .ab-cmp-row.prox { outline: 2px solid var(--ink); outline-offset: -2px; }
@@ -1711,13 +1712,17 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
         let cls = 'ab-cmp-row', ic = '○', st = '';
         const conBx = !c.en_posicion && !!bxEjecutadas(m, d);
         if (hecha) { cls += ' ok'; ic = '✔'; st = c.en_posicion ? 'En tu posición' : conBx ? (c.extra_agregado ? 'Se ejecutó · en tu posición' : `Se ejecutó · sumá ${f0(c.extra)} de margen`) : c.cargada ? (c.extra_agregado ? 'Se ejecutó' : `Se ejecutó · sumá ${f0(c.extra)} de margen`) : 'Tocó el precio (sin orden)'; }
-        else if (conBx && tocada(c, d)) { ic = '⚠'; cls += ' carga'; st = 'Tocó el precio y tu posición todavía no creció: revisá la orden'; }
+        // el precio paso por ahi, pero BingX no tiene la orden y la posicion no crecio (si la orden esta puesta, sigue esperando:
+        // el minimo puede ser de antes de que la movieras)
+        else if (conBx && tocada(c, d) && !cargada(c)) { ic = '⚠'; cls += ' carga'; st = 'Tocó el precio · revisá la orden'; }
         else if (!cargada(c)) { ic = '✎'; st = dist !== null && dist <= 3 ? `¡Cargá la orden! (a ${f1(dist)}%)` : 'Falta cargar la orden'; if (dist !== null && dist <= 3) cls += ' carga'; }
         else { ic = '⏳'; st = dist === null ? 'Orden puesta' : `Orden puesta · a ${f1(dist)}%`; }
         if (!hecha && !prox) { cls += ' prox'; prox = true; }
         const row = el('div', cls), mid = el('div');
         mid.append(el('b', '', `#${c.n} · ${fp(c.precio)}`), el('em', '', `Orden ${f0(c.orden)} · margen extra ${f0(c.extra)}`));
-        row.append(el('span', '', ic), mid, el('span', 'st', st)); box.append(row);
+        const stEl = el('span', 'st', st);
+        if (ic === '⚠') stEl.title = 'El precio llegó a esta compra pero tu posición en BingX todavía no creció: la orden no se llenó, se movió o falta que BingX la refleje (se lee cada minuto).';
+        row.append(el('span', '', ic), mid, stEl); box.append(row);
       });
       if (d && !marcado) box.append(el('div', 'ab-cmp-now', `ahora ${fp(d.precio)}`));
       body.append(box);
