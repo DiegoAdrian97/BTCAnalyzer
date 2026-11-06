@@ -64,7 +64,9 @@ async function leerPlan() {
   if (planCache && Date.now() - planCache[0] < 60000) return planCache[1];
   const r = await fetch(`https://api.github.com/repos/${repo}/contents/plan_compras.json`, { signal: AbortSignal.timeout(8000),
     headers: { Authorization: `Bearer ${tok}`, Accept: 'application/vnd.github.raw+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': UA } });
-  if (!r.ok) throw new Error(`plan privado: GitHub ${r.status}`);
+  if (!r.ok) throw new Error(r.status === 404 ? 'plan privado: el token no tiene acceso al repositorio del plan (GitHub 404)'
+    : r.status === 401 ? 'plan privado: el token es inválido o venció (GitHub 401)'
+      : r.status === 403 ? 'plan privado: al token le falta el permiso Contents de lectura (GitHub 403)' : `plan privado: GitHub ${r.status}`);
   const plan = JSON.parse(await r.text());
   planCache = [Date.now(), plan];
   return plan;
