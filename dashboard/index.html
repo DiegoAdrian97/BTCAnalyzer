@@ -68,7 +68,15 @@
   .ab-top .ab-spark { width: 140px; height: 40px; }
   @media (max-width: 700px) { .ab-top-r { justify-items: start; } }
 
-  .ab-live-state { color: var(--up); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ab-live-state { color: var(--up); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ab-live-state:not(:empty)::before { content: "· "; color: var(--mute); font-weight: 400; }
+  #next-run { white-space: nowrap; }
+  @media (max-width: 600px) {
+    .ab-live { flex-wrap: wrap; row-gap: 2px; }
+    .ab-live > span:nth-child(2) { flex: 1 1 0; min-width: 0; }
+    .ab-live-state:not(:empty) { flex-basis: 100%; padding-left: 16px; }
+    .ab-live-state:not(:empty)::before { content: none; }
+  }
   .ab-live-state:empty { display: none; }
 
   /* tarjeta protagonista */
@@ -101,6 +109,9 @@
   .ab-qp-all > summary::-webkit-details-marker { display: none; }
   .ab-qp-all > summary h2 { margin-right: auto; }
   .ab-qp-all[open] > summary { margin-bottom: 10px; }
+  .ab-qp-all > summary { flex-wrap: wrap; }
+  .ab-qp-res { flex-basis: 100%; order: 9; color: var(--mute); font-size: var(--cds-font-size-body); line-height: 1.35; }
+  .ab-qp-res:empty, .ab-qp-all[open] .ab-qp-res { display: none; }
   .ab-qp-car { flex: none; width: 9px; height: 9px; border-right: 2px solid var(--mute); border-bottom: 2px solid var(--mute); transform: translateY(-2px) rotate(45deg); transition: transform .2s; }
   .ab-qp-all[open] .ab-qp-car { transform: translateY(2px) rotate(-135deg); }
   .ab-more { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
@@ -164,7 +175,7 @@
   .ab-pat-rate span:first-child { height: 6px; border-radius: 3px; background: var(--panel); position: relative; overflow: hidden; }
   .ab-pat-rate i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; transition: width .9s var(--cds-ease-out); }
   .ab-pat-line { fill: none; stroke-width: 1.6; stroke-dasharray: 6 4; }
-  .ab-pat-lbl { font-size: 10.5px; font-weight: 600; }
+  .ab-pat-lbl { font-size: 11px; font-weight: 600; }
   .ab-pat-mark { font-size: 12px; text-anchor: middle; dominant-baseline: central; }
   .ab-pill-svg text { font-size: 10.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
 
@@ -295,6 +306,9 @@
   @media (max-width: 600px) { .ab-ohlc { font-size: 11px; right: 62px; } }
   .ab-tag-t { fill: var(--color-bg); font-size: 10.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .ab-card:not(#grafico), .ab-more { resize: both; overflow: auto; max-width: 100%; }
+  /* se puede agrandar o achicar cada modulo, pero el asa solo aparece al pasar el mouse (antes se veia en 13 lugares) */
+  .ab-card::-webkit-resizer, .ab-more::-webkit-resizer { background: transparent; }
+  .ab-card:hover::-webkit-resizer, .ab-more:hover::-webkit-resizer { background: linear-gradient(135deg, transparent 55%, var(--line) 55%, var(--line) 62%, transparent 62%, transparent 72%, var(--line) 72%, var(--line) 79%, transparent 79%); }
   .ab-card, .ab-more { min-width: 0; }
   .ab-chart svg { display: block; overflow: hidden; }
   .ab-ax text { fill: var(--mute); font-size: 11px; font-variant-numeric: tabular-nums; }
@@ -409,7 +423,7 @@
   .ab-sigchip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--paper); color: var(--mute); }
   .ab-sigchip.ab-compra { color: var(--up); background: color-mix(in srgb, var(--up) 12%, transparent); }
   .ab-sigchip.ab-venta { color: var(--down); background: color-mix(in srgb, var(--down) 12%, transparent); }
-  .ab-novote { color: var(--mute); font-size: 10.5px; }
+  .ab-novote { color: var(--mute); font-size: 11px; }
 
   .ab-foot { margin: 0; font-size: var(--cds-font-size-caption); color: var(--mute); max-width: 90ch; line-height: 1.5; }
   .ab-fail { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 440px; color: var(--mute); font-size: var(--cds-font-size-caption); }
@@ -472,6 +486,17 @@
     .ab-only-touch { display: inline; } .ab-only-mouse { display: none; }
   }
   .ab-sigchip { white-space: nowrap; }
+  .ab-plegable { cursor: pointer; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; position: relative; }
+  .ab-plegable:not(.abierta)::after { content: "más"; position: absolute; right: 0; bottom: 0; padding-left: 28px; color: var(--ink); font-weight: 600;
+    background: linear-gradient(to right, transparent, var(--panel) 24px); }
+  .ab-plegable.abierta { display: block; -webkit-line-clamp: unset; }
+  .ab-plegable:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 4px; }
+  /* en el celu, botones de al menos 40 px de alto (plazos, velas, capas) */
+  @media (pointer: coarse) {
+    .ab-seg button, .ab-seg.ab-small button, .ab-chipbtn, .ab-iconbtn { min-height: 40px; }
+    .ab-iconbtn.ab-round { min-width: 40px; }
+  }
+  @media (max-width: 700px) { .ab-tm-k { display: none; } }
   /* selector de activo (version JS) */
   .ab-asset { display: inline-flex; align-items: center; gap: 8px; width: max-content; padding: 3px 4px 3px 12px; border-radius: 999px;
     border: 1px solid var(--line); background: var(--panel); position: relative; }
@@ -491,6 +516,12 @@
     border-right: 0; border-radius: 12px 0 0 12px; background: color-mix(in srgb, var(--panel) 88%, transparent); color: var(--mute);
     font-size: 20px; line-height: 1; cursor: pointer; box-shadow: -4px 0 14px rgba(0, 0, 0, .12); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
   .ab-act-borde span { display: block; transform: translateX(-1px); }
+  /* en el celu, angosta para no pisar las tarjetas (el gutter es de 12 px); se toca en un area mas ancha */
+  @media (max-width: 700px) {
+    .ab-act-borde { width: 12px; font-size: 14px; border-radius: 8px 0 0 8px; overflow: visible; }
+    .ab-act-borde span { transform: translateX(-2px); }
+    .ab-act-borde::before { content: ""; position: absolute; inset: -8px 0 -8px -22px; }
+  }
   .ab-act-fondo { position: fixed; inset: 0; z-index: 1002; background: rgba(0, 0, 0, .35); opacity: 0; transition: opacity .2s; }
   .ab-act-fondo.on { opacity: 1; }
   .ab-act-head { display: flex; align-items: center; gap: 8px; margin: 0 2px 4px; }
@@ -541,7 +572,7 @@
   .ab-qp-clima { margin: 0; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; font-size: var(--cds-font-size-body); }
   .ab-qp-clima b { font-weight: 600; } .ab-qp-clima small { color: var(--mute); font-size: var(--cds-font-size-caption); }
   .ab-qp-s { font-style: normal; font-weight: 700; } .ab-qp-s.ab-alcista { color: var(--color-ok); } .ab-qp-s.ab-bajista { color: var(--color-bad); }
-  .ab-qp-tag { font-style: normal; font-size: 10.5px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--soft2); color: var(--ink); }
+  .ab-qp-tag { font-style: normal; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--soft2); color: var(--ink); }
   .ab-qp-tag.ab-qp-hot { background: color-mix(in srgb, var(--color-warn) 22%, transparent); color: var(--color-warn); }
   /* movimiento fuerte */
   .ab-mov[hidden] { display: none; }
@@ -557,6 +588,7 @@
   .ab-apr-line { margin: 0; display: flex; gap: 8px; align-items: baseline; font-size: var(--cds-font-size-caption); color: var(--mute); line-height: 1.45; }
   .ab-apr-line b { color: var(--ink); font-weight: 600; }
   .ab-apr-top { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--cds-gap-sm); }
+  @media (max-width: 400px) { .ab-apr-top { grid-template-columns: minmax(0, 1fr); } }   /* a 360 px no entraban 3 */
   .ab-apr-stat { display: grid; gap: 2px; padding: var(--cds-pad-sm) var(--cds-pad-md); border-radius: var(--cds-radius); background: var(--paper); min-width: 0; }
   .ab-apr-stat small { font-size: var(--cds-font-size-caption); color: var(--mute); line-height: 1.3; }
   .ab-apr-stat b { font-family: var(--serif); font-weight: 400; font-size: clamp(1.25rem, 3.4vw, 1.7rem); font-variant-numeric: tabular-nums; line-height: 1.15; }
@@ -564,7 +596,7 @@
   .ab-apr-chart svg { display: block; width: 100%; overflow: visible; }
   .ab-apr-chart text { font-size: 10.5px; fill: var(--mute); font-variant-numeric: tabular-nums; }
   .ab-tbl tr.ab-sel td { background: color-mix(in srgb, var(--ink) 6%, transparent); }
-  .ab-tbl td small { display: block; color: var(--mute); font-size: 10.5px; line-height: 1.35; margin-top: 2px; }
+  .ab-tbl td small { display: block; color: var(--mute); font-size: 11px; line-height: 1.35; margin-top: 2px; }
   #apr-tbl tbody tr { cursor: pointer; }
   .ab-delta { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 999px; white-space: nowrap; }
   .ab-delta.ab-pos { color: var(--up); background: color-mix(in srgb, var(--up) 12%, transparent); }
@@ -700,7 +732,7 @@
     width: 58px; padding: 12px 6px; border: 1px solid var(--line); border-right: 0; border-radius: 16px 0 0 16px; background: var(--panel);
     box-shadow: 0 6px 24px rgba(0,0,0,.12); cursor: pointer; color: var(--ink); font: inherit; }
   .ab-tm-tab b { font-size: 17px; font-weight: 650; letter-spacing: -.02em; line-height: 1; }
-  .ab-tm-tab small { font-size: 10px; color: var(--mute); text-align: center; line-height: 1.15; max-width: 52px; }
+  .ab-tm-tab small { font-size: 11px; color: var(--mute); text-align: center; line-height: 1.15; max-width: 52px; }
   .ab-tm-bar { position: relative; width: 12px; height: 132px; border-radius: 6px;
     background: linear-gradient(to top, var(--color-ok), color-mix(in srgb, var(--color-ok) 35%, var(--soft2)) 30%, var(--soft2) 50%, color-mix(in srgb, var(--color-bad) 35%, var(--soft2)) 70%, var(--color-bad)); }
   .ab-tm-dot { position: absolute; left: 50%; width: 22px; height: 22px; border-radius: 50%; transform: translate(-50%, 50%);
@@ -715,6 +747,12 @@
   .ab-tm-panel.on { transform: none; }
   @media (prefers-reduced-motion: reduce) { .ab-tm-panel, .ab-tm-back { transition: none; } }
   .ab-tm-panel[hidden], .ab-tm-tab[hidden] { display: none; }
+  .ab-tm-k { font-size: 11px !important; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+  /* la pestaña del termometro tiene su columna: antes tapaba el borde derecho de las tarjetas */
+  @media (min-width: 701px) {
+    html.ab-tm-on #dash-root { padding-right: calc(66px + max(16px, var(--dash-gutter, 24px))); }
+    html.ab-panel-fijo.ab-tm-on #dash-root { padding-right: calc(var(--ab-panel-w) + 66px + max(16px, var(--dash-gutter, 24px))); }
+  }
   .ab-tm-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; position: sticky; top: calc(-1 * max(20px, calc(env(safe-area-inset-top) + 12px))); z-index: 2;
     margin: calc(-1 * max(20px, calc(env(safe-area-inset-top) + 12px))) -20px 0; padding: max(20px, calc(env(safe-area-inset-top) + 12px)) 20px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
   #tm-x { min-width: 44px; min-height: 44px; font-size: 18px; flex: none; }
@@ -726,7 +764,7 @@
   .ab-tm-scale { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; }
   .ab-tm-scale i { display: block; height: 10px; border-radius: 3px; opacity: .35; }
   .ab-tm-scale i.on { opacity: 1; outline: 2px solid var(--ink); outline-offset: 1px; }
-  .ab-tm-scale span { font-size: 10px; color: var(--mute); text-align: center; line-height: 1.2; }
+  .ab-tm-scale span { font-size: 11px; color: var(--mute); text-align: center; line-height: 1.2; }
   .ab-tm-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
   .ab-tm-list li { font-size: var(--cds-font-size-body); line-height: 1.45; }
   .ab-tm-list li em { font-style: normal; color: var(--mute); }
@@ -737,6 +775,8 @@
     .ab-tm-dot { width: 16px; height: 16px; top: 50%; transform: translate(-50%, -50%); border-width: 3px; }
     .ab-tm-tab small { max-width: none; white-space: nowrap; }
     .ab-tm-panel { width: 100vw; }
+    /* la pildora de abajo no tapa el final de la pagina */
+    html.ab-tm-on #dash-root { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
   }
 </style>
 
@@ -786,13 +826,13 @@
     </div>
   </header>
 
-  <button type="button" class="ab-tm-tab" id="tm-tab" aria-expanded="false" aria-controls="tm-panel" hidden title="Termómetro de compra y venta">
-    <span class="ab-tm-bar"><span class="ab-tm-dot" id="tm-dot"></span></span><b id="tm-num">—</b><small id="tm-zona">—</small>
+  <button type="button" class="ab-tm-tab" id="tm-tab" aria-expanded="false" aria-controls="tm-panel" hidden title="Termómetro del ciclo (semanas o meses): 0 = momento de comprar · 100 = de vender">
+    <small class="ab-tm-k">Ciclo</small><span class="ab-tm-bar"><span class="ab-tm-dot" id="tm-dot"></span></span><b id="tm-num">—</b><small id="tm-zona">—</small>
   </button>
   <div class="ab-tm-back" id="tm-back" hidden></div>
   <div class="ab-tm-back" id="nt-back" hidden></div>
   <div class="ab-nt-modal" id="nt-modal" role="dialog" aria-modal="true" aria-labelledby="nt-m-t" hidden>
-    <div class="ab-tm-head"><div><span class="ab-kicker" id="nt-m-k"></span><h2 id="nt-m-t" style="margin:2px 0 0"></h2></div>
+    <div class="ab-tm-head"><div><span class="ab-kicker" id="nt-m-k"></span><h2 id="nt-m-t" style="margin:2px 0 0">Notificación</h2></div>
       <button type="button" class="ab-iconbtn ab-round" id="nt-m-x" aria-label="Cerrar">✕</button></div>
     <div id="nt-m-body"></div>
   </div>
@@ -811,7 +851,7 @@
   <section class="ab-card ab-qp" id="que-pasa" aria-labelledby="qp-t" data-source="analisis" hidden>
     <!-- cerrado hasta que se toca (pedido de Diego): adentro, el movimiento, lo que coincide y las noticias -->
     <details class="ab-qp-all" id="qp-box">
-      <summary class="ab-card-head"><h2 id="qp-t">Qué está pasando</h2><span class="ab-kicker" id="qp-k"></span><i class="ab-qp-car" aria-hidden="true"></i></summary>
+      <summary class="ab-card-head"><h2 id="qp-t">Qué está pasando</h2><span class="ab-kicker" id="qp-k"></span><i class="ab-qp-car" aria-hidden="true"></i><span class="ab-qp-res" id="qp-res"></span></summary>
       <p class="ab-qp-big" id="qp-big"></p>
       <p class="ab-qp-sum" id="qp-sum"></p>
       <ul class="ab-qp-list" id="qp-fact"></ul>
@@ -1290,7 +1330,7 @@
       const pe = root.querySelector('.ab-price');
       if (pe && pe.firstChild) {
         const prev = S.lastTick;
-        pe.firstChild.textContent = fp(liveBar.c);
+        if (liveBar.c !== prev) pe.firstChild.textContent = fp(liveBar.c);
         if (prev !== undefined && liveBar.c !== prev) {
           // sin forzar el calculo de la pagina (void offsetWidth, hasta 4 veces por segundo): el color no tiene animacion
           // que reiniciar, se ve igual
@@ -1298,9 +1338,12 @@
           clearTimeout(S.tickT); S.tickT = setTimeout(() => pe.classList.remove('ab-tick-up', 'ab-tick-dn'), 350);
         }
         S.lastTick = liveBar.c;
-        document.title = `${fp(liveBar.c)} · ${MON()}`;
       }
-      document.getElementById('live-state').textContent = ` · ● en vivo · análisis #${f0(window.abAnalyses || 1)} · ${f0(ticks)} ticks`;
+      // el titulo de la pestaña y el contador, una vez por segundo (los ticks llegan cada 250 ms)
+      if (Date.now() - (S.estT || 0) > 1000) {
+        S.estT = Date.now(); document.title = `${fp(liveBar.c)} · ${MON()}`;
+        document.getElementById('live-state').textContent = `● en vivo · análisis #${f0(window.abAnalyses || 1)} · ${f0(ticks)} ticks`;
+      }
       liveTick();
     };
     sock.onclose = () => { if (ws === sock) { wsTf = null; setTimeout(connectLive, 3000); } };
@@ -1376,11 +1419,12 @@
     // en vivo: Binance (un solo WebSocket con todos) y Bitget para MELI; si no llega nada, cada 15 s por pedido comun
     let ws = null, wsBg = null, ping = null, rep = null;
     const llegada = {};
-    // los precios llegan de a uno (16 activos, cada 1-2 s): se pintan juntos, a lo sumo una vez por cuadro
+    // los precios llegan de a uno (16 activos, varias veces por segundo): se pintan juntos, a lo sumo 3 veces por segundo
+    // (antes ~140 cambios por segundo en la pantalla)
     const sucios = new Set(); let cuadro = 0;
     const nuevo = (m, c, o) => {
       if (!(c > 0)) return; P[m] = { c, o }; llegada[m] = Date.now(); sucios.add(m);
-      if (!cuadro) cuadro = requestAnimationFrame(() => { cuadro = 0; sucios.forEach(pintar); sucios.clear(); });
+      if (!cuadro) cuadro = setTimeout(() => requestAnimationFrame(() => { cuadro = 0; sucios.forEach(pintar); sucios.clear(); }), 330);
     };
     async function porPedido(m) {
       try {
@@ -1531,8 +1575,30 @@
     Object.keys(PEREZOSOS).forEach(perezoso);
     placeTf(); placeSc();
     connectLive();
+    plegarNotas();
     if (first) { first = false; setTimeout(() => root.classList.remove('ab-first'), 1800); }
   }
+  // Las explicaciones largas (como se calcula, que significa) quedan en 2 lineas: se abren tocandolas. La pagina era muy
+  // larga (4.300 px en la compu, 5.200 en el celu). Las que abriste quedan abiertas.
+  const NOTA_ABIERTA = new Set();
+  function plegarNotas() {
+    root.querySelectorAll('.ab-card .ab-note:not([data-pl]), .ab-card .ab-hero-sub.ab-larga:not([data-pl])').forEach((n) => {
+      n.dataset.pl = '1';
+      const t = n.textContent.trim();
+      if (t.length < 200 || n.closest('.ab-tm-panel, #compras, #posiciones, .ab-nt-modal')) return;
+      n.classList.add('ab-plegable'); n.tabIndex = 0; n.setAttribute('role', 'button');
+      const abierta = NOTA_ABIERTA.has(t.slice(0, 60));
+      n.classList.toggle('abierta', abierta); n.setAttribute('aria-expanded', String(abierta));
+    });
+  }
+  function alternarNota(n) {
+    const t = n.textContent.trim().slice(0, 60), ab = !n.classList.contains('abierta');
+    n.classList.toggle('abierta', ab); n.setAttribute('aria-expanded', String(ab));
+    if (ab) NOTA_ABIERTA.add(t); else NOTA_ABIERTA.delete(t);
+  }
+  document.addEventListener('click', (e) => { const n = e.target.closest && e.target.closest('.ab-plegable'); if (n && !e.target.closest('a')) alternarNota(n); });
+  document.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('ab-plegable')) { e.preventDefault(); alternarNota(e.target); } });
+  document.addEventListener('toggle', () => setTimeout(plegarNotas, 0), true);   // lo que se arma al abrir una seccion
 
   // Lo que esta dentro de un desplegable cerrado no se dibuja en cada analisis (cada 12 s): se dibuja al abrirlo y,
   // mientras siga abierto, con cada analisis. Antes se armaba todo aunque no se viera.
@@ -2218,7 +2284,8 @@
   function drawTermometro(rows) {
     const tab = document.getElementById('tm-tab'), body = document.getElementById('tm-body');
     const t = pick(rows, 'termometro')[0];
-    tab.hidden = !t; if (!t) { document.getElementById('tm-panel').hidden = true; document.getElementById('tm-back').hidden = true; document.documentElement.style.overflow = ''; return; }
+    tab.hidden = !t; document.documentElement.classList.toggle('ab-tm-on', !!t);   // la pagina le deja lugar (no tapa las tarjetas)
+    if (!t) { document.getElementById('tm-panel').hidden = true; document.getElementById('tm-back').hidden = true; document.documentElement.style.overflow = ''; return; }
     const v = num(t.medidor), zi = Math.max(0, t.m_zonas.findIndex((z) => z[0] === t.medidor_zona)), col = TM_COL[zi];
     tab.style.setProperty('--tm-col', col); document.getElementById('tm-panel').style.setProperty('--tm-col', col);
     const dot = document.getElementById('tm-dot');
@@ -2275,7 +2342,8 @@
         pisoEls.push(el('p', 'ab-tm-sec', 'Desde esta fecha en años anteriores'), ch, ...(txt ? [el('p', 'ab-hero-sub', txt)] : []));
       }
     }
-    body.append(big, sc, pasado, ...pisoEls, el('p', 'ab-tm-sec', 'Qué lo forma'), comp,
+    const escala = el('p', 'ab-note', 'Escala: 0 = el mejor momento para comprar · 100 = para vender. Mira el ciclo (semanas o meses), no la próxima hora.');
+    body.append(big, escala, sc, pasado, ...pisoEls, el('p', 'ab-tm-sec', 'Qué lo forma'), comp,
       el('p', 'ab-tm-sec', 'Momento del ciclo (la otra mitad)'), el('p', 'ab-hero-sub', `${t.año}, ${(FASE[t.fase] || (() => t.fase))(t.avance)}.`),
       ...reglaFng(t),
       ...(fg ? [el('p', 'ab-tm-sec', 'Fear & Greed Index'), fngGauge(num(fg.fng), fg.fng_clase || String(fg.valor).split(' · ')[1] || '', fg.fng_ayer)] : []),
@@ -2407,6 +2475,7 @@
       a.append(el('b', '', n.titulo), meta); nb.append(a);
     });
     const acc = ACC_INFO[MON()], fuentes = acc ? `Titulares de Google Noticias: ${acc[0]}.` : 'Titulares de Google Noticias y CoinDesk; ETF de Farside.';
+    document.getElementById('qp-res').textContent = big.textContent;
     document.getElementById('qp-note').textContent = strong
       ? `Son cosas que pasaron al mismo tiempo: ayudan a entender el movimiento, no prueban la causa. ${fuentes} Futuros de ${acc ? acc[1] : 'Binance'}.`
       : fuentes;
@@ -2453,7 +2522,7 @@
     const prob = mod ? num(m.modelo_1h) : num(m.prob_fuerte);
     const on = m.nivel === 'Se despertó' || prob >= (mod ? 30 : 35);
     box.classList.toggle('ab-mov-on', on);
-    document.getElementById('mov-k').textContent = mod ? `${MON()} · hasta las ${horaAR(num(m.modelo_hasta))} h` : MON();
+    document.getElementById('mov-k').textContent = mod ? `${MON()} · vela de 1 h en curso · cierra a las ${horaAR(num(m.modelo_hasta))}\u00a0h` : MON();
     document.getElementById('mov-nivel').textContent = m.nivel;
     document.getElementById('mov-vol').textContent = `volatilidad ${f1(num(m.volatilidad))}× la habitual`;
     document.getElementById('mov-prob').textContent = `${f0(prob)}%`;
@@ -2563,7 +2632,7 @@
       const b = el('button', 'ab-plazo ab-' + bias); b.type = 'button'; b.setAttribute('aria-pressed', String(p.plazo === S.plazo));
       const word = bias === 'alcista' ? `▲ Sube ${f0(pu)}%` : bias === 'bajista' ? `▼ Baja ${f0(100 - pu)}%` : '◆ Lateral';
       b.append(el('small', '', `En ${p.plazo}`), el('b', '', word),
-        el('span', '', `${fp(num(p.obj_abajo))} – ${fp(num(p.obj_arriba))} · hasta ${p.hora.slice(-5)} h`));
+        el('span', '', `${fp(num(p.obj_abajo))} – ${fp(num(p.obj_arriba))} · hasta\u00a0${p.hora.slice(-5)}\u00a0h`));
       b.addEventListener('click', () => setPlazo(p.plazo));
       nav.append(b);
     });
@@ -2627,7 +2696,7 @@
     const head = pick(rows, 'explicacion').find((e) => e.plazo === S.plazo && e.tipo === 'titular');
     const bias = head ? head.sesgo : 'neutral';
     const price = num(s.precio), pu = num(p.primero_arriba);
-    document.getElementById('pred-k').textContent = `Predicción a ${S.plazo} · hasta las ${p.hora.slice(-5)} h del ${p.hora.slice(0, 5)}`;
+    document.getElementById('pred-k').textContent = `Predicción a ${S.plazo} desde ahora · hasta las ${p.hora.slice(-5)}\u00a0h del ${p.hora.slice(0, 5)}`;
     document.getElementById('pred-n').textContent = `${f0(num(p.n))} casos parecidos`;
     const vb = document.getElementById('verdict-big');
     vb.className = 'ab-verdict-big ab-' + bias;
@@ -2768,10 +2837,12 @@
     document.getElementById('sesgo-tf').textContent = TF_TXT[S.tf];
     const svg = d3.select('#gauge'); svg.selectAll('*').remove();
     const cx = 110, cy = 104, arc = d3.arc().innerRadius(74).outerRadius(92).cornerRadius(3);
-    const segs = [['var(--color-bad)', 1], ['var(--color-bad)', .5], ['var(--color-fg-muted)', .35], ['var(--color-ok)', .5], ['var(--color-ok)', 1]];
-    const a0 = -Math.PI / 2, step = Math.PI / 5;
-    segs.forEach(([c, o], k) => svg.append('path').attr('transform', `translate(${cx},${cy})`)
-      .attr('d', arc({ startAngle: a0 + k * step + .025, endAngle: a0 + (k + 1) * step - .025 })).style('fill', c).style('fill-opacity', o));
+    // los tramos con los mismos cortes que el texto (neutral entre −0,1 y 0,1; fuerte desde ±0,5): antes eran 5 iguales y la
+    // aguja podia estar en el gris con el texto diciendo "Bajista"
+    const segs = [['var(--color-bad)', 1, -1, -0.5], ['var(--color-bad)', .5, -0.5, -0.1], ['var(--color-fg-muted)', .35, -0.1, 0.1], ['var(--color-ok)', .5, 0.1, 0.5], ['var(--color-ok)', 1, 0.5, 1]];
+    const ang = (x) => ((x + 1) / 2) * Math.PI - Math.PI / 2;
+    segs.forEach(([c, o, x0, x1]) => svg.append('path').attr('transform', `translate(${cx},${cy})`)
+      .attr('d', arc({ startAngle: ang(x0) + .02, endAngle: ang(x1) - .02 })).style('fill', c).style('fill-opacity', o));
     [['Bajista', 12, 'start'], ['Neutral', cx, 'middle'], ['Alcista', 208, 'end']].forEach(([t, x0, anc], k) =>
       svg.append('text').attr('x', x0).attr('y', k === 1 ? 6 : 124).attr('text-anchor', anc).style('fill', 'var(--color-fg-muted)').style('font-size', '10px').text(t));
     const nd = svg.append('g').attr('class', 'ab-needle').style('transform', 'rotate(-90deg)');
@@ -2781,7 +2852,7 @@
     if (cur) {
       later(() => nd.style('transform', `rotate(${num(cur.rating) * 90}deg)`));
       const t = document.getElementById('gauge-txt'); t.textContent = cur.rating_txt; t.setAttribute('data-where', `tabla=marco&tf=${S.tf}`);
-      document.getElementById('gauge-votes').textContent = `Medias ${cur.ma_compra}↑ ${cur.ma_venta}↓ · osciladores ${cur.osc_compra}↑ ${cur.osc_venta}↓ · ${cur.tendencia.toLowerCase()}`;
+      document.getElementById('gauge-votes').textContent = `Medias ${cur.ma_compra}↑ ${cur.ma_venta}↓ · osciladores ${cur.osc_compra}↑ ${cur.osc_venta}↓ · orden de las medias: ${cur.tendencia.toLowerCase()}`;
     }
     const strip = document.getElementById('strip'); strip.replaceChildren();
     marcos.forEach((m) => {
@@ -3016,8 +3087,10 @@
     if (d.fib && d.fibs.length) {
       const col = P.c2 || P.mute, xl = Math.max(6, Math.min(fibX(d.fib.a), fibX(d.fib.b)) + 4);
       ctx.save(); ctx.globalAlpha = dimA('fib'); ctx.font = `500 10px ${P.font}`; ctx.textBaseline = 'bottom';
+      const lh = G.leg ? G.leg.offsetTop + G.leg.offsetHeight + 2 : 0, lw = G.leg ? G.leg.offsetLeft + G.leg.offsetWidth : 0;
       if (xl < w - 40) d.fibs.forEach((f) => {
         const y = Y(f.p); if (y === null || y < 14 || y > h) return;
+        if (y - 13 < lh && xl < lw) return;                  // debajo de la leyenda no se leia (la linea queda igual)
         const tw = ctx.measureText(f.txt).width;
         ctx.fillStyle = alpha(P.panel, 0.7); ctx.fillRect(xl - 3, y - 13, tw + 6, 12);          // fondo suave para leerlo sobre las velas
         ctx.fillStyle = alpha(col, f.extremo || f.fuerte ? 0.95 : 0.7); ctx.fillText(f.txt, xl, y - 2);

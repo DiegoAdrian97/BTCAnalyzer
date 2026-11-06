@@ -1,6 +1,12 @@
 """Arma JavascriptVersion/index.html a partir de dashboard/index.html, la misma pagina que usa la version en Python.
 
 Correrlo cada vez que cambie dashboard/index.html:  python JavascriptVersion/generar_pagina.py
+
+El estilo y el codigo de la pagina van en archivos aparte con su huella en el nombre (p-<huella>.css / .js), guardados
+un año en el telefono (vercel.json): el HTML queda chico (antes 310 KB que se revalidaban en cada visita) y en las
+visitas siguientes solo baja si cambio. Los scripts van con defer: la pagina se pinta sin esperar a d3 ni al grafico.
+lib/d3-7.9-reducido.min.js es d3 con solo lo que usa la pagina (select, scaleLinear, extent, area, line,
+curveMonotoneX, arc, formatLocale): 20 KB comprimido en vez de 92. Se arma con esbuild desde los modulos d3-*.
 """
 import os
 
@@ -54,10 +60,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <link rel="preconnect" href="https://fapi.binance.com" crossorigin>
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
-<script src="lib/d3-7.9.0.min.js"></script>
-<script src="lib/lightweight-charts-5.1.0.js"></script>
+<link rel="stylesheet" href="__CSS__">
 <script>window.AB_PAGINA = "__PAG__";</script>
-<script src="app.js?v=__VER__"></script>
+<script defer src="app.js?v=__VER__"></script>
+<script defer src="lib/d3-7.9-reducido.min.js"></script>
+<script defer src="lib/lightweight-charts-5.1.0.js"></script>
+<script defer src="__JS__"></script>
 </head><body><div id="dash-root">
 __PAGE__
 </div>
@@ -93,9 +101,24 @@ def main():
         page = page.replace(old, new)
     # el plan de compras NO va en esta pagina (es publica): lo entrega api/posiciones, solo con la contraseña de BingX,
     # desde el repositorio privado DiegoAdrian97/BTCAnalyzer-plan
-    import hashlib
-    html = SHELL.replace("__PAGE__", page).replace("__VER__", version())
-    pag = hashlib.sha1(html.encode("utf-8")).hexdigest()[:10]      # huella de la pagina entera (diseno incluido)
+    import hashlib, re, glob
+    # el estilo y el codigo, a archivos con huella (se borran los de versiones anteriores)
+    m_css = re.search(r"<style>\n?(.*?)</style>", page, re.S)
+    m_js = re.search(r"<script>\n?(.*?)</script>", page, re.S)
+    if not m_css or not m_js or page.count("<script") != 1 or page.count("<style") != 1:
+        raise SystemExit("dashboard/index.html tiene que tener un solo <style> y un solo <script>")
+    css, js = m_css.group(1), m_js.group(1)
+    nombres = {}
+    for ext, cuerpo in (("css", css), ("js", js)):
+        nombres[ext] = f"p-{hashlib.sha1(cuerpo.encode('utf-8')).hexdigest()[:10]}.{ext}"
+        for viejo in glob.glob(os.path.join(HERE, f"p-*.{ext}")):
+            if os.path.basename(viejo) != nombres[ext]:
+                os.remove(viejo)
+        with open(os.path.join(HERE, nombres[ext]), "w", encoding="utf-8", newline="\n") as f:
+            f.write(cuerpo)
+    page = page.replace(m_css.group(0), "").replace(m_js.group(0), "")
+    html = SHELL.replace("__PAGE__", page).replace("__VER__", version()).replace("__CSS__", nombres["css"]).replace("__JS__", nombres["js"])
+    pag = hashlib.sha1(html.encode("utf-8")).hexdigest()[:10]      # huella de la pagina entera (incluye las de css y js)
     with open(OUT, "w", encoding="utf-8", newline="\n") as f:
         f.write(html.replace("__PAG__", pag))
     # la app abierta en el iPhone compara su huella con esta: si hay una version nueva, se recarga sola

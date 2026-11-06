@@ -265,7 +265,17 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
 - BingX (función de Vercel): cada 1 min con alguna orden a 3% o menos, si no cada 3 min; mirando una acción, cada 5.
   El plan privado se lee de GitHub cada 5 min.
 - Render no se reinicia por cambios que no usa (versión del teléfono, pruebas, textos): `buildFilter` en `render.yaml`.
-- Sin reflow forzado en cada tick del precio; los precios del panel se pintan juntos, una vez por cuadro.
+- Sin reflow forzado en cada tick del precio; los precios del panel se pintan juntos, a lo sumo 3 veces por segundo.
+
+**Carga y diseño (revisión de la página):**
+- El estilo y el código de la página van en `p-<huella>.css/.js` (guardados un año en el teléfono): el HTML pasó de
+  310 KB a unos 20 KB. Scripts con `defer`. d3 reducido a lo que se usa (20 KB comprimido en vez de 92).
+- Service worker (`sw.js`): la página por red (si no responde en 3 s, la guardada) y lo que tiene huella, del teléfono.
+  Abre sin conexión.
+- La pestaña del termómetro tiene su columna en la compu; en el celu la píldora deja lugar abajo. Escala explicada
+  (0 = comprar · 100 = vender, mira el ciclo). Medidor del sesgo con los mismos cortes que su texto.
+- Botones de 40 px en pantallas táctiles, textos de al menos 11 px, explicaciones largas plegadas (se abren tocándolas),
+  resumen de una línea en "Qué está pasando" cerrado, y horarios aclarados (vela en curso vs. desde ahora).
 
 ### Acciones en la app: AAPL, NVDA, MSFT, GOOGL, AMZN, SPCX, META, TSLA, AMD, BABA, MELI y los índices SPY y QQQ
 

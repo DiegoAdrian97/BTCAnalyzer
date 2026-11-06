@@ -146,5 +146,9 @@
     } catch (e) { /* sin conexion: se prueba la proxima vez */ }
   }
   setInterval(() => { if (!document.hidden) nuevaVersion(); }, 5 * 60000);
+  // service worker (sw.js): abre sin conexion y sin volver a bajar lo que no cambio
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || /[?&]sw\b/.test(location.search))) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { /* sin service worker: anda igual */ }));
+  }
   document.addEventListener('DOMContentLoaded', () => { if (!rows) estado('Preparando el análisis…'); });
 })();
