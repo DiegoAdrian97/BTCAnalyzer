@@ -46,7 +46,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
 <script src="lib/d3-7.9.0.min.js"></script>
 <script src="lib/lightweight-charts-5.1.0.js"></script>
-<script>window.AB_PAGINA = "ec5bcf999d";</script>
+<script>window.AB_PAGINA = "295233bb93";</script>
 <script src="app.js?v=ec90573d33"></script>
 </head><body><div id="dash-root">
 <style>
@@ -798,6 +798,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
         <button type="button" class="ab-iconbtn ab-round ab-nt-btn" id="nt-btn" aria-label="Notificaciones" aria-expanded="false" aria-controls="nt-pop">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15L6 16zM10 20a2 2 0 0 0 4 0"/></svg>
           <span class="ab-nt-badge" id="nt-badge" hidden>0</span></button>
+        <button type="button" class="ab-iconbtn ab-round ab-nt-btn" id="bx-llave" aria-label="Conectar BingX" title="Conectar BingX (tu plan y tus posiciones)" hidden>
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M14.5 9.5a4 4 0 1 1-1.2-2.8 4 4 0 0 1 1.2 2.8zM13.3 12.3L20 19m-3-3l2-2m-4.5-.5l1.5-1.5"/></svg></button>
         <button type="button" class="ab-iconbtn ab-round ab-nt-btn" id="tema-btn" aria-pressed="false" aria-label="Modo oscuro" title="Modo oscuro">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path id="tema-ico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d=""/></svg></button>
         <div class="ab-nt-pop" id="nt-pop" role="dialog" aria-label="Notificaciones" hidden>
@@ -1638,26 +1640,31 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   // ---------- BingX en vivo (solo lectura; api/posiciones.js de Vercel): posiciones y ordenes reales ----------
   // Conectado, "Mis posiciones" sale de BingX (no del JSON) y una compra del plan esta "cargada" si hay una orden limite
   // de compra a ese precio. La contraseña (POSICIONES_CLAVE de Vercel) se guarda en este navegador.
-  const BX = { ok: false, posiciones: null, ordenes: null, hora: null, error: null };
+  const BX = { ok: false, posiciones: null, ordenes: null, hora: null, error: null, autorizado: false };
   const BX_API = window.abPosicionesApi || null;       // solo la version del telefono (Vercel) tiene el servidor
+  // Tu plan (Proximas compras), Mis posiciones, la capa "Mi plan" y sus avisos: solo para quien conecto BingX con la
+  // contraseña de Vercel (POSICIONES_CLAVE) y el servidor la acepto. Sin el servidor de BingX (pagina de Render, que
+  // ya pide su propia contraseña) se ven como antes.
+  const PLAN_OK = () => !!PLAN_COMPRAS && (!BX_API || BX.autorizado);
   const bxClave = () => { try { return localStorage.getItem('ab-bingx-clave'); } catch (e) { return null; } };
   async function bxLeer() {
     const clave = bxClave();
     if (!BX_API || !clave) { BX.ok = false; return; }
     try {
       const r = await fetch(BX_API, { headers: { 'x-clave': clave }, cache: 'no-store' });
+      if (r.status !== 401 && r.status !== 503) BX.autorizado = true;     // la contraseña paso (aunque BingX falle un rato)
       const j = await r.json();
       if (j.ok) { Object.assign(BX, { ok: true, posiciones: j.posiciones || {}, ordenes: j.ordenes, hora: new Date(j.hora), error: null }); pnlRef(); }
       else {
         Object.assign(BX, { ok: false, error: j.error || `error ${r.status}` });
-        if (r.status === 401) { try { localStorage.removeItem('ab-bingx-clave'); } catch (e) { /* idem */ } }
+        if (r.status === 401) { BX.autorizado = false; try { localStorage.removeItem('ab-bingx-clave'); } catch (e) { /* idem */ } }
       }
     } catch (e) { BX.error = 'sin conexión con el servidor'; }
-    drawCompras(); drawPosiciones();
+    planVisible();
   }
   const cargada = (c) => (BX.ok && BX.ordenes ? (BX.ordenes[c.moneda] || []).some((o) => Math.abs(o.precio / c.precio - 1) < 0.003) : !!c.cargada);
   async function cmpPrecios() {
-    if (!PLAN_COMPRAS) return;
+    if (!PLAN_OK()) return;                                // sin BingX conectado el plan no se muestra: no hace falta pedir nada
     const mons = [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))];
     // desde el inicio del dia del plan: con la hora exacta, el primer dia (vela diaria abierta antes) no venia y quedaba vacio
     const desde = PLAN_COMPRAS.desde - (PLAN_COMPRAS.desde % 86400000);
@@ -1682,7 +1689,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   }
   function drawCompras() {
     const sec = document.getElementById('compras'), body = document.getElementById('cmp-body');
-    if (!PLAN_COMPRAS || !ES_CRIPTO(MON())) { sec.hidden = true; return; }      // el plan es de criptos: con una accion o el QQQ no se muestra
+    if (!PLAN_OK() || !ES_CRIPTO(MON())) { sec.hidden = true; return; }      // el plan es de criptos y solo con BingX conectado
     sec.hidden = false; body.replaceChildren();
     const mons = [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))];
     mons.forEach((m) => {
@@ -1778,7 +1785,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   // al cambiar de activo (contexto de app.js): mostrar u ocultar el plan y las posiciones
   if (window.abActivo) window.abActivo.subscribe(() => {
     drawCompras(); drawPosiciones();
-    const chip = document.querySelector('#layers [data-layer="plan"]'), con = !!PLAN_COMPRAS && ES_CRIPTO(MON());   // capa "Mi plan": solo criptos
+    const chip = document.querySelector('#layers [data-layer="plan"]'), con = PLAN_OK() && ES_CRIPTO(MON());   // capa "Mi plan": solo criptos
     if (chip && chip.hidden === con) { chip.hidden = !con; syncLayers(); }
   });
   // minimo probable a 6 meses (modelo de armar_termometro.py, viene en la fila 'piso' del analisis; como analisis.js)
@@ -1800,7 +1807,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   }
   function drawPosiciones() {
     const sec = document.getElementById('posiciones'), body = document.getElementById('pos-body');
-    if (!PLAN_COMPRAS || !ES_CRIPTO(MON())) { sec.hidden = true; if (typeof pnlConectar === 'function') pnlConectar(); return; }
+    if (!PLAN_OK() || !ES_CRIPTO(MON())) { sec.hidden = true; if (typeof pnlConectar === 'function') pnlConectar(); return; }
     sec.hidden = false; body.replaceChildren();
     const sgn = (x, f = f0) => `${x >= 0 ? '+' : '−'}${f(Math.abs(x))}`;
     [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))].forEach((m) => {
@@ -1914,14 +1921,30 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     setTimeout(cmpPrecios, 500); setInterval(() => { if (!document.hidden) cmpPrecios(); }, 15000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) cmpPrecios(); });     // al volver a la app, al toque
   }
+  // mostrar u ocultar todo lo del plan segun si BingX esta conectado (y la llave del encabezado para conectarlo)
+  function planVisible() {
+    const llave = document.getElementById('bx-llave');
+    if (llave) llave.hidden = !BX_API || !PLAN_COMPRAS || BX.autorizado;
+    if (PLAN_OK() && !CMP.hora) cmpPrecios();               // recien conectado: los precios del plan al toque
+    drawCompras(); drawPosiciones();
+    const chip = document.querySelector('#layers [data-layer="plan"]'), con = PLAN_OK() && ES_CRIPTO(MON());
+    if (chip && chip.hidden === con) { chip.hidden = !con; syncLayers(); if (S.rows) drawChart(S.rows, S.sum); }
+  }
   if (PLAN_COMPRAS && BX_API) {
-    document.getElementById('bx-btn').addEventListener('click', () => {
-      if (bxClave()) { try { localStorage.removeItem('ab-bingx-clave'); } catch (e) { /* idem */ } Object.assign(BX, { ok: false, error: null }); drawCompras(); drawPosiciones(); return; }
+    const conectar = async () => {
+      if (bxClave()) {                                     // desconectar: se olvida la contraseña y se oculta el plan
+        try { localStorage.removeItem('ab-bingx-clave'); } catch (e) { /* idem */ }
+        Object.assign(BX, { ok: false, error: null, autorizado: false, posiciones: null, ordenes: null }); planVisible(); return;
+      }
       const c = window.prompt('Contraseña de BingX (la que pusiste en Vercel como POSICIONES_CLAVE):');
       if (!c) return;
       try { localStorage.setItem('ab-bingx-clave', c.trim()); } catch (e) { /* sin almacenamiento: no se puede recordar */ }
-      bxLeer();
-    });
+      await bxLeer();
+      if (!BX.autorizado) window.alert(BX.error ? `No se pudo conectar: ${BX.error}` : 'No se pudo conectar con BingX.');
+    };
+    document.getElementById('bx-btn').addEventListener('click', conectar);
+    document.getElementById('bx-llave').addEventListener('click', conectar);
+    planVisible();
     bxLeer(); setInterval(() => { if (!document.hidden) bxLeer(); }, 60000);
     // al volver a la app: posiciones y ordenes al toque (antes podian tener hasta un minuto)
     document.addEventListener('visibilitychange', () => { if (!document.hidden) bxLeer(); });
@@ -2014,7 +2037,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       },
       // con cada actualizacion de precios del plan: compras, liquidacion, ganancias y piramidado
       plan() {
-        if (!PLAN_COMPRAS) return;
+        if (!PLAN_OK()) return;
         const hoy = new Date().toISOString().slice(0, 10);
         [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))].forEach((m) => {
           const d = CMP.datos[m]; if (!d) return;
@@ -3471,9 +3494,9 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     // tu plan (plan_compras.json): en tinta neutra para no confundirlo con las marcas del analisis
     d.plan = 0;
     const planChip = document.querySelector('#layers [data-layer="plan"]');
-    const conPlan = !!PLAN_COMPRAS && ES_CRIPTO(MON());          // la capa "Mi plan" tampoco va en las acciones
+    const conPlan = PLAN_OK() && ES_CRIPTO(MON());          // la capa "Mi plan" tampoco va en las acciones (ni sin BingX conectado)
     if (planChip && planChip.hidden === conPlan) { planChip.hidden = !conPlan; syncLayers(); }
-    if (L.plan && PLAN_COMPRAS) {
+    if (L.plan && conPlan) {
       const m = MON(), dat = CMP.datos[m], line = (price, color, style, width, title) => {
         G.plines.push(G.c.createPriceLine({ price, color, lineWidth: width, lineStyle: style, axisLabelVisible: true, title })); d.plan += 1;
       };

@@ -45,6 +45,12 @@ En el dashboard: sección "Cómo viene aprendiendo".
 
 ### Próximas compras (plan de Diego)
 
+**Solo con BingX conectado**: Tu plan (Próximas compras), Mis posiciones, la capa "Mi plan" del gráfico y sus avisos
+se ven solo si en ese navegador se conectó BingX con la contraseña de Vercel (`POSICIONES_CLAVE`) y el servidor la
+aceptó. Sin conectar, arriba (al lado de la campanita) aparece una llave para hacerlo; "Desconectar BingX" lo oculta
+de nuevo. La página de Render, que ya pide su propia contraseña, los muestra como antes. Ojo: esto los oculta en la
+pantalla, pero el plan sigue dentro de la página publicada y en el repositorio público.
+
 `plan_compras.json` guarda el plan de compras escalonadas (longs a 5x en BingX, margen aislado): moneda, número,
 precio, valor de la orden, margen extra y si la orden ya está cargada y el margen agregado. La página lo muestra en
 "Próximas compras": por cada cripto, dónde está el precio ahora (línea punteada), qué compras ya se ejecutaron,
