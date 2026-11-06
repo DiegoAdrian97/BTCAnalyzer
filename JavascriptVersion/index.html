@@ -44,8 +44,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <script src="lib/d3-7.9.0.min.js"></script>
 <script src="lib/lightweight-charts-5.1.0.js"></script>
-<script>window.AB_PAGINA = "23c3bee73a";</script>
-<script src="app.js?v=839a1bdac1"></script>
+<script>window.AB_PAGINA = "44e1667668";</script>
+<script src="app.js?v=aaf3549a5b"></script>
 </head><body><div id="dash-root">
 <style>
   /* Tema: minimalista y moderno. Una sola familia tipografica (la del sistema: SF en el iPhone), superficies planas,
@@ -2629,6 +2629,86 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   const X = (t) => G.chart.timeScale().logicalToCoordinate((t - G.d.t0) / G.d.tfMs);
   const Y = (p, s = G.c) => (p === null || p === undefined ? null : s.priceToCoordinate(p));
   const dimA = (k) => (S.focus && !S.focus.has(k) ? 0.12 : 1);
+  // ---------- Fibonacci: niveles, puntos y arrastre ----------
+  const FIB_N = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+  let FIBU = {};                                           // los que ajustaste a mano, por activo: { BTC: { a: {t, p}, b: {t, p} } }
+  try { FIBU = JSON.parse(localStorage.getItem('ab-fib')) || {}; } catch (e) { FIBU = {}; }
+  const guardarFib = () => { try { localStorage.setItem('ab-fib', JSON.stringify(FIBU)); } catch (e) { /* sin almacenamiento */ } };
+  const fibX = (pt) => X(pt.t);
+  function fibNiveles(d) {
+    const fb = d.fib; if (!fb) return [];
+    return FIB_N.map((f) => {
+      const p = fb.b.p + (fb.a.p - fb.b.p) * f, r = fb.mano ? null : d.fibReb[f], pc = `${f === 0 || f === 1 ? f0(f * 100) : f1(f * 100)}%`;
+      return { f, p, extremo: f === 0 || f === 1, fuerte: r !== null && r !== undefined && r >= 55,
+        txt: d.fibNarrow ? `Fib ${pc} ${fp(p)}` : `Fib ${pc} · ${fp(p)}${r !== null && r !== undefined ? ` · rebotó ${f0(r)}%` : ''}` };
+    });
+  }
+  // que parte del fib hay bajo el puntero: un punto ('a' inicio, 'b' fin), la diagonal ('cuerpo') o nada
+  function fibHit(x, y, tol) {
+    const fb = G.d && G.d.fib; if (!fb) return null;
+    const ax = fibX(fb.a), ay = Y(fb.a.p), bx = fibX(fb.b), by = Y(fb.b.p);
+    if (ay === null || by === null) return null;
+    if (Math.hypot(x - ax, y - ay) <= tol) return 'a';
+    if (Math.hypot(x - bx, y - by) <= tol) return 'b';
+    const L2 = (bx - ax) ** 2 + (by - ay) ** 2, u = L2 ? Math.max(0, Math.min(1, ((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / L2)) : 0;
+    return Math.hypot(x - (ax + u * (bx - ax)), y - (ay + u * (by - ay))) <= tol * 0.6 ? 'cuerpo' : null;
+  }
+  // arrastrar un punto lo mueve (pegado a la vela; con el Iman, a su apertura, maximo, minimo o cierre); arrastrar la
+  // diagonal mueve todo. Se toma antes que el motor del grafico (asi no mueve la vista) y antes que Medir
+  function fibInput(box) {
+    if (box.abFib) return;
+    box.abFib = true;
+    let drag = null;
+    const local = (e) => { const r = box.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+    const enPanel = (x, y) => { try { const ps = G.chart.paneSize(0); return x >= 0 && x <= ps.width && y >= 0 && y <= ps.height; } catch (err) { return false; } };
+    const tol = (e) => (e.pointerType === 'mouse' ? 9 : 22);
+    const punto = (x, y, e) => {
+      const d = G.d, l = G.chart.timeScale().coordinateToLogical(x), p = G.c.coordinateToPrice(y);
+      if (l === null || p === null) return null;
+      const k = Math.round(l), b = k >= 0 && k < d.all.length ? d.all[k] : null;
+      const pp = b && S.iman !== (e.ctrlKey || e.metaKey) ? [b.o, b.h, b.l, b.c].reduce((m, v) => (Math.abs(Y(v) - y) < Math.abs(Y(m) - y) ? v : m)) : p;
+      return { t: d.t0 + k * d.tfMs, p: pp };
+    };
+    box.addEventListener('pointerdown', (e) => {
+      if (!G.chart || !G.d || !G.d.fib || e.button !== 0 || S.medir || (e.shiftKey && e.pointerType === 'mouse')) return;
+      const [x, y] = local(e); if (!enPanel(x, y)) return;
+      const k = fibHit(x, y, tol(e)); if (!k) return;
+      const fb = G.d.fib;
+      drag = { k, a0: { ...fb.a }, b0: { ...fb.b }, l0: G.chart.timeScale().coordinateToLogical(x), p0: G.c.coordinateToPrice(y) };
+      G.fibDrag = k; e.preventDefault(); e.stopImmediatePropagation(); G.over.update();
+    }, { capture: true });
+    // el motor escucha mousedown y touchstart: mientras se arrastra el fib no les llegan (ni se mueve la pagina)
+    const bloquear = (e) => { if (drag) { e.preventDefault(); e.stopImmediatePropagation(); } };
+    ['mousedown', 'touchstart', 'touchmove'].forEach((ev) => box.addEventListener(ev, bloquear, { capture: true, passive: false }));
+    window.addEventListener('pointermove', (e) => {
+      if (!G.chart || !G.d || !G.d.fib) return;
+      const [x, y] = local(e);
+      if (!drag) {                                         // con el mouse: el cursor avisa que se puede arrastrar
+        if (e.pointerType !== 'mouse') return;
+        const k = enPanel(x, y) ? fibHit(x, y, 9) : null;
+        if (k !== (G.fibHover || null)) { G.fibHover = k; box.style.cursor = k ? (k === 'cuerpo' ? 'move' : 'grab') : ''; G.over.update(); }
+        return;
+      }
+      const fb = G.d.fib;
+      if (drag.k === 'cuerpo') {
+        const l = G.chart.timeScale().coordinateToLogical(x), p = G.c.coordinateToPrice(y);
+        if (l === null || p === null || drag.l0 === null || drag.p0 === null) return;
+        const dt = Math.round(l - drag.l0) * G.d.tfMs, dp = p - drag.p0;
+        fb.a = { t: drag.a0.t + dt, p: drag.a0.p + dp }; fb.b = { t: drag.b0.t + dt, p: drag.b0.p + dp };
+      } else { const pt = punto(x, y, e); if (!pt) return; fb[drag.k] = pt; }
+      fb.mano = true; G.d.fibs = fibNiveles(G.d);
+      G.under.update(); G.over.update();
+    });
+    const soltar = () => {
+      if (!drag) return;
+      drag = null; G.fibDrag = null;
+      const fb = G.d && G.d.fib;
+      if (fb && fb.mano) { FIBU[MON()] = { a: fb.a, b: fb.b }; guardarFib(); }
+      if (S.rows) drawChart(S.rows, S.sum);               // la leyenda pasa a "ajustado a mano"
+    };
+    window.addEventListener('pointerup', soltar);
+    window.addEventListener('pointercancel', soltar);
+  }
   function pillC(ctx, x, y, text, col, solid, anchor, w) {
     ctx.font = `600 10.5px ${G.P.font}`;
     const tw = ctx.measureText(text).width + 14;
@@ -2645,13 +2725,16 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   function drawUnder(ctx, w, h) {
     const d = G.d, P = G.P, L = S.layers;
     if (!d) return;
-    if (d.fibs && d.fibs.length) {
+    if (d.fib && d.fibs.length) {
+      const x0 = Math.max(0, Math.min(fibX(d.fib.a), fibX(d.fib.b)));
       ctx.save(); ctx.globalAlpha = dimA('fib'); ctx.lineWidth = 1; ctx.setLineDash([2, 4]);
-      d.fibs.forEach((f) => {
+      if (x0 < w) d.fibs.forEach((f) => {
         const y = Y(f.p); if (y === null || y < 0 || y > h) return;
-        ctx.strokeStyle = alpha(P.c2 || P.mute, f.fuerte ? 0.55 : 0.32);
-        ctx.beginPath(); ctx.moveTo(0, Math.round(y) + 0.5); ctx.lineTo(w, Math.round(y) + 0.5); ctx.stroke();
+        ctx.strokeStyle = alpha(P.c2 || P.mute, f.extremo ? 0.6 : f.fuerte ? 0.55 : 0.32);
+        ctx.beginPath(); ctx.moveTo(x0, Math.round(y) + 0.5); ctx.lineTo(w, Math.round(y) + 0.5); ctx.stroke();
       });
+      const ya = Y(d.fib.a.p), yb = Y(d.fib.b.p);           // la diagonal del inicio al fin
+      if (ya !== null && yb !== null) { ctx.setLineDash([5, 4]); ctx.strokeStyle = alpha(P.c2 || P.mute, 0.5); ctx.beginPath(); ctx.moveTo(fibX(d.fib.a), ya); ctx.lineTo(fibX(d.fib.b), yb); ctx.stroke(); }
       ctx.restore();
     }
     const half = (X(d.lastT + d.tfMs) - X(d.lastT)) / 2 || 3;
@@ -2715,13 +2798,19 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     const d = G.d, P = G.P, L = S.layers;
     if (!d) return;
     const narrow = w < 480;
-    if (d.fibs && d.fibs.length) {
+    if (d.fib && d.fibs.length) {
+      const col = P.c2 || P.mute, xl = Math.max(6, Math.min(fibX(d.fib.a), fibX(d.fib.b)) + 4);
       ctx.save(); ctx.globalAlpha = dimA('fib'); ctx.font = `500 10px ${P.font}`; ctx.textBaseline = 'bottom';
-      d.fibs.forEach((f) => {
+      if (xl < w - 40) d.fibs.forEach((f) => {
         const y = Y(f.p); if (y === null || y < 14 || y > h) return;
         const tw = ctx.measureText(f.txt).width;
-        ctx.fillStyle = alpha(P.panel, 0.7); ctx.fillRect(6, y - 13, tw + 6, 12);          // fondo suave para leerlo sobre las velas
-        ctx.fillStyle = alpha(P.c2 || P.mute, f.fuerte ? 0.95 : 0.7); ctx.fillText(f.txt, 9, y - 2);
+        ctx.fillStyle = alpha(P.panel, 0.7); ctx.fillRect(xl - 3, y - 13, tw + 6, 12);          // fondo suave para leerlo sobre las velas
+        ctx.fillStyle = alpha(col, f.extremo || f.fuerte ? 0.95 : 0.7); ctx.fillText(f.txt, xl, y - 2);
+      });
+      ['a', 'b'].forEach((k) => {                            // los dos puntos: se arrastran (como en TradingView)
+        const x = fibX(d.fib[k]), y = Y(d.fib[k].p); if (y === null || x < -10 || x > w + 10 || y < -10 || y > h + 10) return;
+        const r = G.fibDrag === k || G.fibHover === k ? 6.5 : 4.5;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = P.panel; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = col; ctx.stroke();
       });
       ctx.restore();
     }
@@ -3052,6 +3141,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       if (!G.dibujando) botonPresente();               // mientras se redibuja, el rango pasa por estados intermedios
     });
     axisTouch(box);
+    fibInput(box);
     medirInput(box);
     G.cdTimer = setInterval(() => {
       if (!G.d || !G.d.live) return;
@@ -3254,11 +3344,16 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       G.plines.push(G.c.createPriceLine({ price: num(e.precio), color: alpha(e.sesgo === 'alcista' ? P.up : P.dn, 0.8), lineWidth: 1, lineStyle: LW.LineStyle.Dashed,
         axisLabelVisible: true, title: String(e.texto).replace(/\s*\d[\d.,]*.*$/, '') }));
     });
-    // Fibonacci del swing de 90 dias (4 h): el unico que mostro ventaja. Se ve en 4 h y diario, con cuanto rebotó cada nivel.
-    // Va dibujado en el grafico (linea punteada tenue con su texto encima, ver drawUnder y drawOver), no en el eje de
-    // precios: ahi tapaba el precio, el soporte, la resistencia y las liquidaciones
-    d.fibs = tf === '4h' || tf === '1d' ? pick(rows, 'nivel').filter((n) => n.fib !== undefined && n.fib !== null).map((n) => ({ p: num(n.precio),
-      fuerte: num(n.rebote) >= 55, txt: narrow ? `Fib ${f1(num(n.fib) * 100)}%` : `Fib ${f1(num(n.fib) * 100)}% · rebotó ${f0(num(n.rebote))}%` })) : [];
+    // Fibonacci como en TradingView: del inicio del tramo (nivel 1) al fin (nivel 0), con todos los niveles. El automatico es
+    // el swing de 90 dias en 4 h (el unico que mostro ventaja: se ve en 4 h y diario, con cuanto rebotó cada nivel). Si lo
+    // ajustaste arrastrando sus puntos o la diagonal, va ese en todas las temporalidades (guardado por activo en este
+    // navegador). Se dibuja en el grafico (lineas punteadas tenues con su texto), no en el eje de precios.
+    const tr = pick(rows, 'fib_tramo')[0], fu = FIBU[MON()];
+    d.fibReb = {}; pick(rows, 'nivel').forEach((n) => { if (n.fib !== undefined && n.fib !== null) d.fibReb[num(n.fib)] = num(n.rebote); });
+    d.fibNarrow = narrow;
+    d.fib = fu ? { a: { ...fu.a }, b: { ...fu.b }, mano: true }
+      : tr && (tf === '4h' || tf === '1d') ? { a: { t: num(tr.t_inicio), p: num(tr.p_inicio) }, b: { t: num(tr.t_fin), p: num(tr.p_fin) }, mano: false } : null;
+    d.fibs = fibNiveles(d);
     // tu plan (plan_compras.json): en tinta neutra para no confundirlo con las marcas del analisis
     d.plan = 0;
     const planChip = document.querySelector('#layers [data-layer="plan"]');
@@ -3323,8 +3418,16 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       item(`pat-vela-${p.nombre}`, CC(colOf(p.sesgo)), `Flechita · ${p.nombre}:`, p.descripcion));
     if (G.plines.length) item('sr', DD(P.mute), 'Líneas punteadas con etiqueta en el eje:',
       `resistencia y soporte más cercanos para el plazo de ${S.plazo}${L.patrones && d.figs.some((p) => num(p.objetivo) !== null) ? ' y el objetivo de cada figura' : ''}.`);
-    if (d.fibs && d.fibs.length) item('fib', { background: 'transparent', borderTop: `1.5px dotted ${P.c2}`, height: '0', marginTop: '.75em' }, 'Líneas violetas punteadas (Fib):',
-      'Fibonacci del swing de 90 días; el texto dice cuántas veces rebotó el precio en cada nivel (más fuerte si rebotó 55% o más).');
+    if (d.fib && d.fibs.length) {
+      item('fib', { background: 'transparent', borderTop: `1.5px dotted ${P.c2}`, height: '0', marginTop: '.75em' }, `Líneas violetas punteadas (Fib${d.fib.mano ? ', ajustado a mano' : ''}):`,
+        d.fib.mano ? 'el Fibonacci que acomodaste, del punto de inicio (100%) al de fin (0%). Arrastrá los puntos para cambiarlo o la diagonal para moverlo entero.'
+          : 'Fibonacci del swing de 90 días, del inicio (100%) al fin (0%); el texto dice cuántas veces rebotó el precio en cada nivel (más fuerte si rebotó 55% o más). Arrastrá los puntos (o la diagonal) para ajustarlo, como en TradingView.');
+      if (d.fib.mano) {
+        const it = leg.querySelector('[data-ex="fib"] span'), bt = el('button', 'ab-ex-limpiar', 'Volver al automático'); bt.type = 'button';
+        bt.style.margin = '4px 0 0'; bt.addEventListener('click', (e) => { e.stopPropagation(); delete FIBU[MON()]; guardarFib(); if (S.rows) drawChart(S.rows, S.sum); });
+        if (it) it.append(document.createElement('br'), bt);
+      }
+    }
     if (d.dolor !== null) item('opc', DD(P.c2), 'Línea violeta a rayas largas:',
       'el "dolor máximo" de las opciones del viernes: el precio donde más opciones vencen sin valor. Cerca del vencimiento a veces atrae al precio; es contexto, no una predicción.');
     if (d.plan) item('plan', DD(P.fg), 'Tu plan (líneas grises con nombre):',

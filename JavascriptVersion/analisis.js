@@ -811,6 +811,14 @@
     const sube = hs.indexOf(hi) > ls.indexOf(lo);
     return Object.keys(FIB_REBOTE).map(Number).sort((a, b) => a - b).map((f) => [f, sube ? hi - (hi - lo) * f : lo + (hi - lo) * f]);
   }
+  /** Los dos extremos del swing (como fib_tramo de analisis_btc.py): inicio (nivel 1) y fin (nivel 0). */
+  function fibTramo(h4, velas = 540) {
+    const w = h4.slice(-velas);
+    if (w.length < 100) return null;
+    const hs = w.map((b) => b[2]), ls = w.map((b) => b[3]), ih = hs.indexOf(Math.max(...hs)), il = ls.indexOf(Math.min(...ls));
+    const [a, b] = ih > il ? [[w[il][0], w[il][3]], [w[ih][0], w[ih][2]]] : [[w[ih][0], w[ih][2]], [w[il][0], w[il][3]]];
+    return { t_inicio: a[0], p_inicio: a[1], t_fin: b[0], p_fin: b[1] };
+  }
   const SHORT_CTX = { 'flujo_1 h': 'Compras a mercado 1 h', 'flujo_4 h': 'Compras a mercado 4 h', oi_1h: 'Open interest 1 h',
     oi_4h: 'Open interest 4 h', oi_24h: 'Open interest 24 h', long_short: 'Long/short', libros: 'Libros de órdenes', funding: 'Funding' };
 
@@ -1068,6 +1076,8 @@
     levels.forEach(([name, v]) => rows.push({ tabla: 'nivel', nombre: name, precio: rp(v), tipo: v > price ? 'resistencia' : 'soporte', distancia: rnd(pct(v, price), 2) }));
     fibonacci(candles['4h']).forEach(([f, v]) => rows.push({ tabla: 'nivel', nombre: `Fibonacci ${ar(f * 100, 1)}% (90 d) · rebotó ${FIB_REBOTE[f]}%`, precio: rp(v),
       tipo: v > price ? 'resistencia' : 'soporte', distancia: rnd(pct(v, price), 2), fib: f, rebote: FIB_REBOTE[f] }));
+    const tramo = fibTramo(candles['4h']);
+    if (tramo) rows.push({ tabla: 'fib_tramo', t_inicio: tramo.t_inicio, p_inicio: rp(tramo.p_inicio), t_fin: tramo.t_fin, p_fin: rp(tramo.p_fin) });
 
     let funding = null;
     if (input.ctxRaw) {
@@ -1156,7 +1166,7 @@
     return { rows, log };
   }
 
-  const Analisis = { piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, liqReales };
+  const Analisis = { piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, fibTramo, liqReales };
   root.Analisis = Analisis;
   if (typeof module !== 'undefined' && module.exports) module.exports = Analisis;
 })(typeof self !== 'undefined' ? self : globalThis);

@@ -1095,6 +1095,18 @@ def fibonacci(h4, velas=540):
     return [(f, hi - (hi - lo) * f if sube else lo + (hi - lo) * f) for f in sorted(FIB_REBOTE)]
 
 
+def fib_tramo(h4, velas=540):
+    """Los dos extremos del swing de fibonacci() (para dibujarlo como en TradingView): el inicio (nivel 1) y el fin
+    (nivel 0). Alcista: del minimo al maximo; bajista: del maximo al minimo."""
+    w = h4[-velas:]
+    if len(w) < 100:
+        return None
+    hs, ls = [b[2] for b in w], [b[3] for b in w]
+    ih, il = hs.index(max(hs)), ls.index(min(ls))
+    a, b = ((w[il][0], w[il][3]), (w[ih][0], w[ih][2])) if ih > il else ((w[ih][0], w[ih][2]), (w[il][0], w[il][3]))
+    return {"t_inicio": a[0], "p_inicio": a[1], "t_fin": b[0], "p_fin": b[1]}
+
+
 # Cuando 15 min, 1 hora y 4 horas van para el mismo lado. Medido 2023-2026 sin mirar el futuro (medir_contexto.py):
 # el de 1 hora acerto la direccion 54,0% de las veces (52,6-55,4) contra 51,5% (50,5-52,4) cuando no coincidian; mejor
 # en 2023-24 y en 2025-26. En 15 min y 4 horas no cambio. Se muestra como senal: no cambia la probabilidad.
@@ -1406,6 +1418,10 @@ def analyze():
         rows.append({"tabla": "nivel", "nombre": f"Fibonacci {ar(f * 100, 1)}% (90 d) · rebotó {FIB_REBOTE[f]}%", "precio": rp(v),
                      "tipo": "resistencia" if v > price else "soporte", "distancia": round(pct(v, price), 2),
                      "fib": f, "rebote": FIB_REBOTE[f]})
+    tramo = fib_tramo(candles["4h"])
+    if tramo:
+        rows.append({"tabla": "fib_tramo", "t_inicio": tramo["t_inicio"], "p_inicio": rp(tramo["p_inicio"]),
+                     "t_fin": tramo["t_fin"], "p_fin": rp(tramo["p_fin"])})
 
     try:
         ctx, funding = cached("contexto", 60, lambda: context(bgx, h1))
