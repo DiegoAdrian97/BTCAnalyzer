@@ -53,6 +53,13 @@ avisos de Telegram lo leen con el mismo token (`PLAN_GITHUB_TOKEN` en Render; `u
 sirve un `plan_compras.json` local. Si estás conectado pero el plan no llega, Mis posiciones muestra igual el PnL en
 vivo y dice qué falta.
 
+**Directo de BingX**: con BingX conectado, Próximas compras son tus órdenes límite de compra abiertas en BingX (precio,
+valor y cantidad reales) y Mis posiciones son tus posiciones abiertas en BingX (todas las criptos que tengas: cantidad,
+entrada, equilibrio con comisiones, margen, liquidación y resultado en vivo). La liquidación "con todo ejecutado" suma
+esas órdenes al margen del apalancamiento de BingX. Cuando tu posición crece, la campanita avisa "Se ejecutó una
+compra"; si baja, "Cerraste una parte". Del plan privado solo salen las reglas (toma de ganancias, piramidado,
+mantenimiento, comisión); si no llega, van las de siempre (+25% pasando 25%, piramidar +15%).
+
 **Solo con BingX conectado**: Tu plan (Próximas compras), Mis posiciones, la capa "Mi plan" del gráfico y sus avisos
 se ven solo si en ese navegador se conectó BingX con la contraseña de Vercel (`POSICIONES_CLAVE`) y el servidor la
 aceptó. Sin conectar, arriba (al lado de la campanita) aparece una llave para hacerlo; "Desconectar BingX" lo oculta

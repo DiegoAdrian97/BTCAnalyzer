@@ -826,7 +826,8 @@
     <div class="ab-card-head"><div><span class="ab-kicker">Tu plan · longs a 5x en BingX</span><h2 id="cmp-t">Próximas compras</h2></div>
       <span class="ab-kicker" id="cmp-hora">—</span></div>
     <div class="ab-cmp-grid" id="cmp-body"></div>
-    <p class="ab-foot">Valor de la orden: lo que escribís en BingX a 5x (descuenta un quinto). Margen extra: lo que agregás con el ⊕ después. Con BingX conectado, las pendientes son tus órdenes límite de compra en BingX (precio y valor reales) y "Se ejecutó" sale de que tu posición creció; sin conectar, de los precios desde que armaste el plan.</p>
+    <p class="ab-foot" id="cmp-foot-bx" hidden>Tus órdenes límite de compra abiertas en BingX (solo lectura, cada minuto): precio, valor y cantidad son los de BingX. Cuando una se ejecuta, desaparece de acá y tu posición crece en Mis posiciones.</p>
+    <p class="ab-foot" id="cmp-foot-plan">Valor de la orden: lo que escribís en BingX a 5x (descuenta un quinto). Margen extra: lo que agregás con el ⊕ después. Con BingX conectado, las pendientes son tus órdenes límite de compra en BingX (precio y valor reales) y "Se ejecutó" sale de que tu posición creció; sin conectar, de los precios desde que armaste el plan.</p>
   </section>
 
   <section class="ab-card" id="posiciones" aria-labelledby="pos-t" hidden>
@@ -838,8 +839,8 @@
       <div class="ab-pos-total-por" id="pnl-por"></div>
     </div>
     <div class="ab-cmp-grid" id="pos-body"></div>
-    <p class="ab-foot" id="pos-bx-nota" hidden>Posiciones y órdenes leídas de tu cuenta de BingX (solo lectura), cada minuto: cantidad, entrada, margen y liquidación son las de BingX, y una compra del plan cuenta como "orden puesta" si hay una orden límite de compra a ese precio.</p>
-    <p class="ab-foot">Se recalcula cada 15 segundos con el precio de ahora. Parte de lo que ya tenías abierto en BingX (cargado del 01/11: cantidad, entrada y margen) y le suma las compras del plan que se ejecuten desde ahí. La liquidación es aproximada (mantenimiento 0,4% BTC, 1% el resto): la exacta la muestra BingX. Precio de equilibrio: la entrada con las comisiones de BingX (y el funding pagado), como el de BingX. Toma de ganancias: cada +25% sobre tu equilibrio, pasar 25% de la posición a spot. Piramidar: cuando sube 15% sobre tu equilibrio, cuánto podés sumar sin plata nueva con la liquidación como mucho en 75% de tu compra más baja.</p>
+    <p class="ab-foot" id="pos-bx-nota" hidden>Tus posiciones abiertas en BingX (solo lectura, cada minuto): cantidad, entrada, margen, liquidación y resultado son los de BingX; el equilibrio cuenta sus comisiones. "Órdenes pendientes" son tus órdenes límite de compra: la liquidación con todo ejecutado las suma. La toma de ganancias y el piramidado siguen las reglas de tu plan.</p>
+    <p class="ab-foot" id="pos-foot-plan">Se recalcula cada 15 segundos con el precio de ahora. Parte de lo que ya tenías abierto en BingX (cargado del 01/11: cantidad, entrada y margen) y le suma las compras del plan que se ejecuten desde ahí. La liquidación es aproximada (mantenimiento 0,4% BTC, 1% el resto): la exacta la muestra BingX. Precio de equilibrio: la entrada con las comisiones de BingX (y el funding pagado), como el de BingX. Toma de ganancias: cada +25% sobre tu equilibrio, pasar 25% de la posición a spot. Piramidar: cuando sube 15% sobre tu equilibrio, cuánto podés sumar sin plata nueva con la liquidación como mucho en 75% de tu compra más baja.</p>
   </section>
 
   <section class="ab-card ab-mov" id="movimiento" aria-labelledby="mov-t" data-source="analisis" hidden>
@@ -1598,7 +1599,18 @@
   // Tu plan (Proximas compras), Mis posiciones, la capa "Mi plan" y sus avisos: solo para quien conecto BingX con la
   // contraseña de Vercel (POSICIONES_CLAVE) y el servidor la acepto. Sin el servidor de BingX (pagina de Render, que
   // ya pide su propia contraseña) se ven como antes.
-  const PLAN_OK = () => !!PLAN_COMPRAS && (!BX_API || BX.autorizado);
+  const PLAN_OK = () => (BX_API ? BX.autorizado : !!PLAN_COMPRAS);
+  // Con BingX conectado, Proximas compras y Mis posiciones salen directo de BingX (ordenes limite de compra y posiciones
+  // abiertas). El plan solo aporta las reglas (toma de ganancias, piramidado, mantenimiento, comision); si no llega, estas
+  const REGLAS = { apalancamiento: 5, ganancias: { cada: 0.25, vender: 0.25, niveles: 4 }, piramidar: { cada: 0.15, liq_max: 0.75 } };
+  const reglas = () => ({ ...REGLAS, ...(PLAN_COMPRAS || {}) });
+  const ORDEN_MON = () => (window.abActivo ? window.abActivo.todos() : []);
+  function monedasPlan() {
+    const ms = BX.ok ? [...new Set([...Object.keys(BX.posiciones || {}), ...Object.keys(BX.ordenes || {})])]
+      : PLAN_COMPRAS ? [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))] : [];
+    const o = ORDEN_MON(), k = (m) => (o.indexOf(m) < 0 ? 99 : o.indexOf(m));
+    return ms.sort((a, b) => k(a) - k(b) || a.localeCompare(b));
+  }
   const bxClave = () => { try { return localStorage.getItem('ab-bingx-clave'); } catch (e) { return null; } };
   async function bxLeer() {
     const clave = bxClave();
@@ -1621,9 +1633,9 @@
   const cargada = (c) => (c.deBingx ? true : BX.ok && BX.ordenes ? false : !!c.cargada);
   async function cmpPrecios() {
     if (!PLAN_OK()) return;                                // sin BingX conectado el plan no se muestra: no hace falta pedir nada
-    const mons = [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))];
+    const mons = monedasPlan();
     // desde el inicio del dia del plan: con la hora exacta, el primer dia (vela diaria abierta antes) no venia y quedaba vacio
-    const desde = PLAN_COMPRAS.desde - (PLAN_COMPRAS.desde % 86400000);
+    const d0 = PLAN_COMPRAS && PLAN_COMPRAS.desde ? PLAN_COMPRAS.desde : Date.now() - 30 * 86400000, desde = d0 - (d0 % 86400000);
     // solo los dias desde el plan: con limit=1500 Binance cobraba 10 de peso por pedido aunque vinieran 20 velas (4 criptos cada 15 s)
     const dias = Math.min(1500, Math.ceil((Date.now() - desde) / 86400000) + 2);
     await Promise.all(mons.map(async (m) => {
@@ -1647,12 +1659,13 @@
     const sec = document.getElementById('compras'), body = document.getElementById('cmp-body');
     if (!PLAN_OK() || !ES_CRIPTO(MON())) { sec.hidden = true; return; }      // el plan es de criptos y solo con BingX conectado
     sec.hidden = false; body.replaceChildren();
-    const mons = [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))];
+    const mons = monedasPlan().filter((m) => comprasDe(m).length || !BX.ok);
+    if (!mons.length) body.append(el('p', 'ab-note', 'No tenés órdenes límite de compra puestas en BingX.'));
     mons.forEach((m) => {
       const d = CMP.datos[m], cs = comprasDe(m).slice().sort((a, b) => b.precio - a.precio);
       const box = el('div', 'ab-cmp'), h = el('div', 'ab-cmp-h');
       const hechas = cs.filter((c) => cmpHecha(c, d)).length;
-      h.append(el('b', '', m), el('span', '', d ? `ahora ${fp(d.precio)} · ${hechas}/${cs.length} ejecutadas` : 'cargando precio…'));
+      h.append(el('b', '', m), el('span', '', !d ? 'cargando precio…' : BX.ok ? `ahora ${fp(d.precio)} · ${cs.length} ${cs.length === 1 ? 'orden' : 'órdenes'} en BingX` : `ahora ${fp(d.precio)} · ${hechas}/${cs.length} ejecutadas`));
       box.append(h);
       let marcado = false, prox = false;
       cs.forEach((c) => {
@@ -1669,7 +1682,7 @@
         else { ic = '⏳'; st = dist === null ? 'Orden puesta' : `Orden puesta · a ${f1(dist)}%`; }
         if (!hecha && !prox) { cls += ' prox'; prox = true; }
         const row = el('div', cls), mid = el('div');
-        mid.append(el('b', '', `${nCompra(c)} · ${fp(c.precio)}`), el('em', '', `Orden ${f0(c.orden)} · margen extra ${f0(c.extra)}`));
+        mid.append(el('b', '', `${nCompra(c)} · ${fp(c.precio)}`), el('em', '', c.deBingx && BX.ok ? `Orden ${f0(c.orden)} USDT · ${ar.format(',.4f')(c.cantidad)} ${m}` : `Orden ${f0(c.orden)} · margen extra ${f0(c.extra)}`));
         const stEl = el('span', 'st', st);
         if (ic === '⚠') stEl.title = 'El precio llegó a esta compra pero tu posición en BingX todavía no creció: la orden no se llenó, se movió o falta que BingX la refleje (se lee cada minuto).';
         row.append(el('span', '', ic), mid, stEl); box.append(row);
@@ -1694,8 +1707,14 @@
   const COMPRAS_MEMO = new Map();
   function comprasDe(m) {
     const ords = BX.ok && BX.ordenes ? BX.ordenes[m] || [] : null, memo = COMPRAS_MEMO.get(m);
-    if (memo && memo.plan === PLAN_COMPRAS && memo.ords === ords) return memo.lista;   // los mismos objetos (cmpHecha los compara)
-    const plan = PLAN_COMPRAS.compras.filter((c) => c.moneda === m);
+    if (memo && memo.plan === PLAN_COMPRAS && memo.ords === ords && memo.directo === BX.ok) return memo.lista;   // los mismos objetos (cmpHecha los compara)
+    if (BX.ok) {                                                // directo de BingX: tus ordenes limite de compra, de la mas alta a la mas baja
+      const lista = (ords || []).slice().sort((a, b) => b.precio - a.precio).map((o, i) => ({ moneda: m, n: i + 1, precio: o.precio, orden: o.valor,
+        cantidad: o.cantidad, extra: null, cargada: true, deBingx: true }));
+      COMPRAS_MEMO.set(m, { plan: PLAN_COMPRAS, ords, lista, directo: true });
+      return lista;
+    }
+    const plan = PLAN_COMPRAS ? PLAN_COMPRAS.compras.filter((c) => c.moneda === m) : [];
     let lista = plan;
     if (ords) {
       const os = ords.slice().sort((a, b) => b.precio - a.precio);
@@ -1719,11 +1738,11 @@
       const res = resto.map((c, j) => (par.has(j) ? { ...c, precio: par.get(j).precio, orden: par.get(j).valor, cargada: true, deBingx: true, precioPlan: c.precio } : c));
       lista = enPos.concat(extras, res);
     }
-    COMPRAS_MEMO.set(m, { plan: PLAN_COMPRAS, ords, lista });
+    COMPRAS_MEMO.set(m, { plan: PLAN_COMPRAS, ords, lista, directo: false });
     return lista;
   }
   function bxEjecutadas(m, d) {
-    const vivo = BX.ok ? (BX.posiciones || {})[m] : null, base = (PLAN_COMPRAS.posiciones || {})[m];
+    const vivo = BX.ok ? (BX.posiciones || {})[m] : null, base = PLAN_COMPRAS && (PLAN_COMPRAS.posiciones || {})[m];
     if (!vivo || !base || !d) return null;
     const conOrdenes = !!BX.ordenes;
     const pend = comprasDe(m).filter((c) => !c.en_posicion).sort((a, b) => b.precio - a.precio);
@@ -1738,13 +1757,15 @@
     return out;
   }
   const cmpHecha = (c, d) => {
+    if (c.deBingx && BX.ok) return false;                     // una orden abierta en BingX todavia no se ejecuto
     if (c.en_posicion) return true;
     const ej = bxEjecutadas(c.moneda, d);
     return ej ? ej.has(c) : tocada(c, d);
   };
   function planEstado(m, d) {
-    const P = PLAN_COMPRAS, lev = P.apalancamiento || 5, mt = P.mantenimiento || {}, r = mt[m] !== undefined ? mt[m] : (mt.otras !== undefined ? mt.otras : 0.01);
+    const P = reglas(), mt = P.mantenimiento || {}, r = mt[m] !== undefined ? mt[m] : (mt.otras !== undefined ? mt.otras : 0.01);
     const cs = comprasDe(m), vivo = BX.ok ? (BX.posiciones || {})[m] : undefined;
+    const lev = (vivo && vivo.apalancamiento) || P.apalancamiento || 5;      // margen de las ordenes que falten: el de BingX
     const base = BX.ok ? vivo : (P.posiciones || {})[m];
     const hechas = cs.filter((c) => cmpHecha(c, d) && (BX.ok || c.en_posicion || c.cargada));
     const nuevas = BX.ok ? [] : base ? hechas.filter((c) => !c.en_posicion) : hechas;     // BingX ya incluye lo ejecutado
@@ -1768,7 +1789,9 @@
     const eq = vivo && vivo.equilibrio ? vivo.equilibrio
       : vivo && vivo.realizado !== undefined ? (nocional - vivo.realizado) / (cantidad * (1 - fee))
         : (prom * (1 + fee)) / (1 - fee);
-    Object.assign(out, { promedio: prom, equilibrio: eq, cantidad, nocional, valor, pnl: valor - nocional, pnl_pct: (valor - nocional) / margen * 100,
+    // resultado: con BingX, el suyo (precio de marca) movido en vivo como el total de arriba; sin BingX, al precio de ahora
+    const pnl = vivo ? pnlMoneda(m) : valor - nocional;
+    Object.assign(out, { promedio: prom, equilibrio: eq, cantidad, nocional, valor, pnl, pnl_pct: (pnl / margen) * 100,
       apalancamiento_real: valor / (margen + valor - nocional), liquidacion: liq, dist_liq: liq ? (1 - liq / d.precio) * 100 : null });
     // si el precio baja hasta la liquidacion, antes se ejecutan las compras que faltan: la liquidacion de verdad es esta
     const pend = cs.filter((c) => !hechas.includes(c));
@@ -1778,7 +1801,7 @@
       return { k, precio: px, vender: cantidad * g.vender, usdt: cantidad * g.vender * px, alcanzado: d.alto !== undefined && d.alto >= px }; });
     const pz = P.piramidar;
     if (pz) {
-      const lmax = pz.liq_max * Math.min(...cs.map((c) => c.precio)), k = lmax * (1 - r);
+      const lmax = pz.liq_max * (cs.length ? Math.min(...cs.map((c) => c.precio)) : prom), k = lmax * (1 - r);
       let a = d.precio > k ? (k * cantidad - nocional + margen) / (1 - k / d.precio) : 0;
       a = Math.max(0, Math.min(a, lev * margen - nocional));
       out.piramidar = { disponible: d.precio >= eq * (1 + pz.cada), desde: eq * (1 + pz.cada), sumar: a, monedas: a / d.precio,
@@ -1812,18 +1835,14 @@
   }
   function drawPosiciones() {
     const sec = document.getElementById('posiciones'), body = document.getElementById('pos-body');
-    const soloBx = !PLAN_COMPRAS && !!BX_API && BX.autorizado;      // conectado pero sin el plan privado: igual el PnL en vivo
-    if ((!PLAN_OK() && !soloBx) || !ES_CRIPTO(MON())) { sec.hidden = true; if (typeof pnlConectar === 'function') pnlConectar(); return; }
+    if (!PLAN_OK() || !ES_CRIPTO(MON())) { sec.hidden = true; if (typeof pnlConectar === 'function') pnlConectar(); return; }
     sec.hidden = false; body.replaceChildren();
-    if (soloBx) {
-      body.append(el('p', 'ab-note', `Conectado a BingX, pero no llegó tu plan privado${BX.planError ? ` (${BX.planError})` : ''}. Revisá en Vercel la variable PLAN_GITHUB_TOKEN (token de solo lectura del repositorio privado del plan).`));
-      document.getElementById('pos-hora').textContent = BX.ok ? `BingX en vivo · ${BX.hora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}` : BX.error ? `BingX: ${BX.error}` : '—';
-      pnlPintar(); pnlConectar(); return;
-    }
     const sgn = (x, f = f0) => `${x >= 0 ? '+' : '−'}${f(Math.abs(x))}`;
-    [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))].forEach((m) => {
+    const monsP = BX.ok ? monedasPlan().filter((m) => (BX.posiciones || {})[m]) : monedasPlan();
+    if (BX.ok && !monsP.length) body.append(el('p', 'ab-note', 'No tenés posiciones abiertas en BingX.'));
+    monsP.forEach((m) => {
       const d = CMP.datos[m], e = planEstado(m, d), box = el('div', 'ab-cmp'), h = el('div', 'ab-cmp-h');
-      h.append(el('b', '', m), el('span', '', d ? `ahora ${fp(d.precio)} · ${e.hechas}/${e.total} compras del plan` : 'cargando precio…'));
+      h.append(el('b', '', m), el('span', '', !d ? 'cargando precio…' : BX.ok ? `ahora ${fp(d.precio)} · ${e.total ? `${e.total} ${e.total === 1 ? 'orden pendiente' : 'órdenes pendientes'}` : 'sin órdenes pendientes'}` : `ahora ${fp(d.precio)} · ${e.hechas}/${e.total} compras del plan`));
       box.append(h);
       if (e.cantidad === undefined) { box.append(el('p', 'ab-note', d ? `Ninguna compra ejecutada todavía. Margen ya puesto: ${f0(e.margen)} USDT.` : '')); body.append(box); return; }
       const kv = el('div', 'ab-pos-kv'), cell = (k, v, cls = '') => { const c = el('div'); c.append(el('small', '', k), el('b', cls, v)); kv.append(c); };
@@ -1857,7 +1876,7 @@
         e.ganancias.forEach((g) => {
           let cls = 'ab-cmp-row'; if (g.alcanzado) cls += ' ok'; else if (!prox) { cls += ' prox'; prox = true; }
           const row = el('div', cls), mid = el('div');
-          mid.append(el('b', '', `+${f0(g.k * PLAN_COMPRAS.ganancias.cada * 100)}% · ${fp(g.precio)}`), el('em', '', `Pasar ${ar.format(',.4f')(g.vender)} ${m} (~${f0(g.usdt)} USDT)`));
+          mid.append(el('b', '', `+${f0(g.k * reglas().ganancias.cada * 100)}% · ${fp(g.precio)}`), el('em', '', `Pasar ${ar.format(',.4f')(g.vender)} ${m} (~${f0(g.usdt)} USDT)`));
           row.append(el('span', '', g.alcanzado ? '✔' : '○'), mid, el('span', 'st', g.alcanzado ? 'Llegó: vendé' : `a ${f1((g.precio / d.precio - 1) * 100)}%`));
           box.append(row);
         });
@@ -1866,7 +1885,7 @@
         const z = e.piramidar, pz = el('div', `ab-pos-pz${z.disponible ? ' on' : ''}`);
         pz.textContent = z.disponible
           ? `Piramidar: podés sumar ${f0(z.sumar)} USDT de posición (${ar.format(',.4f')(z.monedas)} ${m}) sin plata nueva: sacás margen y abrís más long. La liquidación quedaría en ${fp(z.liq_nueva)}.`
-          : `Piramidar: se habilita cuando ${m} pase ${fp(z.desde)} (+${f0(PLAN_COMPRAS.piramidar.cada * 100)}% sobre tu equilibrio).`;
+          : `Piramidar: se habilita cuando ${m} pase ${fp(z.desde)} (+${f0(reglas().piramidar.cada * 100)}% sobre tu equilibrio).`;
         box.append(el('p', 'ab-pos-sec', 'Piramidar'), pz);
       }
       body.append(box);
@@ -1876,6 +1895,8 @@
       : BX.error ? `BingX: ${BX.error}` : CMP.hora ? `en vivo · ${CMP.hora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : '—';
     bxb.hidden = !BX_API; bxb.textContent = bxClave() ? 'Desconectar BingX' : 'Conectar BingX';
     document.getElementById('pos-bx-nota').hidden = !BX.ok;
+    document.getElementById('pos-foot-plan').hidden = BX.ok;
+    document.getElementById('cmp-foot-bx').hidden = !BX.ok; document.getElementById('cmp-foot-plan').hidden = BX.ok;
     pnlPintar(); pnlConectar();
   }
   // ---------- PnL no realizado de todas las posiciones abiertas, en vivo ----------
@@ -1886,6 +1907,11 @@
   const PNL = { marca: {}, ref: {}, ws: null, syms: '', t: 0, cuadro: 0 };
   const pnlAhora = (m) => PNL.marca[m] || (CMP.datos[m] && CMP.datos[m].precio) || null;
   function pnlRef() { PNL.ref = {}; Object.keys(BX.posiciones || {}).forEach((m) => { const a = pnlAhora(m); if (a) PNL.ref[m] = a; }); }
+  function pnlMoneda(m) {           // el resultado de una posicion de BingX, en vivo (ver pnlVivo)
+    const p = (BX.posiciones || {})[m]; if (!p) return 0;
+    const a = pnlAhora(m); if (!PNL.ref[m] && a) PNL.ref[m] = a;
+    return (p.resultado || 0) + (a && PNL.ref[m] ? (p.signo || 1) * p.cantidad * (a - PNL.ref[m]) : 0);
+  }
   function pnlVivo() {
     const ps = BX.ok ? BX.posiciones || {} : {}, ms = Object.keys(ps);
     if (!ms.length) return null;
@@ -2052,36 +2078,46 @@
       plan() {
         if (!PLAN_OK()) return;
         const hoy = new Date().toISOString().slice(0, 10);
-        [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))].forEach((m) => {
+        monedasPlan().forEach((m) => {
           const d = CMP.datos[m]; if (!d) return;
+          // con BingX: cuando tu posicion crece se ejecuto una compra (y si baja, cerraste una parte); lo dice BingX
+          const vivo = BX.ok ? (BX.posiciones || {})[m] : null;
+          if (BX.ok) cambio(`bxq:${m}`, vivo ? +vivo.cantidad.toPrecision(8) : 0, (antes) => {
+            const q = vivo ? vivo.cantidad : 0, dq = q - antes;
+            if (Math.abs(dq) <= Math.max(antes, q) * 0.0005) return;
+            if (dq > 0) nueva(`bx+:${m}:${Date.now()}`, '✅', `Se ejecutó una compra de ${m}`, `+${ar.format(',.4f')(dq)} ${m}`,
+              [`Tu posición de ${m} en BingX pasó de ${ar.format(',.4f')(antes)} a ${ar.format(',.4f')(q)} ${m}${vivo ? `, con entrada ${fp(vivo.entrada)}` : ''}.`, 'Si tu plan lleva margen extra para esta compra, agregalo con ⊕ en BingX.'], 'posiciones');
+            else nueva(`bx-:${m}:${Date.now()}`, '📤', q ? `Cerraste una parte de ${m}` : `Cerraste tu posición de ${m}`, `${ar.format(',.4f')(dq)} ${m}`,
+              [`Tu posición de ${m} en BingX pasó de ${ar.format(',.4f')(antes)} a ${ar.format(',.4f')(q)} ${m}.`], 'posiciones');
+          });
           comprasDe(m).forEach((c) => {
             const dist = (d.precio / c.precio - 1) * 100, hecha = cmpHecha(c, d);
             // "se acerca" (a 3% o menos): la primera vez que entra en la zona; despues, solo si salio de la zona y hace un
             // nuevo minimo (mas bajo que todo lo que marco desde el aviso anterior). Antes avisaba cada vez que volvia a
             // bajar del 3%, aunque fuera un rebote dentro del mismo rango.
-            const zona = !hecha && dist <= 3, km = `cm:${m}:${c.n}`, sm = est[km];
-            const avisar = () => { nueva(`cc:${m}:${c.n}:${Date.now()}`, '📌', `${m} se acerca a tu compra ${nCompra(c)}`, `a ${f1(dist)}% de ${fp(c.precio)}`,
-              [`${m} está en ${fp(d.precio)}, a ${f1(dist)}% de tu compra ${nCompra(c)} en ${fp(c.precio)}.`, cargada(c) ? 'La orden límite ya está cargada.' : `Cargá la orden límite: precio ${fp(c.precio)}, valor de la orden ${f0(c.orden)} a ${PLAN_COMPRAS.apalancamiento || 5}x.`,
+            const id = c.deBingx && BX.ok ? `o${c.precio}` : c.n, zona = !hecha && dist <= 3, km = `cm:${m}:${id}`, sm = est[km];
+            const avisar = () => { nueva(`cc:${m}:${id}:${Date.now()}`, '📌', `${m} se acerca a tu compra ${nCompra(c)}`, `a ${f1(dist)}% de ${fp(c.precio)}`,
+              [`${m} está en ${fp(d.precio)}, a ${f1(dist)}% de tu compra ${nCompra(c)} en ${fp(c.precio)}.`, cargada(c) ? 'La orden límite ya está cargada.' : `Cargá la orden límite: precio ${fp(c.precio)}, valor de la orden ${f0(c.orden)} a ${reglas().apalancamiento || 5}x.`,
                ...(sm ? [`Nuevo mínimo: ${fp(d.precio)}, por debajo de ${fp(sm.min)} (lo más bajo desde el aviso anterior).`] : [])], 'compras');
               est[km] = { min: d.precio, bp: d.bajo, fuera: false }; };
-            if (!sm) cuando(`cc:${m}:${c.n}`, zona, avisar);
+            if (!sm) cuando(`cc:${m}:${id}`, zona, avisar);
             else {
               // lo mas bajo desde el aviso: el precio de cada vuelta y, si el minimo del plan bajo, esa mecha
               const lo = d.bajo < sm.bp ? Math.min(d.precio, d.bajo) : d.precio;
               if (!zona) sm.fuera = true;
               if (zona && sm.fuera && lo < sm.min) avisar();
               else { sm.min = Math.min(sm.min, lo); sm.bp = Math.min(sm.bp, d.bajo); }
-              est[`cc:${m}:${c.n}`] = zona ? 1 : 0;
+              est[`cc:${m}:${id}`] = zona ? 1 : 0;
             }
-            cuando(`ch:${m}:${c.n}`, hecha, () => nueva(`ch:${m}:${c.n}`, '✅', `Se ejecutó tu compra ${nCompra(c)} de ${m}`, `${fp(c.precio)} · orden ${f0(c.orden)}`,
+            if (!(c.deBingx && BX.ok)) cuando(`ch:${m}:${c.n}`, hecha, () => nueva(`ch:${m}:${c.n}`, '✅', `Se ejecutó tu compra ${nCompra(c)} de ${m}`, `${fp(c.precio)} · orden ${f0(c.orden)}`,
               [`${m} tocó ${fp(c.precio)}: tu orden de ${f0(c.orden)} USDT debería haberse ejecutado. Confirmalo en BingX.`, c.extra_agregado ? 'El margen extra ya lo tenías agregado.' : `Ahora agregá ${f0(c.extra)} USDT de margen (⊕ en la posición).`], 'posiciones'));
           });
           const e = planEstado(m, d);
           if (e.cantidad === undefined) return;
           cuando(`lq:${m}`, e.liquidacion && e.dist_liq < 10, () => nueva(`lq:${m}:${hoy}`, '⚠️', `${m}: liquidación a ${f1(e.dist_liq)}%`, `liquidación ${fp(e.liquidacion)}`,
             [`Tu posición de ${m} se liquida en ~${fp(e.liquidacion)} y el precio está en ${fp(d.precio)} (tendría que caer ${f1(e.dist_liq)}%).`, 'Si querés alejarla, agregá margen (⊕) en BingX. La liquidación exacta la muestra BingX.'], 'posiciones'));
-          (e.ganancias || []).forEach((g) => cuando(`tp:${m}:${g.k}`, g.alcanzado, () => nueva(`tp:${m}:${g.k}`, '💰', `${m} llegó a tu toma de ganancias +${f0(g.k * PLAN_COMPRAS.ganancias.cada * 100)}%`,
-            `${fp(g.precio)} · pasar ${ar.format(',.4f')(g.vender)} ${m}`, [`${m} llegó a ${fp(g.precio)}, +${f0(g.k * PLAN_COMPRAS.ganancias.cada * 100)}% sobre tu equilibrio.`, `Según tu plan: pasá ${ar.format(',.4f')(g.vender)} ${m} (~${f0(g.usdt)} USDT) a spot.`], 'posiciones')));
+          (e.ganancias || []).forEach((g) => cuando(`tp:${m}:${g.k}`, g.alcanzado, () => nueva(`tp:${m}:${g.k}`, '💰', `${m} llegó a tu toma de ganancias +${f0(g.k * reglas().ganancias.cada * 100)}%`,
+            `${fp(g.precio)} · pasar ${ar.format(',.4f')(g.vender)} ${m}`, [`${m} llegó a ${fp(g.precio)}, +${f0(g.k * reglas().ganancias.cada * 100)}% sobre tu equilibrio.`, `Según tu plan: pasá ${ar.format(',.4f')(g.vender)} ${m} (~${f0(g.usdt)} USDT) a spot.`], 'posiciones')));
           if (e.piramidar) cuando(`pz:${m}`, e.piramidar.disponible && e.piramidar.sumar > 0, () => nueva(`pz:${m}:${hoy}`, '📈', `${m}: podés piramidar`, `sumar ~${f0(e.piramidar.sumar)} USDT de posición`,
             [`${m} pasó ${fp(e.piramidar.desde)}, 15% sobre tu equilibrio.`, `Podés sumar ${f0(e.piramidar.sumar)} USDT de posición (${ar.format(',.4f')(e.piramidar.monedas)} ${m}) sin plata nueva: sacás margen y abrís más long.`,
               `La liquidación quedaría en ${fp(e.piramidar.liq_nueva)} (tu límite: ${fp(e.piramidar.liq_max)}).`], 'posiciones'));
@@ -3518,7 +3554,7 @@
       const e = planEstado(m, dat);
       if (e.equilibrio) line(e.equilibrio, alpha(P.fg, 0.9), LW.LineStyle.Solid, 1, narrow ? 'Equil.' : 'Tu equilibrio');
       const g = e.ganancias && e.ganancias.find((x) => !x.alcanzado);
-      if (g) line(g.precio, alpha(P.up, 0.85), LW.LineStyle.Dashed, 1, narrow ? `TP +${f0(g.k * PLAN_COMPRAS.ganancias.cada * 100)}%` : `Toma de ganancias +${f0(g.k * PLAN_COMPRAS.ganancias.cada * 100)}%`);
+      if (g) line(g.precio, alpha(P.up, 0.85), LW.LineStyle.Dashed, 1, narrow ? `TP +${f0(g.k * reglas().ganancias.cada * 100)}%` : `Toma de ganancias +${f0(g.k * reglas().ganancias.cada * 100)}%`);
       if (e.liquidacion) line(e.liquidacion, P.dn, LW.LineStyle.Solid, 2, narrow ? 'Liq.' : 'Tu liquidación');
     }
     // opciones (Deribit, solo BTC): el dolor maximo del viernes, donde mas opciones vencen sin valor
