@@ -44,7 +44,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <script src="lib/d3-7.9.0.min.js"></script>
 <script src="lib/lightweight-charts-5.1.0.js"></script>
-<script>window.AB_PAGINA = "767083b76b";</script>
+<script>window.AB_PAGINA = "79c48498d4";</script>
 <script src="app.js?v=ec90573d33"></script>
 </head><body><div id="dash-root">
 <style>
@@ -943,6 +943,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
           <button type="button" class="ab-chipbtn" data-layer="fvg" aria-pressed="true"><i style="background: var(--color-ok)"></i>FVG</button>
           <button type="button" class="ab-chipbtn" data-layer="patrones" aria-pressed="true"><i style="background: var(--color-warn)"></i>Patrones</button>
           <button type="button" class="ab-chipbtn" data-layer="ondas" aria-pressed="true"><i style="background: var(--color-fg)"></i>Ondas</button>
+          <button type="button" class="ab-chipbtn" data-layer="fib" aria-pressed="true"><i style="background: var(--ab-c2)"></i>Fibonacci</button>
           <button type="button" class="ab-chipbtn" data-layer="liq" aria-pressed="true"><i style="background: var(--color-bad)"></i>Liquidaciones</button>
           <button type="button" class="ab-chipbtn" data-layer="osc" aria-pressed="true"><i style="background: var(--ab-c2)"></i>RSI · MACD</button>
           <button type="button" class="ab-chipbtn" data-layer="plan" aria-pressed="true" hidden><i style="background: var(--color-fg)"></i>Mi plan</button>
@@ -1083,7 +1084,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   // cada plazo se mira con las velas que mejor lo muestran
   const PLAZO_VIEW = { '5 min': '5m', '15 min': '15m', '1 hora': '1h', '4 horas': '4h', '1 día': '1d' };
   const S = { plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
-    layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, liq: true, osc: true, plan: true, opc: true }, log: false, medir: false, iman: false };
+    layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, fib: true, liq: true, osc: true, plan: true, opc: true }, log: false, medir: false, iman: false };
   const defBars = () => (window.innerWidth < 600 ? 50 : 90);  // en el telefono, menos para que se lean
   S.nbars = defBars();
   // en el celu arranca con lo esencial (velas, medias, patrones y liquidaciones); el resto se prende en "Capas"
@@ -3344,14 +3345,15 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
         axisLabelVisible: true, title: String(e.texto).replace(/\s*\d[\d.,]*.*$/, '') }));
     });
     // Fibonacci como en TradingView: del inicio del tramo (nivel 1) al fin (nivel 0), con todos los niveles. El automatico es
-    // el swing de 90 dias en 4 h (el unico que mostro ventaja: se ve en 4 h y diario, con cuanto rebotó cada nivel). Si lo
-    // ajustaste arrastrando sus puntos o la diagonal, va ese en todas las temporalidades (guardado por activo en este
-    // navegador). Se dibuja en el grafico (lineas punteadas tenues con su texto), no en el eje de precios.
+    // el swing de 90 dias en 4 h (el unico que mostro ventaja, con cuanto rebotó cada nivel). Si lo ajustaste arrastrando
+    // sus puntos o la diagonal, va ese (guardado por activo en este navegador). Se ve en todas las temporalidades si la
+    // capa esta prendida, y se dibuja en el grafico (lineas punteadas tenues con su texto), no en el eje de precios.
     const tr = pick(rows, 'fib_tramo')[0], fu = FIBU[MON()];
     d.fibReb = {}; pick(rows, 'nivel').forEach((n) => { if (n.fib !== undefined && n.fib !== null) d.fibReb[num(n.fib)] = num(n.rebote); });
     d.fibNarrow = narrow;
-    d.fib = fu ? { a: { ...fu.a }, b: { ...fu.b }, mano: true }
-      : tr && (tf === '4h' || tf === '1d') ? { a: { t: num(tr.t_inicio), p: num(tr.p_inicio) }, b: { t: num(tr.t_fin), p: num(tr.p_fin) }, mano: false } : null;
+    // capa "Fibonacci": se prende y se apaga como las demas, en todos los activos y temporalidades
+    d.fib = !L.fib ? null : fu ? { a: { ...fu.a }, b: { ...fu.b }, mano: true }
+      : tr ? { a: { t: num(tr.t_inicio), p: num(tr.p_inicio) }, b: { t: num(tr.t_fin), p: num(tr.p_fin) }, mano: false } : null;
     d.fibs = fibNiveles(d);
     // tu plan (plan_compras.json): en tinta neutra para no confundirlo con las marcas del analisis
     d.plan = 0;
