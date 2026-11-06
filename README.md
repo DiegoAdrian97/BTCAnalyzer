@@ -123,7 +123,9 @@ acertaría. En la mensual, la EMA de 200 no se muestra (hacen falta 200 meses).
 Medido con BTC 2020–2026: solo los retrocesos del swing de 90 días en velas de 4 h rebotaron más que un nivel
 cualquiera (57% contra 49%, y se repitió en 2020–22 y 2023–26). En 1 h, diario y semanal no hubo ventaja. Por eso
 el análisis muestra esos niveles con el rebote medido de cada uno (el 61,8% es el peor: 42%) y la explicación lo
-menciona cuando el precio está a menos de 0,4% de uno que rebotó 55% o más.
+menciona cuando el precio está a menos de 0,4% de uno que rebotó 55% o más. En el gráfico (4 h y diario) cada nivel
+es una línea violeta punteada tenue con su texto encima, a la izquierda ("Fib 61,8% · rebotó 42%"; más marcada si
+rebotó 55% o más), no una etiqueta en el eje: así no tapa el precio, el soporte, la resistencia ni las liquidaciones.
 
 ### Python = JavaScript
 

@@ -44,7 +44,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <script src="lib/d3-7.9.0.min.js"></script>
 <script src="lib/lightweight-charts-5.1.0.js"></script>
-<script>window.AB_PAGINA = "52cbb07983";</script>
+<script>window.AB_PAGINA = "23c3bee73a";</script>
 <script src="app.js?v=839a1bdac1"></script>
 </head><body><div id="dash-root">
 <style>
@@ -2645,6 +2645,15 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   function drawUnder(ctx, w, h) {
     const d = G.d, P = G.P, L = S.layers;
     if (!d) return;
+    if (d.fibs && d.fibs.length) {
+      ctx.save(); ctx.globalAlpha = dimA('fib'); ctx.lineWidth = 1; ctx.setLineDash([2, 4]);
+      d.fibs.forEach((f) => {
+        const y = Y(f.p); if (y === null || y < 0 || y > h) return;
+        ctx.strokeStyle = alpha(P.c2 || P.mute, f.fuerte ? 0.55 : 0.32);
+        ctx.beginPath(); ctx.moveTo(0, Math.round(y) + 0.5); ctx.lineTo(w, Math.round(y) + 0.5); ctx.stroke();
+      });
+      ctx.restore();
+    }
     const half = (X(d.lastT + d.tfMs) - X(d.lastT)) / 2 || 3;
     if (L.bb && d.bb.length > 1) {
       ctx.globalAlpha = dimA('bb'); ctx.beginPath();
@@ -2706,6 +2715,16 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     const d = G.d, P = G.P, L = S.layers;
     if (!d) return;
     const narrow = w < 480;
+    if (d.fibs && d.fibs.length) {
+      ctx.save(); ctx.globalAlpha = dimA('fib'); ctx.font = `500 10px ${P.font}`; ctx.textBaseline = 'bottom';
+      d.fibs.forEach((f) => {
+        const y = Y(f.p); if (y === null || y < 14 || y > h) return;
+        const tw = ctx.measureText(f.txt).width;
+        ctx.fillStyle = alpha(P.panel, 0.7); ctx.fillRect(6, y - 13, tw + 6, 12);          // fondo suave para leerlo sobre las velas
+        ctx.fillStyle = alpha(P.c2 || P.mute, f.fuerte ? 0.95 : 0.7); ctx.fillText(f.txt, 9, y - 2);
+      });
+      ctx.restore();
+    }
     const usados = [];      // alturas de los nombres de figuras ya puestos: si dos caen juntos (p. ej. pegados al borde), el otro baja
     if (L.patrones) {
       d.figs.forEach((p) => {
@@ -3235,11 +3254,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       G.plines.push(G.c.createPriceLine({ price: num(e.precio), color: alpha(e.sesgo === 'alcista' ? P.up : P.dn, 0.8), lineWidth: 1, lineStyle: LW.LineStyle.Dashed,
         axisLabelVisible: true, title: String(e.texto).replace(/\s*\d[\d.,]*.*$/, '') }));
     });
-    // Fibonacci del swing de 90 dias (4 h): el unico que mostro ventaja. Se ve en 4 h y diario, con cuanto rebotó cada nivel
-    if (tf === '4h' || tf === '1d') pick(rows, 'nivel').filter((n) => n.fib !== undefined && n.fib !== null).forEach((n) => {
-      G.plines.push(G.c.createPriceLine({ price: num(n.precio), color: alpha(P.c2 || P.mute, num(n.rebote) >= 55 ? 0.85 : 0.4), lineWidth: 1, lineStyle: LW.LineStyle.Dotted,
-        axisLabelVisible: true, title: narrow ? `Fib ${f1(num(n.fib) * 100)}%` : `Fib ${f1(num(n.fib) * 100)}% · rebotó ${f0(num(n.rebote))}%` }));
-    });
+    // Fibonacci del swing de 90 dias (4 h): el unico que mostro ventaja. Se ve en 4 h y diario, con cuanto rebotó cada nivel.
+    // Va dibujado en el grafico (linea punteada tenue con su texto encima, ver drawUnder y drawOver), no en el eje de
+    // precios: ahi tapaba el precio, el soporte, la resistencia y las liquidaciones
+    d.fibs = tf === '4h' || tf === '1d' ? pick(rows, 'nivel').filter((n) => n.fib !== undefined && n.fib !== null).map((n) => ({ p: num(n.precio),
+      fuerte: num(n.rebote) >= 55, txt: narrow ? `Fib ${f1(num(n.fib) * 100)}%` : `Fib ${f1(num(n.fib) * 100)}% · rebotó ${f0(num(n.rebote))}%` })) : [];
     // tu plan (plan_compras.json): en tinta neutra para no confundirlo con las marcas del analisis
     d.plan = 0;
     const planChip = document.querySelector('#layers [data-layer="plan"]');
@@ -3304,6 +3323,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       item(`pat-vela-${p.nombre}`, CC(colOf(p.sesgo)), `Flechita · ${p.nombre}:`, p.descripcion));
     if (G.plines.length) item('sr', DD(P.mute), 'Líneas punteadas con etiqueta en el eje:',
       `resistencia y soporte más cercanos para el plazo de ${S.plazo}${L.patrones && d.figs.some((p) => num(p.objetivo) !== null) ? ' y el objetivo de cada figura' : ''}.`);
+    if (d.fibs && d.fibs.length) item('fib', { background: 'transparent', borderTop: `1.5px dotted ${P.c2}`, height: '0', marginTop: '.75em' }, 'Líneas violetas punteadas (Fib):',
+      'Fibonacci del swing de 90 días; el texto dice cuántas veces rebotó el precio en cada nivel (más fuerte si rebotó 55% o más).');
     if (d.dolor !== null) item('opc', DD(P.c2), 'Línea violeta a rayas largas:',
       'el "dolor máximo" de las opciones del viernes: el precio donde más opciones vencen sin valor. Cerca del vencimiento a veces atrae al precio; es contexto, no una predicción.');
     if (d.plan) item('plan', DD(P.fg), 'Tu plan (líneas grises con nombre):',
@@ -3347,6 +3368,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     ex.ondas = new Set(giros.filter((g) => g.w).map((g) => g.t));
     const srLv = pick(rows, 'explicacion').filter((e) => e.plazo === S.plazo && e.tipo === 'vigilar' && e.precio !== null && e.precio !== undefined).map((e) => num(e.precio));
     ex.sr = new Set(all.filter((b) => srLv.some((v) => b.l <= v && v <= b.h)).map((b) => b.t));
+    ex.fib = new Set(all.filter((b) => (d.fibs || []).some((f) => b.l <= f.p && f.p <= b.h)).map((b) => b.t));
     S.exCandles = ex;
     // lo marcado que ya no esta en la lista (otra temporalidad, una capa apagada) se desmarca
     const hay = new Set([...document.querySelectorAll('#legend [data-ex]')].map((n) => n.dataset.ex));
