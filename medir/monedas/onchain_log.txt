@@ -1,18 +1,18 @@
-cm CapMrktCurUSD: 5950 2010-07-18 2026-10-31
+cm CapMrktCurUSD: 5955 2010-07-18 2026-11-05
 cm CapRealUSD: HTTPError HTTP Error 403: Forbidden
-cm CapMVRVCur: 5950 2010-07-18 2026-10-31
-cm IssTotUSD: 5950 2010-07-18 2026-10-31
-cm HashRate: 5967 2010-07-01 2026-10-31
+cm CapMVRVCur: 5955 2010-07-18 2026-11-05
+cm IssTotUSD: 5955 2010-07-18 2026-11-05
+cm HashRate: 5972 2010-07-01 2026-11-05
 cm FeeTotUSD: HTTPError HTTP Error 403: Forbidden
-cm SplyCur: 5967 2010-07-01 2026-10-31
-cm AdrActCnt: 5967 2010-07-01 2026-10-31
+cm SplyCur: 5972 2010-07-01 2026-11-05
+cm AdrActCnt: 5972 2010-07-01 2026-11-05
 cm TxTfrValAdjUSD: HTTPError HTTP Error 403: Forbidden
 cm NVTAdj: HTTPError HTTP Error 403: Forbidden
-bc hash-rate: 6505
-bc miners-revenue: 6494
+bc hash-rate: 6508
+bc miners-revenue: 6497
 bc mvrv: HTTPError HTTP Error 404: Not Found
-bc market-price: 6509
-bc transaction-fees-usd: 6494
-stables: 3261
+bc market-price: 6512
+bc transaction-fees-usd: 6497
+stables: 3265
 okx_liq: code 0 1 grupos, 100 detalles
-okx_liq_usd: code 0 1 grupos, 2 detalles
+okx_liq_usd: code 0 1 grupos, 50 detalles
