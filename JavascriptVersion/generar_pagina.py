@@ -2,7 +2,6 @@
 
 Correrlo cada vez que cambie dashboard/index.html:  python JavascriptVersion/generar_pagina.py
 """
-import json
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -92,10 +91,8 @@ def main():
         if old not in page:
             raise SystemExit(f"No encontre en dashboard/index.html el texto a cambiar: {old[:60]}...")
         page = page.replace(old, new)
-    plan = os.path.join(HERE, "..", "plan_compras.json")      # el plan de compras de Diego (seccion Proximas compras)
-    if os.path.exists(plan):
-        with open(plan, encoding="utf-8") as f:
-            page = page.replace("/*PLAN*/null/*FIN*/", json.dumps(json.load(f), ensure_ascii=False).replace("</", "<\\/"))
+    # el plan de compras NO va en esta pagina (es publica): lo entrega api/posiciones, solo con la contraseña de BingX,
+    # desde el repositorio privado DiegoAdrian97/BTCAnalyzer-plan
     import hashlib
     html = SHELL.replace("__PAGE__", page).replace("__VER__", version())
     pag = hashlib.sha1(html.encode("utf-8")).hexdigest()[:10]      # huella de la pagina entera (diseno incluido)

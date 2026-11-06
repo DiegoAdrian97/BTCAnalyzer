@@ -15,3 +15,8 @@ re-renders innecesarios · cachear estáticos en el navegador · repartir tráfi
 y limitar los grosores · monitorear la velocidad de usuarios reales · probar en celulares y redes lentas.
 En este proyecto: `node pruebas/celular_lento.js [3g|4g|lejos]` (ver README, "Optimizaciones de velocidad").
 
+# Plan de compras (privado)
+
+El plan (`plan_compras.json`) vive en el repositorio privado DiegoAdrian97/BTCAnalyzer-plan, nunca en este (es público):
+para cambiarlo, adjuntar ese repo a la sesión, editarlo ahí y subirlo. No copiarlo acá ni meterlo en la página.
+

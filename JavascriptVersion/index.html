@@ -46,7 +46,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
 <script src="lib/d3-7.9.0.min.js"></script>
 <script src="lib/lightweight-charts-5.1.0.js"></script>
-<script>window.AB_PAGINA = "389b06d825";</script>
+<script>window.AB_PAGINA = "adb0f12396";</script>
 <script src="app.js?v=ec90573d33"></script>
 </head><body><div id="dash-root">
 <style>
@@ -1637,7 +1637,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   // ---------- proximas compras: el plan de plan_compras.json, con donde esta el precio y que ya se ejecuto ----------
   // el plan de compras: en la version del telefono llega del servidor (api/posiciones) recien con la contraseña de BingX;
   // ya no va adentro de la pagina publicada (generar_pagina.py solo lo mete si existe plan_compras.json en la carpeta)
-  let PLAN_COMPRAS = null;
+  let PLAN_COMPRAS = /*PLAN*/null/*FIN*/;
   const PLAN_EMBEBIDO = PLAN_COMPRAS;          // al desconectar, el que vino del servidor se olvida
   const CMP = { datos: {}, hora: null };
   // ---------- BingX en vivo (solo lectura; api/posiciones.js de Vercel): posiciones y ordenes reales ----------

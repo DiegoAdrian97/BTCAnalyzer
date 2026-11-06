@@ -1,5 +1,7 @@
 # claves de BingX: nunca subirlas
 .env
+# el plan de compras es privado: vive en el repositorio privado DiegoAdrian97/BTCAnalyzer-plan (nunca en este, que es publico)
+plan_compras.json
 .venv/
 __pycache__/
 *.pyc
