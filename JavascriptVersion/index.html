@@ -44,7 +44,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <script src="lib/d3-7.9.0.min.js"></script>
 <script src="lib/lightweight-charts-5.1.0.js"></script>
-<script>window.AB_PAGINA = "f06b79b805";</script>
+<script>window.AB_PAGINA = "fceb5ce9c8";</script>
 <script src="app.js?v=ec90573d33"></script>
 </head><body><div id="dash-root">
 <style>
@@ -3331,8 +3331,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     const d = G.d;
     // datos de cada serie
     const ts = G.chart.timeScale();
-    const keep = G.tf === tf ? ts.getVisibleLogicalRange() : null;
-    if (G.tf !== tf) G.med = null;
+    // la vista (zoom y desplazamiento) se conserva entre analisis del mismo activo y temporalidad; al cambiar de activo
+    // se vuelve a la vista por defecto con la escala de precios automatica (antes quedaba el rango del activo anterior:
+    // de ZEC a BTC, el eje seguia en ~1.300)
+    const otroActivo = G.mon !== MON(), keep = G.tf === tf && !otroActivo ? ts.getVisibleLogicalRange() : null;
+    if (G.tf !== tf || G.mon !== MON()) G.med = null;
     G.dibujando = true;
     d.cdata = all.map((b) => ({ ms: b.t, bar: { time: T2(b.t), open: b.o, high: b.h, low: b.l, close: b.c } }));
     G.c.setData(d.cdata.map((b) => b.bar));
@@ -3410,8 +3413,9 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       const total = all.length + futN, nb = Math.min(total, defBars());
       ts.setVisibleLogicalRange({ from: total - nb, to: total + 1 });
       G.chart.priceScale('right').applyOptions({ autoScale: true });
+      if (otroActivo) try { G.chart.panes().forEach((pn) => pn.priceScale('right').applyOptions({ autoScale: true })); } catch (e) { /* sin paneles extra */ }
     }
-    G.tf = tf;
+    G.tf = tf; G.mon = MON();
     G.dibujando = false;
     requestAnimationFrame(botonPresente);
     legend(null);
