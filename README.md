@@ -47,9 +47,12 @@ En el dashboard: sección "Cómo viene aprendiendo".
 
 `plan_compras.json` guarda el plan de compras escalonadas (longs a 5x en BingX, margen aislado): moneda, número,
 precio, valor de la orden, margen extra y si la orden ya está cargada y el margen agregado. La página lo muestra en
-"Próximas compras": por cada cripto, dónde está el precio ahora (línea punteada), qué compras ya se ejecutaron (el
-mínimo desde que se armó el plan tocó su precio), cuáles tienen la orden puesta y cuáles falta cargar (en rojo si
-el precio está a 3% o menos). Telegram avisa aunque esté en "solo entradas": 📌 cuando el precio se acerca a 3% de
+"Próximas compras": por cada cripto, dónde está el precio ahora (línea punteada), qué compras ya se ejecutaron,
+cuáles tienen la orden puesta y cuáles falta cargar (en rojo si el precio está a 3% o menos). Con BingX conectado
+(Mis posiciones), una compra cuenta como ejecutada si el precio llegó **y** la posición creció lo que suman las compras
+hasta esa (de la más alta a la más baja, con 10% de margen por el redondeo): queda "Se ejecutó · en tu posición" y
+entra en el promedio, el margen y la liquidación. Si el precio llegó pero la posición no creció, sale ⚠ "revisá la
+orden" y no se cuenta. Sin BingX, como antes: el mínimo desde que se armó el plan tocó su precio. Telegram avisa aunque esté en "solo entradas": 📌 cuando el precio se acerca a 3% de
 una compra sin orden cargada, ✅ cuando se ejecuta una (con el margen extra a sumar si falta) y ⚠ si tocó un precio
 sin orden. Cuando cambie el plan: editar `plan_compras.json` y correr `python JavascriptVersion/generar_pagina.py`.
 

@@ -1622,7 +1622,9 @@
         if (d && !marcado && d.precio > c.precio) { box.append(el('div', 'ab-cmp-now', `ahora ${fp(d.precio)}`)); marcado = true; }
         const dist = d ? (d.precio / c.precio - 1) * 100 : null;
         let cls = 'ab-cmp-row', ic = '○', st = '';
-        if (hecha) { cls += ' ok'; ic = '✔'; st = c.en_posicion ? 'En tu posición' : BX.ok ? 'Se ejecutó (ver BingX)' : c.cargada ? (c.extra_agregado ? 'Se ejecutó' : `Se ejecutó · sumá ${f0(c.extra)} de margen`) : 'Tocó el precio (sin orden)'; }
+        const conBx = !c.en_posicion && !!bxEjecutadas(m, d);
+        if (hecha) { cls += ' ok'; ic = '✔'; st = c.en_posicion ? 'En tu posición' : conBx ? (c.extra_agregado ? 'Se ejecutó · en tu posición' : `Se ejecutó · sumá ${f0(c.extra)} de margen`) : c.cargada ? (c.extra_agregado ? 'Se ejecutó' : `Se ejecutó · sumá ${f0(c.extra)} de margen`) : 'Tocó el precio (sin orden)'; }
+        else if (conBx && tocada(c, d)) { ic = '⚠'; cls += ' carga'; st = 'Tocó el precio y tu posición todavía no creció: revisá la orden'; }
         else if (!cargada(c)) { ic = '✎'; st = dist !== null && dist <= 3 ? `¡Cargá la orden! (a ${f1(dist)}%)` : 'Falta cargar la orden'; if (dist !== null && dist <= 3) cls += ' carga'; }
         else { ic = '⏳'; st = dist === null ? 'Orden puesta' : `Orden puesta · a ${f1(dist)}%`; }
         if (!hecha && !prox) { cls += ' prox'; prox = true; }
@@ -1637,8 +1639,29 @@
     hr.textContent = CMP.hora ? `precios ${String(CMP.hora.getHours()).padStart(2, '0')}:${String(CMP.hora.getMinutes()).padStart(2, '0')}` : '—';
   }
   // ---------- mis posiciones (las mismas cuentas que posiciones.py) ----------
-  // la compra ya se ejecuto: estaba en la posicion de BingX o el precio la toco desde que se armo el plan
-  const cmpHecha = (c, d) => !!c.en_posicion || !!(d && d.bajo <= c.precio);
+  // La compra ya se ejecuto: estaba en la posicion de BingX cuando se armo el plan, o:
+  // - con BingX conectado: el precio llego Y la posicion crecio lo que suman las compras hasta esa (de la mas alta a la
+  //   mas baja). Si el precio llego pero la posicion no crecio, no cuenta (la orden no se lleno o se movio).
+  // - sin BingX: el precio la toco desde que se armo el plan.
+  const tocada = (c, d) => !!(d && d.bajo <= c.precio);
+  function bxEjecutadas(m, d) {
+    const vivo = BX.ok ? (BX.posiciones || {})[m] : null, base = (PLAN_COMPRAS.posiciones || {})[m];
+    if (!vivo || !base || !d) return null;
+    const pend = PLAN_COMPRAS.compras.filter((c) => c.moneda === m && !c.en_posicion).sort((a, b) => b.precio - a.precio);
+    const out = new Set();
+    let espera = base.cantidad;
+    for (const c of pend) {
+      if (!tocada(c, d)) break;                                   // el precio no llego: las de abajo tampoco
+      const q = c.orden / c.precio; espera += q;
+      if (vivo.cantidad >= espera - q * 0.1) out.add(c); else break;   // 10% de margen por el redondeo de BingX
+    }
+    return out;
+  }
+  const cmpHecha = (c, d) => {
+    if (c.en_posicion) return true;
+    const ej = bxEjecutadas(c.moneda, d);
+    return ej ? ej.has(c) : tocada(c, d);
+  };
   function planEstado(m, d) {
     const P = PLAN_COMPRAS, lev = P.apalancamiento || 5, mt = P.mantenimiento || {}, r = mt[m] !== undefined ? mt[m] : (mt.otras !== undefined ? mt.otras : 0.01);
     const cs = P.compras.filter((c) => c.moneda === m), vivo = BX.ok ? (BX.posiciones || {})[m] : undefined;
