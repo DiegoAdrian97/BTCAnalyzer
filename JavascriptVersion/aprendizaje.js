@@ -63,7 +63,7 @@
   /** Los rasgos de cada vela (enteros) o null mientras arrancan los indicadores. */
   function rasgos(bars, tfMin, e50, e200, rsi, mh) {
     const n = bars.length, c = bars.map((b) => b[4]);
-    const atr = Ind.dmi(bars.map((b) => b[2]), bars.map((b) => b[3]), c)[3];
+    const atr = Ind.atrW(bars.map((b) => b[2]), bars.map((b) => b[3]), c);
     const [mid, bu, bl] = Ind.bollinger(c);
     const look = Math.max(1, Math.floor(1440 / tfMin));
     const vol = new Array(n).fill(null);
@@ -91,7 +91,7 @@
   function continuos(bars, tfMin, e50, e200, rsi, mh, parcial = false) {
     const n = bars.length;
     const o = bars.map((b) => b[1]), h = bars.map((b) => b[2]), l = bars.map((b) => b[3]), c = bars.map((b) => b[4]), v = bars.map((b) => b[5]);
-    const atr = Ind.dmi(h, l, c)[3];
+    const atr = Ind.atrW(h, l, c);
     const [mid, bu] = Ind.bollinger(c);
     const look = Math.max(1, Math.floor(1440 / tfMin));
     let raiz = 1;

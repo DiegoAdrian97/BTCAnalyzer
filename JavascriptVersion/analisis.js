@@ -286,10 +286,14 @@
     return s.vol.get(h);
   }
 
+  // los retornos van en Float64Array: su sort() es numerico y mucho mas rapido que sort((a, b) => a - b), con el mismo orden
   function outcomes(closes, idxs, h, F = null) {
-    const rets = idxs.filter((i) => i + h < closes.length).map((i) => (closes[i + h] / closes[i] - 1) * (F ? F[i] : 1)).sort((a, b) => a - b);
-    if (!rets.length) return null;
-    return { n: rets.length, up: (rets.filter((r) => r > 0).length / rets.length) * 100, p10: quantile(rets, 0.1) * 100,
+    let n = 0; for (const i of idxs) if (i + h < closes.length) n++;
+    if (!n) return null;
+    const rets = new Float64Array(n); let k = 0, up = 0;
+    for (const i of idxs) if (i + h < closes.length) { const r = (closes[i + h] / closes[i] - 1) * (F ? F[i] : 1); rets[k++] = r; if (r > 0) up++; }
+    rets.sort();
+    return { n, up: (up / n) * 100, p10: quantile(rets, 0.1) * 100,
       p50: quantile(rets, 0.5) * 100, p90: quantile(rets, 0.9) * 100 };
   }
 
@@ -327,8 +331,9 @@
         if (b - a >= MIN_SAMPLES) break;
       }
       if (b - a < 10) continue;
-      const fj = F ? F[j] : 1;
-      const rets = lst.slice(a, b).map((i) => (closes[i + h] / closes[i] - 1) * (F ? F[i] / fj : 1)).sort((x, y) => x - y);
+      const fj = F ? F[j] : 1, rets = new Float64Array(b - a);
+      for (let q = a; q < b; q++) { const i = lst[q]; rets[q - a] = (closes[i + h] / closes[i] - 1) * (F ? F[i] / fj : 1); }
+      rets.sort();
       const q10 = quantile(rets, 0.1), q50 = quantile(rets, 0.5), q90 = quantile(rets, 0.9);
       const r = closes[j + h] / closes[j] - 1, ancho = r >= q50 ? q90 - q50 : q50 - q10;
       if (ancho > 0) out.push([j, Math.abs(r - q50) / ancho]);
@@ -416,7 +421,7 @@
     const v = (j) => (F ? F[j] : 1);      // cada caso, a la volatilidad de ahora
     const highs = usable.map((j) => { let m = -Infinity; for (let k = j + 1; k <= j + h; k++) m = Math.max(m, bars[k][2]); return (m / c[j] - 1) * v(j); });
     const lows = usable.map((j) => { let m = Infinity; for (let k = j + 1; k <= j + h; k++) m = Math.min(m, bars[k][3]); return (m / c[j] - 1) * v(j); });
-    const ends = usable.map((j) => (c[j + h] / c[j] - 1) * v(j)).sort((a, b) => a - b);
+    const ends = Float64Array.from(usable, (j) => (c[j + h] / c[j] - 1) * v(j)).sort();
     const q = (p) => quantile(ends, p);
     const spread = (q(0.9) - q(0.1)) * price;
     // la distancia la fija el aprendizaje (es la que viene midiendo); si no hay, la de los casos parecidos
@@ -733,6 +738,18 @@
     const ult = grupos[grupos.length - 1][0], sig = inicioLargo(ult + (tf === '1M' ? 32 : 7) * 86400000, tf);
     return [grupos.map((g) => g.slice(0, 6)), ultimaEnCurso || sig > d1[d1.length - 1][0] + 86400000];
   }
+  // calificar solo mira la ultima vela: con las ultimas 2.000 alcanza (la media de 200 ya olvido el arranque) y en 5m-1h
+  // (8.640 velas) tarda 4 veces menos. Las curvas vuelven con el largo de bars (como calificar_ultimas de Python)
+  const CALIF_VELAS = 2000;
+  function calificarUltimas(bars) {
+    if (bars.length <= CALIF_VELAS) return Ind.calificar(bars);
+    const off = bars.length - CALIF_VELAS, [rows, summary, overlays] = Ind.calificar(bars.slice(off)), ov = {};
+    // el OBV es acumulado: su valor (no su señal) depende de desde donde se suma; va el de toda la historia
+    const ob = Ind.obv(bars.map((b) => b[4]), bars.map((b) => b[5]));
+    rows.forEach((r) => { if (r.indicador === 'OBV') r.valor = rnd(ob[ob.length - 1], 2); });
+    Object.entries(overlays).forEach(([k, v]) => { ov[k] = new Array(off).fill(null).concat(v); });
+    return [rows, summary, ov];
+  }
   function analisisLargo(d1, tf, price, ultimaEnCurso = false) {
     const [bars, partial] = velasLargas(d1, tf, ultimaEnCurso);
     if (bars.length < 30) return [];
@@ -762,7 +779,7 @@
   }
   function patterns(tf, bars, pivots, e20, horizon, tfMin, partial) {
     const o = bars.map((b) => b[1]), h = bars.map((b) => b[2]), l = bars.map((b) => b[3]), c = bars.map((b) => b[4]);
-    const atr = Ind.dmi(h, l, c)[3];
+    const atr = Ind.atrW(h, l, c);
     const i = bars.length - 1;
     const rows = [];
     for (const k of [i, i - 1]) {
@@ -995,7 +1012,7 @@
       const partial = bars.length > candles[tf].length;
       const tfMs = TF_MS[tf], tfMin = tfMs / 60000;
       const closes = bars.map((b) => b[4]);
-      const [indRows, summary, overlays] = Ind.calificar(bars);
+      const [indRows, summary, overlays] = calificarUltimas(bars);
       const e20 = Ind.ema(closes, 20), e50 = Ind.ema(closes, 50), e200 = Ind.ema(closes, 200);
       const rsi = Ind.rsi(closes);
       const [ml, ms, mh] = Ind.macd(closes);
@@ -1036,8 +1053,12 @@
         entries.push([bars[i][0] + tfMs, tf, h, closes[i], prob.sube, prob.min, prob.max]);
       });
 
-      const [sc, cone] = scenarios(bars, idxs, price, tfMs, volFactor(series[tf], SCENARIO_STEPS), calibracion(series[tf], mainFit.receta, SCENARIO_STEPS).k);
-      sc.concat(cone).forEach((r) => { r.tf = tf; rows.push(r); });
+      // escenarios y cono del futuro: la pagina ya no los dibuja (SIN_FUTURO); la app los pide sin escenarios y se ahorra
+      // armarlos y su calibracion. Por defecto se arman, como en Python
+      if (input.escenarios !== false) {
+        const [sc, cone] = scenarios(bars, idxs, price, tfMs, volFactor(series[tf], SCENARIO_STEPS), calibracion(series[tf], mainFit.receta, SCENARIO_STEPS).k);
+        sc.concat(cone).forEach((r) => { r.tf = tf; rows.push(r); });
+      }
       for (let k = Math.max(0, i - CHART_BARS + 1); k <= i; k++) {
         const [t, o, h, l, c, v] = bars[k];
         rows.push({ tabla: 'vela', tf, t, o, h, l, c, v: rnd(v, 2), en_curso: partial && k === i,
@@ -1166,7 +1187,7 @@
     return { rows, log };
   }
 
-  const Analisis = { piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, fibTramo, liqReales };
+  const Analisis = { piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, fibTramo, liqReales, calificarUltimas };
   root.Analisis = Analisis;
   if (typeof module !== 'undefined' && module.exports) module.exports = Analisis;
 })(typeof self !== 'undefined' ? self : globalThis);

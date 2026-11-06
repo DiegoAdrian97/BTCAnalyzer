@@ -188,6 +188,18 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
   el gráfico. **Dibujo perezoso**: los desplegables cerrados (probabilidades, señales, niveles, ondas, indicadores,
   aciertos) no se dibujan en cada análisis, sino al abrirlos; "Cómo viene aprendiendo" solo si cambió.
   Las filas del análisis se indexan por tabla una vez (antes cada búsqueda recorría ~3.000 filas, ~60 veces).
+- **Análisis 2 veces más rápido** (mismo resultado, fila por fila): en regimen pasó de ~450–600 ms a ~250 ms por
+  ciclo y el primero de 2,8 s a 1,5 s (Node, mismas velas). `calificar` mira solo las últimas 2.000 velas
+  (`calificar_ultimas` en Python; el OBV sigue con toda la historia); el ATR se calcula solo (`atrW`) en vez de armar
+  el ADX entero en cada una de las ~8 funciones que lo piden; los cuantiles ordenan `Float64Array` (sort numérico
+  nativo); máximos y mínimos móviles en una pasada (`ventanaExtremo`); el redondeo "como Python" va por `toFixed`
+  salvo en los casi empates; la app no arma los escenarios del futuro (no se dibujan: `escenarios: false`).
+- **Velas en memoria** de los 2 últimos activos analizados (antes se releían ~40.000 de IndexedDB cada 12 s) y se
+  guardan en el teléfono cada vez que llega una vela (antes solo si cambiaba la cantidad: con la ventana llena no se
+  guardaban y al reabrir había que bajar todo lo que faltaba).
+- **Arranque**: los 6 archivos del worker se piden juntos antes de crearlo (el `importScripts` los bajaba de a uno).
+  Primera apertura con latencia alta: de 8,3 s a 6,9 s hasta el gráfico. Los análisis de fondo llegan a la pantalla como
+  texto y se arman recién al elegir ese activo (elegir uno listo tarda ~60 ms).
 - No aplican (no hay base de datos ni servidor propio con tráfico): consultas N+1, índices de base, pool de
   conexiones, Redis, colas de trabajo, varias instancias y OpenTelemetry. Sus equivalentes ya estaban: caché de Vercel
   de 10 min para las noticias, cachés en memoria por fuente, velas guardadas en el teléfono y el worker como cola.

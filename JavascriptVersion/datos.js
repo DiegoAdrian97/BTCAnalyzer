@@ -107,6 +107,17 @@
   // cache con un solo pedido en vuelo por clave; si falla, no se reintenta hasta 2 min despues (antes una fuente
   // caida se volvia a pedir en cada ciclo y cada ciclo la esperaba)
   const enVuelo = {}, fallo = {}, sinDato = {}, velasEnVuelo = {};
+  // Velas en memoria de los 2 ultimos activos analizados (el que estas mirando y el de fondo de turno): antes, cada 12 s
+  // se leian de IndexedDB ~40.000 velas (una copia entera por temporalidad). El analisis no las modifica (probado con
+  // las velas congeladas); IndexedDB sigue guardando todo para la proxima vez que se abre la app.
+  const memVelas = new Map();
+  function memDe(sym) {
+    let m = memVelas.get(sym);
+    if (m) memVelas.delete(sym); else m = new Map();
+    memVelas.set(sym, m);                                    // queda al final: el mas reciente
+    while (memVelas.size > 2) memVelas.delete(memVelas.keys().next().value);
+    return m;
+  }
   async function cached(key, ttl, fn) {
     const hit = memo[key];
     if (hit && Date.now() - hit[0] < ttl) return hit[1];
@@ -170,9 +181,9 @@
       return velasEnVuelo[key];
     }
     async function bajarVelas(key, src, tf, days, now) {
-      const tfMs = TF_MS[tf], limit = src === 'binance' ? 1500 : src === 'bitget' ? 200 : 1000;
-      let candles = (await dbGet(key)) || [];
-      const before = candles.length;
+      const tfMs = TF_MS[tf], limit = src === 'binance' ? 1500 : src === 'bitget' ? 200 : 1000, mem = memDe(SYM);
+      let candles = mem.get(key) || (await dbGet(key)) || [];
+      const before = candles.length, ultAntes = before ? candles[before - 1][0] : 0;
       let since = candles.length ? candles[candles.length - 1][0] + tfMs : now - days * DAY;
       while (since + tfMs <= now) {
         const falta = Math.ceil((now - since) / tfMs) + 1;
@@ -194,8 +205,11 @@
         candles = candles.concat(batch);
         since = candles[candles.length - 1][0] + tfMs;
       }
-      candles = candles.filter((c) => c[0] >= now - days * DAY);
-      if (candles.length !== before) await dbSet(key, candles);
+      if (candles.length && candles[0][0] < now - days * DAY) candles = candles.filter((c) => c[0] >= now - days * DAY);
+      // se guarda si llego alguna vela (antes solo si cambiaba el largo: con la ventana llena entra una y sale otra, el
+      // largo queda igual y el telefono se quedaba con las velas viejas; al abrir la app habia que bajar todo lo que faltaba)
+      if (candles.length !== before || (candles.length && candles[candles.length - 1][0] !== ultAntes)) await dbSet(key, candles);
+      mem.set(key, candles);
       return candles;
     }
 

@@ -20,9 +20,9 @@
     todos: () => MONEDAS.slice(),
     set: (m) => elegir(m),
     subscribe(fn) { subs.add(fn); return () => subs.delete(fn); },
-    listo: (m) => !!porMoneda[m],      // si ya tiene analisis en memoria (elegirlo es instantaneo)
+    listo: (m) => !!(porMoneda[m] || crudo[m]),      // si ya tiene analisis en memoria (elegirlo es instantaneo)
     precio: (m) => {                    // precio y apertura de 24 h del ultimo analisis (para mostrar algo al toque)
-      const r = porMoneda[m] && porMoneda[m].find((x) => x.tabla === 'resumen');
+      const r = porMoneda[m] ? porMoneda[m].find((x) => x.tabla === 'resumen') : resumenCrudo[m];
       if (!r || !(+r.precio > 0)) return null;
       const c = +r.precio, ch = +r.cambio_24h;
       return { c, o: Number.isFinite(ch) ? c / (1 + ch / 100) : c };
@@ -30,6 +30,14 @@
   };
   Object.defineProperty(window, 'abMoneda', { get: () => moneda, configurable: true });
   const porMoneda = {}, horaMoneda = {};
+  // los analisis de fondo llegan como texto (JSON armado en el worker): copiar un texto es casi gratis y armar los
+  // objetos en el hilo de la pantalla (unas 3.000 filas) se hace recien al elegir ese activo. Antes cada analisis de
+  // fondo trababa la pantalla un poco aunque nadie lo mirara
+  const crudo = {}, resumenCrudo = {};
+  const filasDe = (m) => {
+    if (!porMoneda[m] && crudo[m]) { try { porMoneda[m] = JSON.parse(crudo[m]); } catch (e) { /* texto roto: se espera el proximo */ } delete crudo[m]; }
+    return porMoneda[m] || null;
+  };
   const redraw = () => fns.forEach((f) => f());
   window.abLive = true;            // la pagina se conecta sola al WebSocket de Binance para los ticks
   window.abPosicionesApi = 'api/posiciones';   // BingX en vivo (solo lectura): ver api/posiciones.js
@@ -59,17 +67,32 @@
 
   try { localStorage.removeItem('ab-velocidad'); } catch (e) { /* lo que guardaba la seccion Velocidad (ya no esta) */ }
 
-  const worker = new Worker(`worker.js${VER}`);
+  // El worker se arranca despues de pedir sus archivos todos juntos: el importScripts del worker los baja de a uno (6
+  // viajes seguidos la primera vez despues de cada version). Con la cache inmutable (vercel.json) despues salen del
+  // telefono al instante. Mientras tanto, lo que se le manda queda en cola
+  let worker = null;
+  const cola = [], aWorker = (m) => (worker ? worker.postMessage(m) : cola.push(m));
+  const ARCHIVOS = ['worker.js', 'indicadores.js', 'aprendizaje.js', 'fuerte.js', 'analisis.js', 'datos.js'];
+  const arrancar = () => {
+    if (worker) return;
+    worker = new Worker(`worker.js${VER}`);
+    worker.onmessage = alMensaje;
+    cola.splice(0).forEach((m) => worker.postMessage(m));
+  };
+  if (VER) {
+    Promise.all(ARCHIVOS.map((f) => fetch(f + VER).then((r) => r.blob()).catch(() => null))).then(arrancar);
+    setTimeout(arrancar, 8000);           // si algun pedido se cuelga, el worker arranca igual
+  } else setTimeout(arrancar, 0);
   const sym = () => `${moneda}USDT`;
   function elegir(m) {
     if (m === moneda || !MONEDAS.includes(m)) return;
     moneda = m;
     try { localStorage.setItem('app-moneda', m); } catch (e) { /* idem */ }
     const sel = document.getElementById('app-moneda-sel'); if (sel && sel.value !== m) sel.value = m;
-    rows = porMoneda[m] || null;
+    rows = filasDe(m);
     if (!rows) estado(`Preparando el análisis de ${m}…`);
     else { const min = Math.round((Date.now() - (horaMoneda[m] || Date.now())) / 60000); estado(min >= 1 ? `Análisis de hace ${min} min (hecho en segundo plano) · actualizando…` : ''); }
-    worker.postMessage({ tipo: 'seguir', sym: sym() });
+    aWorker({ tipo: 'seguir', sym: sym() });
     subs.forEach((fn) => { try { fn(m); } catch (e) { /* una parte que falle no frena a las demas */ } });
     redraw();
   }
@@ -82,13 +105,19 @@
     sel.addEventListener('change', () => elegir(sel.value));
   });
   // el elegido primero; los demas se van analizando en segundo plano (worker.js)
-  worker.postMessage({ tipo: 'seguir', sym: sym(), todos: MONEDAS });
-  worker.onmessage = (ev) => {
+  aWorker({ tipo: 'seguir', sym: sym(), todos: MONEDAS });
+  function alMensaje(ev) {
     const m = ev.data;
     if (m.sym && m.sym !== sym() && m.tipo !== 'analisis') return;
     if (m.tipo === 'analisis') {
       const mon = (m.sym || 'BTCUSDT').replace('USDT', '');
-      if (m.guardado && porMoneda[mon]) return;           // ya hay uno nuevo: el guardado no hace falta
+      if (m.guardado && (porMoneda[mon] || crudo[mon])) return;           // ya hay uno nuevo: el guardado no hace falta
+      if (m.json) {                                        // de fondo, como texto
+        delete porMoneda[mon]; crudo[mon] = m.json; resumenCrudo[mon] = m.resumen || null; horaMoneda[mon] = m.hora || Date.now();
+        if (m.sym === sym()) { rows = filasDe(mon); redraw(); }   // justo lo eligieron mientras se hacia
+        return;
+      }
+      delete crudo[mon];
       porMoneda[mon] = m.rows; horaMoneda[mon] = m.guardado ? m.hora : Date.now();
       if (m.sym && m.sym !== sym()) return;                // de fondo: queda listo para cuando lo elijan
       rows = m.rows;
@@ -103,9 +132,10 @@
     } else if (m.tipo === 'error') {
       estado(rows ? `No se pudo actualizar (${m.texto}). Se reintenta solo.` : `No se pudo preparar el análisis: ${m.texto}. Se reintenta solo.`, true);
     }
-  };
+  }
+
   // con la app en segundo plano no se analiza: ahorra bateria y datos
-  document.addEventListener('visibilitychange', () => { worker.postMessage(document.hidden ? { tipo: 'pausa' } : { tipo: 'seguir', sym: sym() }); if (!document.hidden) nuevaVersion(); });
+  document.addEventListener('visibilitychange', () => { aWorker(document.hidden ? { tipo: 'pausa' } : { tipo: 'seguir', sym: sym() }); if (!document.hidden) nuevaVersion(); });
   // el iPhone deja la app "dormida" con el codigo viejo aunque haya una version nueva publicada: al volver a la app
   // (y cada 5 min) se compara con version.txt y, si cambio, se recarga sola
   async function nuevaVersion() {

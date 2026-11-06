@@ -977,6 +977,24 @@ def velas_largas(d1, tf, ultima_en_curso=False):
     return [g[:6] for g in grupos], en_curso
 
 
+CALIF_VELAS = 2000
+
+
+def calificar_ultimas(bars):
+    """calificar() solo mira la ultima vela: con las ultimas 2.000 alcanza (la media de 200 ya olvido el arranque: queda
+    e^-18 de diferencia) y en 5m-1h (8.640 velas) tarda 4 veces menos. Las curvas vuelven con el largo de bars."""
+    if len(bars) <= CALIF_VELAS:
+        return ind.calificar(bars)
+    off = len(bars) - CALIF_VELAS
+    rows, summary, overlays = ind.calificar(bars[off:])
+    # el OBV es acumulado: su valor (no su señal) depende de desde donde se suma; va el de toda la historia
+    ob = ind.obv([b[4] for b in bars], [b[5] for b in bars])[-1]
+    for r in rows:
+        if r["indicador"] == "OBV":
+            r["valor"] = round(ob, 2)
+    return rows, summary, {k: [None] * off + list(v) for k, v in overlays.items()}
+
+
 def analisis_largo(d1, tf, price, ultima_en_curso=False):
     """Filas del grafico y del analisis tecnico semanal o mensual (sin prediccion)."""
     bars, partial = velas_largas(d1, tf, ultima_en_curso)
@@ -1322,7 +1340,7 @@ def analyze():
         tf_ms = ccxt.Exchange.parse_timeframe(tf) * 1000
         tf_min = tf_ms // 60_000
         closes = [b[4] for b in bars]
-        ind_rows, summary, overlays = ind.calificar(bars)
+        ind_rows, summary, overlays = calificar_ultimas(bars)
         e20, e50, e200 = ind.ema(closes, 20), ind.ema(closes, 50), ind.ema(closes, 200)
         rsi = ind.rsi(closes)
         ml, ms, mh = ind.macd(closes)

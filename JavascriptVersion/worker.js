@@ -51,6 +51,7 @@ const conTope = (p) => Promise.race([p, new Promise((_, no) => setTimeout(() => 
 function calcular(sym, input) {
   const mon = sym.replace('USDT', '');
   input.moneda = mon;
+  input.escenarios = false;          // la simulacion de futuro no se muestra (SIN_FUTURO en la pagina): no se arma
   const { rows, log } = Analisis.analizar(input);
   Datos.guardarLog(log, sym);
   return renombrar(rows, mon);
@@ -81,7 +82,9 @@ async function cicloFondo(sym) {
     interrumpir = null;
     if (!input || pedirActivo) { hecho[sym] = 0; return; }
     const rows = calcular(sym, input);
-    postMessage({ tipo: 'analisis', rows, numero: 0, fondo: true, hora: Date.now(), sym });
+    // como texto: en la pantalla solo se arman los objetos si eligen este activo (ver app.js)
+    const r = rows.find((x) => x.tabla === 'resumen');
+    postMessage({ tipo: 'analisis', json: JSON.stringify(rows), resumen: r ? { precio: r.precio, cambio_24h: r.cambio_24h } : null, numero: 0, fondo: true, hora: Date.now(), sym });
     guardado[sym] = Date.now(); Datos.guardarUltimo(sym, rows);
   } catch (e) { /* se reintenta en la proxima vuelta */ }
   interrumpir = null;

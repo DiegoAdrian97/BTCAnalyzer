@@ -17,6 +17,10 @@
    * hacia el par. toFixed de JavaScript desempata siempre hacia arriba.
    */
   function fixedLikePython(x, d) {
+    // atajo: si no esta cerca de un empate (…5 justo), toFixed ya redondea igual que Python (los dos miran el valor
+    // binario exacto). Solo los casi empates van por el camino lento. Se llama decenas de miles de veces por analisis
+    const m = Math.abs(x) * 10 ** d, fr = m - Math.floor(m);
+    if (m < 1e9 && Math.abs(fr - 0.5) > 1e-6) return x.toFixed(d);
     const exact = Math.abs(x).toFixed(Math.min(100, d + 30));    // los digitos exactos del valor binario
     const [ip, fp] = exact.split('.');
     if (/^50*$/.test(fp.slice(d)) && Number((ip + fp.slice(0, d)).slice(-1)) % 2 === 0) {
@@ -119,6 +123,18 @@
   }
   const maxOf = (a) => Math.max(...a);
   const minOf = (a) => Math.min(...a);
+  /** Maximo (o minimo) de las ultimas n velas en cada vela, en una pasada (cola monotona): da lo mismo que
+   *  rolling(v, n, maxOf) sin armar una ventana por vela. */
+  function ventanaExtremo(v, n, max) {
+    const out = new Array(v.length).fill(null), q = new Int32Array(v.length); let a = 0, b = 0;
+    for (let i = 0; i < v.length; i++) {
+      while (b > a && (max ? v[q[b - 1]] <= v[i] : v[q[b - 1]] >= v[i])) b--;
+      q[b++] = i;
+      if (q[a] <= i - n) a++;
+      if (i >= n - 1) out[i] = v[q[a]];
+    }
+    return out;
+  }
 
   function smaSkip(v, n) {
     const first = firstIndex(v);
@@ -134,7 +150,7 @@
   }
 
   function stoch(h, l, c, n = 14, smooth = 3, d = 3) {
-    const hh = rolling(h, n, maxOf), ll = rolling(l, n, minOf);
+    const hh = ventanaExtremo(h, n, true), ll = ventanaExtremo(l, n, false);
     const raw = c.map((x, i) => (hh[i] === null ? null : hh[i] === ll[i] ? 50 : ((x - ll[i]) / (hh[i] - ll[i])) * 100));
     const k = smaSkip(raw, smooth);
     return [k, smaSkip(k, d)];
@@ -162,7 +178,7 @@
   }
 
   function williamsR(h, l, c, n = 14) {
-    const hh = rolling(h, n, maxOf), ll = rolling(l, n, minOf);
+    const hh = ventanaExtremo(h, n, true), ll = ventanaExtremo(l, n, false);
     return c.map((x, i) => (hh[i] === null ? null : hh[i] === ll[i] ? -50 : ((hh[i] - x) / (hh[i] - ll[i])) * -100));
   }
 
@@ -201,6 +217,13 @@
       out[i] = (100 * (4 * avg(a) + 2 * avg(b) + avg(d))) / 7;
     }
     return out;
+  }
+
+  /** Solo el ATR de Wilder: lo mismo que dmi(...)[3] sin calcular ADX ni DI (lo piden unas 8 funciones por temporalidad). */
+  function atrW(h, l, c, n = 14) {
+    const tr = new Array(c.length); tr[0] = null;
+    for (let i = 1; i < c.length; i++) tr[i] = Math.max(h[i] - l[i], Math.abs(h[i] - c[i - 1]), Math.abs(l[i] - c[i - 1]));
+    return rma(tr, n);
   }
 
   /** ADX, +DI, -DI y ATR de Wilder. */
@@ -269,7 +292,7 @@
 
   function keltner(h, l, c, n = 20, k = 2) {
     const mid = ema(c, n);
-    const a = dmi(h, l, c, 10)[3];
+    const a = atrW(h, l, c, 10);
     return [mid, mid.map((m, i) => (a[i] === null ? null : m + k * a[i])), mid.map((m, i) => (a[i] === null ? null : m - k * a[i]))];
   }
 
@@ -295,7 +318,7 @@
   }
 
   function supertrend(h, l, c, n = 10, k = 3) {
-    const a = dmi(h, l, c, n)[3];
+    const a = atrW(h, l, c, n);
     const line = nulls(c.length), direction = nulls(c.length);
     let fu = null, fl = null, trend = 1;
     for (let i = 0; i < c.length; i++) {
@@ -313,7 +336,7 @@
   }
 
   function ichimoku(h, l, tenkan = 9, kijun = 26, senkou = 52) {
-    const mid = (n) => h.map((_, i) => (i < n - 1 ? null : (maxOf(h.slice(i - n + 1, i + 1)) + minOf(l.slice(i - n + 1, i + 1))) / 2));
+    const mid = (n) => { const hh = ventanaExtremo(h, n, true), ll = ventanaExtremo(l, n, false); return hh.map((x, i) => (x === null ? null : (x + ll[i]) / 2)); };
     const t = mid(tenkan), k = mid(kijun), sb = mid(senkou);
     const sa = t.map((a, i) => (a === null || k[i] === null ? null : (a + k[i]) / 2));
     // la nube que se ve HOY se calculo hace 26 velas
@@ -488,7 +511,7 @@
   /** Giros del precio: un nuevo pivote cuando se revierte mas de atrMult * ATR desde el ultimo extremo. */
   function zigzag(bars, atrMult = 2.5) {
     const h = col(bars, 2), l = col(bars, 3), c = col(bars, 4);
-    const atr = dmi(h, l, c)[3];
+    const atr = atrW(h, l, c);
     const pivots = [];
     let direction = 0, ext = 0, hiI = 0, loI = 0;
     for (let i = 1; i < bars.length; i++) {
@@ -522,7 +545,7 @@
     if (pivots.length < 3) return [[], SIN_ELLIOTT, null, null, ''];
     const p = pivots.map((x) => x[2]);
     const c = col(bars, 4);
-    const atrLast = dmi(col(bars, 2), col(bars, 3), c)[3][bars.length - 1] || 0;
+    const atrLast = atrW(col(bars, 2), col(bars, 3), c)[bars.length - 1] || 0;
     const started = pivots[pivots.length - 1][1] < bars.length - 1 && Math.abs(c[c.length - 1] - p[p.length - 1]) >= atrLast;
 
     const impulso = (pts) => {
@@ -958,7 +981,7 @@
   function divergencias(bars, pivots = null, maxAge = 30, minGap = 6, lookback = 60, left = 4, right = 2, win = 2) {
     const h = col(bars, 2), l = col(bars, 3), c = col(bars, 4);
     const n = bars.length, last = n - 1;
-    const atr = dmi(h, l, c)[3];
+    const atr = atrW(h, l, c);
     const series = [['RSI', rsi(c)], ['MACD', macd(c)[0]]];
     const out = [];
     ['alto', 'bajo'].forEach((kind) => {
@@ -1028,7 +1051,7 @@
 
   const Ind = {
     ar, rnd, roundEven, sma, ema, rma, wma, hma, vwma, rsi, stoch, stochRsi, cci, williamsR, momentum, macd,
-    awesome, bullBearPower, ultimate, dmi, mfi, cmf, obv, bollinger, keltner, psar, supertrend, ichimoku,
+    awesome, bullBearPower, ultimate, dmi, atrW, mfi, cmf, obv, bollinger, keltner, psar, supertrend, ichimoku,
     vwapSession, calificar, ratingTxt, divergencia, fvg, zigzag, elliott, mapaLiquidaciones, patronesVelas,
     estadisticaVelas, patronGrafico, figuraLineas, wyckoff, divergencias, pivotes,
   };
