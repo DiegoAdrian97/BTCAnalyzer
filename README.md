@@ -66,7 +66,11 @@ cuáles tienen la orden puesta y cuáles falta cargar (en rojo si el precio est�
 (Mis posiciones), una compra cuenta como ejecutada si el precio llegó **y** la posición creció lo que suman las compras
 hasta esa (de la más alta a la más baja, con 10% de margen por el redondeo): queda "Se ejecutó · en tu posición" y
 entra en el promedio, el margen y la liquidación. Si el precio llegó pero la posición no creció, sale ⚠ "revisá la
-orden" y no se cuenta. Sin BingX, como antes: el mínimo desde que se armó el plan tocó su precio. Telegram avisa aunque esté en "solo entradas": 📌 cuando el precio se acerca a 3% de
+orden" y no se cuenta. Las **pendientes salen de tus órdenes límite de compra de BingX** (precio y valor reales: si
+movés o cancelás una orden allá, se ve acá sin tocar el plan): cada orden se empareja con la compra del plan de precio
+más parecido, sin cruzarse, y de ahí toma el número y el margen extra; una orden de más aparece como "extra"; una compra
+del plan sin orden queda como ejecutada (si la posición creció) o "falta cargar". La liquidación con todo ejecutado
+usa esos precios y valores. Sin BingX, como antes: el mínimo desde que se armó el plan tocó su precio. Telegram avisa aunque esté en "solo entradas": 📌 cuando el precio se acerca a 3% de
 una compra sin orden cargada, ✅ cuando se ejecuta una (con el margen extra a sumar si falta) y ⚠ si tocó un precio
 sin orden. Cuando cambie el plan: editar `plan_compras.json` en el repositorio privado `DiegoAdrian97/BTCAnalyzer-plan`
 y subirlo (la app lo toma sola en un minuto; Render, en cinco). Ya no hace falta regenerar la página.

@@ -826,7 +826,7 @@
     <div class="ab-card-head"><div><span class="ab-kicker">Tu plan · longs a 5x en BingX</span><h2 id="cmp-t">Próximas compras</h2></div>
       <span class="ab-kicker" id="cmp-hora">—</span></div>
     <div class="ab-cmp-grid" id="cmp-body"></div>
-    <p class="ab-foot">Valor de la orden: lo que escribís en BingX a 5x (descuenta un quinto). Margen extra: lo que agregás con el ⊕ después. "Se ejecutó" sale de los precios desde que armaste el plan: confirmalo en BingX.</p>
+    <p class="ab-foot">Valor de la orden: lo que escribís en BingX a 5x (descuenta un quinto). Margen extra: lo que agregás con el ⊕ después. Con BingX conectado, las pendientes son tus órdenes límite de compra en BingX (precio y valor reales) y "Se ejecutó" sale de que tu posición creció; sin conectar, de los precios desde que armaste el plan.</p>
   </section>
 
   <section class="ab-card" id="posiciones" aria-labelledby="pos-t" hidden>
@@ -1617,7 +1617,8 @@
     } catch (e) { BX.error = 'sin conexión con el servidor'; }
     planVisible();
   }
-  const cargada = (c) => (BX.ok && BX.ordenes ? (BX.ordenes[c.moneda] || []).some((o) => Math.abs(o.precio / c.precio - 1) < 0.003) : !!c.cargada);
+  // orden puesta: con BingX, las que tienen su orden emparejada (comprasDe); sin BingX, lo que dice el plan
+  const cargada = (c) => (c.deBingx ? true : BX.ok && BX.ordenes ? false : !!c.cargada);
   async function cmpPrecios() {
     if (!PLAN_OK()) return;                                // sin BingX conectado el plan no se muestra: no hace falta pedir nada
     const mons = [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))];
@@ -1648,7 +1649,7 @@
     sec.hidden = false; body.replaceChildren();
     const mons = [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))];
     mons.forEach((m) => {
-      const d = CMP.datos[m], cs = PLAN_COMPRAS.compras.filter((c) => c.moneda === m).sort((a, b) => b.precio - a.precio);
+      const d = CMP.datos[m], cs = comprasDe(m).slice().sort((a, b) => b.precio - a.precio);
       const box = el('div', 'ab-cmp'), h = el('div', 'ab-cmp-h');
       const hechas = cs.filter((c) => cmpHecha(c, d)).length;
       h.append(el('b', '', m), el('span', '', d ? `ahora ${fp(d.precio)} · ${hechas}/${cs.length} ejecutadas` : 'cargando precio…'));
@@ -1668,7 +1669,7 @@
         else { ic = '⏳'; st = dist === null ? 'Orden puesta' : `Orden puesta · a ${f1(dist)}%`; }
         if (!hecha && !prox) { cls += ' prox'; prox = true; }
         const row = el('div', cls), mid = el('div');
-        mid.append(el('b', '', `#${c.n} · ${fp(c.precio)}`), el('em', '', `Orden ${f0(c.orden)} · margen extra ${f0(c.extra)}`));
+        mid.append(el('b', '', `${nCompra(c)} · ${fp(c.precio)}`), el('em', '', `Orden ${f0(c.orden)} · margen extra ${f0(c.extra)}`));
         const stEl = el('span', 'st', st);
         if (ic === '⚠') stEl.title = 'El precio llegó a esta compra pero tu posición en BingX todavía no creció: la orden no se llenó, se movió o falta que BingX la refleje (se lee cada minuto).';
         row.append(el('span', '', ic), mid, stEl); box.append(row);
@@ -1685,14 +1686,52 @@
   //   mas baja). Si el precio llego pero la posicion no crecio, no cuenta (la orden no se lleno o se movio).
   // - sin BingX: el precio la toco desde que se armo el plan.
   const tocada = (c, d) => !!(d && d.bajo <= c.precio);
+  const nCompra = (c) => (typeof c.n === 'number' ? `#${c.n}` : String(c.n));     // "#3", o "extra 1" (una orden de BingX que no esta en el plan)
+  // Las compras de cada cripto. Con BingX conectado, las pendientes salen de tus ordenes limite de compra de BingX (precio
+  // y valor reales: si moves una orden alla, se ve aca sin tocar el plan). Se emparejan con las del plan que no estaban
+  // en la posicion, de abajo hacia arriba: las que quedan arriba sin orden son las que ya se ejecutaron (si la posicion
+  // crecio) o las que falta cargar. El numero y el margen extra salen del plan; una orden de BingX de mas va como "extra".
+  const COMPRAS_MEMO = new Map();
+  function comprasDe(m) {
+    const ords = BX.ok && BX.ordenes ? BX.ordenes[m] || [] : null, memo = COMPRAS_MEMO.get(m);
+    if (memo && memo.plan === PLAN_COMPRAS && memo.ords === ords) return memo.lista;   // los mismos objetos (cmpHecha los compara)
+    const plan = PLAN_COMPRAS.compras.filter((c) => c.moneda === m);
+    let lista = plan;
+    if (ords) {
+      const os = ords.slice().sort((a, b) => b.precio - a.precio);
+      const enPos = plan.filter((c) => c.en_posicion), resto = plan.filter((c) => !c.en_posicion).sort((a, b) => b.precio - a.precio);
+      // cada orden con la compra del plan de precio mas parecido, sin cruzarse (de arriba hacia abajo): si cancelaste la de
+      // mas abajo, la orden que queda sigue con su compra. Las compras sin orden quedan solas (ejecutadas o por cargar)
+      const nPar = Math.min(os.length, resto.length);
+      let mejor = null;
+      const elegir = (desde, faltan, usados) => {       // combinaciones de compras (en orden) para las nPar ordenes de mas abajo
+        if (!faltan) {
+          const ords = os.slice(os.length - nPar), costo = usados.reduce((t, j, i) => t + Math.abs(Math.log(ords[i].precio / resto[j].precio)), 0);
+          if (!mejor || costo < mejor.costo - 1e-12) mejor = { costo, usados: usados.slice() };
+          return;
+        }
+        for (let j = desde; j <= resto.length - faltan; j++) { usados.push(j); elegir(j + 1, faltan - 1, usados); usados.pop(); }
+      };
+      elegir(0, nPar, []);
+      const par = new Map((mejor ? mejor.usados : []).map((j, i) => [j, os[os.length - nPar + i]]));
+      const extras = os.slice(0, os.length - nPar).map((o, i) => ({ moneda: m, n: `extra ${i + 1}`, extra: 0, extra_agregado: true,
+        precio: o.precio, orden: o.valor, cargada: true, deBingx: true, precioPlan: null }));
+      const res = resto.map((c, j) => (par.has(j) ? { ...c, precio: par.get(j).precio, orden: par.get(j).valor, cargada: true, deBingx: true, precioPlan: c.precio } : c));
+      lista = enPos.concat(extras, res);
+    }
+    COMPRAS_MEMO.set(m, { plan: PLAN_COMPRAS, ords, lista });
+    return lista;
+  }
   function bxEjecutadas(m, d) {
     const vivo = BX.ok ? (BX.posiciones || {})[m] : null, base = (PLAN_COMPRAS.posiciones || {})[m];
     if (!vivo || !base || !d) return null;
-    const pend = PLAN_COMPRAS.compras.filter((c) => c.moneda === m && !c.en_posicion).sort((a, b) => b.precio - a.precio);
+    const conOrdenes = !!BX.ordenes;
+    const pend = comprasDe(m).filter((c) => !c.en_posicion).sort((a, b) => b.precio - a.precio);
     const out = new Set();
     let espera = base.cantidad;
     for (const c of pend) {
-      if (!tocada(c, d)) break;                                   // el precio no llego: las de abajo tampoco
+      if (c.deBingx) break;                                       // su orden sigue abierta en BingX: no se ejecuto
+      if (!conOrdenes && !tocada(c, d)) break;                    // sin las ordenes de BingX: el precio tuvo que llegar
       const q = c.orden / c.precio; espera += q;
       if (vivo.cantidad >= espera - q * 0.1) out.add(c); else break;   // 10% de margen por el redondeo de BingX
     }
@@ -1705,7 +1744,7 @@
   };
   function planEstado(m, d) {
     const P = PLAN_COMPRAS, lev = P.apalancamiento || 5, mt = P.mantenimiento || {}, r = mt[m] !== undefined ? mt[m] : (mt.otras !== undefined ? mt.otras : 0.01);
-    const cs = P.compras.filter((c) => c.moneda === m), vivo = BX.ok ? (BX.posiciones || {})[m] : undefined;
+    const cs = comprasDe(m), vivo = BX.ok ? (BX.posiciones || {})[m] : undefined;
     const base = BX.ok ? vivo : (P.posiciones || {})[m];
     const hechas = cs.filter((c) => cmpHecha(c, d) && (BX.ok || c.en_posicion || c.cargada));
     const nuevas = BX.ok ? [] : base ? hechas.filter((c) => !c.en_posicion) : hechas;     // BingX ya incluye lo ejecutado
@@ -2015,14 +2054,14 @@
         const hoy = new Date().toISOString().slice(0, 10);
         [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))].forEach((m) => {
           const d = CMP.datos[m]; if (!d) return;
-          PLAN_COMPRAS.compras.filter((c) => c.moneda === m).forEach((c) => {
+          comprasDe(m).forEach((c) => {
             const dist = (d.precio / c.precio - 1) * 100, hecha = cmpHecha(c, d);
             // "se acerca" (a 3% o menos): la primera vez que entra en la zona; despues, solo si salio de la zona y hace un
             // nuevo minimo (mas bajo que todo lo que marco desde el aviso anterior). Antes avisaba cada vez que volvia a
             // bajar del 3%, aunque fuera un rebote dentro del mismo rango.
             const zona = !hecha && dist <= 3, km = `cm:${m}:${c.n}`, sm = est[km];
-            const avisar = () => { nueva(`cc:${m}:${c.n}:${Date.now()}`, '📌', `${m} se acerca a tu compra #${c.n}`, `a ${f1(dist)}% de ${fp(c.precio)}`,
-              [`${m} está en ${fp(d.precio)}, a ${f1(dist)}% de tu compra #${c.n} en ${fp(c.precio)}.`, cargada(c) ? 'La orden límite ya está cargada.' : `Cargá la orden límite: precio ${fp(c.precio)}, valor de la orden ${f0(c.orden)} a ${PLAN_COMPRAS.apalancamiento || 5}x.`,
+            const avisar = () => { nueva(`cc:${m}:${c.n}:${Date.now()}`, '📌', `${m} se acerca a tu compra ${nCompra(c)}`, `a ${f1(dist)}% de ${fp(c.precio)}`,
+              [`${m} está en ${fp(d.precio)}, a ${f1(dist)}% de tu compra ${nCompra(c)} en ${fp(c.precio)}.`, cargada(c) ? 'La orden límite ya está cargada.' : `Cargá la orden límite: precio ${fp(c.precio)}, valor de la orden ${f0(c.orden)} a ${PLAN_COMPRAS.apalancamiento || 5}x.`,
                ...(sm ? [`Nuevo mínimo: ${fp(d.precio)}, por debajo de ${fp(sm.min)} (lo más bajo desde el aviso anterior).`] : [])], 'compras');
               est[km] = { min: d.precio, bp: d.bajo, fuera: false }; };
             if (!sm) cuando(`cc:${m}:${c.n}`, zona, avisar);
@@ -2034,7 +2073,7 @@
               else { sm.min = Math.min(sm.min, lo); sm.bp = Math.min(sm.bp, d.bajo); }
               est[`cc:${m}:${c.n}`] = zona ? 1 : 0;
             }
-            cuando(`ch:${m}:${c.n}`, hecha, () => nueva(`ch:${m}:${c.n}`, '✅', `Se ejecutó tu compra #${c.n} de ${m}`, `${fp(c.precio)} · orden ${f0(c.orden)}`,
+            cuando(`ch:${m}:${c.n}`, hecha, () => nueva(`ch:${m}:${c.n}`, '✅', `Se ejecutó tu compra ${nCompra(c)} de ${m}`, `${fp(c.precio)} · orden ${f0(c.orden)}`,
               [`${m} tocó ${fp(c.precio)}: tu orden de ${f0(c.orden)} USDT debería haberse ejecutado. Confirmalo en BingX.`, c.extra_agregado ? 'El margen extra ya lo tenías agregado.' : `Ahora agregá ${f0(c.extra)} USDT de margen (⊕ en la posición).`], 'posiciones'));
           });
           const e = planEstado(m, d);
@@ -3474,8 +3513,8 @@
       const m = MON(), dat = CMP.datos[m], line = (price, color, style, width, title) => {
         G.plines.push(G.c.createPriceLine({ price, color, lineWidth: width, lineStyle: style, axisLabelVisible: true, title })); d.plan += 1;
       };
-      PLAN_COMPRAS.compras.filter((c) => c.moneda === m && !cmpHecha(c, dat)).forEach((c) => line(c.precio, alpha(P.fg, cargada(c) ? 0.75 : 0.45),
-        cargada(c) ? LW.LineStyle.Dashed : LW.LineStyle.Dotted, 1, narrow ? `#${c.n}` : `Compra #${c.n}${cargada(c) ? '' : ' · sin orden'}`));
+      comprasDe(m).filter((c) => !cmpHecha(c, dat)).forEach((c) => line(c.precio, alpha(P.fg, cargada(c) ? 0.75 : 0.45),
+        cargada(c) ? LW.LineStyle.Dashed : LW.LineStyle.Dotted, 1, narrow ? `${nCompra(c)}` : `Compra ${nCompra(c)}${cargada(c) ? '' : ' · sin orden'}`));
       const e = planEstado(m, dat);
       if (e.equilibrio) line(e.equilibrio, alpha(P.fg, 0.9), LW.LineStyle.Solid, 1, narrow ? 'Equil.' : 'Tu equilibrio');
       const g = e.ganancias && e.ganancias.find((x) => !x.alcanzado);
