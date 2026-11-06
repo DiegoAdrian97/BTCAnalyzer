@@ -73,6 +73,13 @@ página hace las mismas cuentas). Si cambiás algo en BingX a mano, hay que actu
 Piramidar: cuando sube 15% sobre el promedio, cuánto se puede sumar sin plata nueva con la liquidación como mucho en
 75% de la compra más baja. Los porcentajes se cambian en `plan_compras.json` (`ganancias`, `piramidar`).
 
+**PnL no realizado de todas las posiciones** (arriba de Mis posiciones, con BingX conectado): la suma del resultado de
+cada posición abierta en BingX, con su % sobre el margen y el de cada cripto. Va en vivo: BingX se lee cada minuto y
+entre lectura y lectura se mueve con el precio de marca de Binance cada 1 s (WebSocket `markPrice@1s`; resultado +
+cantidad × (precio de ahora − precio al leer BingX), así la diferencia entre la marca de Binance y la de BingX no suma
+error). El punto verde dice que llegan precios; gris, que se está usando el de cada 15 s. Se corta con la app en
+segundo plano o al mirar una acción.
+
 ### Notificaciones en la página
 
 La campanita al lado del título junta los avisos, en el propio dispositivo: cambio de zona del termómetro, funding

@@ -33,7 +33,9 @@ function posiciones(data) {
     const cant = Math.abs(+p.positionAmt || 0);
     if (!cant) return;
     const m = String(p.symbol).split('-')[0];
-    out[m] = { cantidad: cant, entrada: +p.avgPrice, margen: +(p.margin || p.initialMargin || 0), lado: p.positionSide,
+    // signo: 1 long, -1 short (en modo de una sola direccion, BingX lo da con el signo de positionAmt)
+    const signo = p.positionSide === 'SHORT' || (p.positionSide !== 'LONG' && +p.positionAmt < 0) ? -1 : 1;
+    out[m] = { cantidad: cant, signo, entrada: +p.avgPrice, margen: +(p.margin || p.initialMargin || 0), lado: p.positionSide,
       aislado: !!p.isolated, apalancamiento: +p.leverage || null, liquidacion: +p.liquidationPrice || null,
       resultado: +p.unrealizedProfit || 0, marca: +p.markPrice || null };
   });

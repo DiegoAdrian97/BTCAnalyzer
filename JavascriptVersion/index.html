@@ -46,7 +46,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
 <script src="lib/d3-7.9.0.min.js"></script>
 <script src="lib/lightweight-charts-5.1.0.js"></script>
-<script>window.AB_PAGINA = "4fdf607cb6";</script>
+<script>window.AB_PAGINA = "ec5bcf999d";</script>
 <script src="app.js?v=ec90573d33"></script>
 </head><body><div id="dash-root">
 <style>
@@ -685,6 +685,18 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   .ab-pos-kv div { display: grid; } .ab-pos-kv small { color: var(--mute); } .ab-pos-kv b { font-size: 14px; font-variant-numeric: tabular-nums; }
   .ab-pos-sec { font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; color: var(--mute); margin-top: 6px; }
   .ab-pos-ok { color: var(--color-ok); } .ab-pos-bad { color: var(--color-bad); }
+  /* PnL no realizado de todas las posiciones (BingX), en vivo */
+  .ab-pos-total { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px 18px; padding: 12px 14px; margin-bottom: 4px;
+    border: 1px solid var(--line); border-radius: var(--cds-radius); background: var(--paper); }
+  .ab-pos-total[hidden] { display: none; }
+  .ab-pos-total-main { display: grid; gap: 2px; }
+  .ab-pos-total-main small { font-size: var(--cds-font-size-caption); color: var(--mute); }
+  .ab-pos-total-main b { font-family: var(--serif); font-weight: 400; font-size: clamp(1.6rem, 4vw, 2.1rem); line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .ab-pos-total-main span#pnl-pct { font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; color: var(--mute); }
+  .ab-pos-total-por { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ab-pos-total-por span { padding: 3px 9px; border-radius: 999px; background: var(--soft); font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+  .ab-pos-vivo::before { content: ''; display: inline-block; width: 6px; height: 6px; margin: 0 3px 1px 6px; border-radius: 50%; background: var(--color-ok); vertical-align: middle; }
+  .ab-pos-vivo.quieto::before { background: var(--mute); }
   .ab-pos-rg { border-radius: 10px; padding: 8px 10px; font-size: var(--cds-font-size-caption); border-left: 3px solid var(--rg-col, var(--mute));
     background: color-mix(in srgb, var(--rg-col, var(--ink)) 9%, transparent); }
   .ab-pos-rg b { color: var(--rg-col, inherit); }
@@ -868,6 +880,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   <section class="ab-card" id="posiciones" aria-labelledby="pos-t" hidden>
     <div class="ab-card-head"><div><span class="ab-kicker">Tu plan · margen aislado</span><h2 id="pos-t">Mis posiciones</h2></div>
       <div class="ab-head-act"><span class="ab-kicker" id="pos-hora">—</span><button type="button" class="ab-iconbtn" id="bx-btn" hidden>Conectar BingX</button></div></div>
+    <div class="ab-pos-total" id="pos-total" hidden aria-live="polite">
+      <div class="ab-pos-total-main"><small>PnL no realizado · todas tus posiciones abiertas <span class="ab-pos-vivo" id="pnl-vivo">en vivo</span></small>
+        <b id="pnl-total">—</b><span id="pnl-pct"></span></div>
+      <div class="ab-pos-total-por" id="pnl-por"></div>
+    </div>
     <div class="ab-cmp-grid" id="pos-body"></div>
     <p class="ab-foot" id="pos-bx-nota" hidden>Posiciones y órdenes leídas de tu cuenta de BingX (solo lectura), cada minuto: cantidad, entrada, margen y liquidación son las de BingX, y una compra del plan cuenta como "orden puesta" si hay una orden límite de compra a ese precio.</p>
     <p class="ab-foot">Se recalcula cada 15 segundos con el precio de ahora. Parte de lo que ya tenías abierto en BingX (cargado del 01/11: cantidad, entrada y margen) y le suma las compras del plan que se ejecuten desde ahí. La liquidación es aproximada (mantenimiento 0,4% BTC, 1% el resto): la exacta la muestra BingX. Toma de ganancias: cada +25% sobre tu promedio, pasar 25% de la posición a spot. Piramidar: cuando sube 15% sobre tu promedio, cuánto podés sumar sin plata nueva con la liquidación como mucho en 75% de tu compra más baja.</p>
@@ -1630,7 +1647,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     try {
       const r = await fetch(BX_API, { headers: { 'x-clave': clave }, cache: 'no-store' });
       const j = await r.json();
-      if (j.ok) Object.assign(BX, { ok: true, posiciones: j.posiciones || {}, ordenes: j.ordenes, hora: new Date(j.hora), error: null });
+      if (j.ok) { Object.assign(BX, { ok: true, posiciones: j.posiciones || {}, ordenes: j.ordenes, hora: new Date(j.hora), error: null }); pnlRef(); }
       else {
         Object.assign(BX, { ok: false, error: j.error || `error ${r.status}` });
         if (r.status === 401) { try { localStorage.removeItem('ab-bingx-clave'); } catch (e) { /* idem */ } }
@@ -1783,7 +1800,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   }
   function drawPosiciones() {
     const sec = document.getElementById('posiciones'), body = document.getElementById('pos-body');
-    if (!PLAN_COMPRAS || !ES_CRIPTO(MON())) { sec.hidden = true; return; }
+    if (!PLAN_COMPRAS || !ES_CRIPTO(MON())) { sec.hidden = true; if (typeof pnlConectar === 'function') pnlConectar(); return; }
     sec.hidden = false; body.replaceChildren();
     const sgn = (x, f = f0) => `${x >= 0 ? '+' : '−'}${f(Math.abs(x))}`;
     [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))].forEach((m) => {
@@ -1839,7 +1856,60 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       : BX.error ? `BingX: ${BX.error}` : CMP.hora ? `en vivo · ${CMP.hora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : '—';
     bxb.hidden = !BX_API; bxb.textContent = bxClave() ? 'Desconectar BingX' : 'Conectar BingX';
     document.getElementById('pos-bx-nota').hidden = !BX.ok;
+    pnlPintar(); pnlConectar();
   }
+  // ---------- PnL no realizado de todas las posiciones abiertas, en vivo ----------
+  // BingX da el resultado de cada posicion cuando se lee (cada minuto). Entre lectura y lectura se mueve con el precio de
+  // marca en vivo (WebSocket de Binance, cada 1 s; si no anda, el precio de cada 15 s): resultado + cantidad × (precio de
+  // ahora − precio al leer BingX). Al usar la diferencia desde la lectura, la distancia entre la marca de Binance y la de
+  // BingX no suma error.
+  const PNL = { marca: {}, ref: {}, ws: null, syms: '', t: 0, cuadro: 0 };
+  const pnlAhora = (m) => PNL.marca[m] || (CMP.datos[m] && CMP.datos[m].precio) || null;
+  function pnlRef() { PNL.ref = {}; Object.keys(BX.posiciones || {}).forEach((m) => { const a = pnlAhora(m); if (a) PNL.ref[m] = a; }); }
+  function pnlVivo() {
+    const ps = BX.ok ? BX.posiciones || {} : {}, ms = Object.keys(ps);
+    if (!ms.length) return null;
+    let total = 0, margen = 0;
+    const por = ms.map((m) => {
+      const p = ps[m], a = pnlAhora(m);
+      if (!PNL.ref[m] && a) PNL.ref[m] = a;                // si al leer BingX todavia no habia precio: el primero que llega
+      const r0 = PNL.ref[m];
+      const r = (p.resultado || 0) + (a && r0 ? (p.signo || 1) * p.cantidad * (a - r0) : 0);
+      total += r; margen += p.margen || 0;
+      return [m, r];
+    }).sort((x, y) => Math.abs(y[1]) - Math.abs(x[1]));
+    return { total, margen, pct: margen ? (total / margen) * 100 : null, por };
+  }
+  function pnlPintar() {
+    const box = document.getElementById('pos-total'), v = pnlVivo();
+    if (!box) return;
+    box.hidden = !v || document.getElementById('posiciones').hidden;
+    if (box.hidden) return;
+    const sg = (x, f = f2) => `${x >= 0 ? '+' : '−'}${f(Math.abs(x))}`, b = document.getElementById('pnl-total');
+    b.textContent = `${sg(v.total)} USDT`; b.className = v.total >= 0 ? 'ab-pos-ok' : 'ab-pos-bad';
+    document.getElementById('pnl-pct').textContent = v.pct === null ? '' : `${sg(v.pct, f1)}% sobre ${f0(v.margen)} USDT de margen`;
+    const por = document.getElementById('pnl-por'); por.replaceChildren();
+    v.por.forEach(([m, r]) => { const s = el('span', r >= 0 ? 'ab-pos-ok' : 'ab-pos-bad', `${m} ${sg(r)}`); por.append(s); });
+    document.getElementById('pnl-vivo').classList.toggle('quieto', !PNL.ws || Date.now() - PNL.t > 5000);
+  }
+  function pnlConectar() {
+    const ms = BX.ok && !document.hidden && !document.getElementById('posiciones').hidden ? Object.keys(BX.posiciones || {}).filter((m) => m !== 'MELI') : [];
+    const syms = ms.map((m) => `${m.toLowerCase()}usdt@markPrice@1s`).join('/');
+    if (syms === PNL.syms) return;
+    PNL.syms = syms;
+    if (PNL.ws) { try { PNL.ws.close(); } catch (e) { /* ya cerrado */ } PNL.ws = null; }
+    if (!syms) return;
+    try {
+      const ws = new WebSocket(`wss://fstream.binance.com/market/stream?streams=${syms}`);
+      PNL.ws = ws;
+      ws.onmessage = (e) => {
+        try { const d = JSON.parse(e.data).data; if (d && d.s && +d.p > 0) { PNL.marca[d.s.replace('USDT', '')] = +d.p; PNL.t = Date.now(); } } catch (x) { return; }
+        if (!PNL.cuadro) PNL.cuadro = requestAnimationFrame(() => { PNL.cuadro = 0; pnlPintar(); });   // a lo sumo un repintado por cuadro
+      };
+      ws.onclose = () => { if (PNL.ws === ws) { PNL.ws = null; PNL.syms = ''; setTimeout(pnlConectar, 5000); } };
+    } catch (e) { PNL.ws = null; }
+  }
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { if (PNL.ws) { const w = PNL.ws; PNL.ws = null; PNL.syms = ''; try { w.close(); } catch (e) { /* idem */ } } } else pnlConectar(); });
   if (PLAN_COMPRAS) {
     setTimeout(cmpPrecios, 500); setInterval(() => { if (!document.hidden) cmpPrecios(); }, 15000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) cmpPrecios(); });     // al volver a la app, al toque
