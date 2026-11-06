@@ -44,7 +44,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <script src="lib/d3-7.9.0.min.js"></script>
 <script src="lib/lightweight-charts-5.1.0.js"></script>
-<script>window.AB_PAGINA = "bb05a28218";</script>
+<script>window.AB_PAGINA = "995e90315c";</script>
 <script src="app.js?v=995681a77a"></script>
 </head><body><div id="dash-root">
 <style>
@@ -547,6 +547,13 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   .ab-act-c { font-variant-numeric: tabular-nums; font-size: 12px; min-width: 56px; text-align: right; color: var(--mute); }
   .ab-act-c.up { color: var(--color-ok); } .ab-act-c.dn { color: var(--color-bad); }
   @media (prefers-reduced-motion: reduce) { .ab-act-panel, .ab-act-fondo, .ab-act-p { transition: none; } }
+  /* en la compu (pantalla ancha y mouse) el panel queda fijo a la derecha, siempre visible, y la pagina le deja lugar */
+  html.ab-panel-fijo #dash-root { padding-right: calc(var(--ab-panel-w) + max(16px, var(--dash-gutter, 24px))); }
+  .ab-panel-fijo .ab-act-panel { --ab-panel-w: 300px; width: var(--ab-panel-w); transform: none; transition: none; box-shadow: none; z-index: 50; padding-top: 18px; }
+  html.ab-panel-fijo { --ab-panel-w: 300px; }
+  .ab-panel-fijo #act-x, .ab-panel-fijo #act-borde, .ab-panel-fijo #act-fondo { display: none !important; }
+  .ab-panel-fijo .ab-tm-tab { right: var(--ab-panel-w); }
+  .ab-panel-fijo #estado-app { left: calc(50% - var(--ab-panel-w) / 2); }
   .ab-asset select { font: inherit; font-size: var(--cds-font-size-caption); font-weight: 650; color: var(--paper); background: var(--ink);
     border: 0; border-radius: 999px; padding: 6px 30px 6px 14px; min-height: 30px; cursor: pointer; appearance: none; -webkit-appearance: none;
     background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
@@ -1335,7 +1342,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
         const izq = el('span'); izq.append(el('b', '', m), el('i'), el('small', '', nombre));
         const pr = el('span', 'ab-act-p', '—'), ch = el('span', 'ab-act-c', '');
         b.append(izq, pr, ch);
-        b.addEventListener('click', () => { cerrar(); A.set(m); });
+        b.addEventListener('click', () => { if (!fijo) cerrar(); A.set(m); });
         lista.append(b); filas[m] = { b, pr, ch, listo: izq.querySelector('i') };
       });
     });
@@ -1371,6 +1378,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       } catch (e) { ms.forEach(porPedido); }
     }
     function conectar() {
+      desconectar();                     // nunca dos conexiones a la vez (al pasar de celular a compu con el panel abierto)
       const syms = A.todos().filter((m) => m !== 'MELI').map((m) => `${m.toLowerCase()}usdt@miniTicker`).join('/');
       try {
         ws = new WebSocket(`wss://fstream.binance.com/market/stream?streams=${syms}`);
@@ -1393,7 +1401,28 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       ws = wsBg = null; clearInterval(ping); clearTimeout(rep);
     }
     const abierto = () => !panel.hidden;
+    // en la compu: fijo a la derecha, siempre visible y con los precios en vivo (se cortan con la pestaña oculta)
+    const MQ = window.matchMedia('(min-width: 1100px) and (pointer: fine)');
+    let fijo = false;
+    function ponerFijo() {
+      const quiere = MQ.matches;
+      if (quiere === fijo) return;
+      fijo = quiere;
+      document.documentElement.classList.toggle('ab-panel-fijo', fijo);
+      if (fijo) {
+        fondo.classList.remove('on'); fondo.hidden = true; borde.hidden = true; document.body.style.overflow = '';
+        panel.setAttribute('role', 'complementary'); panel.removeAttribute('aria-modal');
+        A.todos().forEach((m) => { if (!P[m]) { const r = A.precio(m); if (r) { P[m] = r; pintar(m); } } });
+        marcar(); panel.hidden = false; panel.classList.add('on');
+        if (!document.hidden) conectar();
+      } else {
+        panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-modal', 'true');
+        panel.classList.remove('on'); panel.hidden = true; borde.hidden = false; desconectar();
+      }
+      window.dispatchEvent(new Event('resize'));        // el grafico y lo demas se acomodan al ancho nuevo
+    }
     function abrir() {
+      if (fijo) { const act = filas[A.get()]; if (act) { act.b.scrollIntoView({ block: 'nearest' }); act.b.focus({ preventScroll: true }); } return; }
       if (abierto()) return;
       // mientras llega el precio en vivo: el del ultimo analisis de cada uno
       A.todos().forEach((m) => { if (!P[m]) { const r = A.precio(m); if (r) { P[m] = r; pintar(m); } } });
@@ -1403,7 +1432,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       const act = filas[A.get()]; if (act) act.b.scrollIntoView({ block: 'nearest' });
     }
     function cerrar() {
-      if (!abierto()) return;
+      if (fijo || !abierto()) return;
       panel.classList.remove('on'); fondo.classList.remove('on'); document.body.style.overflow = '';
       desconectar();
       setTimeout(() => { panel.hidden = true; fondo.hidden = true; document.getElementById('act-borde').hidden = false; }, 230);
@@ -1412,7 +1441,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     document.getElementById('act-x').addEventListener('click', cerrar);
     fondo.addEventListener('click', cerrar);
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && abierto()) cerrar(); });
-    document.addEventListener('visibilitychange', () => { if (document.hidden && abierto()) cerrar(); });
+    document.addEventListener('visibilitychange', () => {
+      if (fijo) { if (document.hidden) desconectar(); else if (!ws) conectar(); return; }
+      if (document.hidden && abierto()) cerrar();
+    });
+    ponerFijo();
+    if (MQ.addEventListener) MQ.addEventListener('change', ponerFijo); else MQ.addListener(ponerFijo);
     A.subscribe(marcar);
     // gesto: arrastrar desde el borde derecho hacia la izquierda abre; dentro del panel, hacia la derecha cierra
     let t0 = null;
