@@ -53,8 +53,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 #estado-app.es-error i { background: var(--color-bad); animation: none; }
 @keyframes ea { to { opacity: .25; } }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
+<script src="lib/d3-7.9.0.min.js"></script>
+<script src="lib/lightweight-charts-5.1.0.js"></script>
 <script>window.AB_PAGINA = "__PAG__";</script>
 <script src="app.js?v=__VER__"></script>
 </head><body><div id="dash-root">

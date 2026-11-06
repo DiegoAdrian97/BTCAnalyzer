@@ -37,8 +37,13 @@ async function mostrarGuardado(sym) {
 // el termometro y el modelo de movimiento fuerte: una vez, y cada 6 h con la app abierta dias
 async function cargarModelos() {
   if (self.TERMOMETRO && Date.now() - (self.JSON_T || 0) < 6 * 3600000) return;
-  try { self.TERMOMETRO = await (await fetch('termometro.json', { cache: 'no-store', signal: AbortSignal.timeout(15000) })).json(); } catch (e) { /* queda el anterior */ }
-  try { self.MODELO_FUERTE = await (await fetch('modelo_fuerte.json', { cache: 'no-store', signal: AbortSignal.timeout(15000) })).json(); } catch (e) { /* queda el anterior o la tabla */ }
+  // 'no-cache': se pregunta si cambiaron (una vez por semana los reentrena GitHub) y si no, sale del telefono.
+  // Con 'no-store' se bajaban enteros (unos 180 KB comprimidos) cada vez que se abria la app.
+  // los dos a la vez (antes, uno detras del otro)
+  await Promise.all([
+    fetch('termometro.json', { cache: 'no-cache', signal: AbortSignal.timeout(15000) }).then((r) => r.json()).then((j) => { self.TERMOMETRO = j; }).catch(() => { /* queda el anterior */ }),
+    fetch('modelo_fuerte.json', { cache: 'no-cache', signal: AbortSignal.timeout(15000) }).then((r) => r.json()).then((j) => { self.MODELO_FUERTE = j; }).catch(() => { /* queda el anterior o la tabla */ }),
+  ]);
   self.JSON_T = Date.now();
 }
 const conTope = (p) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('tardó demasiado')), TOPE))]);
@@ -54,12 +59,12 @@ function calcular(sym, input) {
 async function cicloActivo() {
   const t0 = Date.now(), sym = ACTIVO;
   try {
-    await cargarModelos();
-    const input = await conTope(Datos.recolectar((texto) => postMessage({ tipo: 'progreso', texto, sym }), sym));
+    // los modelos y las velas no dependen uno del otro: se bajan a la vez
+    const [input] = await Promise.all([conTope(Datos.recolectar((texto) => postMessage({ tipo: 'progreso', texto, sym }), sym)), cargarModelos()]);
     if (sym !== ACTIVO) return;                    // eligieron otro activo mientras bajaban los datos: no se calcula este
     const rows = calcular(sym, input);
     numero += 1; hecho[sym] = Date.now();
-    postMessage({ tipo: 'analisis', rows, numero, ms: Date.now() - t0, fuente: input.fuente, sym });
+    postMessage({ tipo: 'analisis', rows, numero, ms: Date.now() - t0, fuente: input.fuente, sym, lentos: Datos.lentos() });
     if (Date.now() - (guardado[sym] || 0) > 60000) { guardado[sym] = Date.now(); Datos.guardarUltimo(sym, rows); }
   } catch (e) {
     if (sym === ACTIVO) postMessage({ tipo: 'error', texto: e && e.message ? e.message : String(e), sym });

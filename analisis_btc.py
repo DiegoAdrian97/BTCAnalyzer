@@ -1688,6 +1688,8 @@ def run_live(every, public=False):
     if public and len(password) < 8:
         raise SystemExit("Para publicar el dashboard hace falta la variable VIVO_CLAVE con al menos 8 caracteres.")
 
+    _GZ = {}                                     # ultima pagina comprimida (se rehace cuando cambia el archivo)
+
     class Quiet(http.server.SimpleHTTPRequestHandler):
         def log_message(self, *args):
             pass
@@ -1704,7 +1706,41 @@ def run_live(every, public=False):
                 self.send_header("WWW-Authenticate", 'Basic realm="Analista BTC", charset="UTF-8"')
                 self.end_headers()
                 return
+            if self.comprimido():
+                return
             super().do_GET()
+
+        def comprimido(self):
+            """La pagina con los datos adentro pesa cerca de 1 MB: comprimida con gzip baja unas 6 veces (si el navegador acepta)."""
+            import gzip
+            if "gzip" not in self.headers.get("Accept-Encoding", ""):
+                return False
+            path = self.translate_path(self.path)
+            if os.path.isdir(path):
+                if not self.path.split("?")[0].endswith("/"):
+                    return False                      # la redireccion a ".../" la hace la clase base
+                path = os.path.join(path, "index.html")
+            if not path.endswith((".html", ".json", ".js", ".css", ".txt")) or not os.path.isfile(path):
+                return False
+            try:
+                clave = (path, os.stat(path).st_mtime_ns)
+                data = _GZ.get(clave)
+                if data is None:
+                    with open(path, "rb") as fh:
+                        data = gzip.compress(fh.read(), 6)
+                    _GZ.clear()
+                    _GZ[clave] = data
+            except OSError:
+                return False
+            self.send_response(200)
+            self.send_header("Content-Type", self.guess_type(path))
+            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Vary", "Accept-Encoding")
+            self.end_headers()
+            self.wfile.write(data)
+            return True
 
         def do_HEAD(self):
             if password and not self.authorized():

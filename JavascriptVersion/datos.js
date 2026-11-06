@@ -78,19 +78,28 @@
     turno[eid] = t + gap;
     if (t > ahora) await new Promise((r) => setTimeout(r, t - ahora));
   }
+  // pedidos lentos (mas de LENTO_MS, o que no respondieron): los ultimos, para ver en la pagina que fuente frena al celular
+  const LENTO_MS = 2500, lentos = [];
+  function anotarLento(eid, url, ms, error) {
+    const u = new URL(url), que = u.pathname.split('/').filter(Boolean).slice(-2).join('/');
+    lentos.push({ eid, que, ms: Math.round(ms), t: Date.now(), error: error || null });
+    if (lentos.length > 40) lentos.splice(0, lentos.length - 40);
+  }
   async function pedir(eid, url) {
     if (isBanned(eid)) throw new Error(`${eid} en pausa por exceso de pedidos`);
     await esperarTurno(eid);
     if (isBanned(eid)) throw new Error(`${eid} en pausa por exceso de pedidos`);
     let res;
-    const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), ESPERA_MS);
+    const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), ESPERA_MS), t0 = Date.now();
     try {
       res = await fetch(url, { cache: 'no-store', signal: ctl.signal });
     } catch (e) {
       clearTimeout(tm);
+      anotarLento(eid, url, Date.now() - t0, ctl.signal.aborted ? 'no respondió' : 'sin conexión');
       throw new Error(ctl.signal.aborted ? `${eid}: no respondió en ${ESPERA_MS / 1000} s` : `${eid}: sin conexión`);
     }
     clearTimeout(tm);
+    if (Date.now() - t0 > LENTO_MS) anotarLento(eid, url, Date.now() - t0);
     if ([418, 429, 403, 451].includes(res.status)) {
       let until = Date.now() + (eid.startsWith('bitget') ? 30000 : 120000);   // sin fecha: pausa (Bitget limita por segundo: 30 s)
       const body = await res.text().catch(() => '');
@@ -106,7 +115,7 @@
 
   // cache con un solo pedido en vuelo por clave; si falla, no se reintenta hasta 2 min despues (antes una fuente
   // caida se volvia a pedir en cada ciclo y cada ciclo la esperaba)
-  const enVuelo = {}, fallo = {}, sinDato = {};
+  const enVuelo = {}, fallo = {}, sinDato = {}, velasEnVuelo = {};
   async function cached(key, ttl, fn) {
     const hit = memo[key];
     if (hit && Date.now() - hit[0] < ttl) return hit[1];
@@ -162,14 +171,30 @@
     }
 
     /** Velas cerradas: lo guardado en el telefono mas lo nuevo. */
-    async function updateCandles(src, tf, days, now) {
-      const key = `${pre()}velas:${src}:${tf}`, tfMs = TF_MS[tf], limit = src === 'binance' ? 1500 : src === 'bitget' ? 200 : 1000;
+    // Si otro ciclo ya esta bajando las mismas velas (el analisis de fondo cortado al elegir ese activo), se espera ese
+    // pedido en vez de repetirlo: antes se bajaban dos veces y las dos escrituras se pisaban.
+    function updateCandles(src, tf, days, now) {
+      const key = `${pre()}velas:${src}:${tf}`;
+      if (!velasEnVuelo[key]) velasEnVuelo[key] = bajarVelas(key, src, tf, days, now).finally(() => { delete velasEnVuelo[key]; });
+      return velasEnVuelo[key];
+    }
+    async function bajarVelas(key, src, tf, days, now) {
+      const tfMs = TF_MS[tf], limit = src === 'binance' ? 1500 : src === 'bitget' ? 200 : 1000;
       let candles = (await dbGet(key)) || [];
       const before = candles.length;
       let since = candles.length ? candles[candles.length - 1][0] + tfMs : now - days * DAY;
       while (since + tfMs <= now) {
         const falta = Math.ceil((now - since) / tfMs) + 1;
-      const batch = (await klines(src, tf, since, src === 'bitget' ? limit : Math.min(limit, Math.max(2, falta)))).filter((c) => c[0] >= since && c[0] + tfMs <= now);
+        let batch;
+        if (src !== 'bitget' && falta > limit) {
+          // varias paginas (la primera vez, o despues de dias sin abrir): todas juntas. Antes iban una detras de otra:
+          // en el 5m eran 6 viajes seguidos, y en el 3G del celu cada viaje tarda medio segundo o mas
+          const inicios = [];
+          for (let t = since; t + tfMs <= now && inicios.length < 8; t += limit * tfMs) inicios.push(t);
+          const paginas = await Promise.all(inicios.map((t) => klines(src, tf, t, limit)));
+          const visto = new Set();
+          batch = paginas.flat().filter((c) => c[0] >= since && c[0] + tfMs <= now && !visto.has(c[0]) && visto.add(c[0])).sort((a, b) => a[0] - b[0]);
+        } else batch = (await klines(src, tf, since, src === 'bitget' ? limit : Math.min(limit, Math.max(2, falta)))).filter((c) => c[0] >= since && c[0] + tfMs <= now);
         if (!batch.length) {
           // Bitget no salta solo al primer dia que cotiza: se avanza de a una ventana hasta encontrar velas
           if (src === 'bitget' && since + limit * tfMs < now) { since += limit * tfMs; continue; }
@@ -310,7 +335,11 @@
     const accion = ACCIONES_APP.has(sym) ? sym.replace('USDT', '') : null, extK = accion ? `externo:${accion}` : 'externo';
     const extP = cached(extK, 600000, async () => {
       const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), ESPERA_MS);
-      try { const r = await fetch(accion ? `api/contexto?moneda=${accion}` : 'api/contexto', { cache: 'no-store', signal: ctl.signal }); if (!r.ok) throw new Error(r.status); return r.json(); } finally { clearTimeout(tm); }
+      const t0 = Date.now(), u = new URL(accion ? `api/contexto?moneda=${accion}` : 'api/contexto', self.location.href);
+      try {
+        const r = await fetch(u, { cache: 'no-store', signal: ctl.signal }); if (!r.ok) throw new Error(r.status);
+        const j = await r.json(); if (Date.now() - t0 > LENTO_MS) anotarLento('vercel', u.href, Date.now() - t0); return j;
+      } catch (e) { anotarLento('vercel', u.href, Date.now() - t0, ctl.signal.aborted ? 'no respondió' : 'falló'); throw e; } finally { clearTimeout(tm); }
     }).catch(() => null);
     const liqP = cached(`${pre()}liquidaciones`, 300000, liqRaw).catch(() => null);
     const opcP = sym === 'BTCUSDT' ? cached('opciones', 600000, opcionesRaw).catch(() => null) : Promise.resolve(null);
@@ -338,6 +367,7 @@
   // el ultimo analisis de cada activo, guardado en el telefono: al abrir la app se muestra al toque mientras se calcula
   const ultimo = (sym) => dbGet(`ultimo:${sym}`);
   const guardarUltimo = (sym, rows) => dbSet(`ultimo:${sym}`, { hora: Date.now(), rows });
-  const Datos = { recolectar, ultimo, guardarUltimo, guardarLog: (log, sym = 'BTCUSDT') => dbSet(`${sym === 'BTCUSDT' ? '' : `${sym}:`}predicciones`, log), isBanned };
+  const Datos = { recolectar, ultimo, guardarUltimo, guardarLog: (log, sym = 'BTCUSDT') => dbSet(`${sym === 'BTCUSDT' ? '' : `${sym}:`}predicciones`, log), isBanned,
+    lentos: () => lentos.slice() };
   root.Datos = Datos;
 })(typeof self !== 'undefined' ? self : globalThis);

@@ -156,6 +156,29 @@ la pausa es de 30 s (antes 2 min).
 `generar_pagina.py` escribe la huella de la página en `version.txt` y en la página; al volver a la app (y cada 5 min)
 se comparan y, si cambió, se recarga.
 
+**Optimizaciones de velocidad** (medidas con `pruebas/celular_lento.js`: iPhone 13, CPU 4x más lenta, sin internet,
+con exchanges falsos). Segunda apertura en 3G: el gráfico pasó de 5,0 s a 1,3 s y la app baja 0 KB (antes 183 KB);
+primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~30% menos trabado por análisis.
+- **Caché del navegador** (`JavascriptVersion/vercel.json`): los `.js` de la app y `lib/` son inmutables (llevan la
+  huella `?v=`); `termometro.json` y `modelo_fuerte.json` se piden con `no-cache` (si no cambiaron, responde 304; antes
+  se bajaban enteros en cada apertura). Vercel ya comprime con brotli; el servidor de Render ahora comprime con gzip.
+- **Librerías propias** (`JavascriptVersion/lib/`: d3 7.9.0 y Lightweight Charts 5.1.0, sin tocar): sin dos conexiones
+  nuevas a CDN al abrir. Las fuentes ya eran las del sistema (nada que bajar).
+- **Pedidos en paralelo**: las páginas de velas del historial van todas juntas (antes una detrás de otra) y los modelos
+  se bajan a la vez que las velas. **Sin duplicados**: si dos ciclos piden las mismas velas, esperan el mismo pedido.
+- **Más livianos**: el plan de compras pide solo los días desde el plan (con `limit=1500` Binance cobraba 10 de peso
+  por pedido, 4 criptos cada 15 s); el panel de activos sin WebSocket pide todos los precios en un pedido (antes 16).
+- **Esqueletos de carga**: mientras llega el primer análisis, bloques grises con brillo en la predicción, el sesgo y
+  el gráfico. **Dibujo perezoso**: los desplegables cerrados (probabilidades, señales, niveles, ondas, indicadores,
+  aciertos y velocidad) no se dibujan en cada análisis, sino al abrirlos; "Cómo viene aprendiendo" solo si cambió.
+  Las filas del análisis se indexan por tabla una vez (antes cada búsqueda recorría ~3.000 filas, ~60 veces).
+- **Velocidad real** (desplegable "Velocidad de la app en este celular"): cuánto tarda en pintar, en mostrar el
+  análisis y cada análisis, la mediana de las últimas aperturas y los pedidos lentos (más de 2,5 s) o caídos, por
+  fuente. Se mide y se guarda solo en el teléfono.
+- No aplican (no hay base de datos ni servidor propio con tráfico): consultas N+1, índices de base, pool de
+  conexiones, Redis, colas de trabajo, varias instancias y OpenTelemetry. Sus equivalentes ya estaban: caché de Vercel
+  de 10 min para las noticias, cachés en memoria por fuente, velas guardadas en el teléfono y el worker como cola.
+
 ### Acciones en la app: AAPL, NVDA, MSFT, GOOGL, AMZN, SPCX, META, TSLA, AMD, BABA, MELI y los índices SPY y QQQ
 
 Los perpetuos de acciones (`BABAUSDT`, `NVDAUSDT`, `GOOGLUSDT`, `AMDUSDT` en Binance; `MELIUSDT` solo en Bitget) se
@@ -502,4 +525,6 @@ python JavascriptVersion/generar_pagina.py
 | `JavascriptVersion/` | La versión que corre entera en el teléfono (Vercel): `analisis.js`, `indicadores.js`, `aprendizaje.js`, `datos.js`, `worker.js` |
 | `medir_contexto.py` | Mide con años de historia si una señal o idea nueva le gana a la tasa base antes de sumarla |
 | `JavascriptVersion/api/posiciones.js` | Tus posiciones y órdenes de BingX, solo lectura (Vercel) |
+| `JavascriptVersion/vercel.json`, `JavascriptVersion/lib/` | Caché del navegador en Vercel y las librerías del gráfico (d3, Lightweight Charts) alojadas en la app |
+| `pruebas/celular_lento.js` | Prueba la app como un iPhone con red lenta (sin internet, exchanges falsos) |
 | `backtest_*.py`, `grid_bot_zec.py` | Backtests y bot de grilla (BingX demo) |

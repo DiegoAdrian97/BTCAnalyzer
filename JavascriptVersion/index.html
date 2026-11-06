@@ -42,10 +42,10 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 #estado-app.es-error i { background: var(--color-bad); animation: none; }
 @keyframes ea { to { opacity: .25; } }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
-<script>window.AB_PAGINA = "e7929ff6c5";</script>
-<script src="app.js?v=0befa5d939"></script>
+<script src="lib/d3-7.9.0.min.js"></script>
+<script src="lib/lightweight-charts-5.1.0.js"></script>
+<script>window.AB_PAGINA = "bb05a28218";</script>
+<script src="app.js?v=995681a77a"></script>
 </head><body><div id="dash-root">
 <style>
   /* Tema: minimalista y moderno. Una sola familia tipografica (la del sistema: SF en el iPhone), superficies planas,
@@ -460,6 +460,17 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
   [data-dash-source-state=empty] { color: transparent; }
 
+  /* esqueletos de carga: mientras llega el primer analisis, bloques grises con un brillo que pasa (en vez de rayas y huecos) */
+  @keyframes ab-brillo { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+  .ab-cargando :is(#verdict-big, #titular, #likely, #gauge-txt, #mov-nivel, #mov-rango, #apr-ap, #apr-og, #apr-br), .ab-cargando #chart, .ab-cargando #plazos::before,
+  .ab-cargando #gauge, .ab-cargando #first-split {
+    color: transparent !important; border-radius: 8px; user-select: none;
+    background: linear-gradient(100deg, var(--line) 30%, color-mix(in srgb, var(--line) 45%, transparent) 50%, var(--line) 70%) 0 0 / 250% 100%;
+    animation: ab-brillo 1.4s linear infinite; }
+  .ab-cargando #verdict-big { width: min(14ch, 80%); } .ab-cargando #titular { min-height: 3em; } .ab-cargando #likely { min-width: 6ch; }
+  .ab-cargando #gauge { opacity: .7; } .ab-cargando #first-split { min-height: 34px; }
+  .ab-cargando #plazos::before { content: ''; display: block; height: 58px; grid-column: 1 / -1; min-width: 100%; }
+  @media (prefers-reduced-motion: reduce) { .ab-cargando *, .ab-cargando #plazos::before { animation: none !important; } }
   @media (prefers-reduced-motion: no-preference) {
     .ab-first .ab-card { animation: ab-in .6s var(--cds-ease-out) both; }
     .ab-first .ab-row > :nth-child(2) { animation-delay: 70ms; } .ab-first .ab-row > :nth-child(3) { animation-delay: 140ms; }
@@ -583,6 +594,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   .ab-apr-stat small { font-size: var(--cds-font-size-caption); color: var(--mute); line-height: 1.3; }
   .ab-apr-stat b { font-family: var(--serif); font-weight: 400; font-size: clamp(1.25rem, 3.4vw, 1.7rem); font-variant-numeric: tabular-nums; line-height: 1.15; }
   .ab-apr-stat span { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--mute); }
+  .ab-vel-lista { margin: 4px 0 0; padding-left: 1.1em; display: grid; gap: 4px; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
   .ab-apr-chart svg { display: block; width: 100%; overflow: visible; }
   .ab-apr-chart text { font-size: 10.5px; fill: var(--mute); font-variant-numeric: tabular-nums; }
   .ab-tbl tr.ab-sel td { background: color-mix(in srgb, var(--ink) 6%, transparent); }
@@ -704,10 +716,6 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   .ab-tm-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; position: sticky; top: calc(-1 * max(20px, calc(env(safe-area-inset-top) + 12px))); z-index: 2;
     margin: calc(-1 * max(20px, calc(env(safe-area-inset-top) + 12px))) -20px 0; padding: max(20px, calc(env(safe-area-inset-top) + 12px)) 20px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
   #tm-x { min-width: 44px; min-height: 44px; font-size: 18px; flex: none; }
-  .ab-cyc { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
-  .ab-cyc div { display: grid; gap: 2px; justify-items: center; font-size: 10px; color: var(--mute); }
-  .ab-cyc i { display: block; width: 100%; height: 8px; border-radius: 3px; }
-  .ab-cyc .now i { outline: 2px solid var(--ink); outline-offset: 1px; }
   .ab-tm-call { margin: 0; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--tm-col2, var(--ink)) 12%, transparent); border-left: 3px solid var(--tm-col2, var(--ink)); font-size: var(--cds-font-size-body); line-height: 1.45; }
   .ab-fng { width: 100%; max-width: 260px; justify-self: center; display: block; overflow: visible; }
   .ab-tm-big { display: flex; align-items: baseline; gap: 10px; }
@@ -730,7 +738,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   }
 </style>
 
-<div class="ab ab-first" id="analista" data-source="analisis">
+<div class="ab ab-first ab-cargando" id="analista" data-source="analisis">
   <header class="ab-top" id="resumen">
     <div class="ab-top-l">
       <span class="ab-live"><i></i><span><span id="moneda-lbl">BTC</span>/USDT perpetuo · actualizado <span data-source="analisis" data-field="hora_local" data-where="tabla=resumen">—</span> · <span id="next-run">—</span></span><span class="ab-live-state" id="live-state"></span></span>
@@ -1010,6 +1018,10 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       <summary><span>¿Viene acertando?</span></summary>
       <div class="ab-more-body"><div id="hits"></div></div>
     </details>
+    <details class="ab-more" id="velocidad">
+      <summary><span>Velocidad de la app en este celular</span><span class="ab-kicker" id="vel-k"></span></summary>
+      <div class="ab-more-body"><div id="vel"></div></div>
+    </details>
   </div>
 
   <p class="ab-foot">Datos públicos de Binance Futures, Bybit, OKX y Bitget, calculados en este teléfono. Las probabilidades y los escenarios cuentan lo que pasó en situaciones parecidas del pasado reciente; el mercado puede hacer otra cosa. No es una recomendación de inversión.</p>
@@ -1029,7 +1041,15 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   const tz = { timeZone: 'America/Argentina/Buenos_Aires' };
   const fmtT = (t, tf) => new Date(Number(t)).toLocaleString('es-AR', tf === '1d' ? { ...tz, day: '2-digit', month: '2-digit' }
     : { ...tz, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-  const pick = (rows, t, tf) => rows.filter((r) => r.tabla === t && (tf === undefined || r.tf === tf));
+  // Indice de las filas por tabla, armado una vez por analisis: antes cada pick() recorria las ~3.000 filas (y hay unos 60
+  // por dibujado). Devuelve una copia: hay quien la ordena.
+  const IDX = new WeakMap();
+  const pick = (rows, t, tf) => {
+    let m = IDX.get(rows);
+    if (!m) { m = new Map(); for (const r of rows) { let a = m.get(r.tabla); if (!a) m.set(r.tabla, a = []); a.push(r); } IDX.set(rows, m); }
+    const a = m.get(t) || [];
+    return tf === undefined ? a.slice() : a.filter((r) => r.tf === tf);
+  };
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
   const later = (fn) => (reduce ? fn() : requestAnimationFrame(() => requestAnimationFrame(fn)));
   // cada plazo se mira con las velas que mejor lo muestran
@@ -1341,6 +1361,15 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
         else { const d = await (await fetch(`https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=${m}USDT`, { cache: 'no-store' })).json(); nuevo(m, +d.lastPrice, +d.openPrice); }
       } catch (e) { /* se prueba en la proxima vuelta */ }
     }
+    // todos los precios de Binance en un pedido (pesa 2; uno por activo eran 16 pedidos). El cambio de 24 h se calcula
+    // contra la apertura que ya se tenia (del WebSocket o del ultimo analisis)
+    async function porLote(ms) {
+      try {
+        const l = await (await fetch('https://fapi.binance.com/fapi/v2/ticker/price', { cache: 'no-store' })).json();
+        const por = new Map((Array.isArray(l) ? l : []).map((x) => [x.symbol, +x.price]));
+        ms.forEach((m) => { const c = por.get(`${m}USDT`), o = (P[m] && P[m].o) || (A.precio(m) || {}).o; if (c > 0) nuevo(m, c, o > 0 ? o : c); else porPedido(m); });
+      } catch (e) { ms.forEach(porPedido); }
+    }
     function conectar() {
       const syms = A.todos().filter((m) => m !== 'MELI').map((m) => `${m.toLowerCase()}usdt@miniTicker`).join('/');
       try {
@@ -1352,7 +1381,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
         wsBg.onopen = () => { wsBg.send(JSON.stringify({ op: 'subscribe', args: [{ instType: 'USDT-FUTURES', channel: 'ticker', instId: 'MELIUSDT' }] })); ping = setInterval(() => { try { wsBg.send('ping'); } catch (x) { /* cerrado */ } }, 25000); };
         wsBg.onmessage = (e) => { if (e.data === 'pong') return; try { const d = (JSON.parse(e.data).data || [])[0]; if (d && d.lastPr) nuevo('MELI', +d.lastPr, +d.open24h); } catch (x) { /* idem */ } };
       } catch (e) { wsBg = null; }
-      const vuelta = () => { A.todos().filter((m) => Date.now() - (llegada[m] || 0) > 15000).forEach(porPedido); };
+      const vuelta = () => {
+        const viejos = A.todos().filter((m) => Date.now() - (llegada[m] || 0) > 15000), bn = viejos.filter((m) => m !== 'MELI');
+        if (bn.length > 2) porLote(bn); else bn.forEach(porPedido);
+        if (viejos.includes('MELI')) porPedido('MELI');
+      };
       rep = setTimeout(function otra() { vuelta(); rep = setTimeout(otra, 15000); }, 3500);
     }
     function desconectar() {
@@ -1407,10 +1440,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     if (ghostTimer) { clearInterval(ghostTimer); ghostTimer = null; }
     if (res.status !== 'ok') {
       chart.replaceChildren();
-      if (res.status === 'error') { chart.classList.remove('dash-skeleton'); const f = el('div', 'ab-fail'); f.append(el('i'), 'Failed to load'); chart.append(f); }
+      if (res.status === 'error') { root.classList.remove('ab-cargando'); chart.classList.remove('dash-skeleton'); const f = el('div', 'ab-fail'); f.append(el('i'), 'Failed to load'); chart.append(f); }
       return;
     }
     document.querySelectorAll('#analista .dash-skeleton').forEach((e) => e.classList.remove('dash-skeleton'));
+    root.classList.remove('ab-cargando');
     const rows = res.data;
     const sum = pick(rows, 'resumen')[0];
     S.rows = rows; S.sum = sum;
@@ -1430,19 +1464,68 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     if (pi && pi.modelo) { PISO = pi.modelo; try { localStorage.setItem('ab-piso', JSON.stringify(PISO)); } catch (e) { /* sin almacenamiento */ } drawPosiciones(); }
     if (window.abNotif) window.abNotif.filas(rows);
     drawCompras();
-    drawLearning(rows);
+    drawLearningSiCambia(rows);
     drawGauge(rows);
     drawChart(rows, sum);
-    drawProbs(rows, sum);
-    drawSignals(rows);
-    drawLevels(rows, sum);
-    drawWaves(rows);
-    drawIndicators(rows);
+    document.getElementById('prob-tf').textContent = `a ${S.plazo}`;
+    document.getElementById('ond-tf').textContent = TF_TXT[S.tf]; document.getElementById('ind-tf').textContent = TF_TXT[S.tf];
+    Object.keys(PEREZOSOS).forEach(perezoso);
     drawNote(sum);
-    drawHits(rows);
     placeTf(); placeSc();
     connectLive();
     if (first) { first = false; setTimeout(() => root.classList.remove('ab-first'), 1800); }
+  }
+
+  // Lo que esta dentro de un desplegable cerrado no se dibuja en cada analisis (cada 12 s): se dibuja al abrirlo y,
+  // mientras siga abierto, con cada analisis. Antes se armaba todo aunque no se viera.
+  const PEREZOSOS = { probabilidades: () => drawProbs(S.rows, S.sum), senales: () => drawSignals(S.rows), niveles: () => drawLevels(S.rows, S.sum),
+    ondas: () => drawWaves(S.rows), indicadores: () => drawIndicators(S.rows), aciertos: () => drawHits(S.rows), velocidad: () => drawVelocidad() };
+  const pendiente = new Set();
+  function perezoso(id) {
+    const d = document.getElementById(id);
+    if (d && !d.open) { pendiente.add(id); return; }
+    pendiente.delete(id);
+    try { PEREZOSOS[id](); } catch (e) { console.error(id, e); }
+  }
+  Object.keys(PEREZOSOS).forEach((id) => {
+    const d = document.getElementById(id);
+    if (d) d.addEventListener('toggle', () => { if (d.open && pendiente.has(id) && (S.rows || id === 'velocidad')) perezoso(id); });
+  });
+  if (window.abVelocidad) window.abVelocidad.onCambio(() => perezoso('velocidad'));
+
+  // "Como viene aprendiendo" cambia pocas veces por hora: se redibuja solo si cambiaron sus filas, el plazo, el ancho o el tema
+  let aprFirma = '', aprAncho = window.innerWidth;
+  window.addEventListener('resize', () => { aprAncho = window.innerWidth; });      // leerlo en medio del dibujado forzaba un re-layout
+  function drawLearningSiCambia(rows) {
+    const firma = JSON.stringify([S.plazo, aprAncho, window.abOscuro ? window.abOscuro() : 0, pick(rows, 'aprendizaje'), pick(rows, 'aprendizaje_curva')]);
+    if (firma === aprFirma) return;
+    aprFirma = firma; drawLearning(rows);
+  }
+
+  // ---------- velocidad real en este telefono (la mide app.js; no sale del telefono) ----------
+  function drawVelocidad() {
+    const box = document.getElementById('vel'); if (!box || !window.abVelocidad) return;
+    const V = window.abVelocidad.ahora(), H = window.abVelocidad.historia();
+    const seg = (ms) => (ms === null || ms === undefined ? '—' : ms < 1000 ? `${f0(ms)} ms` : `${f1(ms / 1000)} s`);
+    const med = (xs) => { const v = xs.filter((x) => x !== null && x !== undefined).sort((a, b) => a - b); return v.length ? v[Math.floor(v.length / 2)] : null; };
+    const ciclo = med(V.ciclos);
+    document.getElementById('vel-k').textContent = V.abrir !== null ? `abre en ${seg(V.abrir)}` : '';
+    const top = el('div', 'ab-apr-top');
+    const st = (t, v, sub) => { const d = el('div', 'ab-apr-stat'); d.append(el('small', '', t), el('b', '', v), el('span', '', sub || '')); return d; };
+    top.append(st('Primer pintado', seg(V.abrir), V.red ? `red ${V.red.toUpperCase()}` : ''),
+      st('Análisis en pantalla', seg(V.primero), V.primero !== null && V.nuevo !== null && V.primero < V.nuevo ? 'el guardado, al toque' : ''),
+      st('Análisis nuevo', seg(V.nuevo), ciclo !== null ? `cada uno tarda ${seg(ciclo)}` : ''));
+    const hist = H.filter((x) => x.nuevo !== null);
+    const lineas = [];
+    if (hist.length >= 3) lineas.push(`En las últimas ${hist.length} aperturas (mediana): pinta en ${seg(med(hist.map((x) => x.abrir)))}, muestra un análisis en ${seg(med(hist.map((x) => x.primero)))} y el nuevo en ${seg(med(hist.map((x) => x.nuevo)))}.`);
+    const grupos = {};
+    V.lentos.forEach((x) => { const k = `${x.eid} · ${x.que}`; const g = grupos[k] || (grupos[k] = { k, n: 0, max: 0, t: 0, error: null }); g.n += 1; g.max = Math.max(g.max, x.ms); g.t = Math.max(g.t, x.t); if (x.error) g.error = x.error; });
+    const gs = Object.values(grupos).sort((a, b) => b.t - a.t).slice(0, 6);
+    const lista = el('ul', 'ab-vel-lista');
+    if (!gs.length) lista.append(el('li', '', 'Ningún pedido tardó más de 2,5 s desde que abriste la app.'));
+    gs.forEach((g) => lista.append(el('li', '', `${g.k}: ${g.error || `hasta ${seg(g.max)}`}${g.n > 1 ? ` (${g.n} veces)` : ''} · ${haceTxt(g.t)}`)));
+    box.replaceChildren(top, ...(lineas.length ? [el('p', 'ab-note', lineas.join(' '))] : []), el('p', 'ab-kicker', 'Pedidos lentos (más de 2,5 s) o caídos'), lista,
+      el('p', 'ab-note', 'Se mide en este teléfono y queda guardado solo acá (no se manda a ningún lado). Sirve para ver si la app anda lenta y qué fuente la frena.'));
   }
 
   // ---------- que esta pasando: por que se mueve fuerte ----------
@@ -1507,15 +1590,17 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     const mons = [...new Set(PLAN_COMPRAS.compras.map((c) => c.moneda))];
     // desde el inicio del dia del plan: con la hora exacta, el primer dia (vela diaria abierta antes) no venia y quedaba vacio
     const desde = PLAN_COMPRAS.desde - (PLAN_COMPRAS.desde % 86400000);
+    // solo los dias desde el plan: con limit=1500 Binance cobraba 10 de peso por pedido aunque vinieran 20 velas (4 criptos cada 15 s)
+    const dias = Math.min(1500, Math.ceil((Date.now() - desde) / 86400000) + 2);
     await Promise.all(mons.map(async (m) => {
       const s = `${m}USDT`;
       try {
-        const k = await (await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${s}&interval=1d&startTime=${desde}&limit=1500`)).json();
+        const k = await (await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${s}&interval=1d&startTime=${desde}&limit=${dias}`)).json();
         if (!Array.isArray(k) || !k.length) throw new Error('vacio');
         CMP.datos[m] = { bajo: Math.min(...k.map((x) => +x[3])), alto: Math.max(...k.map((x) => +x[2])), precio: +k[k.length - 1][4] };
       } catch (e) {
         try {
-          const j = await (await fetch(`https://api.bybit.com/v5/market/kline?category=linear&symbol=${s}&interval=D&start=${desde}&limit=1000`)).json();
+          const j = await (await fetch(`https://api.bybit.com/v5/market/kline?category=linear&symbol=${s}&interval=D&start=${desde}&limit=${Math.min(1000, dias)}`)).json();
           const k = j.result.list;
           if (!k || !k.length) throw new Error('vacio');
           CMP.datos[m] = { bajo: Math.min(...k.map((x) => +x[3])), alto: Math.max(...k.map((x) => +x[2])), precio: +k[0][4] };
@@ -1854,37 +1939,6 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     if (t.regla === 'miedo_bajista' && R.miedo_bajista) return [call('var(--color-ok)', `Extreme Fear en año bajista: el miedo de los demás es oportunidad. ${txt(R.miedo_bajista)}; antes llegó a caer ${R.miedo_bajista.caida_mediana}% (mediana): conviene comprar de a partes.`)];
     if (t.regla === 'codicia_alcista3' && R.codicia_alcista3) return [call('var(--color-bad)', `Extreme Greed en el 3er año alcista: demasiada codicia, aviso de venta. ${txt(R.codicia_alcista3)}.`)];
     return [];
-  }
-  function cicloBloque(t, fv) {
-    const out = [], MES = 'ene feb mar abr may jun jul ago sep oct nov dic'.split(' ');
-    const fecha = (ms) => { const d = new Date(ms); return `${MES[d.getUTCMonth()]}-${d.getUTCFullYear()}`; };
-    const strip = el('div', 'ab-cyc');
-    for (let y = t.año - 3; y <= t.año + 3; y++) {
-      const f = y % 4 === 2 ? 'bajista' : 'alcista', d = el('div', y === t.año ? 'now' : ''), b = el('i');
-      b.style.background = f === 'bajista' ? 'var(--color-bad)' : 'var(--color-ok)'; b.style.opacity = y > t.año ? '.35' : '1';
-      d.append(b, el('span', '', String(y))); strip.append(d);
-    }
-    out.push(strip, el('p', 'ab-hero-sub', `${t.año}: año ${t.fase} del ciclo (3 años alcistas y 1 bajista). Desde 2012 se cumplió en todos los años menos 2025, que tocaba alcista y cerró ${(t.años.find((a) => a[0] === 2025) || [0, 0, 0])[2]}%.`));
-    const cs = t.ciclos || [];
-    if (cs.length) {
-      const ul = el('ul', 'ab-tm-list');
-      cs.forEach((c) => ul.append(el('li', '', `Máximo ${fecha(c.pico_t)} (${f0(c.pico)}) → piso ${fecha(c.piso_t)} (${f0(c.piso)})${c.confirmado ? '' : ' por ahora'}: ${c.caida}% en ${f1(c.meses_bajista)} meses${c.meses_alcista_antes ? ` · alcista previo: ${f1(c.meses_alcista_antes)} meses` : ''}.`)));
-      out.push(ul);
-      const ult = cs[cs.length - 1], prev = cs.filter((c) => c.meses_alcista_antes).map((c) => c.meses_alcista_antes);
-      if (ult && prev.length) {
-        const ul2 = prev[prev.length - 1], mas = (m) => ult.piso_t + m * 30.44 * 86400000;
-        const dur = (m) => { const a = Math.floor(m / 12), r = Math.round(m - a * 12); return `${a} años${r ? ` y ${r} meses` : ''}`; };
-        out.push(el('p', 'ab-note', `Cada alcista fue un poco más corto (${prev.map((m) => f1(m)).join(' → ')} meses; el último, ${dur(ul2)}) y el último bajista también (${f1(ult.meses_bajista)} meses). Si el piso de ${fecha(ult.piso_t)} se sostiene, el próximo máximo caería hacia ${fecha(mas(30))} si el alcista dura 2 años y medio, o ${fecha(mas(ul2))} si dura como el último.`));
-      }
-    }
-    const R = t.reglas || {}, txt = (r) => `12 meses después BTC estuvo más arriba el ${r.sube_365}% de las veces (mediana ${r.mediana_365 > 0 ? '+' : ''}${r.mediana_365}%)`;
-    const call = (cls, s) => { const p = el('p', 'ab-tm-call', s); p.style.setProperty('--tm-col2', cls); return p; };
-    if (t.regla === 'miedo_bajista' && R.miedo_bajista) out.push(call('var(--color-ok)', `Extreme Fear en año bajista (${R.miedo_bajista.años.join(', ')}): ${txt(R.miedo_bajista)}; antes de subir llegó a caer ${R.miedo_bajista.caida_mediana}% (mediana).`));
-    else if (t.regla === 'codicia_alcista3' && R.codicia_alcista3) out.push(call('var(--color-bad)', `Extreme Greed en el 3er año alcista (${R.codicia_alcista3.años.join(', ')}): ${txt(R.codicia_alcista3)}. Zona de venta.`));
-    else if (t.regla === 'codicia_alcista12' && R.codicia_alcista12) out.push(call('var(--color-fg-muted)', `Extreme Greed en el 1er o 2º año alcista: ${txt(R.codicia_alcista12)}: en esta fase siguió subiendo.`));
-    else if (t.fase === 'bajista' && R.miedo_bajista) out.push(el('p', 'ab-note', `Si aparece Extreme Fear (<25) en este año bajista: ${txt(R.miedo_bajista)}; antes llegó a caer ${R.miedo_bajista.caida_mediana}% (mediana).`));
-    else if (t.fase === 'alcista 3' && R.codicia_alcista3) out.push(el('p', 'ab-note', `Si aparece Extreme Greed (>75) en este 3er año alcista: ${txt(R.codicia_alcista3)}.`));
-    return out;
   }
   function drawTermometro(rows) {
     const tab = document.getElementById('tm-tab'), body = document.getElementById('tm-body');
@@ -3323,7 +3377,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       g.append('circle').attr('cx', axisX).attr('cy', it.y).attr('r', 3.5).style('fill', col);
       g.append('path').attr('d', `M${axisX - 6},${it.y} L${axisX - 16},${it.ly} L${axisX - 22},${it.ly}`).style('fill', 'none').style('stroke', 'var(--color-border-line)');
       g.append('text').attr('x', axisX - 26).attr('y', it.ly).attr('dy', '.34em').attr('text-anchor', 'end').style('fill', 'var(--color-fg)').text(it.name.replace(/ \(estimada\)/, ''))
-        .each(function () { const max = axisX - 30; let s = this.textContent; while (this.getComputedTextLength() > max && s.length > 4) { s = s.slice(0, -2); this.textContent = s + '…'; } });
+        .each(function () {      // se mide una vez y se corta en proporcion (antes, una medicion cada dos letras)
+          const max = axisX - 30, s = this.textContent, L = this.getComputedTextLength();
+          if (!(L > max)) return;
+          let n = Math.max(4, Math.floor(s.length * max / L) - 1); this.textContent = s.slice(0, n) + '…';
+          while (n > 4 && this.getComputedTextLength() > max) { n -= 2; this.textContent = s.slice(0, n) + '…'; }
+        });
       g.append('text').attr('x', axisX + 12).attr('y', it.ly).attr('dy', '.34em').style('fill', col).style('font-weight', 600).text(fp(it.p));
       g.append('text').attr('x', W - 2).attr('y', it.ly).attr('dy', '.34em').attr('text-anchor', 'end').style('fill', 'var(--color-fg-muted)').text(sg(it.d, 1));
     });
