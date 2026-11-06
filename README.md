@@ -72,6 +72,9 @@ La campanita al lado del título junta los avisos, en el propio dispositivo: cam
 de 7 días extremo, compra del plan a menos de 3% o ejecutada, liquidación a menos de 10%, toma de ganancias alcanzada
 y piramidado disponible. Al tocar una se abre el detalle con un botón a la sección. Se guardan en el navegador
 (las últimas 60) y se generan mientras la página está abierta. La primera vez solo anota cómo está todo.
+"Se acerca a tu compra" avisa la primera vez que el precio queda a 3% o menos; después vuelve a avisar solo si salió
+de esa zona y hace un nuevo mínimo (más bajo que todo lo que marcó desde el aviso anterior): un rebote que vuelve a
+bajar del 3% sin pasar ese mínimo no avisa. Telegram (`avisos.py`) sigue la misma regla.
 
 ### Comandos de Telegram
 

@@ -922,6 +922,7 @@ def _compras(ahora):
         return
     _estado["compras_t"] = ahora
     avisados = _estado.setdefault("compras", set())
+    cerca = _estado.setdefault("compras_cerca", {})      # (moneda, n) -> lo mas bajo desde el ultimo aviso y si salio de la zona
     ex = _bybit()
     # desde el inicio del plan: velas diarias hasta anteayer y de 1 hora desde ahi (con 1 hora desde el inicio, a los
     # 41 dias el pedido de 1000 velas ya no llegaba a hoy y el precio quedaba viejo)
@@ -954,12 +955,22 @@ def _compras(ahora):
                 else:
                     enviar(f"⚠ {m} tocó {_fmt(c['precio'])} y no tenías la orden", f"Tu {nombre} no estaba cargada. Si querés comprar "
                            f"igual: valor de la orden {_ar(c['orden'])} a 5x y después {_ar(c['extra'])} de margen. Ahora {_fmt(precio)}.", urgente=True)
-            elif (not c.get("cargada") and bajo_antes > c["precio"] and bajo_ahora > c["precio"]
-                  and precio <= c["precio"] * (1 + CERCA_COMPRA) and (clave, "cerca") not in avisados):
-                avisados.add((clave, "cerca"))
-                enviar(f"📌 {m} se acerca a tu compra #{c['n']}", f"{m} en {_fmt(precio)}, a {_ar((precio / c['precio'] - 1) * 100, 1)}% de "
-                       f"{_fmt(c['precio'])}. Cargá la orden límite: precio {_fmt(c['precio'])}, valor de la orden {_ar(c['orden'])} a 5x; "
-                       f"cuando se ejecute, agregá {_ar(c['extra'])} de margen.", urgente=True)
+            else:
+                # "se acerca" (a 3% o menos): la primera vez; despues, solo si salio de la zona y hace un nuevo minimo (mas
+                # bajo que todo lo que marco desde el aviso anterior). Antes: una vez por arranque del servicio.
+                zona = (not c.get("cargada") and bajo_antes > c["precio"] and bajo_ahora > c["precio"]
+                        and precio <= c["precio"] * (1 + CERCA_COMPRA))
+                sm = cerca.get(clave)
+                if zona and (sm is None or (sm["fuera"] and bajo_ahora < sm["min"])):
+                    cerca[clave] = {"min": min(precio, bajo_ahora), "fuera": False}
+                    nuevo = f" Nuevo mínimo: por debajo de {_fmt(sm['min'])}." if sm else ""
+                    enviar(f"📌 {m} se acerca a tu compra #{c['n']}", f"{m} en {_fmt(precio)}, a {_ar((precio / c['precio'] - 1) * 100, 1)}% de "
+                           f"{_fmt(c['precio'])}.{nuevo} Cargá la orden límite: precio {_fmt(c['precio'])}, valor de la orden {_ar(c['orden'])} a 5x; "
+                           f"cuando se ejecute, agregá {_ar(c['extra'])} de margen.", urgente=True)
+                elif sm is not None:
+                    sm["min"] = min(sm["min"], bajo_ahora)
+                    if not zona:
+                        sm["fuera"] = True
 
 
 def _criticas(rows, ahora, price):

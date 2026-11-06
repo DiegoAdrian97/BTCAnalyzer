@@ -44,7 +44,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <script src="lib/d3-7.9.0.min.js"></script>
 <script src="lib/lightweight-charts-5.1.0.js"></script>
-<script>window.AB_PAGINA = "d34ad0b532";</script>
+<script>window.AB_PAGINA = "6a2715d1cf";</script>
 <script src="app.js?v=995681a77a"></script>
 </head><body><div id="dash-root">
 <style>
@@ -1902,8 +1902,23 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
           const d = CMP.datos[m]; if (!d) return;
           PLAN_COMPRAS.compras.filter((c) => c.moneda === m).forEach((c) => {
             const dist = (d.precio / c.precio - 1) * 100, hecha = cmpHecha(c, d);
-            cuando(`cc:${m}:${c.n}`, !hecha && dist <= 3, () => nueva(`cc:${m}:${c.n}:${hoy}`, '📌', `${m} se acerca a tu compra #${c.n}`, `a ${f1(dist)}% de ${fp(c.precio)}`,
-              [`${m} está en ${fp(d.precio)}, a ${f1(dist)}% de tu compra #${c.n} en ${fp(c.precio)}.`, cargada(c) ? 'La orden límite ya está cargada.' : `Cargá la orden límite: precio ${fp(c.precio)}, valor de la orden ${f0(c.orden)} a ${PLAN_COMPRAS.apalancamiento || 5}x.`], 'compras'));
+            // "se acerca" (a 3% o menos): la primera vez que entra en la zona; despues, solo si salio de la zona y hace un
+            // nuevo minimo (mas bajo que todo lo que marco desde el aviso anterior). Antes avisaba cada vez que volvia a
+            // bajar del 3%, aunque fuera un rebote dentro del mismo rango.
+            const zona = !hecha && dist <= 3, km = `cm:${m}:${c.n}`, sm = est[km];
+            const avisar = () => { nueva(`cc:${m}:${c.n}:${Date.now()}`, '📌', `${m} se acerca a tu compra #${c.n}`, `a ${f1(dist)}% de ${fp(c.precio)}`,
+              [`${m} está en ${fp(d.precio)}, a ${f1(dist)}% de tu compra #${c.n} en ${fp(c.precio)}.`, cargada(c) ? 'La orden límite ya está cargada.' : `Cargá la orden límite: precio ${fp(c.precio)}, valor de la orden ${f0(c.orden)} a ${PLAN_COMPRAS.apalancamiento || 5}x.`,
+               ...(sm ? [`Nuevo mínimo: ${fp(d.precio)}, por debajo de ${fp(sm.min)} (lo más bajo desde el aviso anterior).`] : [])], 'compras');
+              est[km] = { min: d.precio, bp: d.bajo, fuera: false }; };
+            if (!sm) cuando(`cc:${m}:${c.n}`, zona, avisar);
+            else {
+              // lo mas bajo desde el aviso: el precio de cada vuelta y, si el minimo del plan bajo, esa mecha
+              const lo = d.bajo < sm.bp ? Math.min(d.precio, d.bajo) : d.precio;
+              if (!zona) sm.fuera = true;
+              if (zona && sm.fuera && lo < sm.min) avisar();
+              else { sm.min = Math.min(sm.min, lo); sm.bp = Math.min(sm.bp, d.bajo); }
+              est[`cc:${m}:${c.n}`] = zona ? 1 : 0;
+            }
             cuando(`ch:${m}:${c.n}`, hecha, () => nueva(`ch:${m}:${c.n}`, '✅', `Se ejecutó tu compra #${c.n} de ${m}`, `${fp(c.precio)} · orden ${f0(c.orden)}`,
               [`${m} tocó ${fp(c.precio)}: tu orden de ${f0(c.orden)} USDT debería haberse ejecutado. Confirmalo en BingX.`, c.extra_agregado ? 'El margen extra ya lo tenías agregado.' : `Ahora agregá ${f0(c.extra)} USDT de margen (⊕ en la posición).`], 'posiciones'));
           });
