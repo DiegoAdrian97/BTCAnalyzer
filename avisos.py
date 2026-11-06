@@ -184,7 +184,7 @@ def setup(h1, h4, cfg=None):
     if len(h1) < 260 or len(h4) < 210:
         return None
     c = [b[4] for b in h1]
-    atr = ind.dmi([b[2] for b in h1], [b[3] for b in h1], c)[3]
+    atr = ind.atr_w([b[2] for b in h1], [b[3] for b in h1], c)
     e200 = ind.ema(c, 200)
     c4 = [b[4] for b in h4]
     t50, t200 = ind.ema(c4, 50)[-1], ind.ema(c4, 200)[-1]
@@ -302,7 +302,7 @@ def niveles(h1, h4, cfg):
     if len(h1) < 260 or len(h4) < 210:
         return None
     c = [b[4] for b in h1]
-    atr = ind.dmi([b[2] for b in h1], [b[3] for b in h1], c)[3][-1]
+    atr = ind.atr_w([b[2] for b in h1], [b[3] for b in h1], c)[-1]
     e200 = ind.ema(c, 200)[-1]
     c4 = [b[4] for b in h4]
     tend = 1 if ind.ema(c4, 50)[-1] > ind.ema(c4, 200)[-1] else -1

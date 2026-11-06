@@ -163,6 +163,12 @@ def ultimate(h, l, c, a=7, b=14, d=28):
     return out
 
 
+def atr_w(h, l, c, n=14):
+    """Solo el ATR de Wilder: lo mismo que dmi(...)[3] sin calcular ADX ni DI (lo piden varias funciones)."""
+    tr = [None] + [max(h[i] - l[i], abs(h[i] - c[i - 1]), abs(l[i] - c[i - 1])) for i in range(1, len(c))]
+    return rma(tr, n)
+
+
 def dmi(h, l, c, n=14):
     tr, pdm, mdm = [None], [None], [None]
     for i in range(1, len(c)):
@@ -216,7 +222,7 @@ def bollinger(c, n=20, k=2.0):
 
 def keltner(h, l, c, n=20, k=2.0):
     mid = ema(c, n)
-    _, _, _, a = dmi(h, l, c, 10)
+    a = atr_w(h, l, c, 10)
     return mid, [None if x is None else m + k * x for m, x in zip(mid, a)], [None if x is None else m - k * x for m, x in zip(mid, a)]
 
 
@@ -245,7 +251,7 @@ def psar(h, l, step=0.02, mx=0.2):
 
 
 def supertrend(h, l, c, n=10, k=3.0):
-    _, _, _, a = dmi(h, l, c, n)
+    a = atr_w(h, l, c, n)
     line, direction = [None] * len(c), [None] * len(c)
     fu = fl = None
     trend = 1
@@ -451,7 +457,7 @@ def fvg(bars, lookback=200, keep=6):
 def zigzag(bars, atr_mult=2.5):
     """Giros del precio: un nuevo pivote cuando se revierte mas de atr_mult * ATR desde el ultimo extremo."""
     h, l, c = [b[2] for b in bars], [b[3] for b in bars], [b[4] for b in bars]
-    _, _, _, atr_ = dmi(h, l, c)
+    atr_ = atr_w(h, l, c)
     pivots, direction, ext_i, hi_i, lo_i = [], 0, 0, 0, 0
     for i in range(1, len(bars)):
         a = atr_[i] or (h[i] - l[i])
@@ -500,7 +506,7 @@ def elliott(pivots, bars):
         return [], SIN_ELLIOTT, None, None, ""
     p = [x[2] for x in pivots]
     c = [b[4] for b in bars]
-    atr_last = dmi([b[2] for b in bars], [b[3] for b in bars], c)[3][-1] or 0.0
+    atr_last = atr_w([b[2] for b in bars], [b[3] for b in bars], c)[-1] or 0.0
     started = pivots[-1][1] < len(bars) - 1 and abs(c[-1] - p[-1]) >= atr_last
 
     def impulso(pts):
@@ -1023,7 +1029,7 @@ def divergencias(bars, pivots=None, max_age=30, min_gap=6, lookback=60, left=4, 
     """
     h, l, c = [b[2] for b in bars], [b[3] for b in bars], [b[4] for b in bars]
     n, last = len(bars), len(bars) - 1
-    atr_ = dmi(h, l, c)[3]
+    atr_ = atr_w(h, l, c)
     series = (("RSI", rsi(c)), ("MACD", macd(c)[0]))
     out = []
     for kind in ("alto", "bajo"):

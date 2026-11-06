@@ -42,9 +42,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 #estado-app.es-error i { background: var(--color-bad); animation: none; }
 @keyframes ea { to { opacity: .25; } }
 </style>
+<link rel="preconnect" href="https://fapi.binance.com" crossorigin>
+<link rel="preconnect" href="https://api.bybit.com" crossorigin>
 <script src="lib/d3-7.9.0.min.js"></script>
 <script src="lib/lightweight-charts-5.1.0.js"></script>
-<script>window.AB_PAGINA = "92031a9a4d";</script>
+<script>window.AB_PAGINA = "2c8f2a6d37";</script>
 <script src="app.js?v=ec90573d33"></script>
 </head><body><div id="dash-root">
 <style>
@@ -468,15 +470,18 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 
   /* esqueletos de carga: mientras llega el primer analisis, bloques grises con un brillo que pasa (en vez de rayas y huecos) */
   @keyframes ab-brillo { from { background-position: 150% 0; } to { background-position: -50% 0; } }
-  .ab-cargando :is(#verdict-big, #titular, #likely, #gauge-txt, #mov-nivel, #mov-rango, #apr-ap, #apr-og, #apr-br), .ab-cargando #chart, .ab-cargando #plazos::before,
+  .ab-cargando :is(#verdict-big, #titular, #likely, #gauge-txt, #mov-nivel, #mov-rango, #apr-ap, #apr-og, #apr-br, .ab-price, .ab-pills b), .ab-cargando #chart, .ab-cargando #plazos::before,
   .ab-cargando #gauge, .ab-cargando #first-split {
     color: transparent !important; border-radius: 8px; user-select: none;
     background: linear-gradient(100deg, var(--line) 30%, color-mix(in srgb, var(--line) 45%, transparent) 50%, var(--line) 70%) 0 0 / 250% 100%;
     animation: ab-brillo 1.4s linear infinite; }
+  .ab-cargando .ab-price, .ab-cargando .ab-price small { color: transparent !important; transition: none; }
   .ab-cargando #verdict-big { width: min(14ch, 80%); } .ab-cargando #titular { min-height: 3em; } .ab-cargando #likely { min-width: 6ch; }
   .ab-cargando #gauge { opacity: .7; } .ab-cargando #first-split { min-height: 34px; }
   .ab-cargando #plazos::before { content: ''; display: block; height: 58px; grid-column: 1 / -1; min-width: 100%; }
   @media (prefers-reduced-motion: reduce) { .ab-cargando *, .ab-cargando #plazos::before { animation: none !important; } }
+  /* al elegir un activo que todavia no tiene analisis: lo que queda del anterior se ve apagado hasta que llegue el nuevo */
+  .ab-cargando :is(#que-espero, #aprendizaje, #movimiento, #que-pasa, .ab-more, #plazos > *, #spark) { opacity: .35; pointer-events: none; transition: opacity .2s; }
   @media (prefers-reduced-motion: no-preference) {
     .ab-first .ab-card { animation: ab-in .6s var(--cds-ease-out) both; }
     .ab-first .ab-row > :nth-child(2) { animation-delay: 70ms; } .ab-first .ab-row > :nth-child(3) { animation-delay: 140ms; }
@@ -1309,7 +1314,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       const m = JSON.parse(ev.data);
       let k = m.k;
       if (bitget) { const d = m.data && m.data[m.data.length - 1]; if (!d) return; k = { t: +d[0], o: d[1], h: d[2], l: d[3], c: d[4], v: d[5] }; }
-      if (!k || sock !== ws) return;                  // un mensaje tardio del WebSocket anterior (otro activo) no cuenta
+      if (!k || sock !== ws || wsMon !== MON()) return;   // del activo anterior (mensaje tardio, o todavia no llego el analisis del nuevo)
       liveBar = { tf: wsTf, mon: wsMon, t: k.t, o: +k.o, h: +k.h, l: +k.l, c: +k.c, v: +k.v };
       ticks++;
       const pe = root.querySelector('.ab-price');
@@ -1512,6 +1517,10 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     const chart = document.getElementById('chart');
     if (ghostTimer) { clearInterval(ghostTimer); ghostTimer = null; }
     if (res.status !== 'ok') {
+      root.classList.add('ab-cargando');            // esqueletos tambien al elegir un activo que todavia no tiene analisis
+      // el nombre del activo nuevo ya; el precio y las cifras del anterior quedan tapadas hasta que llegue su analisis
+      document.getElementById('ab-title').textContent = `Analista ${MON()}`;
+      const lbl = document.getElementById('moneda-lbl'); if (lbl) lbl.textContent = MON();
       chart.replaceChildren();
       if (res.status === 'error') { root.classList.remove('ab-cargando'); chart.classList.remove('dash-skeleton'); const f = el('div', 'ab-fail'); f.append(el('i'), 'Failed to load'); chart.append(f); }
       return;

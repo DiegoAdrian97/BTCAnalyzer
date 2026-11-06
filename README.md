@@ -205,6 +205,12 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
 - **Arranque**: los 6 archivos del worker se piden juntos antes de crearlo (el `importScripts` los bajaba de a uno).
   Primera apertura con latencia alta: de 8,3 s a 6,9 s hasta el gráfico. Los análisis de fondo llegan a la pantalla como
   texto y se arman recién al elegir ese activo (elegir uno listo tarda ~60 ms).
+- **Más**: la página abre de antemano la conexión con Binance y Bybit (`preconnect`: el primer pedido de velas no espera
+  el saludo TLS); Python también calcula el ATR solo (`atr_w`), así el análisis de Render y los avisos gastan menos.
+- **Al cambiar de activo**: el gráfico vuelve a la vista por defecto con la escala de precios automática, y la vela en
+  vivo del activo anterior ya no se mezcla (de ZEC a BTC la escala quedaba de 1.300 a 100.000). Si el activo elegido
+  todavía no tiene análisis, el título ya dice el nuevo, el precio y las cifras del anterior quedan tapadas con
+  esqueletos y el resto se ve apagado hasta que llega el suyo.
 - No aplican (no hay base de datos ni servidor propio con tráfico): consultas N+1, índices de base, pool de
   conexiones, Redis, colas de trabajo, varias instancias y OpenTelemetry. Sus equivalentes ya estaban: caché de Vercel
   de 10 min para las noticias, cachés en memoria por fuente, velas guardadas en el teléfono y el worker como cola.

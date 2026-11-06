@@ -1038,7 +1038,7 @@ def analisis_largo(d1, tf, price, ultima_en_curso=False):
 def patterns(tf, bars, pivots, e20, horizon, tf_min, partial=False):
     """Patron de velas en las ultimas dos velas (con su historial de aciertos) y figura del grafico vigente."""
     o, h, l, c = ([b[k] for b in bars] for k in (1, 2, 3, 4))
-    atr_ = ind.dmi(h, l, c)[3]
+    atr_ = ind.atr_w(h, l, c)
     i = len(bars) - 1
     rows = []
     for k in (i, i - 1):

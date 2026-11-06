@@ -146,7 +146,7 @@ def rasgos(bars, tf_min, e50, e200, rsi, mh):
     """Los rasgos de cada vela (enteros) o None mientras arrancan los indicadores. Solo usan datos hasta esa vela."""
     n = len(bars)
     c = [b[4] for b in bars]
-    atr_ = ind.dmi([b[2] for b in bars], [b[3] for b in bars], c)[3]
+    atr_ = ind.atr_w([b[2] for b in bars], [b[3] for b in bars], c)
     mid, bu, bl = ind.bollinger(c)
     look = max(1, 1440 // tf_min)
     vol, acc = [None] * n, 0.0
@@ -187,7 +187,7 @@ def continuos(bars, tf_min, e50, e200, rsi, mh, parcial=False):
     l = [b[3] for b in bars]
     c = [b[4] for b in bars]
     v = [b[5] for b in bars]
-    atr_ = ind.dmi(h, l, c)[3]
+    atr_ = ind.atr_w(h, l, c)
     mid, bu, bl = ind.bollinger(c)
     look = max(1, 1440 // tf_min)
     raiz = 1.0
