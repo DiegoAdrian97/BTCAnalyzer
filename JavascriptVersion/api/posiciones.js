@@ -40,7 +40,9 @@ function posiciones(data) {
     const signo = p.positionSide === 'SHORT' || (p.positionSide !== 'LONG' && +p.positionAmt < 0) ? -1 : 1;
     out[m] = { cantidad: cant, signo, entrada: +p.avgPrice, margen: +(p.margin || p.initialMargin || 0), lado: p.positionSide,
       aislado: !!p.isolated, apalancamiento: +p.leverage || null, liquidacion: +p.liquidationPrice || null,
-      resultado: +p.unrealizedProfit || 0, marca: +p.markPrice || null };
+      resultado: +p.unrealizedProfit || 0, marca: +p.markPrice || null,
+      // para el precio de equilibrio: lo ya realizado (comisiones pagadas y funding, negativo si costo) y, si BingX lo da, el suyo
+      realizado: +p.realisedProfit || 0, equilibrio: +(p.breakEvenPrice || p.breakevenPrice || 0) || null };
   });
   return out;
 }

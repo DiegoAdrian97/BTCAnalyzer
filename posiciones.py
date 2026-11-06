@@ -42,9 +42,11 @@ def estado(plan, m, bajo, alto, precio):
     if cantidad <= 0 or precio is None:
         return out
     prom = nocional / cantidad
+    fee = plan.get("comision", 0.0005)          # taker de BingX por lado: equilibrio = entrada + comision de abrir y de cerrar
+    eq = prom * (1 + fee) / (1 - fee)
     valor = cantidad * precio
     liq = liquidacion(nocional, cantidad, margen, r)
-    out.update(promedio=prom, cantidad=cantidad, nocional=nocional, valor=valor, pnl=valor - nocional,
+    out.update(promedio=prom, equilibrio=eq, cantidad=cantidad, nocional=nocional, valor=valor, pnl=valor - nocional,
                pnl_pct=(valor - nocional) / margen * 100, apalancamiento_real=valor / (margen + valor - nocional),
                liquidacion=liq, dist_liq=(1 - liq / precio) * 100 if liq else None)   # cuanto tendria que caer
     pend = [c for c in cs if c not in hechas]      # si baja hasta la liquidacion, antes se ejecutan estas
@@ -53,9 +55,9 @@ def estado(plan, m, bajo, alto, precio):
                                       margen + sum(c["orden"] / lev for c in pend), r)
     g = plan.get("ganancias") or {}
     if g:
-        out["ganancias"] = [{"k": k, "precio": prom * (1 + g["cada"] * k), "vender": cantidad * g["vender"],
-                             "usdt": cantidad * g["vender"] * prom * (1 + g["cada"] * k),
-                             "alcanzado": alto is not None and alto >= prom * (1 + g["cada"] * k)}
+        out["ganancias"] = [{"k": k, "precio": eq * (1 + g["cada"] * k), "vender": cantidad * g["vender"],
+                             "usdt": cantidad * g["vender"] * eq * (1 + g["cada"] * k),
+                             "alcanzado": alto is not None and alto >= eq * (1 + g["cada"] * k)}
                             for k in range(1, g.get("niveles", 4) + 1)]
     pz = plan.get("piramidar") or {}
     if pz:
@@ -63,7 +65,7 @@ def estado(plan, m, bajo, alto, precio):
         k = lmax * (1 - r)
         a = (k * cantidad - nocional + margen) / (1 - k / precio) if precio > k else 0.0   # que la liq no pase lmax
         a = max(0.0, min(a, lev * margen - nocional))                                     # y que alcance el margen
-        out["piramidar"] = {"disponible": precio >= prom * (1 + pz["cada"]), "desde": prom * (1 + pz["cada"]),
+        out["piramidar"] = {"disponible": precio >= eq * (1 + pz["cada"]), "desde": eq * (1 + pz["cada"]),
                             "sumar": a, "monedas": a / precio,
                             "liq_nueva": liquidacion(nocional + a, cantidad + a / precio, margen, r), "liq_max": lmax}
     return out

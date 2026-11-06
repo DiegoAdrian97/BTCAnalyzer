@@ -839,7 +839,7 @@
     </div>
     <div class="ab-cmp-grid" id="pos-body"></div>
     <p class="ab-foot" id="pos-bx-nota" hidden>Posiciones y órdenes leídas de tu cuenta de BingX (solo lectura), cada minuto: cantidad, entrada, margen y liquidación son las de BingX, y una compra del plan cuenta como "orden puesta" si hay una orden límite de compra a ese precio.</p>
-    <p class="ab-foot">Se recalcula cada 15 segundos con el precio de ahora. Parte de lo que ya tenías abierto en BingX (cargado del 01/11: cantidad, entrada y margen) y le suma las compras del plan que se ejecuten desde ahí. La liquidación es aproximada (mantenimiento 0,4% BTC, 1% el resto): la exacta la muestra BingX. Toma de ganancias: cada +25% sobre tu promedio, pasar 25% de la posición a spot. Piramidar: cuando sube 15% sobre tu promedio, cuánto podés sumar sin plata nueva con la liquidación como mucho en 75% de tu compra más baja.</p>
+    <p class="ab-foot">Se recalcula cada 15 segundos con el precio de ahora. Parte de lo que ya tenías abierto en BingX (cargado del 01/11: cantidad, entrada y margen) y le suma las compras del plan que se ejecuten desde ahí. La liquidación es aproximada (mantenimiento 0,4% BTC, 1% el resto): la exacta la muestra BingX. Precio de equilibrio: la entrada con las comisiones de BingX (y el funding pagado), como el de BingX. Toma de ganancias: cada +25% sobre tu equilibrio, pasar 25% de la posición a spot. Piramidar: cuando sube 15% sobre tu equilibrio, cuánto podés sumar sin plata nueva con la liquidación como mucho en 75% de tu compra más baja.</p>
   </section>
 
   <section class="ab-card ab-mov" id="movimiento" aria-labelledby="mov-t" data-source="analisis" hidden>
@@ -1722,20 +1722,27 @@
     const out = { moneda: m, hechas: hechas.length, total: cs.length, precio: d ? d.precio : null, margen, base: !!base, bingx: !!vivo };
     if (cantidad <= 0 || !d) return out;
     const prom = nocional / cantidad, valor = cantidad * d.precio, liq = vivo && vivo.liquidacion ? vivo.liquidacion : liqDe(nocional, cantidad, margen);
-    Object.assign(out, { promedio: prom, cantidad, nocional, valor, pnl: valor - nocional, pnl_pct: (valor - nocional) / margen * 100,
+    // Precio de equilibrio (como el de BingX): el que deja la posicion en cero contando comisiones y funding. Con BingX: el
+    // suyo si lo da; si no, la entrada con lo ya realizado (comisiones pagadas y funding) y la comision de cerrar. Sin
+    // BingX: la entrada mas la comision de abrir y la de cerrar (taker, 0,05% por defecto; "comision" en el plan)
+    const fee = P.comision !== undefined ? P.comision : 0.0005;
+    const eq = vivo && vivo.equilibrio ? vivo.equilibrio
+      : vivo && vivo.realizado !== undefined ? (nocional - vivo.realizado) / (cantidad * (1 - fee))
+        : (prom * (1 + fee)) / (1 - fee);
+    Object.assign(out, { promedio: prom, equilibrio: eq, cantidad, nocional, valor, pnl: valor - nocional, pnl_pct: (valor - nocional) / margen * 100,
       apalancamiento_real: valor / (margen + valor - nocional), liquidacion: liq, dist_liq: liq ? (1 - liq / d.precio) * 100 : null });
     // si el precio baja hasta la liquidacion, antes se ejecutan las compras que faltan: la liquidacion de verdad es esta
     const pend = cs.filter((c) => !hechas.includes(c));
     if (pend.length) out.liq_plan = liqDe(nocional + sum(pend, (c) => c.orden), cantidad + sum(pend, (c) => c.orden / c.precio), margen + sum(pend, (c) => c.orden / lev));
     const g = P.ganancias;
-    if (g) out.ganancias = Array.from({ length: g.niveles || 4 }, (_, i) => { const k = i + 1, px = prom * (1 + g.cada * k);
+    if (g) out.ganancias = Array.from({ length: g.niveles || 4 }, (_, i) => { const k = i + 1, px = eq * (1 + g.cada * k);    // sobre el equilibrio
       return { k, precio: px, vender: cantidad * g.vender, usdt: cantidad * g.vender * px, alcanzado: d.alto !== undefined && d.alto >= px }; });
     const pz = P.piramidar;
     if (pz) {
       const lmax = pz.liq_max * Math.min(...cs.map((c) => c.precio)), k = lmax * (1 - r);
       let a = d.precio > k ? (k * cantidad - nocional + margen) / (1 - k / d.precio) : 0;
       a = Math.max(0, Math.min(a, lev * margen - nocional));
-      out.piramidar = { disponible: d.precio >= prom * (1 + pz.cada), desde: prom * (1 + pz.cada), sumar: a, monedas: a / d.precio,
+      out.piramidar = { disponible: d.precio >= eq * (1 + pz.cada), desde: eq * (1 + pz.cada), sumar: a, monedas: a / d.precio,
         liq_nueva: liqDe(nocional + a, cantidad + a / d.precio, margen), liq_max: lmax };
     }
     return out;
@@ -1781,7 +1788,9 @@
       box.append(h);
       if (e.cantidad === undefined) { box.append(el('p', 'ab-note', d ? `Ninguna compra ejecutada todavía. Margen ya puesto: ${f0(e.margen)} USDT.` : '')); body.append(box); return; }
       const kv = el('div', 'ab-pos-kv'), cell = (k, v, cls = '') => { const c = el('div'); c.append(el('small', '', k), el('b', cls, v)); kv.append(c); };
-      cell('Cantidad', `${ar.format(',.4f')(e.cantidad)} ${m}`); cell('Precio promedio', fp(e.promedio));
+      cell('Cantidad', `${ar.format(',.4f')(e.cantidad)} ${m}`);
+      { const c = el('div'), sm = el('small', '', 'Precio de equilibrio'); sm.title = 'El que deja la posición en cero con las comisiones de BingX (y el funding pagado): como el de BingX.';
+        c.append(sm, el('b', '', fp(e.equilibrio)), el('small', '', `entrada ${fp(e.promedio)}`)); kv.append(c); }
       cell('Resultado', `${sgn(e.pnl)} USDT (${sgn(e.pnl_pct, f1)}%)`, e.pnl >= 0 ? 'ab-pos-ok' : 'ab-pos-bad');
       cell('Margen', `${f0(e.margen)} USDT`); cell('Posición', `${f0(e.valor)} USDT`); cell('Apalancamiento real', `${f1(e.apalancamiento_real)}x`);
       cell('Liquidación', e.liquidacion ? `${fp(e.liquidacion)} (${f0(e.dist_liq)}% abajo)` : 'no se liquida', e.liquidacion && e.dist_liq < 15 ? 'ab-pos-bad' : '');
@@ -1818,7 +1827,7 @@
         const z = e.piramidar, pz = el('div', `ab-pos-pz${z.disponible ? ' on' : ''}`);
         pz.textContent = z.disponible
           ? `Piramidar: podés sumar ${f0(z.sumar)} USDT de posición (${ar.format(',.4f')(z.monedas)} ${m}) sin plata nueva: sacás margen y abrís más long. La liquidación quedaría en ${fp(z.liq_nueva)}.`
-          : `Piramidar: se habilita cuando ${m} pase ${fp(z.desde)} (+${f0(PLAN_COMPRAS.piramidar.cada * 100)}% sobre tu promedio).`;
+          : `Piramidar: se habilita cuando ${m} pase ${fp(z.desde)} (+${f0(PLAN_COMPRAS.piramidar.cada * 100)}% sobre tu equilibrio).`;
         box.append(el('p', 'ab-pos-sec', 'Piramidar'), pz);
       }
       body.append(box);
@@ -2033,9 +2042,9 @@
           cuando(`lq:${m}`, e.liquidacion && e.dist_liq < 10, () => nueva(`lq:${m}:${hoy}`, '⚠️', `${m}: liquidación a ${f1(e.dist_liq)}%`, `liquidación ${fp(e.liquidacion)}`,
             [`Tu posición de ${m} se liquida en ~${fp(e.liquidacion)} y el precio está en ${fp(d.precio)} (tendría que caer ${f1(e.dist_liq)}%).`, 'Si querés alejarla, agregá margen (⊕) en BingX. La liquidación exacta la muestra BingX.'], 'posiciones'));
           (e.ganancias || []).forEach((g) => cuando(`tp:${m}:${g.k}`, g.alcanzado, () => nueva(`tp:${m}:${g.k}`, '💰', `${m} llegó a tu toma de ganancias +${f0(g.k * PLAN_COMPRAS.ganancias.cada * 100)}%`,
-            `${fp(g.precio)} · pasar ${ar.format(',.4f')(g.vender)} ${m}`, [`${m} llegó a ${fp(g.precio)}, +${f0(g.k * PLAN_COMPRAS.ganancias.cada * 100)}% sobre tu promedio.`, `Según tu plan: pasá ${ar.format(',.4f')(g.vender)} ${m} (~${f0(g.usdt)} USDT) a spot.`], 'posiciones')));
+            `${fp(g.precio)} · pasar ${ar.format(',.4f')(g.vender)} ${m}`, [`${m} llegó a ${fp(g.precio)}, +${f0(g.k * PLAN_COMPRAS.ganancias.cada * 100)}% sobre tu equilibrio.`, `Según tu plan: pasá ${ar.format(',.4f')(g.vender)} ${m} (~${f0(g.usdt)} USDT) a spot.`], 'posiciones')));
           if (e.piramidar) cuando(`pz:${m}`, e.piramidar.disponible && e.piramidar.sumar > 0, () => nueva(`pz:${m}:${hoy}`, '📈', `${m}: podés piramidar`, `sumar ~${f0(e.piramidar.sumar)} USDT de posición`,
-            [`${m} pasó ${fp(e.piramidar.desde)}, 15% sobre tu promedio.`, `Podés sumar ${f0(e.piramidar.sumar)} USDT de posición (${ar.format(',.4f')(e.piramidar.monedas)} ${m}) sin plata nueva: sacás margen y abrís más long.`,
+            [`${m} pasó ${fp(e.piramidar.desde)}, 15% sobre tu equilibrio.`, `Podés sumar ${f0(e.piramidar.sumar)} USDT de posición (${ar.format(',.4f')(e.piramidar.monedas)} ${m}) sin plata nueva: sacás margen y abrís más long.`,
               `La liquidación quedaría en ${fp(e.piramidar.liq_nueva)} (tu límite: ${fp(e.piramidar.liq_max)}).`], 'posiciones'));
         });
         guardar(LE, est);
@@ -3468,7 +3477,7 @@
       PLAN_COMPRAS.compras.filter((c) => c.moneda === m && !cmpHecha(c, dat)).forEach((c) => line(c.precio, alpha(P.fg, cargada(c) ? 0.75 : 0.45),
         cargada(c) ? LW.LineStyle.Dashed : LW.LineStyle.Dotted, 1, narrow ? `#${c.n}` : `Compra #${c.n}${cargada(c) ? '' : ' · sin orden'}`));
       const e = planEstado(m, dat);
-      if (e.promedio) line(e.promedio, alpha(P.fg, 0.9), LW.LineStyle.Solid, 1, narrow ? 'Prom.' : 'Tu promedio');
+      if (e.equilibrio) line(e.equilibrio, alpha(P.fg, 0.9), LW.LineStyle.Solid, 1, narrow ? 'Equil.' : 'Tu equilibrio');
       const g = e.ganancias && e.ganancias.find((x) => !x.alcanzado);
       if (g) line(g.precio, alpha(P.up, 0.85), LW.LineStyle.Dashed, 1, narrow ? `TP +${f0(g.k * PLAN_COMPRAS.ganancias.cada * 100)}%` : `Toma de ganancias +${f0(g.k * PLAN_COMPRAS.ganancias.cada * 100)}%`);
       if (e.liquidacion) line(e.liquidacion, P.dn, LW.LineStyle.Solid, 2, narrow ? 'Liq.' : 'Tu liquidación');

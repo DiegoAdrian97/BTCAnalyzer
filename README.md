@@ -88,6 +88,12 @@ página hace las mismas cuentas). Si cambiás algo en BingX a mano, hay que actu
 Piramidar: cuando sube 15% sobre el promedio, cuánto se puede sumar sin plata nueva con la liquidación como mucho en
 75% de la compra más baja. Los porcentajes se cambian en `plan_compras.json` (`ganancias`, `piramidar`).
 
+**Precio de equilibrio** (en vez del promedio): el que deja la posición en cero contando las comisiones de BingX,
+como el que muestra BingX. Con BingX conectado: el de BingX si lo da; si no, la entrada con lo ya realizado (comisiones
+pagadas y funding) y la comisión de cerrar. Sin conectar: entrada × (1 + comisión) / (1 − comisión), con la comisión
+taker de 0,05% por lado (`comision` en el plan si es otra). La toma de ganancias (+25%) y el piramidado (+15%) se
+cuentan sobre el equilibrio; la entrada se ve abajo, más chica. Telegram (`posiciones.py`) hace la misma cuenta.
+
 **PnL no realizado de todas las posiciones** (arriba de Mis posiciones, con BingX conectado): la suma del resultado de
 cada posición abierta en BingX, con su % sobre el margen y el de cada cripto. Va en vivo: BingX se lee cada minuto y
 entre lectura y lectura se mueve con el precio de marca de Binance cada 1 s (WebSocket `markPrice@1s`; resultado +

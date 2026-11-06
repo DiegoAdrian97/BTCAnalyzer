@@ -693,7 +693,7 @@ def _cmd_posiciones():
             out.append(f"{m}: sin posición (margen ya puesto {_ar(e['margen'])} USDT)")
             continue
         liq = "no se liquida (margen mayor que la posición)" if not e["liquidacion"] else f"{_f(e['liquidacion'])} ({_ar(e['dist_liq'], 0)}% abajo)"
-        out.append(f"{m}: {e['hechas']}/{e['total']} compras del plan · {_f(e['cantidad'], 4)} {m} a {_f(e['promedio'])} promedio · ahora {_f(precio)}\n"
+        out.append(f"{m}: {e['hechas']}/{e['total']} compras del plan · {_f(e['cantidad'], 4)} {m} · equilibrio {_f(e['equilibrio'])} (entrada {_f(e['promedio'])}) · ahora {_f(precio)}\n"
                    f"  Resultado {'+' if e['pnl'] >= 0 else ''}{_ar(e['pnl'])} USDT · margen {_ar(e['margen'])} · apalancamiento real {_ar(e['apalancamiento_real'], 1)}x\n"
                    f"  Liquidación: {liq}")
         g = next((x for x in e.get("ganancias", []) if not x["alcanzado"]), None)
