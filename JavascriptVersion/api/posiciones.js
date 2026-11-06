@@ -63,7 +63,7 @@ let planCache = null;
 async function leerPlan() {
   const tok = process.env.PLAN_GITHUB_TOKEN, repo = process.env.PLAN_REPO || 'DiegoAdrian97/BTCAnalyzer-plan';
   if (!tok) return null;
-  if (planCache && Date.now() - planCache[0] < 60000) return planCache[1];
+  if (planCache && Date.now() - planCache[0] < 300000) return planCache[1];   // 5 min: el plan cambia poco (antes, 1 pedido a GitHub por minuto)
   const r = await fetch(`https://api.github.com/repos/${repo}/contents/plan_compras.json`, { signal: AbortSignal.timeout(8000),
     headers: { Authorization: `Bearer ${tok}`, Accept: 'application/vnd.github.raw+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': UA } });
   if (!r.ok) throw new Error(r.status === 404 ? 'plan privado: el token no tiene acceso al repositorio del plan (GitHub 404)'

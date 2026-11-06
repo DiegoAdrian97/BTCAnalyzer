@@ -1,18 +1,24 @@
 /*
  * El analisis corre aca, en segundo plano, para que la pantalla no se trabe mientras calcula.
  * Prioridad: el activo que se esta mirando se rehace cada INTERVALO ms. En los huecos entre un ciclo y otro se
- * analizan los demas activos de a uno (cada uno a lo sumo cada FONDO_CADA ms): al cambiar de activo ya esta su
- * analisis (y su grafico) y no hay que esperar. Todo se pausa con la app en segundo plano.
+ * analizan los demas activos de a uno (cada uno a lo sumo cada FONDO_CADA ms), en version liviana (sin libros ni
+ * mapa de liquidaciones): al cambiar de activo ya esta su analisis (y su grafico) y no hay que esperar. Todo se pausa
+ * con la app en segundo plano. Si en un ciclo no cambio nada (sin vela nueva, precio casi igual, mismos datos del
+ * momento), no se recalcula: se ahorra CPU y bateria (como mucho pasa REHACER sin recalcular).
  */
 importScripts(...['indicadores.js', 'aprendizaje.js', 'fuerte.js', 'analisis.js', 'datos.js'].map((f) => f + self.location.search));
 
 const INTERVALO = 12000;            // el activo a la vista
-const FONDO_CADA = 10 * 60000;      // cada uno de los demas
+const FONDO_CADA = 15 * 60000;      // cada uno de los demas (antes 10 min)
 const FONDO_PAUSA = 8000;           // entre dos analisis de fondo (Binance cobra peso por cada pedido de velas)
 const TOPE = 90000;                 // un ciclo colgado (red del celular) no frena a los siguientes
+const REHACER = 60000;              // aunque no cambie nada, se recalcula al menos cada tanto
+const MOVIDA = 0.0003;              // con el precio a menos de 0,03% del ultimo analisis y lo demas igual, no se recalcula
+const GUARDAR_CADA = 5 * 60000;     // el ultimo analisis en el telefono (y siempre al salir de la app)
 let pausado = true, ACTIVO = 'BTCUSDT', todos = [], numero = 0, proximo = 0, ultimoFondo = 0;
 let corriendo = false, pedirActivo = false, despertar = null, interrumpir = null;
 const hecho = {}, guardado = {}, mostrado = {};
+let previo = null, sinGuardar = null;     // lo que se uso en el ultimo analisis del activo a la vista; filas por guardar
 
 /** En los textos del analisis dice BTC: para otro activo se cambia el nombre. */
 function renombrar(rows, mon) {
@@ -57,18 +63,39 @@ function calcular(sym, input) {
   return renombrar(rows, mon);
 }
 
+/** Lo que mira el analisis para saber si hace falta rehacerlo. Los datos del momento (contexto, libros, noticias...)
+ *  salen de una cache: mientras no se vuelven a pedir son el mismo objeto. */
+function firma(sym, input) {
+  const velas = Object.keys(input.candles).map((tf) => { const c = input.candles[tf]; return c.length ? c[c.length - 1][0] : 0; }).join();
+  return { sym, t: Date.now(), precio: input.price, velas, vivo: input.live5m ? input.live5m[0] : 0, fuente: input.fuente, modelos: self.JSON_T,
+    datos: [input.ctxRaw, input.booksRaw, input.liqRaw, input.externo, input.opcionesRaw] };
+}
+function igual(a, b) {
+  return !!a && a.sym === b.sym && b.t - a.t < REHACER && a.velas === b.velas && a.vivo === b.vivo && a.fuente === b.fuente
+    && a.modelos === b.modelos && Math.abs(b.precio / a.precio - 1) < MOVIDA && a.datos.every((x, i) => x === b.datos[i]);
+}
+function guardarFilas() {
+  if (!sinGuardar) return;
+  const { sym, rows } = sinGuardar;
+  sinGuardar = null; guardado[sym] = Date.now(); Datos.guardarUltimo(sym, rows);
+}
+
 async function cicloActivo() {
   const t0 = Date.now(), sym = ACTIVO;
   try {
     // los modelos y las velas no dependen uno del otro: se bajan a la vez
     const [input] = await Promise.all([conTope(Datos.recolectar((texto) => postMessage({ tipo: 'progreso', texto, sym }), sym)), cargarModelos()]);
     if (sym !== ACTIVO) return;                    // eligieron otro activo mientras bajaban los datos: no se calcula este
+    const f = firma(sym, input);
+    hecho[sym] = Date.now();
+    if (igual(previo, f)) return;                  // nada nuevo: la pantalla ya tiene este analisis
     const rows = calcular(sym, input);
-    numero += 1; hecho[sym] = Date.now();
+    previo = f; numero += 1;
     postMessage({ tipo: 'analisis', rows, numero, ms: Date.now() - t0, fuente: input.fuente, sym });
-    if (Date.now() - (guardado[sym] || 0) > 60000) { guardado[sym] = Date.now(); Datos.guardarUltimo(sym, rows); }
+    sinGuardar = { sym, rows };
+    if (Date.now() - (guardado[sym] || 0) > GUARDAR_CADA) guardarFilas();
   } catch (e) {
-    if (sym === ACTIVO) postMessage({ tipo: 'error', texto: e && e.message ? e.message : String(e), sym });
+    if (sym === ACTIVO) { previo = null; postMessage({ tipo: 'error', texto: e && e.message ? e.message : String(e), sym }); }   // el proximo que salga bien borra el aviso
   }
 }
 
@@ -78,7 +105,7 @@ async function cicloFondo(sym) {
   try {
     await cargarModelos();
     const corte = new Promise((r) => { interrumpir = r; });
-    const input = await Promise.race([conTope(Datos.recolectar(null, sym)), corte.then(() => null)]);
+    const input = await Promise.race([conTope(Datos.recolectar(null, sym, { liviano: true })), corte.then(() => null)]);
     interrumpir = null;
     if (!input || pedirActivo) { hecho[sym] = 0; return; }
     const rows = calcular(sym, input);
@@ -117,10 +144,11 @@ onmessage = (ev) => {
   const d = ev.data;
   if (d.tipo === 'pausa') {
     pausado = true;
+    guardarFilas();                  // al salir de la app: el ultimo analisis queda para la proxima vez que se abra
     if (despertar) despertar();
   } else if (d.tipo === 'seguir') {
     if (d.todos) todos = d.todos.map((m) => `${m}USDT`);
-    if (d.sym && d.sym !== ACTIVO) { ACTIVO = d.sym; if (interrumpir) interrumpir(); }
+    if (d.sym && d.sym !== ACTIVO) { guardarFilas(); ACTIVO = d.sym; previo = null; if (interrumpir) interrumpir(); }
     pedirActivo = true;              // al volver a la app o cambiar de activo: el elegido primero
     pausado = false;
     mostrarGuardado(ACTIVO);

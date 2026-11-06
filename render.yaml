@@ -9,7 +9,15 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: python analisis_btc.py --vivo 20 --servidor   # un analisis cada 20 s
     healthCheckPath: /salud
-    autoDeploy: true             # cada push a main se publica solo
+    autoDeploy: true             # cada push a main se publica solo...
+    buildFilter:                 # ...si toca algo que usa el servidor: los cambios de la version del telefono, las pruebas
+      paths:                     # o los textos no lo reinician (cada reinicio rearma todo y vuelve a bajar el historial)
+        - "*.py"
+        - requirements.txt
+        - dashboard/**
+        - data/**
+        - JavascriptVersion/termometro.json
+        - JavascriptVersion/modelo_fuerte.json
     envVars:
       - key: VIVO_CLAVE
         sync: false

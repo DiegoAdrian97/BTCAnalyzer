@@ -80,7 +80,7 @@ del plan sin orden queda como ejecutada (si la posición creció) o "falta carga
 usa esos precios y valores. Sin BingX, como antes: el mínimo desde que se armó el plan tocó su precio. Telegram avisa aunque esté en "solo entradas": 📌 cuando el precio se acerca a 3% de
 una compra sin orden cargada, ✅ cuando se ejecuta una (con el margen extra a sumar si falta) y ⚠ si tocó un precio
 sin orden. Cuando cambie el plan: editar `plan_compras.json` en el repositorio privado `DiegoAdrian97/BTCAnalyzer-plan`
-y subirlo (la app lo toma sola en un minuto; Render, en cinco). Ya no hace falta regenerar la página.
+y subirlo (la app y Render lo toman solos en cinco minutos). Ya no hace falta regenerar la página.
 
 ### Mis posiciones, toma de ganancias y piramidado
 
@@ -253,6 +253,19 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
 - No aplican (no hay base de datos ni servidor propio con tráfico): consultas N+1, índices de base, pool de
   conexiones, Redis, colas de trabajo, varias instancias y OpenTelemetry. Sus equivalentes ya estaban: caché de Vercel
   de 10 min para las noticias, cachés en memoria por fuente, velas guardadas en el teléfono y el worker como cola.
+
+**Consumo (pedidos, CPU y servidores):**
+- Activos de fondo cada 15 min (antes 10) y livianos: sin libros (~100 KB por activo), mapa de liquidaciones ni opciones.
+  Ese análisis solo se ve un instante al elegir el activo, hasta que llega el completo.
+- Libros cada 60 s (antes 20 s). Liquidaciones de OKX incrementales: solo las nuevas (1 pedido por minuto, antes hasta 6).
+- Si en un ciclo no cambió nada (sin vela nueva, precio a menos de 0,03%, mismos datos del momento), no se recalcula;
+  como mucho pasa 1 min. El registro de predicciones (hasta 20.000) queda en memoria y se guarda solo si cambia (antes
+  se leía y escribía entero en IndexedDB cada 12 s). El último análisis se guarda cada 5 min y al salir de la app.
+- Próximas compras: precio en vivo por el mismo WebSocket del PnL; las velas diarias, cada 2 min (antes 4 pedidos cada 15 s).
+- BingX (función de Vercel): cada 1 min con alguna orden a 3% o menos, si no cada 3 min; mirando una acción, cada 5.
+  El plan privado se lee de GitHub cada 5 min.
+- Render no se reinicia por cambios que no usa (versión del teléfono, pruebas, textos): `buildFilter` en `render.yaml`.
+- Sin reflow forzado en cada tick del precio; los precios del panel se pintan juntos, una vez por cuadro.
 
 ### Acciones en la app: AAPL, NVDA, MSFT, GOOGL, AMZN, SPCX, META, TSLA, AMD, BABA, MELI y los índices SPY y QQQ
 

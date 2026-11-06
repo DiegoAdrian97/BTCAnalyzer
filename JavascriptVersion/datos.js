@@ -3,7 +3,8 @@
  * - Velas de Binance Futures; si Binance limita los pedidos, de Bybit hasta que se libere.
  * - El historial de velas queda guardado en el telefono (IndexedDB): la primera vez se baja todo y
  *   despues solo lo nuevo.
- * - Lo que cambia lento se pide con cache: contexto cada 60 s, liquidaciones cada 5 min, libros cada 20 s.
+ * - Lo que cambia lento se pide con cache: contexto y libros cada 60 s, liquidaciones cada 5 min.
+ * - Los activos que no se estan mirando van "livianos" (ver recolectar): sin libros, mapa de liquidaciones ni opciones.
  * BingX no se usa: su API rechaza los pedidos que vienen de paginas web (y de OKX solo las liquidaciones, por lo mismo).
  */
 (function (root) {
@@ -106,18 +107,22 @@
 
   // cache con un solo pedido en vuelo por clave; si falla, no se reintenta hasta 2 min despues (antes una fuente
   // caida se volvia a pedir en cada ciclo y cada ciclo la esperaba)
-  const enVuelo = {}, fallo = {}, sinDato = {}, velasEnVuelo = {};
+  const enVuelo = {}, fallo = {}, sinDato = {}, velasEnVuelo = {}, liqHora = {};
   // Velas en memoria de los 2 ultimos activos analizados (el que estas mirando y el de fondo de turno): antes, cada 12 s
   // se leian de IndexedDB ~40.000 velas (una copia entera por temporalidad). El analisis no las modifica (probado con
   // las velas congeladas); IndexedDB sigue guardando todo para la proxima vez que se abre la app.
+  // El que se esta mirando no sale nunca (antes, dos analisis de fondo seguidos lo sacaban y habia que releerlo).
   const memVelas = new Map();
-  function memDe(sym) {
+  let fijo = null;
+  function memDe(sym, fijar = false) {
+    if (fijar) fijo = sym;
     let m = memVelas.get(sym);
     if (m) memVelas.delete(sym); else m = new Map();
     memVelas.set(sym, m);                                    // queda al final: el mas reciente
-    while (memVelas.size > 2) memVelas.delete(memVelas.keys().next().value);
+    while (memVelas.size > 2) memVelas.delete([...memVelas.keys()].find((k) => k !== fijo));
     return m;
   }
+  const firmaLog = (l) => (l.length ? `${l.length}|${l[0].join()}|${l[l.length - 1].join()}` : '0');
   async function cached(key, ttl, fn) {
     const hit = memo[key];
     if (hit && Date.now() - hit[0] < ttl) return hit[1];
@@ -280,7 +285,11 @@
     const binanceTop = async () => +(await pedir('binance-datos', `${BINANCE}/futures/data/topLongShortPositionRatio?symbol=${SYM}&period=1h&limit=1`))[0].longShortRatio;
 
     // liquidaciones reales de OKX de la ultima hora (como liq_okx de analisis_btc.py): [ms, lado, usd]
+    // Lo de la ultima hora queda en memoria y en cada vuelta se piden solo las nuevas: antes se bajaba la hora entera
+    // cada minuto (hasta 6 paginas de 100); ahora casi siempre alcanza con una.
     async function liqOkx(now) {
+      const hora = now - 3600000, prev = (liqHora[SYM] || []).filter((x) => x[0] >= hora);
+      const tope = prev.length ? Math.max(...prev.map((x) => x[0])) : 0;
       const out = []; let after = null;
       for (let k = 0; k < 6; k++) {
         const j = await pedir('okx', `https://www.okx.com/api/v5/public/liquidation-orders?instType=SWAP&instFamily=BTC-USDT&state=filled&limit=100${after ? `&after=${after}` : ''}`);
@@ -288,9 +297,12 @@
         if (!det.length) break;
         det.forEach((d) => out.push([+d.ts, d.posSide, +d.sz * 0.01 * +d.bkPx]));
         after = Math.min(...det.map((d) => +d.ts));
-        if (after < now - 3600000) break;
+        if (after < hora || (tope && after <= tope)) break;     // ya se llego a lo que se tenia
       }
-      return out;
+      // lo nuevo (desde la mas nueva hasta after) y, de lo que se tenia, lo anterior a eso: sin repetidas
+      const res = out.concat(after === null ? prev : prev.filter((x) => x[0] < after)).filter((x) => x[0] >= hora);
+      liqHora[SYM] = res;
+      return res;
     }
 
     async function contextRaw() {
@@ -329,21 +341,30 @@
   }
 
   /** Junta todo lo que necesita el analisis. onProgress recibe textos para la pantalla de espera. */
-  async function recolectar(onProgress, sym = 'BTCUSDT') {
+  // Lo que se tenia guardado de una clave, si es de hace menos de ms (para los activos de fondo)
+  const reciente = (key, ms, def) => (memo[key] && Date.now() - memo[key][0] < ms ? memo[key][1] : def);
+  /**
+   * Todo lo que necesita el analisis de un activo. Con { liviano: true } (los activos que no se estan mirando) no se
+   * piden los libros (unos 100 KB de 4 exchanges), el mapa de liquidaciones ni las opciones: se usa lo que hubiera de
+   * hace poco o nada. Ese analisis solo se ve un instante al elegir el activo, hasta que llega el completo (1-3 s).
+   */
+  async function recolectar(onProgress, sym = 'BTCUSDT', { liviano = false } = {}) {
     const { updateCandles, lastTwo, contextRaw, liqRaw, booksRaw, opcionesRaw } = fuentes(sym), pre = () => prefijo(sym);
     const now = Date.now();
     const src = SOLO_BITGET.has(sym) ? 'bitget' : isBanned('binance') ? 'bybit' : 'binance';
-    const booksP = cached(`${pre()}libros`, 20000, booksRaw).catch(() => []);
+    const mem = memDe(sym, !liviano);
+    // libros cada 60 s (antes 20 s): son lo mas pesado de cada ciclo y los muros no cambian tan rapido
+    const booksP = liviano ? Promise.resolve(reciente(`${pre()}libros`, 15 * 60000, [])) : cached(`${pre()}libros`, 60000, booksRaw).catch(() => []);
     const ctxP = cached(`${pre()}contexto`, 60000, contextRaw).catch(() => null);
     // noticias, ETF y prima de Coinbase: las junta la funcion del servidor (las paginas no pueden leer esas fuentes)
     // cada accion tiene sus propias noticias (empresa, region, sector y bolsa); las criptos comparten las de BTC
     const accion = ACCIONES_APP.has(sym) ? sym.replace('USDT', '') : null, extK = accion ? `externo:${accion}` : 'externo';
-    const extP = cached(extK, 600000, async () => {
+    const extP = cached(extK, liviano ? 30 * 60000 : 600000, async () => {
       const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), ESPERA_MS);
       try { const r = await fetch(accion ? `api/contexto?moneda=${accion}` : 'api/contexto', { cache: 'no-store', signal: ctl.signal }); if (!r.ok) throw new Error(r.status); return r.json(); } finally { clearTimeout(tm); }
     }).catch(() => null);
-    const liqP = cached(`${pre()}liquidaciones`, 300000, liqRaw).catch(() => null);
-    const opcP = sym === 'BTCUSDT' ? cached('opciones', 600000, opcionesRaw).catch(() => null) : Promise.resolve(null);
+    const liqP = liviano ? Promise.resolve(reciente(`${pre()}liquidaciones`, 30 * 60000, null)) : cached(`${pre()}liquidaciones`, 300000, liqRaw).catch(() => null);
+    const opcP = sym !== 'BTCUSDT' ? Promise.resolve(null) : liviano ? Promise.resolve(reciente('opciones', 30 * 60000, null)) : cached('opciones', 600000, opcionesRaw).catch(() => null);
     const candles = {};
     let done = 0;
     await Promise.all(Object.entries(TIMEFRAMES).map(async ([tf, [days]]) => {
@@ -357,7 +378,10 @@
       live5m = (await lastTwo(src, '5m')).filter((c) => c[0] > last && c[0] + TF_MS['5m'] > Date.now()).pop() || null;
     } catch (e) { /* sin la vela en curso, el analisis igual sirve con las cerradas */ }
     const price = live5m ? live5m[4] : candles['5m'][candles['5m'].length - 1][4];
-    const log = (await dbGet(`${pre()}predicciones`)) || [];
+    // el registro de predicciones (hasta 20.000) queda en memoria: antes se leia de IndexedDB en cada ciclo (y se
+    // volvia a escribir entero), cada 12 s
+    let log = mem.get('log');
+    if (!log) { log = (await dbGet(`${pre()}predicciones`)) || []; mem.set('log', log); mem.set('logFirma', firmaLog(log)); }
     // con las velas listas, el resto tiene 3 s mas: lo que falte va con lo ultimo que se tenia
     const p = pre(), [ctxR, booksR, liqR, extR, opcR] = await Promise.all([aTiempo(ctxP, `${p}contexto`, 3000, null),
       aTiempo(booksP, `${p}libros`, 3000, []), aTiempo(liqP, `${p}liquidaciones`, 3000, null), aTiempo(extP, extK, 3000, null),
@@ -368,6 +392,15 @@
   // el ultimo analisis de cada activo, guardado en el telefono: al abrir la app se muestra al toque mientras se calcula
   const ultimo = (sym) => dbGet(`ultimo:${sym}`);
   const guardarUltimo = (sym, rows) => dbSet(`ultimo:${sym}`, { hora: Date.now(), rows });
-  const Datos = { recolectar, ultimo, guardarUltimo, guardarLog: (log, sym = 'BTCUSDT') => dbSet(`${sym === 'BTCUSDT' ? '' : `${sym}:`}predicciones`, log), isBanned };
+  /** Se guarda solo si cambio (entran predicciones nuevas con cada vela cerrada, no en cada ciclo). Solo se agregan
+   *  al final y se recortan del principio: con el largo, la primera y la ultima alcanza para saberlo. */
+  function guardarLog(log, sym = 'BTCUSDT') {
+    const mem = memDe(sym), f = firmaLog(log);
+    mem.set('log', log);
+    if (mem.get('logFirma') === f) return Promise.resolve();
+    mem.set('logFirma', f);
+    return dbSet(`${prefijo(sym)}predicciones`, log);
+  }
+  const Datos = { recolectar, ultimo, guardarUltimo, guardarLog, isBanned };
   root.Datos = Datos;
 })(typeof self !== 'undefined' ? self : globalThis);

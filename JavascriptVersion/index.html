@@ -46,8 +46,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
 <script src="lib/d3-7.9.0.min.js"></script>
 <script src="lib/lightweight-charts-5.1.0.js"></script>
-<script>window.AB_PAGINA = "bd4f807654";</script>
-<script src="app.js?v=ec90573d33"></script>
+<script>window.AB_PAGINA = "d364fa8929";</script>
+<script src="app.js?v=f6b6ee66ba"></script>
 </head><body><div id="dash-root">
 <style>
   /* Tema: minimalista y moderno. Una sola familia tipografica (la del sistema: SF en el iPhone), superficies planas,
@@ -1343,8 +1343,9 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
         const prev = S.lastTick;
         pe.firstChild.textContent = fp(liveBar.c);
         if (prev !== undefined && liveBar.c !== prev) {
-          pe.classList.remove('ab-tick-up', 'ab-tick-dn'); void pe.offsetWidth;
-          pe.classList.add(liveBar.c > prev ? 'ab-tick-up' : 'ab-tick-dn');
+          // sin forzar el calculo de la pagina (void offsetWidth, hasta 4 veces por segundo): el color no tiene animacion
+          // que reiniciar, se ve igual
+          const up = liveBar.c > prev; pe.classList.toggle('ab-tick-up', up); pe.classList.toggle('ab-tick-dn', !up);
           clearTimeout(S.tickT); S.tickT = setTimeout(() => pe.classList.remove('ab-tick-up', 'ab-tick-dn'), 350);
         }
         S.lastTick = liveBar.c;
@@ -1414,7 +1415,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       const f = filas[m], x = P[m];
       if (!f || !x) return;
       const antes = f.pr.dataset.v ? +f.pr.dataset.v : null;
-      f.pr.textContent = fp(x.c); f.pr.dataset.v = x.c;
+      if (antes === x.c && f.o === x.o) return;            // el mismo precio: no se toca la pantalla
+      f.o = x.o; f.pr.textContent = fp(x.c); f.pr.dataset.v = x.c;
       if (antes !== null && antes !== x.c) { f.pr.classList.remove('sube', 'baja'); f.pr.classList.add(x.c > antes ? 'sube' : 'baja'); clearTimeout(f.tm); f.tm = setTimeout(() => f.pr.classList.remove('sube', 'baja'), 700); }
       const c = x.o > 0 ? (x.c / x.o - 1) * 100 : null;
       f.ch.textContent = c === null ? '' : sg(c, 2); f.ch.className = 'ab-act-c' + (c > 0 ? ' up' : c < 0 ? ' dn' : '');
@@ -1425,7 +1427,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     // en vivo: Binance (un solo WebSocket con todos) y Bitget para MELI; si no llega nada, cada 15 s por pedido comun
     let ws = null, wsBg = null, ping = null, rep = null;
     const llegada = {};
-    const nuevo = (m, c, o) => { if (!(c > 0)) return; P[m] = { c, o }; llegada[m] = Date.now(); pintar(m); };
+    // los precios llegan de a uno (16 activos, cada 1-2 s): se pintan juntos, a lo sumo una vez por cuadro
+    const sucios = new Set(); let cuadro = 0;
+    const nuevo = (m, c, o) => {
+      if (!(c > 0)) return; P[m] = { c, o }; llegada[m] = Date.now(); sucios.add(m);
+      if (!cuadro) cuadro = requestAnimationFrame(() => { cuadro = 0; sucios.forEach(pintar); sucios.clear(); });
+    };
     async function porPedido(m) {
       try {
         if (m === 'MELI') { const d = (await (await fetch('https://api.bitget.com/api/v2/mix/market/ticker?symbol=MELIUSDT&productType=usdt-futures', { cache: 'no-store' })).json()).data[0]; nuevo(m, +d.lastPr, +d.open24h); }
@@ -1641,7 +1648,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   // ya no va adentro de la pagina publicada (generar_pagina.py solo lo mete si existe plan_compras.json en la carpeta)
   let PLAN_COMPRAS = /*PLAN*/null/*FIN*/;
   const PLAN_EMBEBIDO = PLAN_COMPRAS;          // al desconectar, el que vino del servidor se olvida
-  const CMP = { datos: {}, hora: null };
+  // datos[m]: minimo, maximo y precio desde el plan; hist: cuando se bajaron las velas diarias; vivo[m]: ultimo precio en vivo
+  const CMP = { datos: {}, hora: null, hist: 0, vivo: {} };
   // ---------- BingX en vivo (solo lectura; api/posiciones.js de Vercel): posiciones y ordenes reales ----------
   // Conectado, "Mis posiciones" sale de BingX (no del JSON) y una compra del plan esta "cargada" si hay una orden limite
   // de compra a ese precio. La contraseña (POSICIONES_CLAVE de Vercel) se guarda en este navegador.
@@ -1666,6 +1674,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   async function bxLeer() {
     const clave = bxClave();
     if (!BX_API || !clave) { BX.ok = false; return; }
+    BX.leido = Date.now();
     try {
       const r = await fetch(BX_API, { headers: { 'x-clave': clave }, cache: 'no-store' });
       if (r.status !== 401 && r.status !== 503) BX.autorizado = true;     // la contraseña paso (aunque BingX falle un rato)
@@ -1682,25 +1691,41 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   }
   // orden puesta: con BingX, las que tienen su orden emparejada (comprasDe); sin BingX, lo que dice el plan
   const cargada = (c) => (c.deBingx ? true : BX.ok && BX.ordenes ? false : !!c.cargada);
-  async function cmpPrecios() {
+  // Cada 15 s se redibuja con el precio en vivo (WebSocket, ver pnlConectar). Las velas diarias (minimo y maximo desde el
+  // plan) se bajan cada 2 min, o antes si de una cripto no llega el precio en vivo. Antes eran 4 pedidos cada 15 s.
+  const CMP_HIST = 120000, CMP_VIVO = 30000;
+  function cmpVivo(m, p) {
+    CMP.vivo[m] = Date.now();
+    const d = CMP.datos[m]; if (!d || !(p > 0)) return;      // hasta que lleguen las velas diarias
+    d.precio = p; if (p < d.bajo) d.bajo = p; if (p > d.alto) d.alto = p;
+  }
+  // si ya hay una vuelta en camino (al abrir la app se pedia dos veces: la del arranque y la de BingX recien leido), esa
+  function cmpPrecios() { return CMP.vuelo || (CMP.vuelo = cmpPedir().finally(() => { CMP.vuelo = null; })); }
+  async function cmpPedir() {
     if (!PLAN_OK()) return;                                // sin BingX conectado el plan no se muestra: no hace falta pedir nada
-    const mons = monedasPlan();
+    const mons = monedasPlan(), ahora = Date.now(), hist = ahora - CMP.hist > CMP_HIST;
+    const pedir = hist ? mons : mons.filter((m) => !CMP.datos[m] || ahora - (CMP.vivo[m] || 0) > CMP_VIVO);
     // desde el inicio del dia del plan: con la hora exacta, el primer dia (vela diaria abierta antes) no venia y quedaba vacio
     const d0 = PLAN_COMPRAS && PLAN_COMPRAS.desde ? PLAN_COMPRAS.desde : Date.now() - 30 * 86400000, desde = d0 - (d0 % 86400000);
     // solo los dias desde el plan: con limit=1500 Binance cobraba 10 de peso por pedido aunque vinieran 20 velas (4 criptos cada 15 s)
     const dias = Math.min(1500, Math.ceil((Date.now() - desde) / 86400000) + 2);
-    await Promise.all(mons.map(async (m) => {
+    const poner = (m, bajo, alto, precio) => {
+      const v = ahora - (CMP.vivo[m] || 0) < 5000 && CMP.datos[m] ? CMP.datos[m].precio : null;   // el en vivo es mas nuevo
+      CMP.datos[m] = { bajo: v ? Math.min(bajo, v) : bajo, alto: v ? Math.max(alto, v) : alto, precio: v || precio };
+    };
+    if (hist && mons.length) CMP.hist = ahora;
+    await Promise.all(pedir.map(async (m) => {
       const s = `${m}USDT`;
       try {
         const k = await (await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${s}&interval=1d&startTime=${desde}&limit=${dias}`)).json();
         if (!Array.isArray(k) || !k.length) throw new Error('vacio');
-        CMP.datos[m] = { bajo: Math.min(...k.map((x) => +x[3])), alto: Math.max(...k.map((x) => +x[2])), precio: +k[k.length - 1][4] };
+        poner(m, Math.min(...k.map((x) => +x[3])), Math.max(...k.map((x) => +x[2])), +k[k.length - 1][4]);
       } catch (e) {
         try {
           const j = await (await fetch(`https://api.bybit.com/v5/market/kline?category=linear&symbol=${s}&interval=D&start=${desde}&limit=${Math.min(1000, dias)}`)).json();
           const k = j.result.list;
           if (!k || !k.length) throw new Error('vacio');
-          CMP.datos[m] = { bajo: Math.min(...k.map((x) => +x[3])), alto: Math.max(...k.map((x) => +x[2])), precio: +k[0][4] };
+          poner(m, Math.min(...k.map((x) => +x[3])), Math.max(...k.map((x) => +x[2])), +k[0][4]);
         } catch (e2) { /* sin datos de esa cripto: queda lo ultimo */ }
       }
     }));
@@ -1989,9 +2014,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     v.por.forEach(([m, r]) => { const s = el('span', r >= 0 ? 'ab-pos-ok' : 'ab-pos-bad', `${m} ${sg(r)}`); por.append(s); });
     document.getElementById('pnl-vivo').classList.toggle('quieto', !PNL.ws || Date.now() - PNL.t > 5000);
   }
+  // Un solo WebSocket: precio de marca de las posiciones (para el PnL, con Mis posiciones a la vista) y ultimo precio de
+  // las criptos del plan (para Proximas compras y los avisos, aunque estes mirando una accion).
   function pnlConectar() {
     const ms = BX.ok && !document.hidden && !document.getElementById('posiciones').hidden ? Object.keys(BX.posiciones || {}).filter((m) => m !== 'MELI') : [];
-    const syms = ms.map((m) => `${m.toLowerCase()}usdt@markPrice@1s`).join('/');
+    const mc = PLAN_OK() && !document.hidden ? monedasPlan().filter((m) => m !== 'MELI') : [];
+    const syms = ms.map((m) => `${m.toLowerCase()}usdt@markPrice@1s`).concat(mc.map((m) => `${m.toLowerCase()}usdt@miniTicker`)).join('/');
     if (syms === PNL.syms) return;
     PNL.syms = syms;
     if (PNL.ws) { try { PNL.ws.close(); } catch (e) { /* ya cerrado */ } PNL.ws = null; }
@@ -2000,7 +2028,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       const ws = new WebSocket(`wss://fstream.binance.com/market/stream?streams=${syms}`);
       PNL.ws = ws;
       ws.onmessage = (e) => {
-        try { const d = JSON.parse(e.data).data; if (d && d.s && +d.p > 0) { PNL.marca[d.s.replace('USDT', '')] = +d.p; PNL.t = Date.now(); } } catch (x) { return; }
+        try {
+          const d = JSON.parse(e.data).data; if (!d || !d.s) return;
+          if (d.e === '24hrMiniTicker') return cmpVivo(d.s.replace('USDT', ''), +d.c);   // se dibuja en la vuelta de 15 s
+          if (+d.p > 0) { PNL.marca[d.s.replace('USDT', '')] = +d.p; PNL.t = Date.now(); }
+        } catch (x) { return; }
         if (!PNL.cuadro) PNL.cuadro = requestAnimationFrame(() => { PNL.cuadro = 0; pnlPintar(); });   // a lo sumo un repintado por cuadro
       };
       ws.onclose = () => { if (PNL.ws === ws) { PNL.ws = null; PNL.syms = ''; setTimeout(pnlConectar, 5000); } };
@@ -2035,7 +2067,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     document.getElementById('bx-btn').addEventListener('click', conectar);
     document.getElementById('bx-llave').addEventListener('click', conectar);
     planVisible();
-    bxLeer(); setInterval(() => { if (!document.hidden) bxLeer(); }, 60000);
+    // BingX (una llamada a la funcion de Vercel): cada minuto si alguna orden esta a 3% o menos (puede ejecutarse); si no,
+    // cada 3 min; mirando una accion (no se ven las secciones), cada 5. El PnL igual se mueve en vivo con el WebSocket.
+    const bxCerca = () => monedasPlan().some((m) => { const d = CMP.datos[m]; return !d || comprasDe(m).some((c) => d.precio / c.precio - 1 <= 0.03); });
+    const bxCada = () => (!ES_CRIPTO(MON()) ? 300000 : bxCerca() ? 60000 : 180000);
+    bxLeer(); setInterval(() => { if (!document.hidden && bxClave() && Date.now() - (BX.leido || 0) >= bxCada() - 1000) bxLeer(); }, 15000);
     // al volver a la app: posiciones y ordenes al toque (antes podian tener hasta un minuto)
     document.addEventListener('visibilitychange', () => { if (!document.hidden) bxLeer(); });
   }
