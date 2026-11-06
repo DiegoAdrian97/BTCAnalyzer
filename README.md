@@ -146,7 +146,7 @@ Binance con todos y el de Bitget para MELI; si no llegan, cada 15 s por pedido c
 desplegable; ✓ marca los que ya tienen su análisis listo. Se cierra deslizando a la derecha, tocando afuera o con ✕, y
 los WebSocket se cierran con él. En la compu (ventana de 1100 px o más y mouse) queda fijo a la derecha, siempre
 visible, con los precios en vivo (se cortan con la pestaña oculta) y la página le deja lugar; al achicar la ventana
-vuelve a ser el panel que se abre y se cierra.
+vuelve a ser el panel que se abre y se cierra. Con el panel fijo no se muestra el botón "Activo" de arriba.
 
 **Ritmo de pedidos**: con todos los activos de fondo, Bitget limitaba (corta por segundo). Ahora cada grupo de
 pedidos espera su turno (`RITMO` en `datos.js`): Bitget como mucho ~12 por segundo y su flujo de compras y ventas uno
