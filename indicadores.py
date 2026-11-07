@@ -496,9 +496,15 @@ SIN_ELLIOTT = "Sin conteo de Elliott claro: los últimos giros no cumplen las re
 def elliott(pivots, bars):
     """Conteo de Elliott sobre los ultimos giros: un ciclo es un impulso de 5 ondas (1-5) y una correccion de 3 (A-B-C).
 
-    Reglas que se exigen siempre: la onda 2 no pasa el inicio de la 1 (y retrocede al menos 15%), la 3 supera el
-    final de la 1 y no es la mas corta de 1, 3 y 5, la 4 no se superpone con la 1, la 5 supera el final de la 3.
-    Correccion: B retrocede entre 20% y 100% de A, y C va en la direccion de A y pasa su final.
+    Reglas que se exigen siempre (Frost y Prechter): la onda 2 no pasa el inicio de la 1 (y retrocede al menos 15%), la 3
+    supera el final de la 1 y no es la mas corta de 1, 3 y 5, la 4 no se superpone con la 1, la 5 supera el final de la 3
+    (no se cuentan quintas truncadas: son la excepcion y darian conteos dudosos).
+    Las mismas reglas se aplican a la onda que esta en curso, con el maximo y el minimo desde el ultimo giro: si la 2 ya
+    paso el inicio de la 1, si la 4 ya entro en el terreno de la 1, o si la 5 ya mide mas que la 3 siendo la 3 mas corta
+    que la 1 (la 3 quedaria como la mas corta), ese conteo no vale. Y el objetivo de la 5 no puede romper esa regla.
+    Correccion: zigzag (B retrocede 20%-100% de A) o plana expandida (B pasa el inicio de A, hasta 138,2%); C va en la
+    direccion de A, pasa su final y mide 0,5-2,618 veces A.
+    No se buscan triangulos ni diagonales (en las diagonales la 4 si se superpone con la 1).
     El ultimo giro es el tramo en curso: si el precio ya se alejo de el mas de un ATR, arranco la onda siguiente.
     Devuelve (etiquetas de los ultimos giros, descripcion, objetivo o None, onda en curso o None, descripcion corta).
     """
@@ -508,6 +514,9 @@ def elliott(pivots, bars):
     c = [b[4] for b in bars]
     atr_last = atr_w([b[2] for b in bars], [b[3] for b in bars], c)[-1] or 0.0
     started = pivots[-1][1] < len(bars) - 1 and abs(c[-1] - p[-1]) >= atr_last
+    desde = bars[pivots[-1][1] + 1:]
+    ext_hi = max((b[2] for b in desde), default=p[-1])         # lo mas lejos que fue la onda en curso
+    ext_lo = min((b[3] for b in desde), default=p[-1])
 
     def impulso(pts):
         s = 1 if pts[1] > pts[0] else -1
@@ -531,7 +540,7 @@ def elliott(pivots, bars):
             return False
         if len(pts) >= 3:
             b = pts[2] - pts[1]
-            if b * a >= 0 or not 0.2 <= abs(b) / abs(a) <= 1.0:
+            if b * a >= 0 or not 0.2 <= abs(b) / abs(a) <= 1.382:    # hasta 100%: zigzag; mas: plana expandida
                 return False
         if len(pts) >= 4:
             cc = pts[3] - pts[2]
@@ -559,6 +568,16 @@ def elliott(pivots, bars):
         P = dict(zip(names, pts))
         last = names[-1]
         cur = SIGUE[last] if started else last
+        if names[1] == "1" and started:
+            s0 = 1 if P["1"] > P["0"] else -1
+            lejos = ext_hi if s0 > 0 else ext_lo                  # en el sentido del impulso
+            cerca = ext_lo if s0 > 0 else ext_hi                  # en contra
+            if cur == "2" and s0 * (cerca - P["0"]) <= 0:
+                continue                                           # la 2 ya paso el inicio de la 1
+            if cur == "4" and s0 * (cerca - P["1"]) <= 0:
+                continue                                           # la 4 ya entro en el terreno de la 1
+            if cur == "5" and abs(P["3"] - P["2"]) < abs(P["1"] - P["0"]) and s0 * (lejos - P["4"]) >= abs(P["3"] - P["2"]):
+                continue                                           # la 3 quedaria como la mas corta
         if names[1] == "1":
             s = 1 if P["1"] > P["0"] else -1
             sentido = "alcista" if s > 0 else "bajista"
@@ -573,7 +592,8 @@ def elliott(pivots, bars):
             a = P["A"] - P["0"]
             s = -1 if a > 0 else 1                         # la correccion va contra el tramo anterior
             sentido = "alcista" if a > 0 else "bajista"
-            head = f"Corrección A-B-C {sentido}" + (" completa" if last == "C" and started else " en formación")
+            plana = "B" in P and abs(P["B"] - P["A"]) > abs(a)
+            head = f"Corrección {'plana expandida' if plana else 'A-B-C'} {sentido}" + (" completa" if last == "C" and started else " en formación")
         target, what = None, ""
         if cur == "2":
             target, what = P["1"] - s * 0.5 * w1, "onda 2 en curso: retroceso de la 1, suele llegar a la mitad"
@@ -582,7 +602,9 @@ def elliott(pivots, bars):
         elif cur == "4":
             target, what = P["3"] - s * 0.382 * abs(P["3"] - P["2"]), "onda 4 en curso: retroceso antes de la última suba" if s > 0 else "onda 4 en curso: rebote antes de la última baja"
         elif cur == "5":
-            target, what = P["4"] + s * w1, "onda 5 en curso: la última del impulso, suele medir como la 1"
+            w3 = abs(P["3"] - P["2"])
+            # suele medir como la 1; si la 3 fue mas corta que la 1, la 5 no puede pasar a la 3 (la 3 no es la mas corta)
+            target, what = P["4"] + s * (min(w1, 0.99 * w3) if w3 < w1 else w1), "onda 5 en curso: la última del impulso, suele medir como la 1"
         elif cur == "A":
             target, what = P["5"] - s * 0.382 * abs(P["5"] - P["0"]), "empieza la corrección (onda A)"
         elif cur == "B":

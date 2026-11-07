@@ -547,6 +547,11 @@
     const c = col(bars, 4);
     const atrLast = atrW(col(bars, 2), col(bars, 3), c)[bars.length - 1] || 0;
     const started = pivots[pivots.length - 1][1] < bars.length - 1 && Math.abs(c[c.length - 1] - p[p.length - 1]) >= atrLast;
+    // lo mas lejos que fue la onda en curso (desde el ultimo giro): las reglas se aplican tambien a ella
+    let extHi = p[p.length - 1], extLo = p[p.length - 1], hayDesde = false;
+    for (let k = pivots[pivots.length - 1][1] + 1; k < bars.length; k++) {
+      if (!hayDesde) { extHi = bars[k][2]; extLo = bars[k][3]; hayDesde = true; } else { extHi = Math.max(extHi, bars[k][2]); extLo = Math.min(extLo, bars[k][3]); }
+    }
 
     const impulso = (pts) => {
       const s = pts[1] > pts[0] ? 1 : -1;
@@ -565,7 +570,7 @@
       if (a === 0) return false;
       if (pts.length >= 3) {
         const b = pts[2] - pts[1];
-        if (b * a >= 0 || !(Math.abs(b) / Math.abs(a) >= 0.2 && Math.abs(b) / Math.abs(a) <= 1)) return false;
+        if (b * a >= 0 || !(Math.abs(b) / Math.abs(a) >= 0.2 && Math.abs(b) / Math.abs(a) <= 1.382)) return false;   // zigzag o plana expandida
       }
       if (pts.length >= 4) {
         const cc = pts[3] - pts[2];
@@ -592,6 +597,12 @@
       names.forEach((k, i) => { P[k] = pts[i]; });
       const last = names[n - 1];
       const cur = started ? SIGUE[last] : last;
+      if (names[1] === '1' && started) {
+        const s0 = P['1'] > P['0'] ? 1 : -1, lejos = s0 > 0 ? extHi : extLo, cerca = s0 > 0 ? extLo : extHi;
+        if (cur === '2' && s0 * (cerca - P['0']) <= 0) continue;                    // la 2 ya paso el inicio de la 1
+        if (cur === '4' && s0 * (cerca - P['1']) <= 0) continue;                    // la 4 ya entro en el terreno de la 1
+        if (cur === '5' && Math.abs(P['3'] - P['2']) < Math.abs(P['1'] - P['0']) && s0 * (lejos - P['4']) >= Math.abs(P['3'] - P['2'])) continue;   // la 3 quedaria la mas corta
+      }
       let s, sentido, head, w1 = 0;
       if (names[1] === '1') {
         s = P['1'] > P['0'] ? 1 : -1;
@@ -605,7 +616,8 @@
         const a = P.A - P['0'];
         s = a > 0 ? -1 : 1;
         sentido = a > 0 ? 'alcista' : 'bajista';
-        head = `Corrección A-B-C ${sentido}` + (last === 'C' && started ? ' completa' : ' en formación');
+        const plana = 'B' in P && Math.abs(P.B - P.A) > Math.abs(a);
+        head = `Corrección ${plana ? 'plana expandida' : 'A-B-C'} ${sentido}` + (last === 'C' && started ? ' completa' : ' en formación');
       }
       let target = null, what = '';
       const base = '5' in P ? P['5'] : P['0'];
@@ -614,7 +626,7 @@
       else if (cur === '4') {
         target = P['3'] - s * 0.382 * Math.abs(P['3'] - P['2']);
         what = s > 0 ? 'onda 4 en curso: retroceso antes de la última suba' : 'onda 4 en curso: rebote antes de la última baja';
-      } else if (cur === '5') { target = P['4'] + s * w1; what = 'onda 5 en curso: la última del impulso, suele medir como la 1'; }
+      } else if (cur === '5') { const w3 = Math.abs(P['3'] - P['2']); target = P['4'] + s * (w3 < w1 ? Math.min(w1, 0.99 * w3) : w1); what = 'onda 5 en curso: la última del impulso, suele medir como la 1'; }
       else if (cur === 'A') { target = P['5'] - s * 0.382 * Math.abs(P['5'] - P['0']); what = 'empieza la corrección (onda A)'; }
       else if (cur === 'B') { target = P.A - 0.5 * (P.A - base); what = 'onda B en curso: rebote dentro de la corrección'; }
       else if (cur === 'C') { target = P.B + (P.A - base); what = 'onda C en curso: la última de la corrección, suele medir como la A'; }
