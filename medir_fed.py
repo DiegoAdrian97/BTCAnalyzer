@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 H = 3_600_000
+VISTOS = []
 
 
 def decisiones():
@@ -26,8 +27,10 @@ def decisiones():
             try:
                 with urllib.request.urlopen(req, timeout=30) as r:
                     for e in json.loads(r.read().decode("utf-8", "replace")).get("result", []):
-                        t = (e.get("title") or "")
-                        if "interest rate decision" in t.lower() and e.get("actual") is not None:
+                        t = (e.get("title") or "") + " " + (e.get("indicator") or "")
+                        if "rate" in t.lower() and "fed" in t.lower() and len(VISTOS) < 15:
+                            VISTOS.append((t, e.get("actual"), e.get("forecast"), e.get("previous")))
+                        if ("interest rate decision" in t.lower() or "fed funds" in t.lower() or "federal funds" in t.lower()) and e.get("actual") not in (None, ""):
                             ms = int(datetime.fromisoformat(e["date"].replace("Z", "+00:00")).timestamp() * 1000)
                             out[ms] = (float(e["actual"]), e.get("forecast"), e.get("previous"))
                 break
@@ -42,7 +45,9 @@ def main():
     B = json.load(open(sys.argv[1]))
     idx = {b[0]: i for i, b in enumerate(B)}
     D = decisiones()
-    print(f"{len(D)} decisiones de la Fed con dato")
+    print(f"{len(D)} decisiones de la Fed con dato"); print("ejemplos:", VISTOS)
+    if not D:
+        return
     filas = []
     for t, (act, fc, prev) in D:
         i = idx.get(t // H * H)
