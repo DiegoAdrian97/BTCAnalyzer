@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: [".github/workflows/medir.yml", "medir_direccion.py", "medir_fuerte_dvol.py"]
+    paths: [".github/workflows/medir.yml", "medir_direccion.py"]
 jobs:
   medir:
     runs-on: ubuntu-latest
@@ -19,7 +19,8 @@ jobs:
       - run: pip install numpy lightgbm scikit-learn
       # la compresion de las Bollinger y el movimiento fuerte (velas de 1 hora de datos_entrenamiento.py)
       - run: python datos_entrenamiento.py
-      - run: python -u medir_fuerte_dvol.py velas_1h.json eventos.json datos_medicion | tee fuerte_dvol.txt
+      - run: if [ -n "$VELAS" ]; then python -u medir_fuerte_dvol.py velas_1h.json eventos.json datos_medicion | tee fuerte_dvol.txt; fi
+        env: { VELAS: "${{ github.event_name == 'workflow_dispatch' && '1' || '' }}" }
       - run: python -u medir_direccion.py velas_1h.json | tee direccion.txt
       - run: if [ -n "$VELAS" ]; then python -u medir_fed.py velas_1h.json | tee fed.txt; fi
         env: { VELAS: "${{ github.event_name == 'workflow_dispatch' && '1' || '' }}" }

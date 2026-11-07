@@ -13,7 +13,8 @@ import numpy as np
 import indicadores as ind
 
 NOMBRES = ["resumen", "SuperTrend (10,3)", "Nube de Ichimoku", "VWAP del dia", "OBV", "Chaikin Money Flow 20", "Parabolic SAR", "Bollinger fuera", "divergencia"]
-PESOS_HOY = [2, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1]
+PESOS_HOY = [2, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1]       # los de antes
+PESOS_NUEVOS = [-1, 0, 0, 0, 0, 0, 0, 1, 1]                # despues de esta medicion (4 h o menos)
 
 
 def senales(win):
@@ -60,6 +61,11 @@ def main():
             a = s & (np.abs(sc) >= 2.5)
             ok = ((sc[a] > 0) == (y[a] == 1)).mean()
             print(f"    PUNTAJE con los pesos de hoy (|p| >= 2,5): {a.sum()} veces · acierta {100 * ok:.1f}%  (z {(ok - 0.5) / math.sqrt(0.25 / max(1, a.sum())):+.1f})")
+            sc = X @ np.asarray(PESOS_NUEVOS)
+            for umbral in (1, 2):
+                a = s & (np.abs(sc) >= umbral)
+                ok = ((sc[a] > 0) == (y[a] == 1)).mean()
+                print(f"    PUNTAJE con los pesos nuevos (|p| >= {umbral}): {a.sum()} veces · acierta {100 * ok:.1f}%  (z {(ok - 0.5) / math.sqrt(0.25 / max(1, a.sum())):+.1f})")
         # pesos aprendidos con 2021-24, probados en 2025-26
         tr, te = T < corte, T >= corte
         w = np.zeros(X.shape[1]); b0 = 0.0
