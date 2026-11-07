@@ -542,6 +542,20 @@ solo lo que gana en 2023–24 y también en 2025–26 (diferencia por día con |
 Ojo con los archivos de metrics de Binance: la hora es la del inicio de los 5 minutos y el dato se conoce al final (la API lo
 confirma). Medido sin ese corrimiento, el flujo y el open interest "ganaban" en 15 min (z +10): era ver el dato 5 minutos antes.
 
+### Ideas de trader medidas (`medir_extra.py`, nov. 2026)
+
+Cada una contra un control (lo que daría el azar en la misma situación), BTC 2021–2026, sin mirar el futuro:
+
+| Idea | Resultado | ¿Entra? |
+|---|---|---|
+| Gap del CME (≥ 0,5%): ¿vuelve al cierre del viernes? | 2021-22: 58% vs 58% del control en 1 día · 2023-24: 39% vs 70% · 2025-26: 46% vs 59%. A 7 días, igual o peor que el control | No |
+| Niveles de swing (1 h): ¿rebota en el primer toque? | 49% vs 57% · 51% vs 51% · 58% vs 59%: igual que un nivel cualquiera a la misma distancia | No |
+| Liquidaciones como imán (mapa de la app): ¿llega antes a la zona grande? | 55% vs 52% esperado por distancia · 45% vs 47% · 53% vs 50%: no se repite | No |
+| Funding extremo (5% del último año) | Bajo en 2023-24: subió a 3 días el 72% (76 casos); en 2025-26, 54% (lo normal 50%): no se repite | No |
+| Flujo de los ETF (10% extremos) | Mucha entrada: el día siguiente subió 63% / 53% (lo normal 55% / 50%), con 30–35 casos por tramo: no alcanza | No |
+| Vencimiento de opciones (dolor máximo) | No hay historia gratuita del interés abierto por precio | No se mide |
+| Nasdaq (QQQ) adelantándose a BTC | Yahoo no le da velas de 1 h a GitHub (429); no hay otra fuente gratuita de intradiario | No se pudo medir |
+
 ### Compresión de las Bollinger (`medir_compresion.py`)
 
 Con el ancho de las Bollinger (20, 2; velas de 1 hora) entre el 10% más angosto de los últimos 30 días, medido con BTC
