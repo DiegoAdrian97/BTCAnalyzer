@@ -1483,7 +1483,7 @@
       F.push({ si: false, ic: '◔', txt: `Fear & Greed Index: ${fg.valor}${fg.fng_ayer !== null && fg.fng_ayer !== undefined && num(fg.fng_ayer) !== fv ? ` (ayer ${fg.fng_ayer})` : ''}.` });
     }
     // la decision de tasas de la Fed tiene su propia linea (abajo): aca no se repite
-    const salio = eventosAgrupados(rows).map((g) => ({ ...g, items: g.items.filter((x) => !(/interest rate decision/i.test(x.original || '') && x.actual !== null && x.actual !== undefined)) }))
+    const salio = eventosAgrupados(rows).map((g) => ({ ...g, items: g.items.filter((x) => !(/interest rate decision|fomc decision|interest rate fomc/i.test(x.original || '') && x.actual !== null && x.actual !== undefined)) }))
       .map((g) => ({ ...g, nombres: [...new Set(g.items.map((x) => x.titulo))] })).filter((g) => g.items.length && g.t <= Date.now() && g.t >= Date.now() - (w.h + 1) * 3600000);
     if (salio.length) {
       const g = salio[salio.length - 1], e = g.items[0];
@@ -1562,7 +1562,7 @@
   // mas alta: malo; igual: ya estaba descontado
   function decisionFed(rows, horas = 48) {
     const now = Date.now();
-    const e = pick(rows, 'evento').filter((x) => /interest rate decision/i.test(x.original || '') && x.actual !== null && x.actual !== undefined
+    const e = pick(rows, 'evento').filter((x) => /interest rate decision|fomc decision|interest rate fomc/i.test(x.original || '') && x.actual !== null && x.actual !== undefined
       && now - num(x.t) <= horas * 3600000 && num(x.t) <= now).sort((a, b) => num(b.t) - num(a.t))[0];
     if (!e) return null;
     const act = num(e.actual), prev = e.previsto === null || e.previsto === undefined ? null : num(e.previsto), ant = e.anterior === null || e.anterior === undefined ? null : num(e.anterior);
