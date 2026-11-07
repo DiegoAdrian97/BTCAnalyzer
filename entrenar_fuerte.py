@@ -1,7 +1,9 @@
 """Entrena el modelo de "movimiento fuerte" (fuerte.py / JavascriptVersion/fuerte.js) y lo guarda en JavascriptVersion/modelo_fuerte.json.
 
 Herramienta aparte (no corre en Render ni en Vercel): necesita numpy y lightgbm.
-    python entrenar_fuerte.py velas_1h.json eventos.json [--probar]
+    python entrenar_fuerte.py velas_1h.json eventos.json [--probar] [--moneda SOL]
+--moneda: entrena el de esa cripto (con sus velas) y lo guarda en JavascriptVersion/modelo_fuerte_SOL.json. Medido
+(medir_fuerza.py): un modelo propio le gana a la tabla y al de BTC aplicado a SOL, XRP y ZEC, a 1 y a 4 horas.
 velas_1h.json: [[t, o, h, l, c, v], ...] velas de 1 hora de BTCUSDT perpetuo (t = apertura, ms UTC), desde 2021.
 eventos.json: [t_ms, ...] horas de los datos de importancia alta de EE.UU. (calendario de TradingView).
 --probar: antes de entrenar, mide sin mirar el futuro (entrena con lo anterior a cada trimestre y prueba ese trimestre).
@@ -135,9 +137,11 @@ def main():
         assert np.allclose(p_lgb, p_mio, atol=1e-9), np.abs(p_lgb - p_mio).max()
         out[f"{hz}h"] = M
         print(f"{hz} h: {len(arb)} árboles, tasa base último año {M['base']}%")
-    with open("JavascriptVersion/modelo_fuerte.json", "w", encoding="utf-8") as f:
+    mon = sys.argv[sys.argv.index("--moneda") + 1] if "--moneda" in sys.argv else "BTC"
+    destino = "JavascriptVersion/modelo_fuerte.json" if mon == "BTC" else f"JavascriptVersion/modelo_fuerte_{mon}.json"
+    with open(destino, "w", encoding="utf-8") as f:
         json.dump(out, f, separators=(",", ":"))
-    print("listo: JavascriptVersion/modelo_fuerte.json")
+    print("listo:", destino)
 
 
 if __name__ == "__main__":

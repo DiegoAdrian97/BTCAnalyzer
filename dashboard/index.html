@@ -614,6 +614,15 @@
   .ab-mov.ab-mov-on #mov-nivel { color: var(--color-warn); }
   .ab-mov-dato { margin: 0; display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; font-size: var(--cds-font-size-body); line-height: 1.45; }
   .ab-mov-dato[hidden] { display: none; }
+  /* cuando suele moverse: las proximas 24 h, cada barra es una hora (alto = cuanto se mueve contra una hora tipica) */
+  .ab-horas { display: grid; gap: 6px; }
+  .ab-horas[hidden] { display: none; }
+  .ab-horas-t { margin: 0; font-size: var(--cds-font-size-body); line-height: 1.45; }
+  .ab-horas-b { display: flex; align-items: flex-end; gap: 2px; height: 44px; }
+  .ab-horas-b i { flex: 1 1 0; min-width: 0; border-radius: 3px 3px 1px 1px; background: var(--soft2); }
+  .ab-horas-b i.alta { background: color-mix(in srgb, var(--ink) 55%, transparent); }
+  .ab-horas-b i.ahora { outline: 1.5px solid var(--ink); outline-offset: 1px; }
+  .ab-horas-x { display: flex; justify-content: space-between; color: var(--mute); font-size: 11px; font-variant-numeric: tabular-nums; }
   .ab-mov-dato > i { font-style: normal; width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; font-size: 12px; background: var(--soft2); }
   .ab-mov-dato.ab-pronto > i { background: color-mix(in srgb, var(--color-warn) 25%, transparent); }
   .ab-mov-dato small { display: block; color: var(--mute); font-size: var(--cds-font-size-caption); }
@@ -937,6 +946,11 @@
     </div>
     <p class="ab-mov-dato" id="mov-dato" hidden></p>
     <p class="ab-mov-dato ab-comp" id="mov-comp" hidden></p>
+    <div class="ab-horas" id="mov-horas" hidden data-where="tabla=horas">
+      <p class="ab-horas-t" id="mov-horas-t"></p>
+      <div class="ab-horas-b" id="mov-horas-b" role="img"></div>
+      <div class="ab-horas-x"><span id="mov-horas-0"></span><span id="mov-horas-12"></span><span id="mov-horas-23"></span></div>
+    </div>
     <p class="ab-note" id="mov-txt"></p>
   </section>
 
@@ -2628,6 +2642,18 @@
         + `En BTC 2021–2026, las 24 h siguientes se movieron ~${String(cp.expande).replace('.', ',')}× lo de las últimas 24 h (${r24t} USD) `
         + `y más del doble el ${f0(cp.mas_doble)}% de las veces (normal: ${f0(cp.mas_doble_normal)}%). No dice para dónde.`);
       cl.setAttribute('data-where', 'tabla=compresion');
+    }
+    // cuando suele moverse en las proximas 24 h (medido: ver perfilHoras en analisis.js)
+    const hs = pick(rows, 'horas')[0], hb = document.getElementById('mov-horas');
+    hb.hidden = !hs || hs.max_f - hs.min_f < 0.3;            // sin diferencias claras entre horas, no se muestra
+    if (hs) {
+      const x = (v) => `×${String(v).replace('.', ',')}`, bars = document.getElementById('mov-horas-b');
+      bars.replaceChildren(...hs.proximas.map(([t, f], k) => { const i = el('i', `${f >= 1.25 ? 'alta' : ''}${k === 0 ? ' ahora' : ''}`.trim());
+        i.style.height = `${Math.max(8, Math.min(100, f / 2 * 100))}%`; i.title = `${horaAR(t)} h: ${x(f)} de una hora típica`; return i; }));
+      bars.setAttribute('aria-label', `Próximas 24 horas: lo más movido a las ${horaAR(hs.max_t)} h, lo más quieto a las ${horaAR(hs.min_t)} h`);
+      document.getElementById('mov-horas-t').replaceChildren(el('b', '', 'Cuándo suele moverse'),
+        `: en las próximas 24 h, lo más movido suele ser a las ${horaAR(hs.max_t)} h (${x(hs.max_f)} de una hora típica) y lo más quieto a las ${horaAR(hs.min_t)} h (${x(hs.min_f)}). Ahora: ${x(hs.ahora_f)}.`);
+      ['0', '12', '23'].forEach((k) => { document.getElementById(`mov-horas-${k}`).textContent = `${horaAR(hs.proximas[+k][0])} h`; });
     }
     // con el modelo de arboles (BTC) la chance sale de ahi; si no hay modelo (ZEC), de la tabla
     const mod = m.modelo_1h !== null && m.modelo_1h !== undefined;

@@ -253,6 +253,31 @@
       esperado_usd: rp(normal * t.veces[k] * price), despierto: vol > 1.8 && serie[serie.length - 7] <= 1.8 };
   }
 
+  // ---------- cuando se mueve: horas de la semana (como perfil_horas de analisis_btc.py) ----------
+  // Medido con BTC (medir_fuerza.py): la forma se mantiene (2021-24 contra 2025-26: correlacion 0,93); las 20 franjas mas
+  // movidas segun 2021-24 se movieron 1,5 veces lo de una hora tipica en 2025-26 (las 20 menos: 0,48).
+  const HORAS_N = 24 * 365, HORAS_MIN = 24 * 7 * 8;
+  const mediana = (xs) => { const s = xs.slice().sort((a, b) => a - b), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
+  function perfilHoras(c1h) {
+    if (!c1h || c1h.length < HORAS_MIN) return null;
+    const bars = c1h.slice(-HORAS_N), H_ = 3600000, S_ = 7 * 86400000, suma = new Map(), cuenta = new Map();
+    for (const b of bars) { const w = Math.floor(b[0] / S_); suma.set(w, (suma.get(w) || 0) + (b[2] - b[3]) / b[1]); cuenta.set(w, (cuenta.get(w) || 0) + 1); }
+    const franjas = Array.from({ length: 168 }, () => []);
+    const fr = (t) => (Math.floor(t / H_) % 24) + 24 * ((Math.floor(t / 86400000) + 3) % 7);
+    for (const b of bars) {
+      const w = Math.floor(b[0] / S_), m = suma.get(w) / cuenta.get(w);
+      if (m > 0) franjas[fr(b[0])].push((b[2] - b[3]) / b[1] / m);
+    }
+    const med = franjas.map((f) => (f.length ? mediana(f) : null)), vals = med.filter((x) => x !== null);
+    if (vals.length < 168) return null;
+    let s = 0; for (const x of vals) s += x;
+    const prom = s / vals.length, t0 = bars[bars.length - 1][0] + H_, prox = [];
+    for (let k = 0; k < 24; k++) { const t = t0 + k * H_; prox.push([t, rnd(med[fr(t)] / prom, 2)]); }
+    let mx = prox[0], mn = prox[0];
+    for (const p of prox) { if (p[1] > mx[1]) mx = p; if (p[1] < mn[1]) mn = p; }
+    return { tabla: 'horas', proximas: prox, max_t: mx[0], max_f: mx[1], min_t: mn[0], min_f: mn[1], ahora_f: prox[0][1], corr: 0.93, top_x: 1.5 };
+  }
+
   // ---------- compresion de las Bollinger (velas de 1 hora cerradas; ver compresion en analisis_btc.py) ----------
   // Medido con BTC 2021-2026 (medir_compresion.py): con el ancho entre el 10% mas angosto de 30 dias, el rango de las 24 h
   // siguientes fue en mediana 1,6-1,7 veces el de las 24 h anteriores y mas del doble el 32-43% de las veces (una hora
@@ -1175,11 +1200,13 @@
 
     const comp = compresion(candles['1h']);
     if (comp) rows.push(comp);
+    const hs = perfilHoras(candles['1h']);
+    if (hs) rows.push(hs);
     const mov = movimiento(candles['5m'], price, input.moneda || 'BTC');
     if (mov) {
-      // movimiento fuerte segun el modelo de arboles (fuerte.js, como fuerte.py). Entrenado con BTC: solo para BTC
-      const pf = (input.moneda || 'BTC') === 'BTC' && root.Fuerte
-        ? root.Fuerte.prever(root.MODELO_FUERTE, candles['1h'], rows.filter((r) => r.tabla === 'evento').map((r) => r.t)) : null;
+      // movimiento fuerte segun el modelo de arboles (fuerte.js, como fuerte.py): BTC y, con modelo propio, SOL, XRP y ZEC
+      const mon = input.moneda || 'BTC', MF = mon === 'BTC' ? root.MODELO_FUERTE : (root.MODELOS_FUERTE || {})[mon];
+      const pf = MF && root.Fuerte ? root.Fuerte.prever(MF, candles['1h'], rows.filter((r) => r.tabla === 'evento').map((r) => r.t)) : null;
       if (pf) Object.assign(mov, { modelo_1h: pf['1h'], modelo_4h: pf['4h'], modelo_base_1h: pf.base_1h, modelo_base_4h: pf.base_4h,
         modelo_hasta: candles['1h'][candles['1h'].length - 1][0] + 2 * 3600000 });
       rows.push(mov);
@@ -1211,7 +1238,7 @@
     return { rows, log };
   }
 
-  const Analisis = { piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, fibTramo, compresion, liqReales, calificarUltimas };
+  const Analisis = { piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, fibTramo, compresion, perfilHoras, liqReales, calificarUltimas };
   root.Analisis = Analisis;
   if (typeof module !== 'undefined' && module.exports) module.exports = Analisis;
 })(typeof self !== 'undefined' ? self : globalThis);

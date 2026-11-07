@@ -1509,6 +1509,18 @@
         + `y más del doble el ${f0(cp.mas_doble)}% de las veces (normal: ${f0(cp.mas_doble_normal)}%). No dice para dónde.`);
       cl.setAttribute('data-where', 'tabla=compresion');
     }
+    // cuando suele moverse en las proximas 24 h (medido: ver perfilHoras en analisis.js)
+    const hs = pick(rows, 'horas')[0], hb = document.getElementById('mov-horas');
+    hb.hidden = !hs || hs.max_f - hs.min_f < 0.3;            // sin diferencias claras entre horas, no se muestra
+    if (hs) {
+      const x = (v) => `×${String(v).replace('.', ',')}`, bars = document.getElementById('mov-horas-b');
+      bars.replaceChildren(...hs.proximas.map(([t, f], k) => { const i = el('i', `${f >= 1.25 ? 'alta' : ''}${k === 0 ? ' ahora' : ''}`.trim());
+        i.style.height = `${Math.max(8, Math.min(100, f / 2 * 100))}%`; i.title = `${horaAR(t)} h: ${x(f)} de una hora típica`; return i; }));
+      bars.setAttribute('aria-label', `Próximas 24 horas: lo más movido a las ${horaAR(hs.max_t)} h, lo más quieto a las ${horaAR(hs.min_t)} h`);
+      document.getElementById('mov-horas-t').replaceChildren(el('b', '', 'Cuándo suele moverse'),
+        `: en las próximas 24 h, lo más movido suele ser a las ${horaAR(hs.max_t)} h (${x(hs.max_f)} de una hora típica) y lo más quieto a las ${horaAR(hs.min_t)} h (${x(hs.min_f)}). Ahora: ${x(hs.ahora_f)}.`);
+      ['0', '12', '23'].forEach((k) => { document.getElementById(`mov-horas-${k}`).textContent = `${horaAR(hs.proximas[+k][0])} h`; });
+    }
     // con el modelo de arboles (BTC) la chance sale de ahi; si no hay modelo (ZEC), de la tabla
     const mod = m.modelo_1h !== null && m.modelo_1h !== undefined;
     const prob = mod ? num(m.modelo_1h) : num(m.prob_fuerte);

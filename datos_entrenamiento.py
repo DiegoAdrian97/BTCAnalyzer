@@ -146,4 +146,9 @@ if __name__ == "__main__":
     oc = onchain()
     assert all(len(v) > 5000 for v in oc.values()), "datos on-chain incompletos"
     json.dump(oc, open("onchain.json", "w"))
+    # las criptos con modelo propio de movimiento fuerte (entrenar_fuerte.py --moneda)
+    for mon in ("SOL", "XRP", "ZEC"):
+        A = velas(f"{mon}USDT")
+        assert len(A) > 20000, f"pocas velas de {mon}: {len(A)}"
+        json.dump(A, open(f"velas_1h_{mon}.json", "w"), separators=(",", ":"))
     print(f"velas {len(B)} hasta {datetime.fromtimestamp(B[-1][0] / 1000, timezone.utc)} · eventos {len(E)}")

@@ -112,19 +112,32 @@ def probabilidad(modelo, x):
     return 1 / (1 + math.exp(-z))
 
 
-def modelo():
+MONEDAS = ("BTC", "SOL", "XRP", "ZEC")     # con modelo propio (las demas usan la tabla de movimiento)
+
+
+def modelo(moneda="BTC"):
     global _MODELO
     if _MODELO is None:
-        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "JavascriptVersion", "modelo_fuerte.json"), encoding="utf-8") as fh:
-            _MODELO = json.load(fh)
-    return _MODELO
+        _MODELO = {}
+    if moneda not in _MODELO:
+        nombre = "modelo_fuerte.json" if moneda == "BTC" else f"modelo_fuerte_{moneda}.json"
+        ruta = os.path.join(os.path.dirname(os.path.abspath(__file__)), "JavascriptVersion", nombre)
+        if not os.path.exists(ruta):
+            return None
+        with open(ruta, encoding="utf-8") as fh:
+            _MODELO[moneda] = json.load(fh)
+    return _MODELO[moneda]
 
 
-def prever(bars, eventos=()):
+def prever(bars, eventos=(), moneda="BTC"):
     """Probabilidad de movimiento fuerte en la proxima hora y en las proximas 4 (0-100), o None."""
+    if moneda not in MONEDAS:
+        return None
     x = señales(bars, eventos)
     if x is None:
         return None
-    M = modelo()
+    M = modelo(moneda)
+    if M is None:
+        return None
     return {"1h": round(probabilidad(M["1h"], x) * 100, 1), "4h": round(probabilidad(M["4h"], x) * 100, 1),
             "base_1h": M["1h"]["base"], "base_4h": M["4h"]["base"]}

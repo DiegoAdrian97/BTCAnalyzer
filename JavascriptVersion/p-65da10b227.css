@@ -613,6 +613,15 @@
   .ab-mov.ab-mov-on #mov-nivel { color: var(--color-warn); }
   .ab-mov-dato { margin: 0; display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; font-size: var(--cds-font-size-body); line-height: 1.45; }
   .ab-mov-dato[hidden] { display: none; }
+  /* cuando suele moverse: las proximas 24 h, cada barra es una hora (alto = cuanto se mueve contra una hora tipica) */
+  .ab-horas { display: grid; gap: 6px; }
+  .ab-horas[hidden] { display: none; }
+  .ab-horas-t { margin: 0; font-size: var(--cds-font-size-body); line-height: 1.45; }
+  .ab-horas-b { display: flex; align-items: flex-end; gap: 2px; height: 44px; }
+  .ab-horas-b i { flex: 1 1 0; min-width: 0; border-radius: 3px 3px 1px 1px; background: var(--soft2); }
+  .ab-horas-b i.alta { background: color-mix(in srgb, var(--ink) 55%, transparent); }
+  .ab-horas-b i.ahora { outline: 1.5px solid var(--ink); outline-offset: 1px; }
+  .ab-horas-x { display: flex; justify-content: space-between; color: var(--mute); font-size: 11px; font-variant-numeric: tabular-nums; }
   .ab-mov-dato > i { font-style: normal; width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; font-size: 12px; background: var(--soft2); }
   .ab-mov-dato.ab-pronto > i { background: color-mix(in srgb, var(--color-warn) 25%, transparent); }
   .ab-mov-dato small { display: block; color: var(--mute); font-size: var(--cds-font-size-caption); }

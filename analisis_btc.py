@@ -275,6 +275,51 @@ def movimiento(c5, price, moneda="BTC"):
             "esperado_usd": rp(normal * t["veces"][k] * price), "despierto": vol > 1.8 and serie[-7] <= 1.8}
 
 
+# ---------- cuando se mueve: horas de la semana (velas de 1 hora cerradas) ----------
+# Medido con BTC (medir_fuerza.py): la forma del movimiento por hora de la semana se mantiene (2021-24 contra 2025-26:
+# correlacion 0,93) y las 20 franjas mas movidas segun 2021-24 se movieron 1,5 veces lo de una hora tipica en 2025-26
+# (las 20 menos: 0,48). Cada hora se mide contra el promedio de su semana, para que no pesen los meses agitados.
+HORAS_N, HORAS_MIN = 24 * 365, 24 * 7 * 8
+
+
+def _mediana(xs):
+    xs = sorted(xs)
+    n = len(xs)
+    return xs[n // 2] if n % 2 else (xs[n // 2 - 1] + xs[n // 2]) / 2
+
+
+def perfil_horas(c1h):
+    if not c1h or len(c1h) < HORAS_MIN:
+        return None
+    bars = c1h[-HORAS_N:]
+    H_, S_ = 3_600_000, 7 * 86_400_000
+    suma, cuenta = {}, {}
+    for b in bars:
+        w = b[0] // S_
+        suma[w] = suma.get(w, 0.0) + (b[2] - b[3]) / b[1]
+        cuenta[w] = cuenta.get(w, 0) + 1
+    franjas = [[] for _ in range(168)]
+    for b in bars:
+        w = b[0] // S_
+        m = suma[w] / cuenta[w]
+        if m > 0:
+            franjas[(b[0] // H_) % 24 + 24 * ((b[0] // 86_400_000 + 3) % 7)].append((b[2] - b[3]) / b[1] / m)
+    med = [_mediana(f) if f else None for f in franjas]
+    vals = [x for x in med if x is not None]
+    if len(vals) < 168:
+        return None
+    prom = sum(vals) / len(vals)
+    t0 = bars[-1][0] + H_                      # la hora que esta corriendo
+    prox = []
+    for k in range(24):
+        t = t0 + k * H_
+        prox.append([t, round(med[(t // H_) % 24 + 24 * ((t // 86_400_000 + 3) % 7)] / prom, 2)])
+    mx = max(prox, key=lambda x: x[1])
+    mn = min(prox, key=lambda x: x[1])
+    return {"tabla": "horas", "proximas": prox, "max_t": mx[0], "max_f": mx[1], "min_t": mn[0], "min_f": mn[1],
+            "ahora_f": prox[0][1], "corr": 0.93, "top_x": 1.5}
+
+
 # ---------- compresion de las Bollinger (velas de 1 hora cerradas) ----------
 # Medido con BTC 2021-2026 (medir_compresion.py): con el ancho entre el 10% mas angosto de 30 dias, el rango de las 24 h
 # siguientes fue en mediana 1,6-1,7 veces el de las 24 h anteriores y mas del doble el 32-43% de las veces (una hora
@@ -1528,6 +1573,9 @@ def analyze():
     comp = compresion(candles.get("1h"))
     if comp:
         rows.append(comp)
+    hs = perfil_horas(candles.get("1h"))
+    if hs:
+        rows.append(hs)
     mov = movimiento(candles["5m"], price)
     if mov:
         # movimiento fuerte segun el modelo de arboles (fuerte.py): mucho mejor que la tabla (ver README)

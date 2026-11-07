@@ -508,7 +508,7 @@ solo con lo anterior):
 En una hora cualquiera es fuerte el 12%. Para predecir si sube o baja, el mismo modelo no sirvió (igual que todo lo
 demás que se probó). Las cuentas están en `fuerte.py` y `JavascriptVersion/fuerte.js` (mismos números, probado en 300
 momentos), y los árboles en `JavascriptVersion/modelo_fuerte.json`, que arma `entrenar_fuerte.py` (necesita numpy y
-lightgbm; conviene reentrenarlo cada algunos meses). Se usa solo para BTC; ZEC sigue con la tabla.
+lightgbm; conviene reentrenarlo cada algunos meses). Se usa para BTC y, con su propio modelo, para SOL, XRP y ZEC; las demás siguen con la tabla.
 
 ### Predicciones honestas
 
@@ -541,6 +541,16 @@ solo lo que gana en 2023–24 y también en 2025–26 (diferencia por día con |
 
 Ojo con los archivos de metrics de Binance: la hora es la del inicio de los 5 minutos y el dato se conoce al final (la API lo
 confirma). Medido sin ese corrimiento, el flujo y el open interest "ganaban" en 15 min (z +10): era ver el dato 5 minutos antes.
+
+### Fuerza y momento del movimiento (`medir_fuerza.py`, nov. 2026)
+
+La dirección no se deja predecir, pero cuánto y cuándo se mueve sí:
+
+| Idea | Resultado (prueba honesta, cada trimestre con un modelo entrenado solo con lo anterior) | ¿Entra? |
+|---|---|---|
+| Modelo propio de movimiento fuerte para SOL, XRP y ZEC (antes, la tabla) | Ventaja sobre la tasa base a 1 h: SOL 6,9 / 8,6 / 8,9% · XRP 11,9 / 10,8 / 11,1% · ZEC 5,8 / 8,2 / 7,8%; a 4 h: SOL 5,1 / 4,8 / 6,4% · XRP 9,0 / 6,1 / 10,7% · ZEC 3,5 / 6,3 / 4,2% (2023-24 / 2025 / 2026). Casi siempre mejor que el de BTC aplicado a ellas | Sí: `modelo_fuerte_SOL/XRP/ZEC.json`, reentrenados cada semana |
+| Movimiento fuerte en las próximas 24 h (BTC) | −3,4 / −10,5 / +2,0%: peor que la tasa base | No |
+| Cuándo se mueve: cada hora de la semana contra el promedio de su semana | La forma se mantiene (2021-24 contra 2025-26: correlación 0,93); las 20 franjas más movidas se movieron ×1,5 una hora típica y las 20 más quietas ×0,48. Las más movidas: 14 y 15 UTC (11 y 12 h de Argentina) de lunes a viernes | Sí: "Cuándo suele moverse" en Movimiento, con el último año de cada activo (fila `horas`, Python = JS) |
 
 ### Ideas de trader medidas (`medir_extra.py`, nov. 2026)
 

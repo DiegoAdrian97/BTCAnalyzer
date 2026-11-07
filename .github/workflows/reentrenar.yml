@@ -22,10 +22,11 @@ jobs:
       - run: pip install numpy lightgbm scikit-learn
       - run: python datos_entrenamiento.py
       - run: python entrenar_fuerte.py velas_1h.json eventos.json
+      - run: for m in SOL XRP ZEC; do python entrenar_fuerte.py velas_1h_$m.json eventos.json --moneda $m; done
       - run: python armar_termometro.py btc_diario.json fng.json alts_diario.json onchain.json
       - name: Subir el modelo nuevo
         run: |
           git config user.name "DiegoAdrian97"; git config user.email "diegojadrian97@gmail.com"
-          git add JavascriptVersion/modelo_fuerte.json JavascriptVersion/termometro.json
+          git add JavascriptVersion/modelo_fuerte.json JavascriptVersion/modelo_fuerte_*.json JavascriptVersion/termometro.json
           git commit -q -m "Modelo de movimiento fuerte reentrenado ($(date -u +%Y-%m))" || exit 0
           for i in 1 2 3; do git pull --rebase -q && git push -q && break; sleep 10; done

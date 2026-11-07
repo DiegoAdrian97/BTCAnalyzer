@@ -52,6 +52,16 @@ async function cargarModelos() {
   ]);
   self.JSON_T = Date.now();
 }
+// modelo propio de movimiento fuerte de SOL, XRP y ZEC (medido: les va mejor que la tabla y que el de BTC); se baja
+// solo el de la cripto que se analiza, y se vuelve a preguntar cada 6 h
+const CON_MODELO = new Set(['SOL', 'XRP', 'ZEC']);
+self.MODELOS_FUERTE = {}; const modeloT = {};
+async function modeloDe(mon) {
+  if (!CON_MODELO.has(mon) || Date.now() - (modeloT[mon] || 0) < 6 * 3600000) return;
+  modeloT[mon] = Date.now();
+  await fetch(`modelo_fuerte_${mon}.json`, { cache: 'no-cache', signal: AbortSignal.timeout(15000) })
+    .then((r) => (r.ok ? r.json() : null)).then((j) => { if (j) self.MODELOS_FUERTE[mon] = j; }).catch(() => { modeloT[mon] = 0; });
+}
 const conTope = (p) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('tardó demasiado')), TOPE))]);
 
 function calcular(sym, input) {
@@ -68,7 +78,7 @@ function calcular(sym, input) {
 function firma(sym, input) {
   const velas = Object.keys(input.candles).map((tf) => { const c = input.candles[tf]; return c.length ? c[c.length - 1][0] : 0; }).join();
   return { sym, t: Date.now(), precio: input.price, velas, vivo: input.live5m ? input.live5m[0] : 0, fuente: input.fuente, modelos: self.JSON_T,
-    datos: [input.ctxRaw, input.booksRaw, input.liqRaw, input.externo, input.opcionesRaw] };
+    datos: [input.ctxRaw, input.booksRaw, input.liqRaw, input.externo, input.opcionesRaw, self.MODELOS_FUERTE[sym.replace('USDT', '')]] };
 }
 function igual(a, b) {
   return !!a && a.sym === b.sym && b.t - a.t < REHACER && a.velas === b.velas && a.vivo === b.vivo && a.fuente === b.fuente
@@ -84,7 +94,7 @@ async function cicloActivo() {
   const t0 = Date.now(), sym = ACTIVO;
   try {
     // los modelos y las velas no dependen uno del otro: se bajan a la vez
-    const [input] = await Promise.all([conTope(Datos.recolectar((texto) => postMessage({ tipo: 'progreso', texto, sym }), sym)), cargarModelos()]);
+    const [input] = await Promise.all([conTope(Datos.recolectar((texto) => postMessage({ tipo: 'progreso', texto, sym }), sym)), cargarModelos(), modeloDe(sym.replace('USDT', ''))]);
     if (sym !== ACTIVO) return;                    // eligieron otro activo mientras bajaban los datos: no se calcula este
     const f = firma(sym, input);
     hecho[sym] = Date.now();
@@ -105,7 +115,7 @@ async function cicloFondo(sym) {
   try {
     await cargarModelos();
     const corte = new Promise((r) => { interrumpir = r; });
-    const input = await Promise.race([conTope(Datos.recolectar(null, sym, { liviano: true })), corte.then(() => null)]);
+    const [input] = await Promise.all([Promise.race([conTope(Datos.recolectar(null, sym, { liviano: true })), corte.then(() => null)]), modeloDe(sym.replace('USDT', ''))]);
     interrumpir = null;
     if (!input || pedirActivo) { hecho[sym] = 0; return; }
     const rows = calcular(sym, input);
