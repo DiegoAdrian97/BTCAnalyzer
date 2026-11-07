@@ -267,6 +267,8 @@
     const fu = pick('contexto').find((c) => c.clave === 'funding') || null;
     const iv = pick('contexto').find((c) => c.clave === 'opciones_iv') || null;
     const eventos = pick('evento').filter((r) => r.t && r.t > now).map((r) => r.t).sort((a, b) => a - b);
+    // decision de tasa de la Fed (medir_fed.py): la hora del anuncio se movio ~3,2 veces lo normal; la direccion, ~50/50
+    const fed = pick('evento').filter((r) => r.t && r.t > now && ['interest rate decision', 'fomc decision', 'interest rate fomc'].some((k) => (r.original || '').toLowerCase().includes(k))).map((r) => r.t).sort((a, b) => a - b);
     const out = [];
     for (const tf of CENTRAL_TF) {
       const marco = pick('marco').find((m) => m.tf === tf);
@@ -312,7 +314,9 @@
         else if (hs.ahora_f <= 0.7) cf('fuerza', -1, 1, `Hora tranquila (×${ar(hs.ahora_f, 2)} de una hora típica)`);
       }
       const ventana = CENTRAL_HORAS[tf] * 3600000, prox = eventos.filter((t) => t - now <= ventana);
-      if (prox.length && tf !== '1d' && tf !== '1w' && tf !== '1M') cf('fuerza', 1, 2, `Dato fuerte de EE.UU. dentro de ${Math.max(1, roundEven((prox[0] - now) / 60000))} min`);
+      const proxFed = fed.filter((t) => t - now <= ventana), cortoEv = tf !== '1d' && tf !== '1w' && tf !== '1M';
+      if (proxFed.length && cortoEv) cf('fuerza', 1, 3, `Decisión de la Fed dentro de ${Math.max(1, roundEven((proxFed[0] - now) / 60000))} min: esa hora se mueve ~3 veces lo normal (medido)`);
+      else if (prox.length && cortoEv) cf('fuerza', 1, 2, `Dato fuerte de EE.UU. dentro de ${Math.max(1, roundEven((prox[0] - now) / 60000))} min`);
       if (corto && liq.some((x) => Math.abs(x.precio / price - 1) <= 0.01 && x.longs + x.shorts >= 5)) cf('fuerza', 1, 1, 'Liquidaciones acumuladas a menos de 1%: si llega, el movimiento se puede acelerar');
       // ----- direccion -----
       if (p) {

@@ -1244,6 +1244,9 @@ def central(rows, price, candles, now_ms):
     fu = next((c for c in pick("contexto") if c.get("clave") == "funding"), None)
     iv = next((c for c in pick("contexto") if c.get("clave") == "opciones_iv"), None)
     eventos = sorted(r["t"] for r in pick("evento") if r.get("t") and r["t"] > now_ms)
+    # decision de tasa de la Fed. Medido (medir_fed.py, 45 decisiones 2021-2026): la hora del anuncio se movio en mediana
+    # 3,2 veces lo normal y mas del doble el 78%; la direccion despues, ~50/50 (bajara, mantuviera o subiera la tasa)
+    fed = sorted(r["t"] for r in pick("evento") if r.get("t") and r["t"] > now_ms and any(k in (r.get("original") or "").lower() for k in ("interest rate decision", "fomc decision", "interest rate fomc")))
     niveles = pick("nivel")
     out = []
     for tf in CENTRAL_TF:
@@ -1303,7 +1306,10 @@ def central(rows, price, candles, now_ms):
                 _cf(F, "fuerza", -1, 1, f"Hora tranquila (×{ar(hs['ahora_f'], 2)} de una hora típica)")
         ventana = CENTRAL_HORAS[tf] * 3_600_000
         prox = [t for t in eventos if t - now_ms <= ventana]
-        if prox and tf in ("5m", "15m", "30m", "1h", "4h"):              # un dato no hace fuerte una vela diaria
+        prox_fed = [t for t in fed if t - now_ms <= ventana]
+        if prox_fed and tf in ("5m", "15m", "30m", "1h", "4h"):
+            _cf(F, "fuerza", 1, 3, f"Decisión de la Fed dentro de {max(1, round((prox_fed[0] - now_ms) / 60000))} min: esa hora se mueve ~3 veces lo normal (medido)")
+        elif prox and tf in ("5m", "15m", "30m", "1h", "4h"):            # un dato no hace fuerte una vela diaria
             _cf(F, "fuerza", 1, 2, f"Dato fuerte de EE.UU. dentro de {max(1, round((prox[0] - now_ms) / 60000))} min")
         cerca = [x for x in liq if abs(x["precio"] / price - 1) <= 0.01 and x["longs"] + x["shorts"] >= 5]
         if cerca and corto:

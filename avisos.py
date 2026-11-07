@@ -1042,7 +1042,7 @@ def _fed(rows, price):
     """Cuando sale la decision de tasas de la Fed: mas baja de lo previsto es bueno para BTC, mas alta es malo."""
     ahora = time.time()
     for r in rows:
-        if r.get("tabla") != "evento" or "interest rate decision" not in (r.get("original") or "").lower():
+        if r.get("tabla") != "evento" or not any(k in (r.get("original") or "").lower() for k in ("interest rate decision", "fomc decision", "interest rate fomc")):
             continue
         if r.get("actual") is None or r["t"] in _estado["fed"] or not (0 <= ahora - r["t"] / 1000 <= 3 * 3600):
             continue
