@@ -469,6 +469,10 @@
     .ab-plazos { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding-bottom: 2px; }
     .ab-plazos::-webkit-scrollbar { display: none; }
     .ab-plazo { flex: 0 0 8.6rem; scroll-snap-align: start; }
+    /* se desvanece el borde por donde hay mas tarjetas (antes la ultima se veia cortada sin aviso) */
+    .ab-plazos.mas-der { -webkit-mask-image: linear-gradient(to right, #000 82%, transparent); mask-image: linear-gradient(to right, #000 82%, transparent); }
+    .ab-plazos.mas-izq { -webkit-mask-image: linear-gradient(to left, #000 82%, transparent); mask-image: linear-gradient(to left, #000 82%, transparent); }
+    .ab-plazos.mas-izq.mas-der { -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent); mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent); }
     .ab-plazo:hover { transform: none; }
     .ab-tug { height: 62px; }
     .ab-tug > div { flex-direction: column; justify-content: center; align-items: flex-start; gap: 0; padding-inline: 10px; }
@@ -490,6 +494,27 @@
   .ab-conclu { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 12px; padding: 12px 16px; margin: 0 0 var(--cds-gap-md, 16px);
     border-radius: var(--cds-radius, 14px); background: var(--soft); }
   .ab-conclu[hidden] { display: none; }
+  /* barra con el precio que aparece al bajar por la pagina (el precio grande queda arriba, fuera de la vista) */
+  .ab-mini { position: fixed; top: 0; left: 0; right: 0; z-index: 990; display: flex; align-items: baseline; gap: 10px; padding: 10px max(16px, var(--dash-gutter, 16px));
+    padding-top: max(10px, env(safe-area-inset-top)); font: inherit; font-size: 14px; color: var(--ink); text-align: left; cursor: pointer; border: 0;
+    border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--color-bg, #0b0d10) 82%, transparent);
+    -webkit-backdrop-filter: blur(14px) saturate(1.4); backdrop-filter: blur(14px) saturate(1.4);
+    transform: translateY(-110%); transition: transform .25s ease; pointer-events: none; }
+  .ab-mini.on { transform: none; pointer-events: auto; }
+  html.ab-panel-fijo .ab-mini { right: var(--ab-panel-w); }
+  .ab-mini b { font-weight: 700; letter-spacing: .02em; }
+  .ab-mini-p { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .ab-mini span { font-variant-numeric: tabular-nums; }
+  .ab-mini-h { margin-left: auto; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .ab-mini i { font-style: normal; color: var(--mute); }
+  .ab-mini .sube { color: var(--up); } .ab-mini .baja { color: var(--down); }
+  @media (prefers-reduced-motion: reduce) { .ab-mini { transition: none; } }
+  /* resumen: cada dato con su color a la izquierda */
+  .ab-conclu div { padding-left: 10px; border-left: 3px solid var(--line); }
+  .ab-conclu div:has(.sube) { border-left-color: var(--up); } .ab-conclu div:has(.baja) { border-left-color: var(--down); }
+  .ab-conclu b.sube::before { content: "▲ "; font-size: .8em; } .ab-conclu b.baja::before { content: "▼ "; font-size: .8em; }
+  /* foco visible en todo lo que se puede tocar con el teclado */
+  .ab :is(a, summary, [tabindex="0"], select, input):focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 6px; }
   .ab-conclu div { display: grid; gap: 2px; min-width: 0; }
   .ab-conclu small { color: var(--mute); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; }
   .ab-conclu b { font-weight: 600; overflow-wrap: anywhere; }
@@ -836,6 +861,9 @@
   </header>
 
   <!-- una sola conclusion arriba: cada señal mira un plazo distinto y antes parecian contradecirse -->
+  <button type="button" class="ab-mini" id="mini" tabindex="-1" aria-hidden="true" title="Volver arriba">
+    <b id="mini-mon">BTC</b><span class="ab-mini-p" id="mini-p">—</span><span id="mini-c"></span><span class="ab-mini-h" id="mini-h"></span><i aria-hidden="true">↑</i>
+  </button>
   <section class="ab-conclu" id="conclusion" aria-label="En resumen" hidden>
     <div><small>Próxima hora</small><b id="cc-hora">—</b></div>
     <div><small id="cc-ind-k">Indicadores</small><b id="cc-ind">—</b></div>
@@ -1091,6 +1119,7 @@
 <script>
 (function () {
   const root = document.getElementById('analista');
+  const MINI = document.getElementById('mini');   // barra con el precio al bajar (ver miniPintar)
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const ar = d3.formatLocale({ decimal: ',', thousands: '.', grouping: [3], currency: ['$', ''] });
   const f0 = ar.format(',.0f'), f1 = ar.format(',.1f'), f2 = ar.format(',.2f');
@@ -1360,6 +1389,7 @@
       if (Date.now() - (S.estT || 0) > 1000) {
         S.estT = Date.now(); document.title = `${fp(liveBar.c)} · ${MON()}`;
         document.getElementById('live-state').textContent = `● en vivo · análisis #${f0(window.abAnalyses || 1)} · ${f0(ticks)} ticks`;
+        if (MINI.classList.contains('on')) miniPintar();
       }
       liveTick();
     };
@@ -1593,11 +1623,38 @@
     placeTf(); placeSc();
     connectLive();
     drawConclusion();
+    plazosBordes(); if (MINI.classList.contains('on')) miniPintar();
     plegarNotas();
     if (first) { first = false; setTimeout(() => root.classList.remove('ab-first'), 1800); }
   }
   // En resumen: la prediccion de la proxima hora, los indicadores del marco elegido y el termometro (ciclo), juntos y
   // con su plazo. Si apuntan para lados distintos se dice por que, en vez de dejar que parezcan contradecirse.
+  // ---------- barra con el precio al bajar ----------
+  function miniPintar() {
+    const pe = root.querySelector('.ab-price'), c = document.getElementById('c24');
+    document.getElementById('mini-mon').textContent = MON();
+    document.getElementById('mini-p').textContent = pe && pe.firstChild ? pe.firstChild.textContent : '—';
+    const mc = document.getElementById('mini-c'); mc.textContent = c ? c.textContent : ''; mc.className = c ? c.className : '';
+    const h = document.getElementById('cc-hora'); document.getElementById('mini-h').textContent = h && h.textContent !== '—' ? `Próxima hora: ${h.textContent}` : '';
+  }
+  if ('IntersectionObserver' in window) {
+    const ojo = new IntersectionObserver(([e]) => {
+      const on = !e.isIntersecting && e.boundingClientRect.top < 0;
+      MINI.classList.toggle('on', on); MINI.tabIndex = on ? 0 : -1; MINI.setAttribute('aria-hidden', String(!on));
+      if (on) miniPintar();
+    });
+    const pr = root.querySelector('.ab-price'); if (pr) ojo.observe(pr);
+  }
+  MINI.addEventListener('click', () => window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }));
+  // plazos en el celu: se marca por que lado hay mas tarjetas
+  function plazosBordes() {
+    const n = document.getElementById('plazos'); if (!n) return;
+    const mas = n.scrollWidth - n.clientWidth > 4;
+    n.classList.toggle('mas-izq', mas && n.scrollLeft > 4); n.classList.toggle('mas-der', mas && n.scrollLeft < n.scrollWidth - n.clientWidth - 4);
+  }
+  document.getElementById('plazos').addEventListener('scroll', plazosBordes, { passive: true });
+  window.addEventListener('resize', plazosBordes, { passive: true });
+
   function drawConclusion() {
     const sec = document.getElementById('conclusion'), txt = (id) => { const e = document.getElementById(id); return e && !e.closest('[hidden]') ? e.textContent.trim() : ''; };
     const hora = txt('verdict-big').replace(/^[^\wÁÉÍÓÚÑáéíóúñ]+/, ''), ind = txt('gauge-txt'), tab = document.getElementById('tm-tab');

@@ -1,5 +1,6 @@
 (function () {
   const root = document.getElementById('analista');
+  const MINI = document.getElementById('mini');   // barra con el precio al bajar (ver miniPintar)
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const ar = d3.formatLocale({ decimal: ',', thousands: '.', grouping: [3], currency: ['$', ''] });
   const f0 = ar.format(',.0f'), f1 = ar.format(',.1f'), f2 = ar.format(',.2f');
@@ -269,6 +270,7 @@
       if (Date.now() - (S.estT || 0) > 1000) {
         S.estT = Date.now(); document.title = `${fp(liveBar.c)} · ${MON()}`;
         document.getElementById('live-state').textContent = `● en vivo · análisis #${f0(window.abAnalyses || 1)} · ${f0(ticks)} ticks`;
+        if (MINI.classList.contains('on')) miniPintar();
       }
       liveTick();
     };
@@ -502,11 +504,38 @@
     placeTf(); placeSc();
     connectLive();
     drawConclusion();
+    plazosBordes(); if (MINI.classList.contains('on')) miniPintar();
     plegarNotas();
     if (first) { first = false; setTimeout(() => root.classList.remove('ab-first'), 1800); }
   }
   // En resumen: la prediccion de la proxima hora, los indicadores del marco elegido y el termometro (ciclo), juntos y
   // con su plazo. Si apuntan para lados distintos se dice por que, en vez de dejar que parezcan contradecirse.
+  // ---------- barra con el precio al bajar ----------
+  function miniPintar() {
+    const pe = root.querySelector('.ab-price'), c = document.getElementById('c24');
+    document.getElementById('mini-mon').textContent = MON();
+    document.getElementById('mini-p').textContent = pe && pe.firstChild ? pe.firstChild.textContent : '—';
+    const mc = document.getElementById('mini-c'); mc.textContent = c ? c.textContent : ''; mc.className = c ? c.className : '';
+    const h = document.getElementById('cc-hora'); document.getElementById('mini-h').textContent = h && h.textContent !== '—' ? `Próxima hora: ${h.textContent}` : '';
+  }
+  if ('IntersectionObserver' in window) {
+    const ojo = new IntersectionObserver(([e]) => {
+      const on = !e.isIntersecting && e.boundingClientRect.top < 0;
+      MINI.classList.toggle('on', on); MINI.tabIndex = on ? 0 : -1; MINI.setAttribute('aria-hidden', String(!on));
+      if (on) miniPintar();
+    });
+    const pr = root.querySelector('.ab-price'); if (pr) ojo.observe(pr);
+  }
+  MINI.addEventListener('click', () => window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }));
+  // plazos en el celu: se marca por que lado hay mas tarjetas
+  function plazosBordes() {
+    const n = document.getElementById('plazos'); if (!n) return;
+    const mas = n.scrollWidth - n.clientWidth > 4;
+    n.classList.toggle('mas-izq', mas && n.scrollLeft > 4); n.classList.toggle('mas-der', mas && n.scrollLeft < n.scrollWidth - n.clientWidth - 4);
+  }
+  document.getElementById('plazos').addEventListener('scroll', plazosBordes, { passive: true });
+  window.addEventListener('resize', plazosBordes, { passive: true });
+
   function drawConclusion() {
     const sec = document.getElementById('conclusion'), txt = (id) => { const e = document.getElementById(id); return e && !e.closest('[hidden]') ? e.textContent.trim() : ''; };
     const hora = txt('verdict-big').replace(/^[^\wÁÉÍÓÚÑáéíóúñ]+/, ''), ind = txt('gauge-txt'), tab = document.getElementById('tm-tab');
