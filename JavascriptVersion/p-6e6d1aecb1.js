@@ -546,10 +546,17 @@
     const pon = (id, t) => { const e = document.getElementById(id); e.textContent = t || '—'; e.className = t ? (lado(t) > 0 ? 'sube' : lado(t) < 0 ? 'baja' : '') : ''; };
     pon('cc-hora', hora); pon('cc-ind', ind); pon('cc-ciclo', ciclo);
     document.getElementById('cc-ind-k').textContent = `Indicadores ${TF_TXT[S.tf] || ''}`.trim();
-    const l = [lado(hora), lado(ind), ciclo ? lado(ciclo) : 0], dist = new Set(l.filter((x) => x)).size > 1;
-    document.getElementById('cc-txt').textContent = dist
-      ? 'Apuntan para lados distintos porque miran plazos distintos: la próxima hora puede ir en contra de lo que marca el ciclo.'
-      : l.some((x) => x) ? 'No se contradicen: lo que marca uno no lo niega el otro.' : 'Sin una dirección clara en ningún plazo.';
+    // Los indicadores (medias y osciladores, ahora) y la prediccion (que paso despues en casos parecidos) miran la misma
+    // hora de forma distinta; el ciclo mira meses. Se explica cada diferencia en vez de una frase generica.
+    const [lh, li, lc] = [lado(hora), lado(ind), ciclo ? lado(ciclo) : 0], dir = (x) => (x > 0 ? 'al alza' : 'a la baja'), fr = [];
+    if (li && lh === 0) fr.push(`Los indicadores marcan ${ind.toLowerCase()}, pero en casos parecidos del pasado el precio no tuvo una dirección clara en la próxima hora: por eso la predicción dice lateral.`);
+    else if (li && lh && li !== lh) fr.push(`Los indicadores apuntan ${dir(li)}, pero en casos parecidos del pasado el precio terminó ${dir(lh)}: la predicción se basa en eso.`);
+    else if (lh && li === lh) fr.push(`Indicadores y predicción coinciden ${dir(lh)} para la próxima hora.`);
+    else if (lh && !li) fr.push(`Los indicadores están neutrales, pero en casos parecidos el precio terminó ${dir(lh)}.`);
+    if (lc && (lh || li) && lc !== (lh || li)) fr.push(`El ciclo apunta ${dir(lc)}: no lo contradice, mira semanas o meses.`);
+    else if (lc && lc === (lh || li)) fr.push(`El ciclo (semanas o meses) apunta para el mismo lado.`);
+    else if (lc) fr.push(`El ciclo, que mira semanas o meses, apunta ${dir(lc)}.`);
+    document.getElementById('cc-txt').textContent = fr.join(' ') || 'Sin una dirección clara en ningún plazo.';
   }
 
   // Las explicaciones largas (como se calcula, que significa) quedan en 2 lineas: se abren tocandolas. La pagina era muy
