@@ -537,6 +537,7 @@ solo lo que gana en 2023–24 y también en 2025–26 (diferencia por día con |
 | Pesos del equipo distintos por régimen (tendencia, rango, pánico) | No mejoró (z entre −1 y +0,4 en 15 min, 1 h y 4 h) | El régimen se muestra en "Por qué"; el modelo no cambia |
 | 15 min, 1 h y 4 h van para el mismo lado | El de 1 hora acertó 54,0% (52,6–55,4) contra 51,5% (50,5–52,4); mejor en los dos tramos. En 15 min y 4 h, igual | Señal en la explicación de 1 hora (no cambia la probabilidad) |
 | Rango del 80% ajustado | 78–79,5% → 80% (hasta velas de 1 h) | Se aplica |
+| Segunda tanda (`medir_velas.py`, nov. 2026): posición en el rango de 24 h y 7 días, compresión de las Bollinger, día de la semana, apertura de Wall Street y ETH adelantándose a BTC | Ninguna ganó en los dos tramos en ningún plazo (lo mejor: rango 24 h/7 d en 15 min z +1,8 y +0,2; ETH +1,8 solo en 2025–26; apertura de EE.UU. +2,4 solo en 2025–26 a 1 hora) | No entran; el análisis queda igual |
 
 Ojo con los archivos de metrics de Binance: la hora es la del inicio de los 5 minutos y el dato se conoce al final (la API lo
 confirma). Medido sin ese corrimiento, el flujo y el open interest "ganaban" en 15 min (z +10): era ver el dato 5 minutos antes.
