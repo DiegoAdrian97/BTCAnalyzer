@@ -46,12 +46,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <link rel="preconnect" href="https://fapi.binance.com" crossorigin>
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
-<link rel="stylesheet" href="p-65da10b227.css">
-<script>window.AB_PAGINA = "cd0a542fe9";</script>
+<link rel="stylesheet" href="p-2659f1765c.css">
+<script>window.AB_PAGINA = "8e05eded67";</script>
 <script defer src="app.js?v=12a7e53d01"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-9ac4409e8f.js"></script>
+<script defer src="p-790cca15f9.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -276,6 +276,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       <p class="ab-note" id="scen-note"></p>
     </section>
 
+  <!-- vista simple (por defecto): solo lo necesario para decidir. El analisis completo sigue calculandose y se abre aca -->
+  <button type="button" class="ab-vista-btn" id="vista-btn" aria-expanded="false" aria-controls="que-espero aprendizaje mas-detalle">
+    <span id="vista-txt">Ver el análisis completo</span><small id="vista-sub">por qué, cómo viene acertando, indicadores, niveles y más</small>
+  </button>
+
   <section class="ab-card ab-story" id="que-espero" aria-labelledby="story-t" data-source="analisis">
     <div class="ab-card-head"><h2 id="story-t">Por qué</h2><span class="ab-kicker" id="story-chip"></span></div>
     <p class="ab-note" id="porque"></p>
@@ -301,7 +306,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     <p class="ab-note">Cada vez que cierra una vela, el analista repasa sus últimas 1.000 predicciones de cada plazo (cada una hecha solo con lo que se sabía en ese momento) y las compara con lo que pasó. Trabaja con un equipo: 8 formas de buscar situaciones parecidas, un modelo que aprende solo con cada vela (movimientos, medias, RSI, MACD, Bollinger, volatilidad, volumen y hora del día) y la tasa base, que es decir siempre "lo normal". Con cada resultado baja el peso de los que se equivocaron y sube el de los que acertaron; si las probabilidades del equipo venían exageradas, las modera. Un resultado se usa para aprender recién cuando se conoce, y cada predicción se juzga con lo que había antes, así la medición es honesta. La <b>ventaja</b> es cuánto menos se equivoca que la tasa base (0% = no sabe más que lo normal). El margen de error de los aciertos cuenta que las predicciones que se pisan comparten resultado: a 1 hora, 1.000 predicciones valen como 80 independientes. En BTC, a estos plazos, una ventaja de 1% sostenida ya es mucha.</p>
   </section>
 
-  <div class="ab-more-list">
+  <div class="ab-more-list" id="mas-detalle">
     <span class="ab-kicker">Más detalle</span>
     <details class="ab-more" id="probabilidades" data-source="analisis">
       <summary><span>Probabilidad de tocar cada precio</span><span class="ab-kicker" id="prob-tf"></span></summary>

@@ -510,6 +510,23 @@
   }
   // En resumen: la prediccion de la proxima hora, los indicadores del marco elegido y el termometro (ciclo), juntos y
   // con su plazo. Si apuntan para lados distintos se dice por que, en vez de dejar que parezcan contradecirse.
+  // ---------- vista simple / completa ----------
+  const VISTA_BTN = document.getElementById('vista-btn');
+  function vista(completa, guardar) {
+    document.documentElement.classList.toggle('ab-simple', !completa);
+    VISTA_BTN.setAttribute('aria-expanded', String(completa));
+    document.getElementById('vista-txt').textContent = completa ? 'Volver a la vista simple' : 'Ver el análisis completo';
+    document.getElementById('vista-sub').textContent = completa ? 'solo lo necesario: precio, resumen, movimiento, predicción y gráfico' : 'por qué, cómo viene acertando, indicadores, niveles y más';
+    if (guardar) try { localStorage.setItem('ab-vista', completa ? 'completa' : 'simple'); } catch (e) { /* sin almacenamiento */ }
+  }
+  let vistaGuardada = null; try { vistaGuardada = localStorage.getItem('ab-vista'); } catch (e) { /* sin almacenamiento */ }
+  vista(vistaGuardada === 'completa', false);
+  VISTA_BTN.addEventListener('click', () => {
+    const completa = document.documentElement.classList.contains('ab-simple');
+    vista(completa, true);
+    if (completa) document.getElementById('que-espero').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  });
+
   // ---------- barra con el precio al bajar ----------
   function miniPintar() {
     const pe = root.querySelector('.ab-price'), c = document.getElementById('c24');
@@ -556,7 +573,10 @@
     if (lc && (lh || li) && lc !== (lh || li)) fr.push(`El ciclo apunta ${dir(lc)}: no lo contradice, mira semanas o meses.`);
     else if (lc && lc === (lh || li)) fr.push(`El ciclo (semanas o meses) apunta para el mismo lado.`);
     else if (lc) fr.push(`El ciclo, que mira semanas o meses, apunta ${dir(lc)}.`);
-    document.getElementById('cc-txt').textContent = fr.join(' ') || 'Sin una dirección clara en ningún plazo.';
+    // en la vista simple queda solo la primera frase (la que explica la diferencia mas importante)
+    const cc = document.getElementById('cc-txt');
+    if (!fr.length) cc.textContent = 'Sin una dirección clara en ningún plazo.';
+    else cc.replaceChildren(fr[0], ...fr.slice(1).map((x) => el('span', 'ab-cc-mas', ` ${x}`)));
   }
 
   // Las explicaciones largas (como se calcula, que significa) quedan en 2 lineas: se abren tocandolas. La pagina era muy
@@ -1504,9 +1524,8 @@
     if (cp && cp.comprimida) {
       const sp = el('span'); cl.replaceChildren(el('i', '', '↔'), sp);
       const r24 = num(cp.rango_24h), r24t = r24 >= 100 ? f0(r24) : fp(r24);
-      sp.append(el('b', '', 'Bollinger comprimidas'), ` (1 h, entre el ${f0(Math.max(1, num(cp.percentil)))}% más angosto de 30 días). `
-        + `En BTC 2021–2026, las 24 h siguientes se movieron ~${String(cp.expande).replace('.', ',')}× lo de las últimas 24 h (${r24t} USD) `
-        + `y más del doble el ${f0(cp.mas_doble)}% de las veces (normal: ${f0(cp.mas_doble_normal)}%). No dice para dónde.`);
+      sp.append(el('b', '', 'Bollinger comprimidas'), `: en las próximas 24 h suele moverse ~${String(cp.expande).replace('.', ',')}× lo de las últimas 24 h (${r24t} USD). No dice para dónde.`,
+        el('span', 'ab-comp-largo', ` Ancho entre el ${f0(Math.max(1, num(cp.percentil)))}% más angosto de 30 días (1 h). Medido en BTC 2021–2026: más del doble el ${f0(cp.mas_doble)}% de las veces (normal: ${f0(cp.mas_doble_normal)}%).`));
       cl.setAttribute('data-where', 'tabla=compresion');
     }
     // cuando suele moverse en las proximas 24 h (medido: ver perfilHoras en analisis.js)
@@ -1519,6 +1538,7 @@
       bars.setAttribute('aria-label', `Próximas 24 horas: lo más movido a las ${horaAR(hs.max_t)} h, lo más quieto a las ${horaAR(hs.min_t)} h`);
       document.getElementById('mov-horas-t').replaceChildren(el('b', '', 'Cuándo suele moverse'),
         `: en las próximas 24 h, lo más movido suele ser a las ${horaAR(hs.max_t)} h (${x(hs.max_f)} de una hora típica) y lo más quieto a las ${horaAR(hs.min_t)} h (${x(hs.min_f)}). Ahora: ${x(hs.ahora_f)}.`);
+      hb.dataset.corto = `Cuándo suele moverse: más a las ${horaAR(hs.max_t)} h, menos a las ${horaAR(hs.min_t)} h`;
       ['0', '12', '23'].forEach((k) => { document.getElementById(`mov-horas-${k}`).textContent = `${horaAR(hs.proximas[+k][0])} h`; });
     }
     // con el modelo de arboles (BTC) la chance sale de ahi; si no hay modelo (ZEC), de la tabla
