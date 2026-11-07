@@ -38,18 +38,20 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   background: var(--cds-surface-popover); border: 1px solid var(--cds-border); box-shadow: var(--cds-shadow-popover);
   font-size: .8rem; line-height: 1.35; color: var(--color-fg); }
 #estado-app[hidden] { display: none; }
+/* en el celu, arriba de la pildora del termometro (antes se tapaban) */
+@media (max-width: 700px) { html.ab-tm-on #estado-app { bottom: calc(max(14px, env(safe-area-inset-bottom) + 8px) + 58px); } }
 #estado-app i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--color-ok); animation: ea 1.1s infinite alternate; }
 #estado-app.es-error i { background: var(--color-bad); animation: none; }
 @keyframes ea { to { opacity: .25; } }
 </style>
 <link rel="preconnect" href="https://fapi.binance.com" crossorigin>
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
-<link rel="stylesheet" href="p-4bb301a276.css">
-<script>window.AB_PAGINA = "793b63767d";</script>
+<link rel="stylesheet" href="p-5853f5f3e2.css">
+<script>window.AB_PAGINA = "6facc32a97";</script>
 <script defer src="app.js?v=0b0dba26e4"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-4995dc9f8d.js"></script>
+<script defer src="p-6027355385.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -98,6 +100,14 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       </div>
     </div>
   </header>
+
+  <!-- una sola conclusion arriba: cada señal mira un plazo distinto y antes parecian contradecirse -->
+  <section class="ab-conclu" id="conclusion" aria-label="En resumen" hidden>
+    <div><small>Próxima hora</small><b id="cc-hora">—</b></div>
+    <div><small id="cc-ind-k">Indicadores</small><b id="cc-ind">—</b></div>
+    <div><small>Ciclo (meses)</small><b id="cc-ciclo">—</b></div>
+    <p id="cc-txt"></p>
+  </section>
 
   <button type="button" class="ab-tm-tab" id="tm-tab" aria-expanded="false" aria-controls="tm-panel" hidden title="Termómetro del ciclo (semanas o meses): 0 = momento de comprar · 100 = de vender">
     <small class="ab-tm-k">Ciclo</small><span class="ab-tm-bar"><span class="ab-tm-dot" id="tm-dot"></span></span><b id="tm-num">—</b><small id="tm-zona">—</small>

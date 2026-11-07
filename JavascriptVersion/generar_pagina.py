@@ -54,6 +54,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   background: var(--cds-surface-popover); border: 1px solid var(--cds-border); box-shadow: var(--cds-shadow-popover);
   font-size: .8rem; line-height: 1.35; color: var(--color-fg); }
 #estado-app[hidden] { display: none; }
+/* en el celu, arriba de la pildora del termometro (antes se tapaban) */
+@media (max-width: 700px) { html.ab-tm-on #estado-app { bottom: calc(max(14px, env(safe-area-inset-bottom) + 8px) + 58px); } }
 #estado-app i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--color-ok); animation: ea 1.1s infinite alternate; }
 #estado-app.es-error i { background: var(--color-bad); animation: none; }
 @keyframes ea { to { opacity: .25; } }

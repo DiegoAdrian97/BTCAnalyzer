@@ -302,7 +302,8 @@
   .ab-exbox summary b { font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--soft2); color: var(--ink); letter-spacing: 0; }
   @media (min-width: 900px) { .ab-exbox .ab-explain { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; } }
   .ab-ohlc-t { color: var(--ink); }
-  @media (max-width: 600px) { .ab-ohlc { font-size: 11px; right: 62px; } }
+  /* en el celu la leyenda baja de linea en vez de cortarse y deja libre la etiqueta LIQUID. y el eje (antes se pisaban) */
+  @media (max-width: 600px) { .ab-ohlc { font-size: 11px; right: 104px; } .ab-ohlc-r { flex-wrap: wrap; row-gap: 0; column-gap: 8px; } }
   .ab-tag-t { fill: var(--color-bg); font-size: 10.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .ab-card:not(#grafico), .ab-more { resize: both; overflow: auto; max-width: 100%; }
   /* se puede agrandar o achicar cada modulo, pero el asa solo aparece al pasar el mouse (antes se veia en 13 lugares) */
@@ -485,6 +486,14 @@
     .ab-only-touch { display: inline; } .ab-only-mouse { display: none; }
   }
   .ab-sigchip { white-space: nowrap; }
+  .ab-conclu { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 12px; padding: 12px 16px; margin: 0 0 var(--cds-gap-md, 16px);
+    border-radius: var(--cds-radius, 14px); background: var(--soft); }
+  .ab-conclu[hidden] { display: none; }
+  .ab-conclu div { display: grid; gap: 2px; min-width: 0; }
+  .ab-conclu small { color: var(--mute); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; }
+  .ab-conclu b { font-weight: 600; overflow-wrap: anywhere; }
+  .ab-conclu p { grid-column: 1 / -1; margin: 2px 0 0; color: var(--mute); font-size: 13px; line-height: 1.4; }
+  .ab-conclu .sube { color: var(--up); } .ab-conclu .baja { color: var(--down); }
   .ab-plegable { cursor: pointer; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; position: relative; }
   .ab-plegable:not(.abierta)::after { content: "más"; position: absolute; right: 0; bottom: 0; padding-left: 28px; color: var(--ink); font-weight: 600;
     background: linear-gradient(to right, transparent, var(--panel) 24px); }

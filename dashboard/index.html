@@ -303,7 +303,8 @@
   .ab-exbox summary b { font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--soft2); color: var(--ink); letter-spacing: 0; }
   @media (min-width: 900px) { .ab-exbox .ab-explain { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; } }
   .ab-ohlc-t { color: var(--ink); }
-  @media (max-width: 600px) { .ab-ohlc { font-size: 11px; right: 62px; } }
+  /* en el celu la leyenda baja de linea en vez de cortarse y deja libre la etiqueta LIQUID. y el eje (antes se pisaban) */
+  @media (max-width: 600px) { .ab-ohlc { font-size: 11px; right: 104px; } .ab-ohlc-r { flex-wrap: wrap; row-gap: 0; column-gap: 8px; } }
   .ab-tag-t { fill: var(--color-bg); font-size: 10.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .ab-card:not(#grafico), .ab-more { resize: both; overflow: auto; max-width: 100%; }
   /* se puede agrandar o achicar cada modulo, pero el asa solo aparece al pasar el mouse (antes se veia en 13 lugares) */
@@ -486,6 +487,14 @@
     .ab-only-touch { display: inline; } .ab-only-mouse { display: none; }
   }
   .ab-sigchip { white-space: nowrap; }
+  .ab-conclu { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 12px; padding: 12px 16px; margin: 0 0 var(--cds-gap-md, 16px);
+    border-radius: var(--cds-radius, 14px); background: var(--soft); }
+  .ab-conclu[hidden] { display: none; }
+  .ab-conclu div { display: grid; gap: 2px; min-width: 0; }
+  .ab-conclu small { color: var(--mute); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; }
+  .ab-conclu b { font-weight: 600; overflow-wrap: anywhere; }
+  .ab-conclu p { grid-column: 1 / -1; margin: 2px 0 0; color: var(--mute); font-size: 13px; line-height: 1.4; }
+  .ab-conclu .sube { color: var(--up); } .ab-conclu .baja { color: var(--down); }
   .ab-plegable { cursor: pointer; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; position: relative; }
   .ab-plegable:not(.abierta)::after { content: "más"; position: absolute; right: 0; bottom: 0; padding-left: 28px; color: var(--ink); font-weight: 600;
     background: linear-gradient(to right, transparent, var(--panel) 24px); }
@@ -825,6 +834,14 @@
       </div>
     </div>
   </header>
+
+  <!-- una sola conclusion arriba: cada señal mira un plazo distinto y antes parecian contradecirse -->
+  <section class="ab-conclu" id="conclusion" aria-label="En resumen" hidden>
+    <div><small>Próxima hora</small><b id="cc-hora">—</b></div>
+    <div><small id="cc-ind-k">Indicadores</small><b id="cc-ind">—</b></div>
+    <div><small>Ciclo (meses)</small><b id="cc-ciclo">—</b></div>
+    <p id="cc-txt"></p>
+  </section>
 
   <button type="button" class="ab-tm-tab" id="tm-tab" aria-expanded="false" aria-controls="tm-panel" hidden title="Termómetro del ciclo (semanas o meses): 0 = momento de comprar · 100 = de vender">
     <small class="ab-tm-k">Ciclo</small><span class="ab-tm-bar"><span class="ab-tm-dot" id="tm-dot"></span></span><b id="tm-num">—</b><small id="tm-zona">—</small>
@@ -1575,9 +1592,28 @@
     Object.keys(PEREZOSOS).forEach(perezoso);
     placeTf(); placeSc();
     connectLive();
+    drawConclusion();
     plegarNotas();
     if (first) { first = false; setTimeout(() => root.classList.remove('ab-first'), 1800); }
   }
+  // En resumen: la prediccion de la proxima hora, los indicadores del marco elegido y el termometro (ciclo), juntos y
+  // con su plazo. Si apuntan para lados distintos se dice por que, en vez de dejar que parezcan contradecirse.
+  function drawConclusion() {
+    const sec = document.getElementById('conclusion'), txt = (id) => { const e = document.getElementById(id); return e && !e.closest('[hidden]') ? e.textContent.trim() : ''; };
+    const hora = txt('verdict-big').replace(/^[^\wÁÉÍÓÚÑáéíóúñ]+/, ''), ind = txt('gauge-txt'), tab = document.getElementById('tm-tab');
+    const ciclo = tab && !tab.hidden ? txt('tm-zona') : '';
+    if (!hora || hora === '—') { sec.hidden = true; return; }
+    sec.hidden = false;
+    const lado = (t) => (/sub|alcista|compra/i.test(t) ? 1 : /baj|cae|venta|vend/i.test(t) ? -1 : 0);
+    const pon = (id, t) => { const e = document.getElementById(id); e.textContent = t || '—'; e.className = t ? (lado(t) > 0 ? 'sube' : lado(t) < 0 ? 'baja' : '') : ''; };
+    pon('cc-hora', hora); pon('cc-ind', ind); pon('cc-ciclo', ciclo);
+    document.getElementById('cc-ind-k').textContent = `Indicadores ${TF_TXT[S.tf] || ''}`.trim();
+    const l = [lado(hora), lado(ind), ciclo ? lado(ciclo) : 0], dist = new Set(l.filter((x) => x)).size > 1;
+    document.getElementById('cc-txt').textContent = dist
+      ? 'Apuntan para lados distintos porque miran plazos distintos: la próxima hora puede ir en contra de lo que marca el ciclo.'
+      : l.some((x) => x) ? 'No se contradicen: lo que marca uno no lo niega el otro.' : 'Sin una dirección clara en ningún plazo.';
+  }
+
   // Las explicaciones largas (como se calcula, que significa) quedan en 2 lineas: se abren tocandolas. La pagina era muy
   // larga (4.300 px en la compu, 5.200 en el celu). Las que abriste quedan abiertas.
   const NOTA_ABIERTA = new Set();

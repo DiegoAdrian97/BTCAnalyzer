@@ -501,9 +501,28 @@
     Object.keys(PEREZOSOS).forEach(perezoso);
     placeTf(); placeSc();
     connectLive();
+    drawConclusion();
     plegarNotas();
     if (first) { first = false; setTimeout(() => root.classList.remove('ab-first'), 1800); }
   }
+  // En resumen: la prediccion de la proxima hora, los indicadores del marco elegido y el termometro (ciclo), juntos y
+  // con su plazo. Si apuntan para lados distintos se dice por que, en vez de dejar que parezcan contradecirse.
+  function drawConclusion() {
+    const sec = document.getElementById('conclusion'), txt = (id) => { const e = document.getElementById(id); return e && !e.closest('[hidden]') ? e.textContent.trim() : ''; };
+    const hora = txt('verdict-big').replace(/^[^\wÁÉÍÓÚÑáéíóúñ]+/, ''), ind = txt('gauge-txt'), tab = document.getElementById('tm-tab');
+    const ciclo = tab && !tab.hidden ? txt('tm-zona') : '';
+    if (!hora || hora === '—') { sec.hidden = true; return; }
+    sec.hidden = false;
+    const lado = (t) => (/sub|alcista|compra/i.test(t) ? 1 : /baj|cae|venta|vend/i.test(t) ? -1 : 0);
+    const pon = (id, t) => { const e = document.getElementById(id); e.textContent = t || '—'; e.className = t ? (lado(t) > 0 ? 'sube' : lado(t) < 0 ? 'baja' : '') : ''; };
+    pon('cc-hora', hora); pon('cc-ind', ind); pon('cc-ciclo', ciclo);
+    document.getElementById('cc-ind-k').textContent = `Indicadores ${TF_TXT[S.tf] || ''}`.trim();
+    const l = [lado(hora), lado(ind), ciclo ? lado(ciclo) : 0], dist = new Set(l.filter((x) => x)).size > 1;
+    document.getElementById('cc-txt').textContent = dist
+      ? 'Apuntan para lados distintos porque miran plazos distintos: la próxima hora puede ir en contra de lo que marca el ciclo.'
+      : l.some((x) => x) ? 'No se contradicen: lo que marca uno no lo niega el otro.' : 'Sin una dirección clara en ningún plazo.';
+  }
+
   // Las explicaciones largas (como se calcula, que significa) quedan en 2 lineas: se abren tocandolas. La pagina era muy
   // larga (4.300 px en la compu, 5.200 en el celu). Las que abriste quedan abiertas.
   const NOTA_ABIERTA = new Set();
