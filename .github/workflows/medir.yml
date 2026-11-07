@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: [".github/workflows/medir.yml", "medir_compresion.py"]
+    paths: [".github/workflows/medir.yml", "medir_extra.py"]
 jobs:
   medir:
     runs-on: ubuntu-latest
@@ -18,7 +18,9 @@ jobs:
         with: { path: datos_medicion, key: velas-btc-eth-v1 }
       - run: pip install numpy lightgbm scikit-learn
       # la compresion de las Bollinger y el movimiento fuerte (velas de 1 hora de datos_entrenamiento.py)
-      - run: python datos_entrenamiento.py && python -u medir_compresion.py velas_1h.json eventos.json | tee compresion.txt
+      - run: python datos_entrenamiento.py
+      - run: python -u medir_extra.py velas_1h.json datos_medicion | tee extra.txt
+      - run: python -u medir_compresion.py velas_1h.json eventos.json | tee compresion.txt
       - run: if [ -n "$VELAS" ]; then python -u medir_velas.py datos_medicion | tee medicion.txt; fi
         env: { VELAS: "${{ github.event_name == 'workflow_dispatch' && '1' || '' }}" }
       - uses: actions/upload-artifact@v4
@@ -26,6 +28,8 @@ jobs:
         with:
           name: medicion-velas
           path: |
+            extra.txt
+            resultado_extra.json
             compresion.txt
             resultado_compresion.json
             medicion.txt
