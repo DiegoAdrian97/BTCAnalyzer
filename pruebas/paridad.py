@@ -84,7 +84,7 @@ def py():
            "taker": [{"buy": 120 + i, "sell": 100} for i in range(4)], "top": 1.3, "funding": 0.0001, "funding7": -0.00002, "fundingFuente": "BingX"}
     return {
         "calificar": ind.calificar(H1)[:2], "zigzag": piv, "fvg": ind.fvg(H4), "divergencias": ind.divergencias(H4, piv),
-        "fibonacci": A.fibonacci(H4), "fib_tramo": A.fib_tramo(H4),
+        "fibonacci": A.fibonacci(H4), "fib_tramo": A.fib_tramo(H4), "compresion": A.compresion(H1),
         "termometro": termometro.termometro([b[4] for b in D1], D1[-1][4] * 1.01, now_ms=AHORA, f7=-0.00001),
         "termometro_alt": termometro.termometro_alt("XRP", ALT[-600:], ALT[-1][4], now_ms=AHORA),
         "semanal": A.analisis_largo(D1, "1w", D1[-1][4], True),
@@ -114,7 +114,7 @@ const T = require(R + '/JavascriptVersion/termometro.json'), M = require(R + '/J
 const d = JSON.parse(require('fs').readFileSync(0, 'utf8'));
 const piv = Ind.zigzag(d.H4), c = Ind.calificar(d.H1);
 console.log(JSON.stringify({
-  calificar: [c[0], c[1]], zigzag: piv, fvg: Ind.fvg(d.H4), divergencias: Ind.divergencias(d.H4, piv), fibonacci: A.fibonacci(d.H4), fib_tramo: A.fibTramo(d.H4),
+  calificar: [c[0], c[1]], zigzag: piv, fvg: Ind.fvg(d.H4), divergencias: Ind.divergencias(d.H4, piv), fibonacci: A.fibonacci(d.H4), fib_tramo: A.fibTramo(d.H4), compresion: A.compresion(d.H1),
   termometro: A.termometro(d.D1.map((b) => b[4]), d.D1[d.D1.length - 1][4] * 1.01, T, null, d.AHORA, -0.00001),
   termometro_alt: A.termometroAlt('XRP', d.ALT.slice(-600), d.ALT[d.ALT.length - 1][4], T, d.AHORA),
   semanal: A.analisisLargo(d.D1, '1w', d.D1[d.D1.length - 1][4], true),

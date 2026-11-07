@@ -253,6 +253,28 @@
       esperado_usd: rp(normal * t.veces[k] * price), despierto: vol > 1.8 && serie[serie.length - 7] <= 1.8 };
   }
 
+  // ---------- compresion de las Bollinger (velas de 1 hora cerradas; ver compresion en analisis_btc.py) ----------
+  // Medido con BTC 2021-2026 (medir_compresion.py): con el ancho entre el 10% mas angosto de 30 dias, el rango de las 24 h
+  // siguientes fue en mediana 1,6-1,7 veces el de las 24 h anteriores y mas del doble el 32-43% de las veces (una hora
+  // cualquiera: x1,0 y 12-15%). Contra lo habitual de largo plazo, las horas siguientes son MAS tranquilas: el movimiento
+  // sale de una base muy chica. No dice para donde. En el modelo de movimiento fuerte no mejoro (ya lo ve por la volatilidad).
+  const COMP_N = 720, COMP_CORTE = 10;
+  function compresion(c1h) {
+    if (!c1h || c1h.length < COMP_N + 20) return null;
+    const ancho = [];
+    for (let i = c1h.length - COMP_N; i < c1h.length; i++) {
+      let s = 0, s2 = 0;
+      for (let k = i - 19; k <= i; k++) { s += c1h[k][4]; s2 += c1h[k][4] * c1h[k][4]; }
+      const mu = s / 20, sd = Math.sqrt(Math.max(0, s2 / 20 - mu * mu));
+      ancho.push(4 * sd / mu);
+    }
+    const hoy = ancho[ancho.length - 1], pct = (ancho.filter((x) => x < hoy).length / ancho.length) * 100;
+    let hi = -Infinity, lo = Infinity;
+    for (let k = c1h.length - 24; k < c1h.length; k++) { hi = Math.max(hi, c1h[k][2]); lo = Math.min(lo, c1h[k][3]); }
+    return { tabla: 'compresion', ancho_pct: rnd(hoy * 100, 2), percentil: rnd(pct, 1), comprimida: pct <= COMP_CORTE,
+      rango_24h: rp(hi - lo), expande: 1.6, mas_doble: 40, mas_doble_normal: 13 };
+  }
+
   // ---------- volatilidad prevista (ver vol_escala en analisis_btc.py) ----------
   const VOL_RAPIDA = 20, VOL_LENTA = 200, VOL_PESO = 0.5, VOL_MIN_FRANJA = 20;
   /** Por cuanto multiplicar el movimiento de cada caso del pasado para llevarlo a la volatilidad de ahora. */
@@ -1151,6 +1173,8 @@
         // el rango del 80% es honesto si el precio termina adentro ~80% de las veces
         con_rango: nr, en_rango: nr ? rnd((adentro / nr) * 100, 1) : null }));
 
+    const comp = compresion(candles['1h']);
+    if (comp) rows.push(comp);
     const mov = movimiento(candles['5m'], price, input.moneda || 'BTC');
     if (mov) {
       // movimiento fuerte segun el modelo de arboles (fuerte.js, como fuerte.py). Entrenado con BTC: solo para BTC
@@ -1187,7 +1211,7 @@
     return { rows, log };
   }
 
-  const Analisis = { piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, fibTramo, liqReales, calificarUltimas };
+  const Analisis = { piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, fibTramo, compresion, liqReales, calificarUltimas };
   root.Analisis = Analisis;
   if (typeof module !== 'undefined' && module.exports) module.exports = Analisis;
 })(typeof self !== 'undefined' ? self : globalThis);

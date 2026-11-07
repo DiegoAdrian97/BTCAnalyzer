@@ -275,6 +275,34 @@ def movimiento(c5, price, moneda="BTC"):
             "esperado_usd": rp(normal * t["veces"][k] * price), "despierto": vol > 1.8 and serie[-7] <= 1.8}
 
 
+# ---------- compresion de las Bollinger (velas de 1 hora cerradas) ----------
+# Medido con BTC 2021-2026 (medir_compresion.py): con el ancho entre el 10% mas angosto de 30 dias, el rango de las 24 h
+# siguientes fue en mediana 1,6-1,7 veces el de las 24 h anteriores y mas del doble el 32-43% de las veces (una hora
+# cualquiera: x1,0 y 12-15%). Contra lo habitual de largo plazo, las horas siguientes son MAS tranquilas: el movimiento
+# sale de una base muy chica. No dice para donde. En el modelo de movimiento fuerte no mejoro (ya lo ve por la volatilidad).
+COMP_N, COMP_CORTE = 720, 10
+
+
+def compresion(c1h):
+    if not c1h or len(c1h) < COMP_N + 20:
+        return None
+    ancho = []
+    for i in range(len(c1h) - COMP_N, len(c1h)):
+        s = s2 = 0.0
+        for k in range(i - 19, i + 1):
+            s += c1h[k][4]
+            s2 += c1h[k][4] * c1h[k][4]
+        mu = s / 20
+        sd = math.sqrt(max(0.0, s2 / 20 - mu * mu))
+        ancho.append(4 * sd / mu)
+    hoy = ancho[-1]
+    pct = sum(1 for x in ancho if x < hoy) / len(ancho) * 100
+    hi = max(b[2] for b in c1h[-24:])
+    lo = min(b[3] for b in c1h[-24:])
+    return {"tabla": "compresion", "ancho_pct": round(hoy * 100, 2), "percentil": round(pct, 1), "comprimida": pct <= COMP_CORTE,
+            "rango_24h": rp(hi - lo), "expande": 1.6, "mas_doble": 40, "mas_doble_normal": 13}
+
+
 # ---------- volatilidad prevista ----------
 # Lo que se mueve el precio tiene memoria (despues de horas agitadas vienen horas agitadas) y depende de la hora
 # del dia. Cada caso del pasado se lleva a la volatilidad de ahora antes de usarlo para el rango esperado, los
@@ -1497,6 +1525,9 @@ def analyze():
                      # el rango del 80% es honesto si el precio termina adentro ~80% de las veces
                      "con_rango": nr, "en_rango": round(adentro / nr * 100, 1) if nr else None})
 
+    comp = compresion(candles.get("1h"))
+    if comp:
+        rows.append(comp)
     mov = movimiento(candles["5m"], price)
     if mov:
         # movimiento fuerte segun el modelo de arboles (fuerte.py): mucho mejor que la tabla (ver README)

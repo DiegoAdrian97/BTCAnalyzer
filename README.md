@@ -542,6 +542,21 @@ solo lo que gana en 2023–24 y también en 2025–26 (diferencia por día con |
 Ojo con los archivos de metrics de Binance: la hora es la del inicio de los 5 minutos y el dato se conoce al final (la API lo
 confirma). Medido sin ese corrimiento, el flujo y el open interest "ganaban" en 15 min (z +10): era ver el dato 5 minutos antes.
 
+### Compresión de las Bollinger (`medir_compresion.py`)
+
+Con el ancho de las Bollinger (20, 2; velas de 1 hora) entre el 10% más angosto de los últimos 30 días, medido con BTC
+2021–2026 (los cuatro tramos dan lo mismo):
+
+| | Una hora cualquiera | Comprimida |
+|---|---|---|
+| Rango de las 24 h siguientes contra el de las 24 h anteriores (mediana) | ×1,0 | ×1,5–1,7 |
+| …más del doble | 12–15% | 32–43% |
+| Movimiento fuerte (más del doble de lo habitual de largo plazo) en la próxima hora / 4 h | 11–13% | 3–6% |
+
+O sea: después de comprimirse se expande contra su propio ritmo reciente, pero sale de una base muy chica (la próxima hora suele
+seguir tranquila). No dice para dónde. Sumada al modelo de movimiento fuerte no mejoró (z entre −1,9 y +1,9: ya lo ve por la
+volatilidad). En la app: aviso en "Movimiento en la próxima hora" cuando está comprimida (fila `compresion`, Python = JS).
+
 ### Contexto nuevo: perpetuo contra spot y opciones
 
 - **Perpetuo vs spot** (precio de marca contra el índice, Bybit): caro desde +0,05% (calentamiento), con descuento desde −0,07%

@@ -936,6 +936,7 @@
       <div class="ab-apr-stat"><small>Rango esperado</small><b id="mov-rango">—</b><span id="mov-normal"></span></div>
     </div>
     <p class="ab-mov-dato" id="mov-dato" hidden></p>
+    <p class="ab-mov-dato ab-comp" id="mov-comp" hidden></p>
     <p class="ab-note" id="mov-txt"></p>
   </section>
 
@@ -2617,6 +2618,17 @@
   function drawMovimiento(rows) {
     const m = pick(rows, 'movimiento')[0], box = document.getElementById('movimiento');
     box.hidden = !m; if (!m) return;
+    // Bollinger comprimidas (velas de 1 hora): suele venir una expansion en las 24 h siguientes (medido, ver compresion())
+    const cp = pick(rows, 'compresion')[0], cl = document.getElementById('mov-comp');
+    cl.hidden = !(cp && cp.comprimida);
+    if (cp && cp.comprimida) {
+      const sp = el('span'); cl.replaceChildren(el('i', '', '↔'), sp);
+      const r24 = num(cp.rango_24h), r24t = r24 >= 100 ? f0(r24) : fp(r24);
+      sp.append(el('b', '', 'Bollinger comprimidas'), ` (1 h, entre el ${f0(Math.max(1, num(cp.percentil)))}% más angosto de 30 días). `
+        + `En BTC 2021–2026, las 24 h siguientes se movieron ~${String(cp.expande).replace('.', ',')}× lo de las últimas 24 h (${r24t} USD) `
+        + `y más del doble el ${f0(cp.mas_doble)}% de las veces (normal: ${f0(cp.mas_doble_normal)}%). No dice para dónde.`);
+      cl.setAttribute('data-where', 'tabla=compresion');
+    }
     // con el modelo de arboles (BTC) la chance sale de ahi; si no hay modelo (ZEC), de la tabla
     const mod = m.modelo_1h !== null && m.modelo_1h !== undefined;
     const prob = mod ? num(m.modelo_1h) : num(m.prob_fuerte);
