@@ -1962,6 +1962,7 @@
     CMP.vivo[m] = Date.now();
     const d = CMP.datos[m]; if (!d || !(p > 0)) return;      // hasta que lleguen las velas diarias
     d.precio = p; if (p < d.bajo) d.bajo = p; if (p > d.alto) d.alto = p;
+    d.minVivo = Math.min(d.minVivo === undefined ? p : d.minVivo, p);      // lo mas bajo entre vuelta y vuelta (avisos)
   }
   // si ya hay una vuelta en camino (al abrir la app se pedia dos veces: la del arranque y la de BingX recien leido), esa
   function cmpPrecios() { return CMP.vuelo || (CMP.vuelo = cmpPedir().finally(() => { CMP.vuelo = null; })); }
@@ -2453,26 +2454,28 @@
           });
           comprasDe(m).forEach((c) => {
             const dist = (d.precio / c.precio - 1) * 100, hecha = cmpHecha(c, d);
-            // "se acerca" (a 3% o menos): la primera vez que entra en la zona; despues, solo si salio de la zona y hace un
-            // nuevo minimo (mas bajo que todo lo que marco desde el aviso anterior). Antes avisaba cada vez que volvia a
-            // bajar del 3%, aunque fuera un rebote dentro del mismo rango.
+            // "se acerca" (a 3% o menos): la primera vez que entra en la zona; despues, solo si salio de la zona y queda MAS
+            // CERCA de la compra que nunca (al menos 0,3% mas abajo que lo mas bajo desde el aviso anterior, contando cada
+            // precio en vivo, no solo el de la vuelta de 15 s: antes un minimo entre vueltas no se anotaba y el siguiente
+            // rebote parecia un minimo nuevo).
             const id = c.deBingx && BX.ok ? `o${c.precio}` : c.n, zona = !hecha && dist <= 3, km = `cm:${m}:${id}`, sm = est[km];
             const avisar = () => { nueva(`cc:${m}:${id}:${Date.now()}`, '📌', `${m} se acerca a tu compra ${nCompra(c)}`, `a ${f1(dist)}% de ${fp(c.precio)}`,
               [`${m} está en ${fp(d.precio)}, a ${f1(dist)}% de tu compra ${nCompra(c)} en ${fp(c.precio)}.`, cargada(c) ? 'La orden límite ya está cargada.' : `Cargá la orden límite: precio ${fp(c.precio)}, valor de la orden ${f0(c.orden)} a ${reglas().apalancamiento || 5}x.`,
                ...(sm ? [`Nuevo mínimo: ${fp(d.precio)}, por debajo de ${fp(sm.min)} (lo más bajo desde el aviso anterior).`] : [])], 'compras');
-              est[km] = { min: d.precio, bp: d.bajo, fuera: false }; };
+              est[km] = { min: Math.min(d.precio, d.minVivo === undefined ? d.precio : d.minVivo), bp: d.bajo, fuera: false }; };
             if (!sm) cuando(`cc:${m}:${id}`, zona, avisar);
             else {
               // lo mas bajo desde el aviso: el precio de cada vuelta y, si el minimo del plan bajo, esa mecha
-              const lo = d.bajo < sm.bp ? Math.min(d.precio, d.bajo) : d.precio;
+              const lo = Math.min(d.precio, d.minVivo === undefined ? d.precio : d.minVivo, d.bajo < sm.bp ? d.bajo : Infinity);
               if (!zona) sm.fuera = true;
-              if (zona && sm.fuera && lo < sm.min) avisar();
+              if (zona && sm.fuera && lo < sm.min * 0.997) avisar();
               else { sm.min = Math.min(sm.min, lo); sm.bp = Math.min(sm.bp, d.bajo); }
               est[`cc:${m}:${id}`] = zona ? 1 : 0;
             }
             if (!(c.deBingx && BX.ok)) cuando(`ch:${m}:${c.n}`, hecha, () => nueva(`ch:${m}:${c.n}`, '✅', `Se ejecutó tu compra ${nCompra(c)} de ${m}`, `${fp(c.precio)} · orden ${f0(c.orden)}`,
               [`${m} tocó ${fp(c.precio)}: tu orden de ${f0(c.orden)} USDT debería haberse ejecutado. Confirmalo en BingX.`, c.extra_agregado ? 'El margen extra ya lo tenías agregado.' : `Ahora agregá ${f0(c.extra)} USDT de margen (⊕ en la posición).`], 'posiciones'));
           });
+          d.minVivo = d.precio;                                  // ya se uso: empieza de nuevo
           const e = planEstado(m, d);
           if (e.cantidad === undefined) return;
           cuando(`lq:${m}`, e.liquidacion && e.dist_liq < 10, () => nueva(`lq:${m}:${hoy}`, '⚠️', `${m}: liquidación a ${f1(e.dist_liq)}%`, `liquidación ${fp(e.liquidacion)}`,
