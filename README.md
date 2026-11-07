@@ -553,12 +553,13 @@ y 1M) junta todos los cálculos de la app en cinco puntos, cada señal con su pe
 
 | Punto | Qué suma |
 |---|---|
-| ¿Se viene movimiento fuerte? | Modelo de árboles (1 h o 4 h, hasta ±3), mercado despierto (+2) o agitado/en calma (±1), Bollinger comprimidas en esa temporalidad (+1), volumen 2× (+1), ADX ≥ 25 (+0,5), hora del día (±1), dato fuerte de EE.UU. en la ventana (+2), liquidaciones a menos de 1% (+1). Alta desde 4, media desde 2 |
-| ¿Sube o baja? | Casos parecidos y aprendizaje (±3; ±1 si no le ganó a la tasa base), indicadores del marco (±2), cada señal de la explicación: patrones, divergencias, canales, RSI extremo, MACD, Wyckoff, Elliott (±1), SuperTrend, Ichimoku, VWAP, OBV, Chaikin, SAR y Bollinger fuera de banda (±0,5), liquidaciones de cada lado dentro de 3% (±1), libros (±0,5), ciclo y funding en 4 h o más (±1 / ±0,5). Sube desde +2,5, baja desde −2,5 |
+| ¿Se viene movimiento fuerte? | Modelo de árboles (1 h o 4 h, hasta ±3), mercado despierto (+2) o agitado/en calma (±1), Bollinger comprimidas en esa temporalidad (+1), volumen 2× (+1), ADX ≥ 25 (+0,5), hora del día (±1), dato fuerte de EE.UU. en la ventana (+2), liquidaciones a menos de 1% (+1), volatilidad implícita de las opciones en su 20% más alto o más bajo de 30 días (±1; medido con `medir_dvol.py`: las 4 h siguientes fueron fuertes 18–26% de las veces con el DVOL alto y 7–9% con el bajo, contra 12–13% normal, en 2022, 2023-24 y 2025-26). Alta desde 4, media desde 2 |
+| ¿Sube o baja? | Casos parecidos y aprendizaje (±3; ±1 si no le ganó a la tasa base), en 1 hora si 15 min, 1 h y 4 h coinciden (±1; medido: 54% contra 51,5%), indicadores del marco (±2), cada señal de la explicación: patrones, divergencias, canales, RSI extremo, MACD, Wyckoff, Elliott (±1), SuperTrend, Ichimoku, VWAP, OBV, Chaikin, SAR y Bollinger fuera de banda (±0,5), liquidaciones de cada lado dentro de 3% (±1), libros (±0,5), ciclo y funding en 4 h o más (±1 / ±0,5). Sube desde +2,5, baja desde −2,5 |
 | ¿Hasta dónde? | Rango del 80%, objetivos con su chance de tocarse, movimiento esperado en una hora, objetivo de Elliott |
 | Niveles | Soporte y resistencia más cercanos e invalidación |
 | Atención | RSI extremo, dato fuerte en 24 h, movimiento fuerte, señales en contra casi tan fuertes |
 
+Las noticias no entran: el sistema lee solo titulares y no siempre sabe si son buenas o malas para el precio.
 Ojo: la fuerza está medida (el modelo le gana a la tasa base 9–12%); la dirección casi no se puede predecir (ver las
 mediciones abajo): el puntaje de dirección resume lo que dicen las señales, no promete acierto. En la vista simple, la
 tarjeta "Análisis" reemplaza al resumen, a Movimiento y a Predicción (siguen en la vista completa).

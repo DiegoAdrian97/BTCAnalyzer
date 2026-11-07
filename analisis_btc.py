@@ -1242,6 +1242,7 @@ def central(rows, price, candles, now_ms):
     liq = pick("liquidacion")
     libros = pick("libro")
     fu = next((c for c in pick("contexto") if c.get("clave") == "funding"), None)
+    iv = next((c for c in pick("contexto") if c.get("clave") == "opciones_iv"), None)
     eventos = sorted(r["t"] for r in pick("evento") if r.get("t") and r["t"] > now_ms)
     niveles = pick("nivel")
     out = []
@@ -1282,6 +1283,13 @@ def central(rows, price, candles, now_ms):
         comp = compresion(candles.get(tf)) if candles.get(tf) else None
         if comp and comp["comprimida"]:
             _cf(F, "fuerza", 1, 1, f"Bollinger comprimidas (entre el {round(max(1, comp['percentil']))}% más angosto de sus últimas 720 velas): suele venir una expansión")
+        # volatilidad implicita (solo BTC). Medido (medir_dvol.py): con el DVOL en su 20% mas alto de 30 dias, las 4 h
+        # siguientes fueron un movimiento fuerte 18-26% de las veces (normal 12-13%); en su 20% mas bajo, 7-9%
+        if iv and iv.get("dvol_pct") is not None and tf in ("15m", "30m", "1h", "4h", "1d"):
+            if iv["dvol_pct"] >= 80:
+                _cf(F, "fuerza", 1, 1, f"Las opciones esperan movimiento: volatilidad implícita más alta que el {round(iv['dvol_pct'])}% de 30 días")
+            elif iv["dvol_pct"] <= 20:
+                _cf(F, "fuerza", -1, 1, f"Las opciones esperan calma: volatilidad implícita en el {round(iv['dvol_pct'])}% más bajo de 30 días")
         vr = ind_.get("Volumen relativo")
         if vr and vr["valor"] is not None and vr["valor"] >= 2:
             _cf(F, "fuerza", 1, 1, f"Volumen {ar(vr['valor'], 1)} veces el promedio")
@@ -1320,6 +1328,9 @@ def central(rows, price, candles, now_ms):
             for x in pick("divergencia"):
                 if x["tf"] == tf and x["tipo"] in ("alcista", "bajista"):
                     _cf(F, "direccion", 1 if x["tipo"] == "alcista" else -1, 1, f"Divergencia {x['tipo']} en {x['indicador']}")
+        if p and nombre_plazo == "1 hora" and p.get("coinciden") in ("alcista", "bajista"):
+            # medido (medir_contexto.py): asi la de 1 hora acerto 54,0% contra 51,5%, en los dos tramos
+            _cf(F, "direccion", 1 if p["coinciden"] == "alcista" else -1, 1, "15 min, 1 hora y 4 horas apuntan para el mismo lado (medido: acierta 54% contra 51,5%)")
         r_ = marco["rating"]
         if r_ is not None and abs(r_) > 0.1:
             _cf(F, "direccion", 1 if r_ > 0 else -1, 2,

@@ -265,6 +265,7 @@
     const mv = pick('movimiento')[0] || null, hs = pick('horas')[0] || null, tm = pick('termometro')[0] || null;
     const liq = pick('liquidacion'), libros = pick('libro'), niveles = pick('nivel');
     const fu = pick('contexto').find((c) => c.clave === 'funding') || null;
+    const iv = pick('contexto').find((c) => c.clave === 'opciones_iv') || null;
     const eventos = pick('evento').filter((r) => r.t && r.t > now).map((r) => r.t).sort((a, b) => a - b);
     const out = [];
     for (const tf of CENTRAL_TF) {
@@ -297,6 +298,11 @@
       }
       const comp = candles[tf] ? compresion(candles[tf]) : null;
       if (comp && comp.comprimida) cf('fuerza', 1, 1, `Bollinger comprimidas (entre el ${roundEven(Math.max(1, comp.percentil))}% más angosto de sus últimas 720 velas): suele venir una expansión`);
+      // volatilidad implicita (solo BTC). Medido (medir_dvol.py): DVOL en su 20% mas alto de 30 dias -> 4 h siguientes fuertes 18-26% (normal 12-13%)
+      if (iv && ok(iv.dvol_pct) && ['15m', '30m', '1h', '4h', '1d'].includes(tf)) {
+        if (iv.dvol_pct >= 80) cf('fuerza', 1, 1, `Las opciones esperan movimiento: volatilidad implícita más alta que el ${roundEven(iv.dvol_pct)}% de 30 días`);
+        else if (iv.dvol_pct <= 20) cf('fuerza', -1, 1, `Las opciones esperan calma: volatilidad implícita en el ${roundEven(iv.dvol_pct)}% más bajo de 30 días`);
+      }
       const vr = ind['Volumen relativo'];
       if (vr && ok(vr.valor) && vr.valor >= 2) cf('fuerza', 1, 1, `Volumen ${ar(vr.valor, 1)} veces el promedio`);
       const adx = ind['ADX 14'];
@@ -325,6 +331,8 @@
         pick('patron').forEach((x) => { if (x.tf === tf && (x.sesgo === 'alcista' || x.sesgo === 'bajista')) cf('direccion', x.sesgo === 'alcista' ? 1 : -1, 1, `${x.nombre} (${x.estado})`); });
         pick('divergencia').forEach((x) => { if (x.tf === tf && (x.tipo === 'alcista' || x.tipo === 'bajista')) cf('direccion', x.tipo === 'alcista' ? 1 : -1, 1, `Divergencia ${x.tipo} en ${x.indicador}`); });
       }
+      if (p && nombrePlazo === '1 hora' && (p.coinciden === 'alcista' || p.coinciden === 'bajista'))     // medido: 54,0% contra 51,5%
+        cf('direccion', p.coinciden === 'alcista' ? 1 : -1, 1, '15 min, 1 hora y 4 horas apuntan para el mismo lado (medido: acierta 54% contra 51,5%)');
       const r_ = marco.rating;
       if (ok(r_) && Math.abs(r_) > 0.1) cf('direccion', r_ > 0 ? 1 : -1, 2,
         `Indicadores: ${marco.rating_txt.toLowerCase()} (medias ${marco.ma_compra}↑ ${marco.ma_venta}↓, osciladores ${marco.osc_compra}↑ ${marco.osc_venta}↓)`);
@@ -371,7 +379,7 @@
       // ----- alcance y niveles -----
       let sop = null, res = null;
       niveles.forEach((n) => { if (n.precio < price && (sop === null || n.precio > sop)) sop = n.precio; if (n.precio > price && (res === null || n.precio < res)) res = n.precio; });
-      const iv = p ? rows.find((e) => e.tabla === 'explicacion' && e.plazo === nombrePlazo && e.tipo === 'invalida') : null;
+      const inv = p ? rows.find((e) => e.tabla === 'explicacion' && e.plazo === nombrePlazo && e.tipo === 'invalida') : null;
       // ----- riesgo -----
       const R = [], rsi = ind['RSI 14'];
       if (rsi && ok(rsi.valor) && rsi.valor >= 75) R.push(`RSI ${roundEven(rsi.valor)}: sobrecompra`);
@@ -383,7 +391,7 @@
         direccion: lado, direccion_puntos: dr, a_favor: aFavor, en_contra: enContra, prob_sube: p ? nz(p.primero_arriba) : null,
         rango_min: p ? p.min : null, rango_max: p ? p.max : null, hasta: p ? p.hora : null, obj_arriba: p ? p.obj_arriba : null, obj_abajo: p ? p.obj_abajo : null,
         toca_arriba: p ? nz(p.toca_arriba) : null, toca_abajo: p ? nz(p.toca_abajo) : null, esperado_usd: mv && corto ? mv.esperado_usd : null,
-        elliott_objetivo: nz(marco.elliott_objetivo), soporte: sop, resistencia: res, invalida: iv ? iv.texto : null, riesgo: R, factores: F });
+        elliott_objetivo: nz(marco.elliott_objetivo), soporte: sop, resistencia: res, invalida: inv ? inv.texto : null, riesgo: R, factores: F });
     }
     return out;
   }
