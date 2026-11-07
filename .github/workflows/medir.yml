@@ -1,0 +1,26 @@
+name: Medir ideas nuevas del analisis
+# A mano desde Actions (o al cambiar el medidor): corre medir_velas.py con datos publicos de Binance y deja el resultado
+# como artefacto. No cambia nada del analisis: solo mide (entra lo que gana en 2023-24 y en 2025-26).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/medir.yml", "medir_velas.py"]
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/cache@v4
+        with: { path: datos_medicion, key: velas-btc-eth-v1 }
+      - run: python -u medir_velas.py datos_medicion | tee medicion.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: medicion-velas
+          path: |
+            medicion.txt
+            datos_medicion/resultado_velas.json
