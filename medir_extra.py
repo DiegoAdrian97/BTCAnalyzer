@@ -231,8 +231,16 @@ def etf(B):
 
 # ---------- 7. Nasdaq ----------
 def nasdaq(B):
-    u = "https://query1.finance.yahoo.com/v8/finance/chart/QQQ?interval=1h&range=730d"
-    j = json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": UA}), timeout=60).read())["chart"]["result"][0]
+    j = None
+    for k in range(6):                                     # Yahoo corta con 429 si se le pide seguido: se reintenta
+        u = f"https://query{1 + k % 2}.finance.yahoo.com/v8/finance/chart/QQQ?interval=1h&range=730d"
+        try:
+            j = json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": UA, "Accept": "application/json"}), timeout=60).read())["chart"]["result"][0]
+            break
+        except Exception:
+            time.sleep(20 * (k + 1))
+    if j is None:
+        raise RuntimeError("Yahoo no respondio")
     ts, cl = j["timestamp"], j["indicators"]["quote"][0]["close"]
     idx = {b[0]: i for i, b in enumerate(B)}
     filas = {}
