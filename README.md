@@ -58,7 +58,7 @@ valor y cantidad reales) y Mis posiciones son tus posiciones abiertas en BingX (
 entrada, equilibrio con comisiones, margen, liquidación y resultado en vivo). La liquidación "con todo ejecutado" suma
 esas órdenes al margen del apalancamiento de BingX. Cuando tu posición crece, la campanita avisa "Se ejecutó una
 compra"; si baja, "Cerraste una parte". Del plan privado solo salen las reglas (toma de ganancias, piramidado,
-mantenimiento, comisión); si no llega, van las de siempre (+25% pasando 25%, piramidar +15%).
+mantenimiento, comisión); si no llega, van las de siempre (+40% pasando 25%, piramidar +15%).
 
 **Solo con BingX conectado**: Tu plan (Próximas compras), Mis posiciones, la capa "Mi plan" del gráfico y sus avisos
 se ven solo si en ese navegador se conectó BingX con la contraseña de Vercel (`POSICIONES_CLAVE`) y el servidor la
@@ -95,14 +95,14 @@ Vercel (Settings → Functions). Sin conectar, todo sigue saliendo de `plan_comp
 Debajo de "Próximas compras": por cripto, parte de lo que ya estaba abierto en BingX (`posiciones` en
 `plan_compras.json`: cantidad, entrada y margen) y le suma las compras del plan que se ejecutan después. Muestra
 cantidad, precio promedio, resultado, margen, apalancamiento real y liquidación aproximada (`posiciones.py`; la
-página hace las mismas cuentas). Si cambiás algo en BingX a mano, hay que actualizar `posiciones`. Toma de ganancias: cada +25% sobre el promedio, pasar 25% de la posición a spot.
+página hace las mismas cuentas). Si cambiás algo en BingX a mano, hay que actualizar `posiciones`. Toma de ganancias: cada +40% sobre el promedio, pasar 25% de la posición a spot.
 Piramidar: cuando sube 15% sobre el promedio, cuánto se puede sumar sin plata nueva con la liquidación como mucho en
 75% de la compra más baja. Los porcentajes se cambian en `plan_compras.json` (`ganancias`, `piramidar`).
 
 **Precio de equilibrio** (en vez del promedio): el que deja la posición en cero contando las comisiones de BingX,
 como el que muestra BingX. Con BingX conectado: el de BingX si lo da; si no, la entrada con lo ya realizado (comisiones
 pagadas y funding) y la comisión de cerrar. Sin conectar: entrada × (1 + comisión) / (1 − comisión), con la comisión
-taker de 0,05% por lado (`comision` en el plan si es otra). La toma de ganancias (+25%) y el piramidado (+15%) se
+taker de 0,05% por lado (`comision` en el plan si es otra). La toma de ganancias (+40%) y el piramidado (+15%) se
 cuentan sobre el equilibrio; la entrada se ve abajo, más chica. Telegram (`posiciones.py`) hace la misma cuenta.
 
 **PnL no realizado de todas las posiciones** (arriba de Mis posiciones, con BingX conectado): la suma del resultado de

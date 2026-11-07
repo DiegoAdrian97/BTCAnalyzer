@@ -733,7 +733,7 @@
   const PLAN_OK = () => (BX_API ? BX.autorizado : !!PLAN_COMPRAS);
   // Con BingX conectado, Proximas compras y Mis posiciones salen directo de BingX (ordenes limite de compra y posiciones
   // abiertas). El plan solo aporta las reglas (toma de ganancias, piramidado, mantenimiento, comision); si no llega, estas
-  const REGLAS = { apalancamiento: 5, ganancias: { cada: 0.25, vender: 0.25, niveles: 4 }, piramidar: { cada: 0.15, liq_max: 0.75 } };
+  const REGLAS = { apalancamiento: 5, ganancias: { cada: 0.4, vender: 0.25, niveles: 4 }, piramidar: { cada: 0.15, liq_max: 0.75 } };
   const reglas = () => ({ ...REGLAS, ...(PLAN_COMPRAS || {}) });
   const ORDEN_MON = () => (window.abActivo ? window.abActivo.todos() : []);
   function monedasPlan() {
