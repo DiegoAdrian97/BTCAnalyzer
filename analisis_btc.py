@@ -1213,6 +1213,193 @@ def coinciden(rows):
     return "alcista" if all(x > 50 for x in xs) else "bajista" if all(x < 50 for x in xs) else None
 
 
+# ---------- analisis central: todo converge en 5 puntos, en cada temporalidad ----------
+# Cada calculo de la app suma (o resta) puntos a uno de estos puntos, con su peso y su motivo:
+#   fuerza    ¿se viene movimiento fuerte? (modelo de arboles, volatilidad, Bollinger comprimidas, volumen, ADX, hora del
+#             dia, dato fuerte de EE.UU., liquidaciones cerca)
+#   direccion ¿mas probable que suba o que baje? (prediccion por casos parecidos y aprendizaje, indicadores del marco,
+#             patrones, divergencias, canales, Elliott, SuperTrend, Ichimoku, VWAP, OBV, Chaikin, SAR, liquidaciones,
+#             libros, ciclo y funding)
+#   alcance   ¿hasta donde? (rango del 80%, objetivos, rango esperado, objetivo de Elliott)
+#   niveles   soporte, resistencia e invalidacion
+#   riesgo    lo que hay que mirar antes de operar
+# Ojo: medido sin mirar el futuro, la direccion casi no se puede predecir (la prediccion le gana a la tasa base por
+# 0-0,2%); la fuerza si (modelo: 9-12%). El puntaje de direccion resume lo que dicen las senales, no promete acierto.
+CENTRAL_TF = ("5m", "15m", "30m", "1h", "4h", "1d", "1w", "1M")
+CENTRAL_PLAZO = {"5m": "5 min", "15m": "15 min", "1h": "1 hora", "4h": "4 horas", "1d": "1 día"}
+CENTRAL_HORAS = {"5m": 1, "15m": 1, "30m": 2, "1h": 2, "4h": 8, "1d": 24, "1w": 72, "1M": 168}
+
+
+def _cf(lst, punto, lado, peso, texto):
+    lst.append([punto, lado, peso, texto])
+
+
+def central(rows, price, candles, now_ms):
+    pick = lambda t: [r for r in rows if r.get("tabla") == t]
+    mv = next(iter(pick("movimiento")), None)
+    hs = next(iter(pick("horas")), None)
+    tm = next(iter(pick("termometro")), None)
+    liq = pick("liquidacion")
+    libros = pick("libro")
+    fu = next((c for c in pick("contexto") if c.get("clave") == "funding"), None)
+    eventos = sorted(r["t"] for r in pick("evento") if r.get("t") and r["t"] > now_ms)
+    niveles = pick("nivel")
+    out = []
+    for tf in CENTRAL_TF:
+        marco = next((m for m in pick("marco") if m["tf"] == tf), None)
+        if marco is None:
+            continue
+        nombre_plazo = CENTRAL_PLAZO.get(tf)
+        p = next((r for r in pick("plazo") if r["plazo"] == nombre_plazo), None) if nombre_plazo else None
+        ind_ = {r["indicador"]: r for r in rows if r.get("tabla") == "indicador" and r.get("tf") == tf}
+        F = []
+        corto = tf in ("5m", "15m", "30m", "1h")
+        # ----- fuerza -----
+        prob = base = None
+        if mv:
+            if tf == "4h" and mv.get("modelo_4h") is not None:
+                prob, base = mv["modelo_4h"], mv["modelo_base_4h"]
+            elif corto and mv.get("modelo_1h") is not None:
+                prob, base = mv["modelo_1h"], mv["modelo_base_1h"]
+            elif corto:
+                prob, base = mv["prob_fuerte"], mv["prob_normal"]
+        if prob is not None and base:
+            if prob >= 40:
+                _cf(F, "fuerza", 1, 3, f"Modelo de movimiento fuerte: {round(prob)}% (lo normal {round(base)}%)")
+            elif prob >= 25:
+                _cf(F, "fuerza", 1, 2, f"Modelo de movimiento fuerte: {round(prob)}% (lo normal {round(base)}%)")
+            elif prob >= 1.5 * base:
+                _cf(F, "fuerza", 1, 1, f"Modelo de movimiento fuerte: {round(prob)}%, más que lo normal ({round(base)}%)")
+            elif prob <= 0.6 * base:
+                _cf(F, "fuerza", -1, 1, f"Modelo de movimiento fuerte: {round(prob)}%, menos que lo normal ({round(base)}%)")
+        if mv and corto:
+            if mv.get("despierto"):
+                _cf(F, "fuerza", 1, 2, "El mercado se despertó: la volatilidad corta pasó 1,8 veces la habitual")
+            elif mv["volatilidad"] >= 1.3:
+                _cf(F, "fuerza", 1, 1, f"Mercado agitado: volatilidad {ar(mv['volatilidad'], 1)}× la habitual")
+            elif mv["volatilidad"] < 0.8:
+                _cf(F, "fuerza", -1, 1, f"Mercado en calma: volatilidad {ar(mv['volatilidad'], 1)}× la habitual")
+        comp = compresion(candles.get(tf)) if candles.get(tf) else None
+        if comp and comp["comprimida"]:
+            _cf(F, "fuerza", 1, 1, f"Bollinger comprimidas (entre el {round(max(1, comp['percentil']))}% más angosto de sus últimas 720 velas): suele venir una expansión")
+        vr = ind_.get("Volumen relativo")
+        if vr and vr["valor"] is not None and vr["valor"] >= 2:
+            _cf(F, "fuerza", 1, 1, f"Volumen {ar(vr['valor'], 1)} veces el promedio")
+        adx = ind_.get("ADX 14")
+        if adx and adx["valor"] is not None and adx["valor"] >= 25:
+            _cf(F, "fuerza", 1, 0.5, f"ADX {round(adx['valor'])}: tendencia con fuerza")
+        if hs and corto:
+            if hs["ahora_f"] >= 1.25:
+                _cf(F, "fuerza", 1, 1, f"Hora de mucho movimiento (×{ar(hs['ahora_f'], 2)} de una hora típica)")
+            elif hs["ahora_f"] <= 0.7:
+                _cf(F, "fuerza", -1, 1, f"Hora tranquila (×{ar(hs['ahora_f'], 2)} de una hora típica)")
+        ventana = CENTRAL_HORAS[tf] * 3_600_000
+        prox = [t for t in eventos if t - now_ms <= ventana]
+        if prox and tf in ("5m", "15m", "30m", "1h", "4h"):              # un dato no hace fuerte una vela diaria
+            _cf(F, "fuerza", 1, 2, f"Dato fuerte de EE.UU. dentro de {max(1, round((prox[0] - now_ms) / 60000))} min")
+        cerca = [x for x in liq if abs(x["precio"] / price - 1) <= 0.01 and x["longs"] + x["shorts"] >= 5]
+        if cerca and corto:
+            _cf(F, "fuerza", 1, 1, "Liquidaciones acumuladas a menos de 1%: si llega, el movimiento se puede acelerar")
+        # ----- direccion -----
+        if p:
+            tit = next((e for e in rows if e.get("tabla") == "explicacion" and e["plazo"] == nombre_plazo and e["tipo"] == "titular"), None)
+            sesgo = tit["sesgo"] if tit else "neutral"
+            if sesgo != "neutral":
+                w = 1 if p.get("sin_ventaja") or p.get("factor") == 0 else 3
+                pu = p.get("primero_arriba")
+                txt = f"Casos parecidos y aprendizaje: {'sube' if sesgo == 'alcista' else 'baja'}" + (f" ({round(pu if sesgo == 'alcista' else 100 - pu)}% toca primero ese lado)" if pu is not None else "")
+                _cf(F, "direccion", 1 if sesgo == "alcista" else -1, w, txt)
+            for e in rows:
+                if e.get("tabla") == "explicacion" and e["plazo"] == nombre_plazo and e["tipo"] == "senal" and e["sesgo"] in ("alcista", "bajista") \
+                        and not e["texto"].startswith(("Indicadores de", "Casos parecidos")):
+                    _cf(F, "direccion", 1 if e["sesgo"] == "alcista" else -1, 1, e["texto"])
+        else:
+            for x in pick("patron"):
+                if x["tf"] == tf and x["sesgo"] in ("alcista", "bajista"):
+                    _cf(F, "direccion", 1 if x["sesgo"] == "alcista" else -1, 1, f"{x['nombre']} ({x['estado']})")
+            for x in pick("divergencia"):
+                if x["tf"] == tf and x["tipo"] in ("alcista", "bajista"):
+                    _cf(F, "direccion", 1 if x["tipo"] == "alcista" else -1, 1, f"Divergencia {x['tipo']} en {x['indicador']}")
+        r_ = marco["rating"]
+        if r_ is not None and abs(r_) > 0.1:
+            _cf(F, "direccion", 1 if r_ > 0 else -1, 2,
+                f"Indicadores: {marco['rating_txt'].lower()} (medias {marco['ma_compra']}↑ {marco['ma_venta']}↓, osciladores {marco['osc_compra']}↑ {marco['osc_venta']}↓)")
+        el = marco.get("elliott") or ""
+        cur = marco.get("elliott_curso")
+        ya = any(f[3].startswith("Elliott") for f in F)                  # el de la explicacion ya esta
+        if cur and not ya:
+            alc = "alcista" in el.split(";")[0]
+            if el.startswith("Impulso"):
+                sube = (cur in ("1", "3", "5", "B")) == alc
+            else:
+                sube = (cur == "B") == alc
+            _cf(F, "direccion", 1 if sube else -1, 1, f"Elliott: onda {cur} en curso ({el.split(';')[0].lower()})")
+        for nombre, txt in (("SuperTrend (10,3)", "SuperTrend"), ("Nube de Ichimoku", "Nube de Ichimoku"), ("VWAP del dia", "VWAP del día"),
+                            ("OBV", "OBV"), ("Chaikin Money Flow 20", "Chaikin"), ("Parabolic SAR", "Parabolic SAR")):
+            x = ind_.get(nombre)
+            if x and x["senal"] in ("compra", "venta"):
+                _cf(F, "direccion", 1 if x["senal"] == "compra" else -1, 0.5, f"{txt}: {'a favor de la suba' if x['senal'] == 'compra' else 'a favor de la baja'}" + (f" ({x['detalle']})" if x.get("detalle") else ""))
+        bb = ind_.get("Bandas de Bollinger %B")
+        if bb and bb["valor"] is not None and (bb["valor"] >= 100 or bb["valor"] <= 0):
+            _cf(F, "direccion", -1 if bb["valor"] >= 100 else 1, 0.5, f"Precio {'arriba de la banda superior' if bb['valor'] >= 100 else 'debajo de la banda inferior'} de Bollinger: suele volver adentro")
+        arriba = sum(x["shorts"] for x in liq if 0 < x["precio"] / price - 1 <= 0.03)
+        abajo = sum(x["longs"] for x in liq if 0 < 1 - x["precio"] / price <= 0.03)
+        if arriba + abajo >= 10:
+            if arriba >= 1.5 * abajo:
+                _cf(F, "direccion", 1, 1, f"Más liquidaciones arriba ({ar(arriba, 0)} M de shorts) que abajo ({ar(abajo, 0)} M): imán hacia arriba")
+            elif abajo >= 1.5 * arriba:
+                _cf(F, "direccion", -1, 1, f"Más liquidaciones abajo ({ar(abajo, 0)} M de longs) que arriba ({ar(arriba, 0)} M): imán hacia abajo")
+        if libros and corto:
+            d = sum(x["desequilibrio"] for x in libros) / len(libros)
+            if abs(d) >= 15:
+                _cf(F, "direccion", 1 if d > 0 else -1, 0.5, f"Libros de órdenes: {'más compras' if d > 0 else 'más ventas'} cerca del precio ({ar(d, 0)}%)")
+        if tm and tf in ("4h", "1d", "1w", "1M"):
+            z = tm["medidor_zona"]
+            if "compra" in z.lower():
+                _cf(F, "direccion", 1, 1, f"Ciclo: {z.lower()}")
+            elif "venta" in z.lower() or "caro" in z.lower():
+                _cf(F, "direccion", -1, 1, f"Ciclo: {z.lower()}")
+        if fu and fu.get("f7") is not None and tf in ("4h", "1d", "1w", "1M"):
+            if fu["f7"] < 0:
+                _cf(F, "direccion", 1, 0.5, "Funding negativo: hay miedo (a meses suele ser bueno)")
+            elif fu["f7"] >= 0.0003:
+                _cf(F, "direccion", -1, 0.5, "Funding alto: hay euforia")
+        # ----- totales -----
+        fz = sum(f[1] * f[2] for f in F if f[0] == "fuerza")
+        dr = sum(f[1] * f[2] for f in F if f[0] == "direccion")
+        a_favor = sum(f[2] for f in F if f[0] == "direccion" and f[1] > 0)
+        en_contra = sum(f[2] for f in F if f[0] == "direccion" and f[1] < 0)
+        fuerza = "alta" if fz >= 4 else "media" if fz >= 2 else "baja"
+        lado = "sube" if dr >= 2.5 else "baja" if dr <= -2.5 else "neutral"
+        # ----- alcance y niveles -----
+        sop = max((n["precio"] for n in niveles if n["precio"] < price), default=None)
+        res = min((n["precio"] for n in niveles if n["precio"] > price), default=None)
+        inval = next((e["texto"] for e in rows if e.get("tabla") == "explicacion" and e["plazo"] == nombre_plazo and e["tipo"] == "invalida"), None) if p else None
+        # ----- riesgo -----
+        R = []
+        rsi = ind_.get("RSI 14")
+        if rsi and rsi["valor"] is not None and rsi["valor"] >= 75:
+            R.append(f"RSI {round(rsi['valor'])}: sobrecompra")
+        elif rsi and rsi["valor"] is not None and rsi["valor"] <= 25:
+            R.append(f"RSI {round(rsi['valor'])}: sobreventa")
+        if eventos and eventos[0] - now_ms <= 24 * 3_600_000:
+            R.append(f"Dato fuerte de EE.UU. en {max(1, round((eventos[0] - now_ms) / 3_600_000))} h: el precio se mueve más")
+        if fuerza == "alta":
+            R.append("Se viene movimiento fuerte: revisá stops y tamaño")
+        if (lado == "sube" and en_contra >= 0.6 * a_favor) or (lado == "baja" and a_favor >= 0.6 * en_contra):
+            R.append("Hay señales en contra casi tan fuertes: dirección poco firme")
+        out.append({"tabla": "central", "tf": tf, "plazo": nombre_plazo if p else None,
+                    "fuerza": fuerza, "fuerza_puntos": fz, "prob_fuerte": prob, "prob_normal": base,
+                    "direccion": lado, "direccion_puntos": dr, "a_favor": a_favor, "en_contra": en_contra,
+                    "prob_sube": p.get("primero_arriba") if p else None,
+                    "rango_min": p["min"] if p else None, "rango_max": p["max"] if p else None, "hasta": p["hora"] if p else None,
+                    "obj_arriba": p["obj_arriba"] if p else None, "obj_abajo": p["obj_abajo"] if p else None,
+                    "toca_arriba": p.get("toca_arriba") if p else None, "toca_abajo": p.get("toca_abajo") if p else None,
+                    "esperado_usd": mv["esperado_usd"] if mv and corto else None, "elliott_objetivo": marco.get("elliott_objetivo"),
+                    "soporte": sop, "resistencia": res, "invalida": inval, "riesgo": R, "factores": F})
+    return out
+
+
 def explain(rows, price, spec):
     """La conclusion de un plazo en pocas palabras: prediccion, hasta 4 razones de cada lado, niveles e invalidacion."""
     name, _, _, sig_tfs, ctx_keys, candle = spec
@@ -1609,6 +1796,7 @@ def analyze():
             r["coinciden"] = lado
     explanation = [e for spec in PLAZOS for e in explain(rows, price, spec)]
     rows += explanation
+    rows += central(rows, price, candles, now_ms)
     takeaway = next(e["texto"] for e in explanation if e["plazo"] == "1 hora" and e["tipo"] == "titular")
     local = datetime.fromtimestamp(now_ms / 1000, LOCAL_TZ)
     rows.insert(0, {"tabla": "resumen", "fecha": datetime.now(LOCAL_TZ).isoformat(timespec="milliseconds"),

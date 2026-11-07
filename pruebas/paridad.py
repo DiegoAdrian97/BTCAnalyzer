@@ -20,6 +20,7 @@ def velas(n, ms, p0, vol, t0=1_700_000_000_000):
 
 
 H1, H4, D1 = velas(2400, 3_600_000, 60000, 0.006), velas(700, 14_400_000, 60000, 0.012), velas(1600, 86_400_000, 9000, 0.03)
+FC = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "filas_central.json"), encoding="utf-8"))   # filas reales para el analisis central
 ALT = [[b[0], b[1] / 50000, b[2] / 50000, b[3] / 50000, b[4] / 50000, b[5]] for b in D1]
 AHORA = D1[-1][0] + 3_600_000
 LIQ = [[AHORA - k * 41_000, "long" if k % 3 else "short", 1000 + 37.5 * k] for k in range(300)]
@@ -84,7 +85,7 @@ def py():
            "taker": [{"buy": 120 + i, "sell": 100} for i in range(4)], "top": 1.3, "funding": 0.0001, "funding7": -0.00002, "fundingFuente": "BingX"}
     return {
         "calificar": ind.calificar(H1)[:2], "zigzag": piv, "elliott": ind.elliott(piv, H4), "elliott_1h": ind.elliott(ind.zigzag(H1), H1), "fvg": ind.fvg(H4), "divergencias": ind.divergencias(H4, piv),
-        "fibonacci": A.fibonacci(H4), "fib_tramo": A.fib_tramo(H4), "compresion": A.compresion(H1), "horas": A.perfil_horas(H1),
+        "fibonacci": A.fibonacci(H4), "fib_tramo": A.fib_tramo(H4), "compresion": A.compresion(H1), "central": A.central(FC["filas"], FC["precio"], {"1h": H1, "4h": H4}, FC["ahora"]), "horas": A.perfil_horas(H1),
         "termometro": termometro.termometro([b[4] for b in D1], D1[-1][4] * 1.01, now_ms=AHORA, f7=-0.00001),
         "termometro_alt": termometro.termometro_alt("XRP", ALT[-600:], ALT[-1][4], now_ms=AHORA),
         "semanal": A.analisis_largo(D1, "1w", D1[-1][4], True),
@@ -114,7 +115,7 @@ const T = require(R + '/JavascriptVersion/termometro.json'), M = require(R + '/J
 const d = JSON.parse(require('fs').readFileSync(0, 'utf8'));
 const piv = Ind.zigzag(d.H4), c = Ind.calificar(d.H1);
 console.log(JSON.stringify({
-  calificar: [c[0], c[1]], zigzag: piv, elliott: Ind.elliott(piv, d.H4), elliott_1h: Ind.elliott(Ind.zigzag(d.H1), d.H1), fvg: Ind.fvg(d.H4), divergencias: Ind.divergencias(d.H4, piv), fibonacci: A.fibonacci(d.H4), fib_tramo: A.fibTramo(d.H4), compresion: A.compresion(d.H1), horas: A.perfilHoras(d.H1),
+  calificar: [c[0], c[1]], zigzag: piv, elliott: Ind.elliott(piv, d.H4), elliott_1h: Ind.elliott(Ind.zigzag(d.H1), d.H1), fvg: Ind.fvg(d.H4), divergencias: Ind.divergencias(d.H4, piv), fibonacci: A.fibonacci(d.H4), fib_tramo: A.fibTramo(d.H4), compresion: A.compresion(d.H1), central: A.central(d.FC.filas, d.FC.precio, { "1h": d.H1, "4h": d.H4 }, d.FC.ahora), horas: A.perfilHoras(d.H1),
   termometro: A.termometro(d.D1.map((b) => b[4]), d.D1[d.D1.length - 1][4] * 1.01, T, null, d.AHORA, -0.00001),
   termometro_alt: A.termometroAlt('XRP', d.ALT.slice(-600), d.ALT[d.ALT.length - 1][4], T, d.AHORA),
   semanal: A.analisisLargo(d.D1, '1w', d.D1[d.D1.length - 1][4], true),
@@ -163,7 +164,7 @@ def igual(a, b, ruta, err):
 def main():
     p = py()
     raw = p.pop("_ctx_raw")
-    entrada = {"H1": H1, "H4": H4, "D1": D1, "ALT": ALT, "AHORA": AHORA, "raw": raw, "LIQ": LIQ,
+    entrada = {"FC": FC, "H1": H1, "H4": H4, "D1": D1, "ALT": ALT, "AHORA": AHORA, "raw": raw, "LIQ": LIQ,
                "CASOS": CASOS, "SPEC_1H": SPEC_1H, "LOG_ENTRADAS": LOG_ENTRADAS, "LOG_CIERRES": LOG_CIERRES,
                "OPC_LIBRO": OPC_LIBRO, "OPC_DVOL": OPC_DVOL, "OPC_AHORA": OPC_AHORA}
     out = subprocess.run(["node", "-e", JS, RAIZ], input=json.dumps(entrada), capture_output=True, text=True)

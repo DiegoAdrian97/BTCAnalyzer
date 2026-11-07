@@ -504,12 +504,67 @@
     placeTf(); placeSc();
     connectLive();
     drawConclusion();
+    drawCentro(rows, sum);
     plazosBordes(); if (MINI.classList.contains('on')) miniPintar();
     plegarNotas();
     if (first) { first = false; setTimeout(() => root.classList.remove('ab-first'), 1800); }
   }
   // En resumen: la prediccion de la proxima hora, los indicadores del marco elegido y el termometro (ciclo), juntos y
   // con su plazo. Si apuntan para lados distintos se dice por que, en vez de dejar que parezcan contradecirse.
+  // ---------- analisis central (fila 'central' de analisis.js): 5 puntos en la temporalidad elegida ----------
+  const CE_TFS = [['5m', '5m'], ['15m', '15m'], ['30m', '30m'], ['1h', '1h'], ['4h', '4h'], ['1d', '1D'], ['1w', '1S'], ['1M', '1M']];
+  const CE_PLAZO = { '5m': '5 min', '15m': '15 min', '1h': '1 hora', '4h': '4 horas', '1d': '1 día' };
+  const okv = (x) => x !== null && x !== undefined;
+  function drawCentro(rows, sum) {
+    const sec = document.getElementById('centro'), todas = pick(rows, 'central');
+    const c = todas.find((x) => x.tf === S.tf) || todas.find((x) => x.tf === '1h');
+    sec.hidden = !c; if (!c) return;
+    const tfs = document.getElementById('ce-tfs');
+    tfs.replaceChildren(...CE_TFS.filter(([tf]) => todas.some((x) => x.tf === tf)).map(([tf, txt]) => {
+      const b = el('button', '', txt); b.type = 'button'; b.setAttribute('aria-pressed', String(tf === c.tf));
+      b.addEventListener('click', () => (CE_PLAZO[tf] ? setPlazo(CE_PLAZO[tf]) : setTf(tf)));
+      return b;
+    }));
+    document.getElementById('ce-k').textContent = `${MON()} · ${TF_TXT[c.tf] || c.tf}${c.hasta ? ` · hasta las ${c.hasta.slice(-5)}\u00a0h` : ''}`;
+    const lista = (punto) => {
+      const fs = c.factores.filter((f) => f[0] === punto).slice().sort((a, b) => b[2] - a[2]);
+      if (!fs.length) return null;
+      const d = el('details'), ul = el('ul', 'ab-ce-f');
+      d.append(el('summary', '', `Por qué (${fs.length} ${fs.length === 1 ? 'señal' : 'señales'})`), ul);
+      fs.forEach(([, lado, peso, txt]) => { const li = el('li', punto === 'fuerza' ? (lado > 0 ? 'fuerte' : '') : lado > 0 ? 'sube' : 'baja'); li.append(el('span', '', txt), el('i', '', `${lado > 0 ? '+' : '−'}${String(peso).replace('.', ',')}`)); ul.append(li); });
+      return d;
+    };
+    const bloque = (id, cls, k, titulo, sub, extra) => {
+      const b = document.getElementById(id); b.className = `ab-ce-p ${cls}`.trim();
+      b.replaceChildren(el('small', '', k), el('b', '', titulo), ...(sub ? [el('span', '', sub)] : []), ...(extra || []).filter(Boolean));
+    };
+    // 1. fuerza
+    const hs = pick(rows, 'horas')[0];
+    const fzTxt = c.fuerza === 'alta' ? 'Sí, se viene movimiento fuerte' : c.fuerza === 'media' ? 'Puede venir un movimiento fuerte' : 'No por ahora';
+    const fzSub = [okv(c.prob_fuerte) ? `Chance ${f0(num(c.prob_fuerte))}% (lo normal ${f0(num(c.prob_normal))}%)` : null,
+      hs && hs.max_f - hs.min_f >= 0.3 && ['5m', '15m', '30m', '1h'].includes(c.tf) ? `suele moverse más a las ${horaAR(hs.max_t)} h` : null].filter(Boolean).join(' · ');
+    bloque('ce-fuerza', c.fuerza === 'alta' ? 'fuerte' : '', '¿Se viene movimiento fuerte?', fzTxt, fzSub, [lista('fuerza')]);
+    // 2. direccion
+    const drTxt = c.direccion === 'sube' ? '▲ Más probable que suba' : c.direccion === 'baja' ? '▼ Más probable que baje' : '◆ Sin dirección clara';
+    const drSub = `señales: ${String(c.a_favor).replace('.', ',')} a favor de la suba · ${String(c.en_contra).replace('.', ',')} de la baja`
+      + (okv(c.prob_sube) ? ` · toca primero arriba ${f0(num(c.prob_sube))}%` : '');
+    bloque('ce-dir', c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '', '¿Sube o baja?', drTxt, drSub, [lista('direccion')]);
+    // 3. alcance
+    const alc = [];
+    if (okv(c.obj_arriba) && okv(c.obj_abajo)) alc.push(`objetivos ▲ ${fp(num(c.obj_arriba))}${okv(c.toca_arriba) ? ` (${f0(num(c.toca_arriba))}%)` : ''} · ▼ ${fp(num(c.obj_abajo))}${okv(c.toca_abajo) ? ` (${f0(num(c.toca_abajo))}%)` : ''}`);
+    if (okv(c.esperado_usd)) alc.push(`en una hora suele moverse ~${fp(num(c.esperado_usd))} USD`);
+    if (okv(c.elliott_objetivo)) alc.push(`objetivo de Elliott ${fp(num(c.elliott_objetivo))}`);
+    bloque('ce-alc', '', '¿Hasta dónde?', okv(c.rango_min) ? `${fp(num(c.rango_min))} – ${fp(num(c.rango_max))}` : '—',
+      [okv(c.rango_min) ? '8 de cada 10 veces terminó en ese rango' : 'sin predicción en esta temporalidad', ...alc].join(' · '));
+    // 4. niveles
+    bloque('ce-niv', '', 'Niveles', `${okv(c.soporte) ? `soporte ${fp(num(c.soporte))}` : 'sin soporte cerca'} · ${okv(c.resistencia) ? `resistencia ${fp(num(c.resistencia))}` : 'sin resistencia cerca'}`,
+      c.invalida || '');
+    // 5. riesgo
+    const rz = document.getElementById('ce-riesgo');
+    rz.hidden = !c.riesgo.length;
+    rz.replaceChildren(el('b', '', '⚠ Atención: '), c.riesgo.join(' · '));
+  }
+
   // ---------- vista simple / completa ----------
   const VISTA_BTN = document.getElementById('vista-btn');
   function vista(completa, guardar) {
@@ -533,7 +588,8 @@
     document.getElementById('mini-mon').textContent = MON();
     document.getElementById('mini-p').textContent = pe && pe.firstChild ? pe.firstChild.textContent : '—';
     const mc = document.getElementById('mini-c'); mc.textContent = c ? c.textContent : ''; mc.className = c ? c.className : '';
-    const h = document.getElementById('cc-hora'); document.getElementById('mini-h').textContent = h && h.textContent !== '—' ? `Próxima hora: ${h.textContent}` : '';
+    const d = document.querySelector('#ce-dir > b'), f = document.querySelector('#ce-fuerza > b');
+    document.getElementById('mini-h').textContent = d ? `${d.textContent}${f && !/^No/.test(f.textContent) ? ' · ⚡' : ''}` : '';
   }
   if ('IntersectionObserver' in window) {
     const ojo = new IntersectionObserver(([e]) => {
@@ -1108,7 +1164,7 @@
       const n = lista.filter((x) => !x.leida).length;
       badge.hidden = !n; badge.textContent = n > 9 ? '9+' : String(n);
       listEl.replaceChildren();
-      if (!lista.length) { listEl.append(el('p', 'ab-nt-vacio', 'Sin notificaciones. Te aviso acá cuando cambie el termómetro, el funding se ponga extremo, se acerque o se ejecute una compra, se venga un movimiento fuerte, se compriman las Bollinger, la liquidación quede cerca, llegue una toma de ganancias o se pueda piramidar.')); return; }
+      if (!lista.length) { listEl.append(el('p', 'ab-nt-vacio', 'Sin notificaciones. Te aviso acá cuando cambie el termómetro, el funding se ponga extremo, se acerque o se ejecute una compra, se venga un movimiento fuerte, la liquidación quede cerca, llegue una toma de ganancias o se pueda piramidar.')); return; }
       lista.forEach((x) => {
         const b = el('button', `ab-nt-it${x.leida ? ' leida' : ''}`); b.type = 'button';
         const mid = el('span'); mid.append(el('b', '', x.titulo), el('small', '', `${x.resumen} · ${hace(x.t)}`));
@@ -1170,13 +1226,6 @@
               'Medido sin mirar el futuro: en el 10% de las horas que más marca, fue fuerte un 30–40% de las veces (una hora cualquiera, 11–12%).',
               'No dice para dónde: sirve para ajustar el tamaño o los stops, no la dirección.'], 'movimiento'); });
         }
-        // las Bollinger se comprimieron: suele venir una expansion en las 24 h siguientes (una vez por dia)
-        const cp = pick(rows, 'compresion')[0];
-        if (cp) cambio(`bb:${mon}`, !!cp.comprimida, () => { if (cp.comprimida) nueva(`bb:${mon}:${hoy}`, '↔', `${mon}: Bollinger comprimidas`,
-          `en las próximas 24 h suele moverse ~${String(cp.expande).replace('.', ',')}× lo de las últimas 24 h`, [
-            `El ancho de las Bollinger (1 h) está entre el ${f0(Math.max(1, num(cp.percentil)))}% más angosto de los últimos 30 días.`,
-            `Medido con BTC 2021–2026: en las 24 h siguientes el rango fue ~${String(cp.expande).replace('.', ',')} veces el de las 24 h anteriores, y más del doble el ${f0(cp.mas_doble)}% de las veces (normal: ${f0(cp.mas_doble_normal)}%).`,
-            'No dice para dónde, y la próxima hora suele seguir tranquila.'], 'movimiento'); });
         const lq = pick(rows, 'contexto').find((c) => c.clave === 'liq_reales');
         if (lq && lq.barrida) nueva(`lb:${lq.barrida}:${Math.floor(Date.now() / 3600000)}`, '💥', `Barrida de ${lq.barrida} en BTC`,
           `${f1(num(lq.barrida === 'longs' ? lq.longs_15m : lq.shorts_15m) / 1e6)} M USD en 15 min (OKX)`, [lq.detalle,

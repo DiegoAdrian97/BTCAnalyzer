@@ -253,6 +253,140 @@
       esperado_usd: rp(normal * t.veces[k] * price), despierto: vol > 1.8 && serie[serie.length - 7] <= 1.8 };
   }
 
+
+  // ---------- analisis central: todo converge en 5 puntos, en cada temporalidad (ver central en analisis_btc.py) ----------
+  const CENTRAL_TF = ['5m', '15m', '30m', '1h', '4h', '1d', '1w', '1M'];
+  const CENTRAL_PLAZO = { '5m': '5 min', '15m': '15 min', '1h': '1 hora', '4h': '4 horas', '1d': '1 día' };
+  const CENTRAL_HORAS = { '5m': 1, '15m': 1, '30m': 2, '1h': 2, '4h': 8, '1d': 24, '1w': 72, '1M': 168 };
+  const nz = (x) => (x === undefined ? null : x);
+  const ok = (x) => x !== null && x !== undefined;
+  function central(rows, price, candles, now) {
+    const pick = (t) => rows.filter((r) => r.tabla === t);
+    const mv = pick('movimiento')[0] || null, hs = pick('horas')[0] || null, tm = pick('termometro')[0] || null;
+    const liq = pick('liquidacion'), libros = pick('libro'), niveles = pick('nivel');
+    const fu = pick('contexto').find((c) => c.clave === 'funding') || null;
+    const eventos = pick('evento').filter((r) => r.t && r.t > now).map((r) => r.t).sort((a, b) => a - b);
+    const out = [];
+    for (const tf of CENTRAL_TF) {
+      const marco = pick('marco').find((m) => m.tf === tf);
+      if (!marco) continue;
+      const nombrePlazo = CENTRAL_PLAZO[tf];
+      const p = nombrePlazo ? pick('plazo').find((r) => r.plazo === nombrePlazo) || null : null;
+      const ind = {};
+      rows.forEach((r) => { if (r.tabla === 'indicador' && r.tf === tf) ind[r.indicador] = r; });
+      const F = [], cf = (punto, lado, peso, texto) => F.push([punto, lado, peso, texto]);
+      const corto = tf === '5m' || tf === '15m' || tf === '30m' || tf === '1h';
+      // ----- fuerza -----
+      let prob = null, base = null;
+      if (mv) {
+        if (tf === '4h' && ok(mv.modelo_4h)) { prob = mv.modelo_4h; base = mv.modelo_base_4h; }
+        else if (corto && ok(mv.modelo_1h)) { prob = mv.modelo_1h; base = mv.modelo_base_1h; }
+        else if (corto) { prob = mv.prob_fuerte; base = mv.prob_normal; }
+      }
+      if (ok(prob) && base) {
+        const R0 = roundEven(prob), B0 = roundEven(base);
+        if (prob >= 40) cf('fuerza', 1, 3, `Modelo de movimiento fuerte: ${R0}% (lo normal ${B0}%)`);
+        else if (prob >= 25) cf('fuerza', 1, 2, `Modelo de movimiento fuerte: ${R0}% (lo normal ${B0}%)`);
+        else if (prob >= 1.5 * base) cf('fuerza', 1, 1, `Modelo de movimiento fuerte: ${R0}%, más que lo normal (${B0}%)`);
+        else if (prob <= 0.6 * base) cf('fuerza', -1, 1, `Modelo de movimiento fuerte: ${R0}%, menos que lo normal (${B0}%)`);
+      }
+      if (mv && corto) {
+        if (mv.despierto) cf('fuerza', 1, 2, 'El mercado se despertó: la volatilidad corta pasó 1,8 veces la habitual');
+        else if (mv.volatilidad >= 1.3) cf('fuerza', 1, 1, `Mercado agitado: volatilidad ${ar(mv.volatilidad, 1)}× la habitual`);
+        else if (mv.volatilidad < 0.8) cf('fuerza', -1, 1, `Mercado en calma: volatilidad ${ar(mv.volatilidad, 1)}× la habitual`);
+      }
+      const comp = candles[tf] ? compresion(candles[tf]) : null;
+      if (comp && comp.comprimida) cf('fuerza', 1, 1, `Bollinger comprimidas (entre el ${roundEven(Math.max(1, comp.percentil))}% más angosto de sus últimas 720 velas): suele venir una expansión`);
+      const vr = ind['Volumen relativo'];
+      if (vr && ok(vr.valor) && vr.valor >= 2) cf('fuerza', 1, 1, `Volumen ${ar(vr.valor, 1)} veces el promedio`);
+      const adx = ind['ADX 14'];
+      if (adx && ok(adx.valor) && adx.valor >= 25) cf('fuerza', 1, 0.5, `ADX ${roundEven(adx.valor)}: tendencia con fuerza`);
+      if (hs && corto) {
+        if (hs.ahora_f >= 1.25) cf('fuerza', 1, 1, `Hora de mucho movimiento (×${ar(hs.ahora_f, 2)} de una hora típica)`);
+        else if (hs.ahora_f <= 0.7) cf('fuerza', -1, 1, `Hora tranquila (×${ar(hs.ahora_f, 2)} de una hora típica)`);
+      }
+      const ventana = CENTRAL_HORAS[tf] * 3600000, prox = eventos.filter((t) => t - now <= ventana);
+      if (prox.length && tf !== '1d' && tf !== '1w' && tf !== '1M') cf('fuerza', 1, 2, `Dato fuerte de EE.UU. dentro de ${Math.max(1, roundEven((prox[0] - now) / 60000))} min`);
+      if (corto && liq.some((x) => Math.abs(x.precio / price - 1) <= 0.01 && x.longs + x.shorts >= 5)) cf('fuerza', 1, 1, 'Liquidaciones acumuladas a menos de 1%: si llega, el movimiento se puede acelerar');
+      // ----- direccion -----
+      if (p) {
+        const tit = rows.find((e) => e.tabla === 'explicacion' && e.plazo === nombrePlazo && e.tipo === 'titular');
+        const sesgo = tit ? tit.sesgo : 'neutral';
+        if (sesgo !== 'neutral') {
+          const w = p.sin_ventaja || p.factor === 0 ? 1 : 3, pu = nz(p.primero_arriba);
+          const txt = `Casos parecidos y aprendizaje: ${sesgo === 'alcista' ? 'sube' : 'baja'}` + (pu !== null ? ` (${roundEven(sesgo === 'alcista' ? pu : 100 - pu)}% toca primero ese lado)` : '');
+          cf('direccion', sesgo === 'alcista' ? 1 : -1, w, txt);
+        }
+        rows.forEach((e) => {
+          if (e.tabla === 'explicacion' && e.plazo === nombrePlazo && e.tipo === 'senal' && (e.sesgo === 'alcista' || e.sesgo === 'bajista')
+            && !e.texto.startsWith('Indicadores de') && !e.texto.startsWith('Casos parecidos')) cf('direccion', e.sesgo === 'alcista' ? 1 : -1, 1, e.texto);
+        });
+      } else {
+        pick('patron').forEach((x) => { if (x.tf === tf && (x.sesgo === 'alcista' || x.sesgo === 'bajista')) cf('direccion', x.sesgo === 'alcista' ? 1 : -1, 1, `${x.nombre} (${x.estado})`); });
+        pick('divergencia').forEach((x) => { if (x.tf === tf && (x.tipo === 'alcista' || x.tipo === 'bajista')) cf('direccion', x.tipo === 'alcista' ? 1 : -1, 1, `Divergencia ${x.tipo} en ${x.indicador}`); });
+      }
+      const r_ = marco.rating;
+      if (ok(r_) && Math.abs(r_) > 0.1) cf('direccion', r_ > 0 ? 1 : -1, 2,
+        `Indicadores: ${marco.rating_txt.toLowerCase()} (medias ${marco.ma_compra}↑ ${marco.ma_venta}↓, osciladores ${marco.osc_compra}↑ ${marco.osc_venta}↓)`);
+      const el = marco.elliott || '', cur = marco.elliott_curso;
+      if (cur && !F.some((f) => f[3].startsWith('Elliott'))) {    // el de la explicacion ya esta
+        const alc = el.split(';')[0].includes('alcista');
+        const sube = el.startsWith('Impulso') ? (['1', '3', '5', 'B'].includes(cur)) === alc : (cur === 'B') === alc;
+        cf('direccion', sube ? 1 : -1, 1, `Elliott: onda ${cur} en curso (${el.split(';')[0].toLowerCase()})`);
+      }
+      [['SuperTrend (10,3)', 'SuperTrend'], ['Nube de Ichimoku', 'Nube de Ichimoku'], ['VWAP del dia', 'VWAP del día'], ['OBV', 'OBV'],
+        ['Chaikin Money Flow 20', 'Chaikin'], ['Parabolic SAR', 'Parabolic SAR']].forEach(([nombre, txt]) => {
+        const x = ind[nombre];
+        if (x && (x.senal === 'compra' || x.senal === 'venta')) cf('direccion', x.senal === 'compra' ? 1 : -1, 0.5,
+          `${txt}: ${x.senal === 'compra' ? 'a favor de la suba' : 'a favor de la baja'}` + (x.detalle ? ` (${x.detalle})` : ''));
+      });
+      const bb = ind['Bandas de Bollinger %B'];
+      if (bb && ok(bb.valor) && (bb.valor >= 100 || bb.valor <= 0)) cf('direccion', bb.valor >= 100 ? -1 : 1, 0.5,
+        `Precio ${bb.valor >= 100 ? 'arriba de la banda superior' : 'debajo de la banda inferior'} de Bollinger: suele volver adentro`);
+      let arriba = 0, abajo = 0;
+      liq.forEach((x) => { if (x.precio / price - 1 > 0 && x.precio / price - 1 <= 0.03) arriba += x.shorts; if (1 - x.precio / price > 0 && 1 - x.precio / price <= 0.03) abajo += x.longs; });
+      if (arriba + abajo >= 10) {
+        if (arriba >= 1.5 * abajo) cf('direccion', 1, 1, `Más liquidaciones arriba (${ar(arriba, 0)} M de shorts) que abajo (${ar(abajo, 0)} M): imán hacia arriba`);
+        else if (abajo >= 1.5 * arriba) cf('direccion', -1, 1, `Más liquidaciones abajo (${ar(abajo, 0)} M de longs) que arriba (${ar(arriba, 0)} M): imán hacia abajo`);
+      }
+      if (libros.length && corto) {
+        let d = 0; libros.forEach((x) => { d += x.desequilibrio; }); d /= libros.length;
+        if (Math.abs(d) >= 15) cf('direccion', d > 0 ? 1 : -1, 0.5, `Libros de órdenes: ${d > 0 ? 'más compras' : 'más ventas'} cerca del precio (${ar(d, 0)}%)`);
+      }
+      const largo = tf === '4h' || tf === '1d' || tf === '1w' || tf === '1M';
+      if (tm && largo) {
+        const z = tm.medidor_zona, zl = z.toLowerCase();
+        if (zl.includes('compra')) cf('direccion', 1, 1, `Ciclo: ${zl}`);
+        else if (zl.includes('venta') || zl.includes('caro')) cf('direccion', -1, 1, `Ciclo: ${zl}`);
+      }
+      if (fu && ok(fu.f7) && largo) {
+        if (fu.f7 < 0) cf('direccion', 1, 0.5, 'Funding negativo: hay miedo (a meses suele ser bueno)');
+        else if (fu.f7 >= 0.0003) cf('direccion', -1, 0.5, 'Funding alto: hay euforia');
+      }
+      // ----- totales -----
+      let fz = 0, dr = 0, aFavor = 0, enContra = 0;
+      F.forEach((f) => { if (f[0] === 'fuerza') fz += f[1] * f[2]; else { dr += f[1] * f[2]; if (f[1] > 0) aFavor += f[2]; else enContra += f[2]; } });
+      const fuerza = fz >= 4 ? 'alta' : fz >= 2 ? 'media' : 'baja';
+      const lado = dr >= 2.5 ? 'sube' : dr <= -2.5 ? 'baja' : 'neutral';
+      // ----- alcance y niveles -----
+      let sop = null, res = null;
+      niveles.forEach((n) => { if (n.precio < price && (sop === null || n.precio > sop)) sop = n.precio; if (n.precio > price && (res === null || n.precio < res)) res = n.precio; });
+      const iv = p ? rows.find((e) => e.tabla === 'explicacion' && e.plazo === nombrePlazo && e.tipo === 'invalida') : null;
+      // ----- riesgo -----
+      const R = [], rsi = ind['RSI 14'];
+      if (rsi && ok(rsi.valor) && rsi.valor >= 75) R.push(`RSI ${roundEven(rsi.valor)}: sobrecompra`);
+      else if (rsi && ok(rsi.valor) && rsi.valor <= 25) R.push(`RSI ${roundEven(rsi.valor)}: sobreventa`);
+      if (eventos.length && eventos[0] - now <= 24 * 3600000) R.push(`Dato fuerte de EE.UU. en ${Math.max(1, roundEven((eventos[0] - now) / 3600000))} h: el precio se mueve más`);
+      if (fuerza === 'alta') R.push('Se viene movimiento fuerte: revisá stops y tamaño');
+      if ((lado === 'sube' && enContra >= 0.6 * aFavor) || (lado === 'baja' && aFavor >= 0.6 * enContra)) R.push('Hay señales en contra casi tan fuertes: dirección poco firme');
+      out.push({ tabla: 'central', tf, plazo: p ? nombrePlazo : null, fuerza, fuerza_puntos: fz, prob_fuerte: nz(prob), prob_normal: nz(base),
+        direccion: lado, direccion_puntos: dr, a_favor: aFavor, en_contra: enContra, prob_sube: p ? nz(p.primero_arriba) : null,
+        rango_min: p ? p.min : null, rango_max: p ? p.max : null, hasta: p ? p.hora : null, obj_arriba: p ? p.obj_arriba : null, obj_abajo: p ? p.obj_abajo : null,
+        toca_arriba: p ? nz(p.toca_arriba) : null, toca_abajo: p ? nz(p.toca_abajo) : null, esperado_usd: mv && corto ? mv.esperado_usd : null,
+        elliott_objetivo: nz(marco.elliott_objetivo), soporte: sop, resistencia: res, invalida: iv ? iv.texto : null, riesgo: R, factores: F });
+    }
+    return out;
+  }
   // ---------- cuando se mueve: horas de la semana (como perfil_horas de analisis_btc.py) ----------
   // Medido con BTC (medir_fuerza.py): la forma se mantiene (2021-24 contra 2025-26: correlacion 0,93); las 20 franjas mas
   // movidas segun 2021-24 se movieron 1,5 veces lo de una hora tipica en 2025-26 (las 20 menos: 0,48).
@@ -1230,6 +1364,7 @@
     const explanation = [];
     PLAZOS.forEach((spec) => explain(rows, price, spec).forEach((e) => explanation.push(e)));
     explanation.forEach((e) => rows.push(e));
+    central(rows, price, candles, now).forEach((e) => rows.push(e));
     const takeaway = explanation.find((e) => e.plazo === '1 hora' && e.tipo === 'titular').texto;
     rows.unshift({ tabla: 'resumen', fecha: isoLocal(now), hora_local: fmtLocal(now), precio: rp(price),
       cambio_24h: rnd(changeSince(candles['5m'], now, price, 24), 2), cambio_7d: rnd(changeSince(candles['5m'], now, price, 168), 2),
@@ -1238,7 +1373,7 @@
     return { rows, log };
   }
 
-  const Analisis = { piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, fibTramo, compresion, perfilHoras, liqReales, calificarUltimas };
+  const Analisis = { piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, fibTramo, compresion, perfilHoras, central, liqReales, calificarUltimas };
   root.Analisis = Analisis;
   if (typeof module !== 'undefined' && module.exports) module.exports = Analisis;
 })(typeof self !== 'undefined' ? self : globalThis);

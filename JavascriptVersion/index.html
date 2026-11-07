@@ -46,12 +46,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <link rel="preconnect" href="https://fapi.binance.com" crossorigin>
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
-<link rel="stylesheet" href="p-2659f1765c.css">
-<script>window.AB_PAGINA = "1b7b6cfae7";</script>
-<script defer src="app.js?v=4d301af001"></script>
+<link rel="stylesheet" href="p-f5e0414a01.css">
+<script>window.AB_PAGINA = "416ec44c81";</script>
+<script defer src="app.js?v=4fcd2d8ca9"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-9e3e8d9567.js"></script>
+<script defer src="p-60ef0941bc.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -100,6 +100,19 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       </div>
     </div>
   </header>
+
+  <!-- el analisis central: todos los calculos convergen en 5 puntos, en la temporalidad elegida (fila 'central') -->
+  <section class="ab-card ab-centro" id="centro" aria-labelledby="ce-t" data-source="analisis" hidden>
+    <div class="ab-card-head"><h2 id="ce-t">Análisis</h2><span class="ab-kicker" id="ce-k"></span></div>
+    <div class="ab-ce-tfs" id="ce-tfs" role="group" aria-label="Temporalidad del análisis"></div>
+    <div class="ab-ce-grid">
+      <div class="ab-ce-p" id="ce-fuerza"></div>
+      <div class="ab-ce-p" id="ce-dir"></div>
+      <div class="ab-ce-p" id="ce-alc"></div>
+      <div class="ab-ce-p" id="ce-niv"></div>
+    </div>
+    <div class="ab-ce-riesgo" id="ce-riesgo" hidden></div>
+  </section>
 
   <!-- una sola conclusion arriba: cada señal mira un plazo distinto y antes parecian contradecirse -->
   <button type="button" class="ab-mini" id="mini" tabindex="-1" aria-hidden="true" title="Volver arriba">
