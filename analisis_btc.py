@@ -1258,6 +1258,7 @@ def central(rows, price, candles, now_ms):
         ind_ = {r["indicador"]: r for r in rows if r.get("tabla") == "indicador" and r.get("tf") == tf}
         F = []
         corto = tf in ("5m", "15m", "30m", "1h")
+        largo_tf = tf in ("1d", "1w", "1M")
         # ----- fuerza -----
         prob = base = None
         if mv:
@@ -1337,10 +1338,18 @@ def central(rows, price, candles, now_ms):
         if p and nombre_plazo == "1 hora" and p.get("coinciden") in ("alcista", "bajista"):
             # medido (medir_contexto.py): asi la de 1 hora acerto 54,0% contra 51,5%, en los dos tramos
             _cf(F, "direccion", 1 if p["coinciden"] == "alcista" else -1, 1, "15 min, 1 hora y 4 horas apuntan para el mismo lado (medido: acierta 54% contra 51,5%)")
+        # Medido (medir_direccion.py, BTC 1 h 2021-2026): a 1 y 4 horas los indicadores de tendencia aciertan MENOS que una
+        # moneda (el resumen 45,6-48,1%; SuperTrend, Ichimoku, VWAP, OBV, Chaikin y SAR 45-49%, en los dos tramos): despues
+        # de que marcan fuerte, el precio suele corregir. En 4 h o menos cuentan al reves (peso 1, solo el resumen: los
+        # demas dicen lo mismo); en velas diarias o mas largas, a favor (sin medir).
         r_ = marco["rating"]
         if r_ is not None and abs(r_) > 0.1:
-            _cf(F, "direccion", 1 if r_ > 0 else -1, 2,
-                f"Indicadores: {marco['rating_txt'].lower()} (medias {marco['ma_compra']}↑ {marco['ma_venta']}↓, osciladores {marco['osc_compra']}↑ {marco['osc_venta']}↓)")
+            if not largo_tf:
+                _cf(F, "direccion", -1 if r_ > 0 else 1, 1,
+                    f"Indicadores {marco['rating_txt'].lower()}: en las próximas horas suele corregir (medido: a favor aciertan 46–48%)")
+            else:
+                _cf(F, "direccion", 1 if r_ > 0 else -1, 2,
+                    f"Indicadores: {marco['rating_txt'].lower()} (medias {marco['ma_compra']}↑ {marco['ma_venta']}↓, osciladores {marco['osc_compra']}↑ {marco['osc_venta']}↓)")
         el = marco.get("elliott") or ""
         cur = marco.get("elliott_curso")
         ya = any(f[3].startswith("Elliott") for f in F)                  # el de la explicacion ya esta
@@ -1351,14 +1360,15 @@ def central(rows, price, candles, now_ms):
             else:
                 sube = (cur == "B") == alc
             _cf(F, "direccion", 1 if sube else -1, 1, f"Elliott: onda {cur} en curso ({el.split(';')[0].lower()})")
-        for nombre, txt in (("SuperTrend (10,3)", "SuperTrend"), ("Nube de Ichimoku", "Nube de Ichimoku"), ("VWAP del dia", "VWAP del día"),
+        for nombre, txt in () if not largo_tf else (("SuperTrend (10,3)", "SuperTrend"), ("Nube de Ichimoku", "Nube de Ichimoku"), ("VWAP del dia", "VWAP del día"),
                             ("OBV", "OBV"), ("Chaikin Money Flow 20", "Chaikin"), ("Parabolic SAR", "Parabolic SAR")):
             x = ind_.get(nombre)
             if x and x["senal"] in ("compra", "venta"):
                 _cf(F, "direccion", 1 if x["senal"] == "compra" else -1, 0.5, f"{txt}: {'a favor de la suba' if x['senal'] == 'compra' else 'a favor de la baja'}" + (f" ({x['detalle']})" if x.get("detalle") else ""))
         bb = ind_.get("Bandas de Bollinger %B")
         if bb and bb["valor"] is not None and (bb["valor"] >= 100 or bb["valor"] <= 0):
-            _cf(F, "direccion", -1 if bb["valor"] >= 100 else 1, 0.5, f"Precio {'arriba de la banda superior' if bb['valor'] >= 100 else 'debajo de la banda inferior'} de Bollinger: suele volver adentro")
+            # medido: fuera de banda, la hora siguiente volvio hacia adentro el 56-59% de las veces (los dos tramos)
+            _cf(F, "direccion", -1 if bb["valor"] >= 100 else 1, 0.5 if largo_tf else 1, f"Precio {'arriba de la banda superior' if bb['valor'] >= 100 else 'debajo de la banda inferior'} de Bollinger: suele volver adentro")
         arriba = sum(x["shorts"] for x in liq if 0 < x["precio"] / price - 1 <= 0.03)
         abajo = sum(x["longs"] for x in liq if 0 < 1 - x["precio"] / price <= 0.03)
         if arriba + abajo >= 10:
