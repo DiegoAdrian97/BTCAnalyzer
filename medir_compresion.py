@@ -64,6 +64,21 @@ def main():
             fila = (hz, nombre, int(s.sum()), round(100 * y[s].mean(), 1), round(100 * y[ang].mean(), 1), round(100 * y[anc].mean(), 1))
             res["directo"].append(fila)
             print(f"  {hz:>2} h {nombre}: cualquier hora {fila[3]}% · comprimida {fila[4]}% · muy ancha {fila[5]}%  ({fila[2]} horas)")
+    print("\n1b) ¿EXPANDE? rango de las proximas N horas contra el de las ultimas N (mediana), y si se mueve mas del doble de su propio ritmo reciente")
+    h_ = np.asarray([x[2] for x in B], dtype=float); l_ = np.asarray([x[3] for x in B], dtype=float); n = len(h_)
+    for N in (24, 72):
+        hi_f = np.full(n, np.nan); lo_f = np.full(n, np.nan)
+        hi_f[:-N] = ef.roll(h_, N, np.max)[N:]; lo_f[:-N] = ef.roll(l_, N, np.min)[N:]
+        r_f = np.log(hi_f / lo_f); r_p = np.log(ef.roll(h_, N, np.max) / ef.roll(l_, N, np.min))
+        ex = r_f / r_p
+        for nombre, a_, b_ in (("2021-22", q(2021, 1), q(2023, 1)),) + TRAMOS:
+            s = np.isfinite(ex) & np.isfinite(pct) & (t >= a_) & (t < b_)
+            ang = s & (pct <= 0.10)
+            fila = (N, nombre, round(float(np.median(ex[s])), 2), round(float(np.median(ex[ang])), 2),
+                    round(100 * float((ex[s] > 2).mean()), 1), round(100 * float((ex[ang] > 2).mean()), 1))
+            res.setdefault("expande", []).append(fila)
+            print(f"  {N} h {nombre}: rango siguiente / anterior, mediana: cualquier hora x{fila[2]} · comprimida x{fila[3]} · "
+                  f"mas del doble: {fila[4]}% / {fila[5]}%")
     print("\n2) EN EL MODELO DE MOVIMIENTO FUERTE (prueba honesta, % menos error que la tasa base)")
     XC = np.column_stack([X, C])
     for hz in (1, 4):

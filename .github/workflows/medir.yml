@@ -16,7 +16,7 @@ jobs:
         with: { python-version: "3.12" }
       - uses: actions/cache@v4
         with: { path: datos_medicion, key: velas-btc-eth-v1 }
-      - run: pip install numpy lightgbm
+      - run: pip install numpy lightgbm scikit-learn
       # la compresion de las Bollinger y el movimiento fuerte (velas de 1 hora de datos_entrenamiento.py)
       - run: python datos_entrenamiento.py && python -u medir_compresion.py velas_1h.json eventos.json | tee compresion.txt
       - run: if [ -n "$VELAS" ]; then python -u medir_velas.py datos_medicion | tee medicion.txt; fi
