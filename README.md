@@ -564,6 +564,26 @@ Ojo: la fuerza está medida (el modelo le gana a la tasa base 9–12%); la direc
 mediciones abajo): el puntaje de dirección resume lo que dicen las señales, no promete acierto. En la vista simple, la
 tarjeta "Análisis" reemplaza al resumen, a Movimiento y a Predicción (siguen en la vista completa).
 
+### Puntaje de dirección y Fed medidos (`medir_direccion.py`, `medir_fed.py`, `medir_fuerte_dvol.py`, nov. 2026)
+
+**Dirección** (BTC 1 h 2021–2026, cada 4 h; ¿subió la hora siguiente / las 4 siguientes?):
+
+| Señal | Acierta a favor de lo que marca (2021-24 / 2025-26, 1 h) | Qué se hizo |
+|---|---|---|
+| Resumen de indicadores (medias y osciladores) | 45,6% / 48,1% (z −7,5 / −2,3): **al revés** | En 4 h o menos cuenta al revés (peso 1) |
+| SuperTrend, Ichimoku, VWAP, OBV, Chaikin, SAR | 45–49%: al revés, y dicen lo mismo que el resumen | Fuera en 4 h o menos |
+| Precio fuera de las Bollinger (a que vuelve adentro) | 58,9% / 56,1% | Peso 1 |
+| Divergencias recientes | 49,5% / 54,4% | Peso 1 (como estaba) |
+| **Puntaje con los pesos de antes** | 45,1% / 48,0%: peor que una moneda | Reemplazado |
+| **Puntaje con los pesos nuevos, \|p\| ≥ 1** | 54,1% / 52,1% (a 4 h: 54,2% / 53,6%) | Se aplica |
+| **Puntaje con los pesos nuevos, \|p\| ≥ 2** | 55,8% / 55,4% (a 4 h: 55,6% / 55,2%) | Se aplica |
+
+En velas diarias o más largas los indicadores siguen a favor (no se midió). **Fed** (45 decisiones 2021–2026): la hora
+del anuncio se movió ×3,2 lo normal (más del doble el 78%) → suma +3 a la fuerza; después BTC subió ~50% de las veces
+fuera que bajaran, mantuvieran o subieran la tasa → no entra en la dirección. **DVOL en el modelo de movimiento fuerte**:
+mejora en los 6 casos (1 h: +0,4 / +1,1 / +0,2 puntos; 4 h: +0,2 / +0,8 / +0,4) pero solo 2025 pasa z > 2: queda afuera
+del modelo por ahora (ya suma ±1 en la fuerza del análisis central).
+
 ### Fuerza y momento del movimiento (`medir_fuerza.py`, nov. 2026)
 
 La dirección no se deja predecir, pero cuánto y cuándo se mueve sí:
