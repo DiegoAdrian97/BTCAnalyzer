@@ -2261,7 +2261,7 @@
       const n = lista.filter((x) => !x.leida).length;
       badge.hidden = !n; badge.textContent = n > 9 ? '9+' : String(n);
       listEl.replaceChildren();
-      if (!lista.length) { listEl.append(el('p', 'ab-nt-vacio', 'Sin notificaciones. Te aviso acá cuando cambie el termómetro, el funding se ponga extremo, se acerque o se ejecute una compra, la liquidación quede cerca, llegue una toma de ganancias o se pueda piramidar.')); return; }
+      if (!lista.length) { listEl.append(el('p', 'ab-nt-vacio', 'Sin notificaciones. Te aviso acá cuando cambie el termómetro, el funding se ponga extremo, se acerque o se ejecute una compra, se venga un movimiento fuerte, se compriman las Bollinger, la liquidación quede cerca, llegue una toma de ganancias o se pueda piramidar.')); return; }
       lista.forEach((x) => {
         const b = el('button', `ab-nt-it${x.leida ? ' leida' : ''}`); b.type = 'button';
         const mid = el('span'); mid.append(el('b', '', x.titulo), el('small', '', `${x.resumen} · ${hace(x.t)}`));
@@ -2313,6 +2313,23 @@
           `${f0(num(t.medidor))}/100 (antes: ${antes})`, [`El medidor de ${mon} pasó de "${antes}" a "${t.medidor_zona}": ${f0(num(t.medidor))}/100.`,
             t.m_sube_365 === null ? 'Todavía no hay casos suficientes en esta zona.' : `Cuando estuvo en esta zona, 12 meses después ${mon} estaba más arriba el ${t.m_sube_365}% de las veces (mediana ${t.m_mediana_365 > 0 ? '+' : ''}${t.m_mediana_365}%).`,
             'Para semanas o meses, no para el próximo trade.'], 'termometro'));
+        // se viene movimiento fuerte (modelo de arboles, como el aviso de Telegram: 40% o mas, no antes de 4 h)
+        const mv = pick(rows, 'movimiento')[0];
+        if (mv && mv.modelo_1h !== null && mv.modelo_1h !== undefined) {
+          const p1 = num(mv.modelo_1h), bloque = Math.floor(Date.now() / (4 * 3600000));
+          cambio(`mf:${mon}`, p1 >= 40, (antes) => { if (p1 >= 40) nueva(`mf:${mon}:${bloque}`, '⚡', `${mon}: se viene movimiento fuerte`,
+            `${f0(p1)}% de chance en la próxima hora (lo normal ${f0(num(mv.modelo_base_1h))}%)`, [
+              `El modelo de movimiento fuerte da ${f0(p1)}% de chance de que la próxima hora ${mon} se mueva más del doble de lo habitual (próximas 4 h: ${f0(num(mv.modelo_4h))}%).`,
+              'Medido sin mirar el futuro: en el 10% de las horas que más marca, fue fuerte un 30–40% de las veces (una hora cualquiera, 11–12%).',
+              'No dice para dónde: sirve para ajustar el tamaño o los stops, no la dirección.'], 'movimiento'); });
+        }
+        // las Bollinger se comprimieron: suele venir una expansion en las 24 h siguientes (una vez por dia)
+        const cp = pick(rows, 'compresion')[0];
+        if (cp) cambio(`bb:${mon}`, !!cp.comprimida, () => { if (cp.comprimida) nueva(`bb:${mon}:${hoy}`, '↔', `${mon}: Bollinger comprimidas`,
+          `en las próximas 24 h suele moverse ~${String(cp.expande).replace('.', ',')}× lo de las últimas 24 h`, [
+            `El ancho de las Bollinger (1 h) está entre el ${f0(Math.max(1, num(cp.percentil)))}% más angosto de los últimos 30 días.`,
+            `Medido con BTC 2021–2026: en las 24 h siguientes el rango fue ~${String(cp.expande).replace('.', ',')} veces el de las 24 h anteriores, y más del doble el ${f0(cp.mas_doble)}% de las veces (normal: ${f0(cp.mas_doble_normal)}%).`,
+            'No dice para dónde, y la próxima hora suele seguir tranquila.'], 'movimiento'); });
         const lq = pick(rows, 'contexto').find((c) => c.clave === 'liq_reales');
         if (lq && lq.barrida) nueva(`lb:${lq.barrida}:${Math.floor(Date.now() / 3600000)}`, '💥', `Barrida de ${lq.barrida} en BTC`,
           `${f1(num(lq.barrida === 'longs' ? lq.longs_15m : lq.shorts_15m) / 1e6)} M USD en 15 min (OKX)`, [lq.detalle,

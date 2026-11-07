@@ -122,6 +122,10 @@ y piramidado disponible. Al tocar una se abre el detalle con un botón a la secc
 de esa zona y hace un nuevo mínimo (más bajo que todo lo que marcó desde el aviso anterior): un rebote que vuelve a
 bajar del 3% sin pasar ese mínimo no avisa. Telegram (`avisos.py`) sigue la misma regla.
 
+También avisa cuando el modelo da 40% o más de movimiento fuerte en la próxima hora (como el aviso de Telegram; no se
+repite antes de 4 h) y cuando las Bollinger de 1 hora se comprimen (una vez por día): las dos cosas medidas, ninguna dice
+para dónde.
+
 ### Comandos de Telegram
 
 El bot contesta cuando le escribís (no manda nada por su cuenta): `/estado`, `/medidor` (BTC, XRP y SOL),
