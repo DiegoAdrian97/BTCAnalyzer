@@ -2,23 +2,29 @@
   /* Tema: minimalista y moderno. Una sola familia tipografica (la del sistema: SF en el iPhone), superficies planas,
      bordes finos y color solo donde dice algo (verde sube, rojo baja). Pisa los colores que trae cada version.
      Verde y rojo validados para daltonismo (deuteranopia: diferencia 11 en claro y 9 en oscuro; los de antes daban 5-6). */
-  :root { --color-fg: #0f1218; --color-fg-muted: #687080; --color-bg: #f3f4f7; --color-panel: #ffffff;
-    --color-border-line: #e6e8ec; --color-ok: #089981; --color-warn: #c97a12; --color-bad: #f23645;
-    --cds-chart-grid: #eef0f3; --cds-surface-popover: #ffffff; --cds-border: #e3e6ea; --cds-text-secondary: #687080;
-    --cds-shadow-popover: 0 8px 28px rgba(16, 24, 40, .12);
-    --font-anthropic-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  /* Tema "tablero nocturno": tinta azul de noche (no negro), cifras en Big Shoulders (condensada, de tablero de
+     cotizaciones) y todo lo demas en Archivo. Las dos alojadas en lib/ (sin Google Fonts), un solo grosor de la de cifras.
+     Verde y rojo: los validados para daltonismo (deuteranopia: diferencia 11 en claro y 9 en oscuro). */
+  @font-face { font-family: "Big Shoulders"; src: url(lib/big-shoulders-800.woff2) format("woff2"); font-weight: 800; font-display: swap; }
+  @font-face { font-family: "Archivo"; src: url(lib/archivo-var.woff2) format("woff2"); font-weight: 100 900; font-display: swap; }
+  :root { --color-fg: #0d1a30; --color-fg-muted: #56667f; --color-bg: #e9eff7; --color-panel: #ffffff;
+    --color-border-line: #d6dfeb; --color-ok: #089981; --color-warn: #c97a12; --color-bad: #f23645; --senal: #2f5fd0;
+    --cds-chart-grid: #e6ecf4; --cds-surface-popover: #ffffff; --cds-border: #d3dcea; --cds-text-secondary: #56667f;
+    --cds-shadow-popover: 0 10px 30px rgba(13, 26, 48, .14);
+    --font-anthropic-sans: "Archivo", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-cifras: "Big Shoulders", "Archivo", sans-serif;
     --font-anthropic-serif: var(--font-anthropic-sans); --cds-radius: 10px; }
   /* oscuro: el del sistema, salvo que elijas claro u oscuro con el boton (data-theme en <html>) */
   @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) { --color-fg: #e7eaf0; --color-fg-muted: #8a92a2; --color-bg: #0a0c10; --color-panel: #12151b;
-      --color-border-line: #1f242c; --color-ok: #22ab94; --color-warn: #f0b90b; --color-bad: #f7525f;
-      --cds-chart-grid: #1a1e25; --cds-surface-popover: #191d24; --cds-border: #2a303a; --cds-text-secondary: #8a92a2;
-      --cds-shadow-popover: 0 10px 30px rgba(0, 0, 0, .5); }
+    :root:not([data-theme="light"]) { --color-fg: #e8eef7; --color-fg-muted: #8fa0bb; --color-bg: #0d1626; --color-panel: #132036;
+      --color-border-line: #22324d; --color-ok: #22ab94; --color-warn: #f0b90b; --color-bad: #f7525f; --senal: #8db4ff;
+      --cds-chart-grid: #1a2842; --cds-surface-popover: #182742; --cds-border: #2b3d5c; --cds-text-secondary: #8fa0bb;
+      --cds-shadow-popover: 0 12px 34px rgba(2, 6, 14, .55); }
   }
-  :root[data-theme="dark"] { --color-fg: #e7eaf0; --color-fg-muted: #8a92a2; --color-bg: #0a0c10; --color-panel: #12151b;
-      --color-border-line: #1f242c; --color-ok: #22ab94; --color-warn: #f0b90b; --color-bad: #f7525f;
-      --cds-chart-grid: #1a1e25; --cds-surface-popover: #191d24; --cds-border: #2a303a; --cds-text-secondary: #8a92a2;
-      --cds-shadow-popover: 0 10px 30px rgba(0, 0, 0, .5); }
+  :root[data-theme="dark"] { --color-fg: #e8eef7; --color-fg-muted: #8fa0bb; --color-bg: #0d1626; --color-panel: #132036;
+      --color-border-line: #22324d; --color-ok: #22ab94; --color-warn: #f0b90b; --color-bad: #f7525f; --senal: #8db4ff;
+      --cds-chart-grid: #1a2842; --cds-surface-popover: #182742; --cds-border: #2b3d5c; --cds-text-secondary: #8fa0bb;
+      --cds-shadow-popover: 0 12px 34px rgba(2, 6, 14, .55); }
   body { background: var(--color-bg); -webkit-font-smoothing: antialiased; }
   /* Layout: franja superior (precio · prediccion protagonista · sesgo), selector de temporalidad,
      grafico grande con panel de probabilidades al costado, y debajo senales, niveles, ondas, indicadores. */
@@ -29,13 +35,14 @@
   #dash-root [hidden] { display: none !important; }
   .ab { --up: var(--color-ok); --down: var(--color-bad); --mute: var(--color-fg-muted); --line: var(--color-border-line);
     --panel: var(--color-panel); --ink: var(--color-fg); --paper: var(--color-bg);
-    --serif: var(--font-anthropic-sans); --sans: var(--font-anthropic-sans);
+    --serif: var(--font-cifras); --sans: var(--font-anthropic-sans);
     --soft: color-mix(in srgb, var(--color-fg) 5%, transparent); --soft2: color-mix(in srgb, var(--color-fg) 9%, transparent);
     font-family: var(--sans); color: var(--ink); max-width: 84rem; margin-inline: auto; display: grid; gap: var(--cds-gap-lg);
     font-feature-settings: "tnum" 1, "cv11" 1; }
-  /* numeros grandes: mismo tipo de letra, mas peso y menos espacio entre letras */
-  .ab-title, .ab-verdict-big, .ab-price, .ab-tug b, .ab-plazo b, .ab-story-head, .ab-pred-when, .ab-likely-top b,
-  .ab-gauge-txt b, .ab-wave-big, .ab-apr-stat b, .ab-ring text { font-weight: 650 !important; letter-spacing: -.025em; }
+  /* cifras y veredictos cortos: la condensada de tablero; las frases largas (titular, ondas) siguen en Archivo */
+  .ab-title, .ab-verdict-big, .ab-price, .ab-tug b, .ab-plazo b, .ab-pred-when, .ab-likely-top b,
+  .ab-gauge-txt b, .ab-apr-stat b, .ab-ring text, .ab-pos-total-main b { font-family: var(--font-cifras) !important; font-weight: 800 !important; letter-spacing: .01em; }
+  .ab-story-head, .ab-wave-big { font-family: var(--sans) !important; font-weight: 600 !important; letter-spacing: -.015em; }
   .ab * { box-sizing: border-box; }
   .ab-row { display: grid; gap: var(--cds-gap-md); grid-template-columns: repeat(12, minmax(0, 1fr)); }
   .ab-s3 { grid-column: span 3; } .ab-s4 { grid-column: span 4; } .ab-s5 { grid-column: span 5; } .ab-s8 { grid-column: span 8; } .ab-s12 { grid-column: span 12; }
@@ -861,6 +868,48 @@
     /* la pildora de abajo no tapa el final de la pagina */
     html.ab-tm-on #dash-root { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
   }
+
+  /* ---------- tablero nocturno ---------- */
+  .ab { font-feature-settings: "tnum" 1; }
+  .ab-title { font-size: clamp(1.9rem, 4vw, 2.6rem) !important; line-height: .95; text-transform: none; }
+  .ab-card { border-radius: 14px; box-shadow: none; }
+  /* etiquetas en minuscula normal: decian lo mismo gritando */
+  .ab-kicker, .ab-plazo small, .ab-story-col h3, .ab-ce-p > small, .ab-conclu small, .ab-act-g, .ab-pos-sec, .ab-tm-k, .ab-tm-sec,
+  .ab-exbox summary { text-transform: none !important; letter-spacing: 0 !important; font-size: 12.5px !important; }
+  /* el precio: protagonista, cifras de ancho fijo (la fuente no trae tabulares) que ruedan al cambiar */
+  .ab-price { font-size: clamp(3.4rem, 6.4vw, 4.9rem); line-height: .9; }
+  .ab-price small { font-size: .95rem; font-weight: 600; margin-left: 6px; }
+  .ab-pd { display: inline-block; clip-path: inset(-.08em -.02em); white-space: nowrap; }
+  .ab-pd > span { display: inline-block; }
+  .ab-pd > .d { width: .5em; text-align: center; }
+  .ab-pd > .p { width: .22em; text-align: center; }
+  .ab-pd > .r-up { animation: ab-rup .42s cubic-bezier(.2, .8, .2, 1); }
+  .ab-pd > .r-dn { animation: ab-rdn .42s cubic-bezier(.2, .8, .2, 1); }
+  @keyframes ab-rup { from { transform: translateY(.62em); opacity: 0; color: var(--up); } 45% { opacity: 1; color: var(--up); } }
+  @keyframes ab-rdn { from { transform: translateY(-.62em); opacity: 0; color: var(--down); } 45% { opacity: 1; color: var(--down); } }
+  .ab-price.ab-tick-up, .ab-price.ab-tick-dn { color: inherit; }
+  @media (prefers-reduced-motion: reduce) { .ab-pd > span { animation: none !important; } }
+  .ab-price { white-space: nowrap; flex: none; }
+  @media (max-width: 700px) { .ab-price { font-size: clamp(3.2rem, 16.5vw, 4.8rem); }
+    .ab-top-r, .ab-top-price { width: 100%; min-width: 0; }
+    .ab-top .ab-spark { flex: 1 1 auto; width: auto; min-width: 48px; height: 44px; } }
+  /* analisis: un tablero de cuatro cuadrantes separados por lineas, la respuesta grande y el color arriba */
+  .ab-ce-grid { gap: 0; border-top: 1px solid var(--line); }
+  .ab-ce-p { background: transparent; border-radius: 0; border-left: 0; padding: 16px 18px 18px; gap: 6px;
+    border-bottom: 1px solid var(--line); box-shadow: inset 0 2px 0 transparent; }
+  .ab-ce-p.sube { box-shadow: inset 0 2px 0 var(--up); } .ab-ce-p.baja { box-shadow: inset 0 2px 0 var(--down); }
+  .ab-ce-p.fuerte { box-shadow: inset 0 2px 0 var(--color-warn); }
+  @media (min-width: 601px) { .ab-ce-p:nth-child(even) { border-left: 1px solid var(--line); } .ab-ce-p:nth-child(odd) { padding-left: 0; } }
+  @media (max-width: 600px) { .ab-ce-p { padding-inline: 0; } }
+  .ab-ce-p > b { font-family: var(--font-cifras); font-weight: 800; font-size: clamp(1.7rem, 3vw, 2.1rem); line-height: 1.02; letter-spacing: .01em; }
+  .ab-ce-p > small { font-size: 13px !important; }
+  /* senal: el acento de la app (seleccion y foco), aparte del verde y rojo que dicen sube o baja */
+  .ab-seg button[aria-pressed="true"], .ab-ce-tfs button[aria-pressed="true"] { color: var(--senal); }
+  .ab-seg-thumb { background: color-mix(in srgb, var(--senal) 16%, var(--panel)) !important; }
+  .ab-ce-tfs button[aria-pressed="true"] { background: color-mix(in srgb, var(--senal) 16%, transparent); }
+  .ab button:focus-visible, .ab :is(a, summary, [tabindex="0"], select, input):focus-visible, .ab-plegable:focus-visible,
+  .ab-ex-link:focus-visible, .ab-more summary:focus-visible { outline-color: var(--senal); }
+  #mini-p { font-family: var(--font-cifras); font-weight: 800; font-size: 1.25rem; letter-spacing: .01em; }
 </style>
 
 <div class="ab ab-first ab-cargando" id="analista" data-source="analisis">
@@ -1038,7 +1087,7 @@
 
   <section class="ab-card" id="grafico" aria-labelledby="graf-t">
       <div class="ab-card-head ab-graf-head">
-        <div><span class="ab-kicker">Gráfico</span><h2 id="graf-t">Dónde está BTC</h2></div>
+        <div><h2 id="graf-t">Dónde está BTC</h2></div>
         <div class="ab-head-act">
           <button type="button" class="ab-iconbtn ab-round" id="help-btn" aria-expanded="false" aria-controls="chart-help" aria-label="Cómo se usa el gráfico" title="Cómo se usa">?</button>
           <button type="button" class="ab-iconbtn ab-round" id="ex-fs-btn" aria-expanded="false" aria-controls="ex-box" aria-label="Qué estás viendo" title="Qué estás viendo">ⓘ</button>
@@ -1214,6 +1263,18 @@
     return tf === undefined ? a.slice() : a.filter((r) => r.tf === tf);
   };
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  // precio en cifras de ancho fijo; con dir (1 sube, -1 baja) las que cambiaron entran rodando desde ese lado
+  const QUIETO = matchMedia('(prefers-reduced-motion: reduce)');
+  function ponerPrecio(pe, txt, dir) {
+    let w = pe.querySelector('.ab-pd');
+    if (!w) { w = el('span', 'ab-pd'); pe.prepend(w); }
+    const viejo = w.textContent;
+    if (viejo === txt) return;
+    const cifra = (ch, extra) => el('span', (/\d/.test(ch) ? 'd' : '.,'.includes(ch) ? 'p' : '') + (extra ? ' ' + extra : ''), ch);
+    if (!dir || QUIETO.matches || viejo.length !== txt.length) { w.replaceChildren(...[...txt].map((ch) => cifra(ch))); return; }
+    const hijos = w.children;
+    for (let i = 0; i < txt.length; i++) if (txt[i] !== viejo[i]) hijos[i].replaceWith(cifra(txt[i], dir > 0 ? 'r-up' : 'r-dn'));
+  }
   const later = (fn) => (reduce ? fn() : requestAnimationFrame(() => requestAnimationFrame(fn)));
   // cada plazo se mira con las velas que mejor lo muestran
   const PLAZO_VIEW = { '5 min': '5m', '15 min': '15m', '1 hora': '1h', '4 horas': '4h', '1 día': '1d' };
@@ -1306,7 +1367,7 @@
     temaBtn.title = on ? 'Modo claro' : 'Modo oscuro';
     document.getElementById('tema-ico').setAttribute('d', on ? SOL : LUNA);
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim() || (on ? '#0a0c10' : '#f3f4f7'));
+    if (meta) meta.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim() || (on ? '#0d1626' : '#e9eff7'));
   }
   temaBtn.addEventListener('click', () => {
     const t = oscuro() ? 'light' : 'dark';
@@ -1449,7 +1510,7 @@
       const pe = root.querySelector('.ab-price');
       if (pe && pe.firstChild) {
         const prev = S.lastTick;
-        if (liveBar.c !== prev) pe.firstChild.textContent = fp(liveBar.c);
+        if (liveBar.c !== prev) ponerPrecio(pe, fp(liveBar.c), prev === undefined ? 0 : liveBar.c > prev ? 1 : -1);
         if (prev !== undefined && liveBar.c !== prev) {
           // sin forzar el calculo de la pagina (void offsetWidth, hasta 4 veces por segundo): el color no tiene animacion
           // que reiniciar, se ve igual
@@ -1737,7 +1798,7 @@
       hs && hs.max_f - hs.min_f >= 0.3 && ['5m', '15m', '30m', '1h'].includes(c.tf) ? `suele moverse más a las ${horaAR(hs.max_t)} h` : null].filter(Boolean).join(' · ');
     bloque('ce-fuerza', c.fuerza === 'alta' ? 'fuerte' : '', '¿Se viene movimiento fuerte?', fzTxt, fzSub, [lista('fuerza')]);
     // 2. direccion
-    const drTxt = c.direccion === 'sube' ? '▲ Más probable que suba' : c.direccion === 'baja' ? '▼ Más probable que baje' : '◆ Sin dirección clara';
+    const drTxt = c.direccion === 'sube' ? '▲ Más probable que suba' : c.direccion === 'baja' ? '▼ Más probable que baje' : 'Sin dirección clara';
     const drSub = `señales: ${String(c.a_favor).replace('.', ',')} a favor de la suba · ${String(c.en_contra).replace('.', ',')} de la baja`
       + (okv(c.prob_sube) ? ` · toca primero arriba ${f0(num(c.prob_sube))}%` : '');
     bloque('ce-dir', c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '', '¿Sube o baja?', drTxt, drSub, [lista('direccion')]);
@@ -2842,7 +2903,7 @@
     const next = [0, 8, 12, 16, 20].find((h) => h > hour);
     document.getElementById('next-run').textContent = window.abLive ? 'se reanaliza solo'
       : `próximo análisis ${String(next === undefined ? 0 : next).padStart(2, '0')}:00 h`;
-    root.querySelector('.ab-price').replaceChildren(fp(num(s.precio)), el('small', '', 'USDT'));
+    { const pe = root.querySelector('.ab-price'); if (!pe.querySelector('.ab-pd')) pe.replaceChildren(el('span', 'ab-pd'), el('small', '', 'USDT')); ponerPrecio(pe, fp(num(s.precio)), 0); }
     document.title = `${fp(num(s.precio))} · ${MON()}`;
     document.getElementById('moneda-lbl').textContent = MON();
     document.getElementById('ab-title').textContent = `Analista ${MON()}`;

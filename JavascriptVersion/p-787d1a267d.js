@@ -22,6 +22,18 @@
     return tf === undefined ? a.slice() : a.filter((r) => r.tf === tf);
   };
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  // precio en cifras de ancho fijo; con dir (1 sube, -1 baja) las que cambiaron entran rodando desde ese lado
+  const QUIETO = matchMedia('(prefers-reduced-motion: reduce)');
+  function ponerPrecio(pe, txt, dir) {
+    let w = pe.querySelector('.ab-pd');
+    if (!w) { w = el('span', 'ab-pd'); pe.prepend(w); }
+    const viejo = w.textContent;
+    if (viejo === txt) return;
+    const cifra = (ch, extra) => el('span', (/\d/.test(ch) ? 'd' : '.,'.includes(ch) ? 'p' : '') + (extra ? ' ' + extra : ''), ch);
+    if (!dir || QUIETO.matches || viejo.length !== txt.length) { w.replaceChildren(...[...txt].map((ch) => cifra(ch))); return; }
+    const hijos = w.children;
+    for (let i = 0; i < txt.length; i++) if (txt[i] !== viejo[i]) hijos[i].replaceWith(cifra(txt[i], dir > 0 ? 'r-up' : 'r-dn'));
+  }
   const later = (fn) => (reduce ? fn() : requestAnimationFrame(() => requestAnimationFrame(fn)));
   // cada plazo se mira con las velas que mejor lo muestran
   const PLAZO_VIEW = { '5 min': '5m', '15 min': '15m', '1 hora': '1h', '4 horas': '4h', '1 día': '1d' };
@@ -114,7 +126,7 @@
     temaBtn.title = on ? 'Modo claro' : 'Modo oscuro';
     document.getElementById('tema-ico').setAttribute('d', on ? SOL : LUNA);
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim() || (on ? '#0a0c10' : '#f3f4f7'));
+    if (meta) meta.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim() || (on ? '#0d1626' : '#e9eff7'));
   }
   temaBtn.addEventListener('click', () => {
     const t = oscuro() ? 'light' : 'dark';
@@ -257,7 +269,7 @@
       const pe = root.querySelector('.ab-price');
       if (pe && pe.firstChild) {
         const prev = S.lastTick;
-        if (liveBar.c !== prev) pe.firstChild.textContent = fp(liveBar.c);
+        if (liveBar.c !== prev) ponerPrecio(pe, fp(liveBar.c), prev === undefined ? 0 : liveBar.c > prev ? 1 : -1);
         if (prev !== undefined && liveBar.c !== prev) {
           // sin forzar el calculo de la pagina (void offsetWidth, hasta 4 veces por segundo): el color no tiene animacion
           // que reiniciar, se ve igual
@@ -545,7 +557,7 @@
       hs && hs.max_f - hs.min_f >= 0.3 && ['5m', '15m', '30m', '1h'].includes(c.tf) ? `suele moverse más a las ${horaAR(hs.max_t)} h` : null].filter(Boolean).join(' · ');
     bloque('ce-fuerza', c.fuerza === 'alta' ? 'fuerte' : '', '¿Se viene movimiento fuerte?', fzTxt, fzSub, [lista('fuerza')]);
     // 2. direccion
-    const drTxt = c.direccion === 'sube' ? '▲ Más probable que suba' : c.direccion === 'baja' ? '▼ Más probable que baje' : '◆ Sin dirección clara';
+    const drTxt = c.direccion === 'sube' ? '▲ Más probable que suba' : c.direccion === 'baja' ? '▼ Más probable que baje' : 'Sin dirección clara';
     const drSub = `señales: ${String(c.a_favor).replace('.', ',')} a favor de la suba · ${String(c.en_contra).replace('.', ',')} de la baja`
       + (okv(c.prob_sube) ? ` · toca primero arriba ${f0(num(c.prob_sube))}%` : '');
     bloque('ce-dir', c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '', '¿Sube o baja?', drTxt, drSub, [lista('direccion')]);
@@ -1650,7 +1662,7 @@
     const next = [0, 8, 12, 16, 20].find((h) => h > hour);
     document.getElementById('next-run').textContent = window.abLive ? 'se reanaliza solo'
       : `próximo análisis ${String(next === undefined ? 0 : next).padStart(2, '0')}:00 h`;
-    root.querySelector('.ab-price').replaceChildren(fp(num(s.precio)), el('small', '', 'USDT'));
+    { const pe = root.querySelector('.ab-price'); if (!pe.querySelector('.ab-pd')) pe.replaceChildren(el('span', 'ab-pd'), el('small', '', 'USDT')); ponerPrecio(pe, fp(num(s.precio)), 0); }
     document.title = `${fp(num(s.precio))} · ${MON()}`;
     document.getElementById('moneda-lbl').textContent = MON();
     document.getElementById('ab-title').textContent = `Analista ${MON()}`;
