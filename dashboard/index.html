@@ -12,19 +12,19 @@
     --cds-chart-grid: #e6ecf4; --cds-surface-popover: #ffffff; --cds-border: #d3dcea; --cds-text-secondary: #56667f;
     --cds-shadow-popover: 0 10px 30px rgba(13, 26, 48, .14);
     --font-anthropic-sans: "Archivo", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    --font-cifras: "Big Shoulders", "Archivo", sans-serif;
+    --font-cifras: "Big Shoulders", "Archivo", sans-serif; --hoja: #ffffff; --sombra-hoja: rgba(13, 26, 48, .10);
     --font-anthropic-serif: var(--font-anthropic-sans); --cds-radius: 10px; }
   /* oscuro: el del sistema, salvo que elijas claro u oscuro con el boton (data-theme en <html>) */
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) { --color-fg: #e8eef7; --color-fg-muted: #8fa0bb; --color-bg: #0d1626; --color-panel: #132036;
       --color-border-line: #22324d; --color-ok: #22ab94; --color-warn: #f0b90b; --color-bad: #f7525f; --senal: #8db4ff;
       --cds-chart-grid: #1a2842; --cds-surface-popover: #182742; --cds-border: #2b3d5c; --cds-text-secondary: #8fa0bb;
-      --cds-shadow-popover: 0 12px 34px rgba(2, 6, 14, .55); }
+      --cds-shadow-popover: 0 12px 34px rgba(2, 6, 14, .55); --hoja: #182844; --sombra-hoja: rgba(2, 6, 14, .45); }
   }
   :root[data-theme="dark"] { --color-fg: #e8eef7; --color-fg-muted: #8fa0bb; --color-bg: #0d1626; --color-panel: #132036;
       --color-border-line: #22324d; --color-ok: #22ab94; --color-warn: #f0b90b; --color-bad: #f7525f; --senal: #8db4ff;
       --cds-chart-grid: #1a2842; --cds-surface-popover: #182742; --cds-border: #2b3d5c; --cds-text-secondary: #8fa0bb;
-      --cds-shadow-popover: 0 12px 34px rgba(2, 6, 14, .55); }
+      --cds-shadow-popover: 0 12px 34px rgba(2, 6, 14, .55); --hoja: #182844; --sombra-hoja: rgba(2, 6, 14, .45); }
   body { background: var(--color-bg); -webkit-font-smoothing: antialiased; }
   /* Layout: franja superior (precio · prediccion protagonista · sesgo), selector de temporalidad,
      grafico grande con panel de probabilidades al costado, y debajo senales, niveles, ondas, indicadores. */
@@ -910,9 +910,122 @@
   .ab button:focus-visible, .ab :is(a, summary, [tabindex="0"], select, input):focus-visible, .ab-plegable:focus-visible,
   .ab-ex-link:focus-visible, .ab-more summary:focus-visible { outline-color: var(--senal); }
   #mini-p { font-family: var(--font-cifras); font-weight: 800; font-size: 1.25rem; letter-spacing: .01em; }
+
+  /* ---------- escena y hoja ----------
+     El grafico es el fondo de la app: queda quieto atras (con la cabecera) y el analisis va en una hoja que pasa por
+     encima al deslizar. En la compu: el grafico fijo a la izquierda y la hoja como columna a la derecha. */
+  .ab-escena { position: sticky; isolation: isolate; display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
+  html.ab-fs-on .ab-escena { z-index: 100; }
+  .ab-escena .ab-top .ab-spark { display: none; }   /* el grafico esta justo abajo: la curva del dia sobraba */
+  .ab-escena #grafico:not(.ab-fs) { flex: 1 1 auto; min-height: 0; display: grid; gap: 0 8px; resize: none; overflow: hidden;
+    grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
+    grid-template-areas: "tools head" "capas capas" "help help" "chart chart" "ex ex" "note note"; }
+  .ab-escena #grafico:not(.ab-fs) > .ab-card-head { grid-area: head; align-self: start; }
+  .ab-escena #grafico:not(.ab-fs) > .ab-card-head > div:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .ab-escena #grafico:not(.ab-fs) > .ab-tools { grid-area: tools; min-width: 0; }
+  .ab-escena #grafico:not(.ab-fs) > .ab-capas { grid-area: capas; }
+  .ab-escena #grafico:not(.ab-fs) > #chart-help { grid-area: help; }
+  .ab-escena #grafico:not(.ab-fs) > .ab-chart { grid-area: chart; height: auto !important; min-height: 0; margin-top: 10px; }
+  .ab-escena #grafico:not(.ab-fs) > .ab-capas, .ab-escena #grafico:not(.ab-fs) > #chart-help { margin-top: 10px; }
+  .ab-escena #grafico:not(.ab-fs) > #ex-box { grid-area: ex; margin-top: 6px; }
+  .ab-escena #grafico:not(.ab-fs) > #scen-note:empty { display: none; }
+  .ab-escena #grafico:not(.ab-fs) > #ex-box[open] { max-height: 38vh; overflow-y: auto; overscroll-behavior: contain; }
+  .ab-escena #grafico:not(.ab-fs) > #scen-note { grid-area: note; }
+  .ab-hoja { position: relative; background: var(--panel); display: grid; align-content: start; min-width: 0; }
+  .ab-hoja > .ab-card { background: transparent; border: 0; border-radius: 0; box-shadow: none; resize: none; overflow: visible;
+    border-top: 1px solid var(--line); padding: 20px 0; }
+  .ab-hoja > .ab-asa + .ab-card, .ab-hoja > .ab-card[hidden] + .ab-card:not(.ab-centro) { border-top-color: var(--line); }
+  .ab-hoja > .ab-centro { border-top: 0; padding-top: 4px; }
+  .ab-hoja .ab-ce-tfs { display: none; }   /* el plazo se elige en el grafico: es el mismo */
+  .ab-hoja > .ab-conclu, .ab-hoja > .ab-plazos, .ab-hoja > .ab-vista-btn, .ab-hoja > .ab-more-list { margin-block: 12px; }
+  .ab-hoja > .ab-foot { margin: 18px 0 0; padding-top: 16px; border-top: 1px solid var(--line); }
+  /* que pasa con movimiento fuerte: una raya a la izquierda en vez del recuadro rojo */
+  .ab-hoja > .ab-qp { box-shadow: inset 3px 0 0 transparent; }
+  .ab-asa { display: grid; place-items: center; width: 100%; height: 28px; margin: 0; padding: 0; border: 0; background: transparent; cursor: grab; }
+  .ab-asa i { width: 44px; height: 5px; border-radius: 3px; background: color-mix(in srgb, var(--ink) 22%, transparent); }
+  /* termometro: una fila dentro de la hoja (antes, pestaña fija que tapaba) */
+  .ab-hoja .ab-tm-tab { position: static; transform: none; width: 100%; display: flex; align-items: center; gap: 12px; margin: 0;
+    padding: 14px 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; box-shadow: none; text-align: left; }
+  .ab-hoja .ab-tm-tab[hidden] { display: none; }
+  .ab-hoja .ab-tm-bar { width: 96px; height: 10px; flex: none; background: linear-gradient(to right, var(--color-ok), var(--soft2) 50%, var(--color-bad)); }
+  .ab-hoja .ab-tm-dot { width: 16px; height: 16px; top: 50%; transform: translate(-50%, -50%); border-width: 3px; }
+  .ab-hoja .ab-tm-tab b { font-family: var(--font-cifras); font-weight: 800; font-size: 1.6rem; letter-spacing: .01em; }
+  .ab-hoja .ab-tm-tab small { max-width: none; text-align: left; font-size: 13px !important; }
+  .ab-hoja .ab-tm-tab .ab-tm-k { display: inline; color: var(--mute); font-weight: 500; }
+  .ab-hoja .ab-tm-tab #tm-zona { color: var(--ink); font-weight: 600; }
+  .ab-hoja .ab-tm-tab::after { content: "›"; margin-left: auto; color: var(--mute); font-size: 20px; }
+  @media (min-width: 701px) {
+    html.ab-tm-on #dash-root { padding-right: max(16px, var(--dash-gutter, 24px)); }
+    html.ab-panel-fijo.ab-tm-on #dash-root { padding-right: calc(var(--ab-panel-w) + max(16px, var(--dash-gutter, 24px))); }
+  }
+
+  /* compu: grafico a la izquierda, fijo y del alto de la pantalla; la hoja como columna a la derecha */
+  @media (min-width: 1000px) {
+    #dash-root { padding-top: 16px; }
+    .ab { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(380px, 1fr); gap: 20px; align-items: start; max-width: 110rem; }
+    .ab-escena { top: 16px; height: calc(100dvh - 32px); }
+    .ab-hoja { border: 1px solid var(--line); border-radius: 18px; padding: 6px 22px 22px; }
+    .ab-hoja .ab-asa { display: none; }
+    .ab-hoja > .ab-centro { padding-top: 14px; }
+    .ab-hoja .ab-ce-grid { grid-template-columns: minmax(0, 1fr); }
+    .ab-hoja .ab-ce-p, .ab-hoja .ab-ce-p:nth-child(odd) { padding: 14px 0 16px; border-left: 0 !important; }
+    .ab-hoja .ab-ce-p.sube, .ab-hoja .ab-ce-p.baja, .ab-hoja .ab-ce-p.fuerte { padding-left: 14px; }
+    .ab-hoja .ab-ce-p.sube { box-shadow: inset 3px 0 0 var(--up); } .ab-hoja .ab-ce-p.baja { box-shadow: inset 3px 0 0 var(--down); }
+    .ab-hoja .ab-ce-p.fuerte { box-shadow: inset 3px 0 0 var(--color-warn); }
+    .ab { grid-template-columns: minmax(0, 1.6fr) minmax(380px, 1fr); }
+    .ab-escena .ab-top { flex-wrap: nowrap; align-items: center; }
+    .ab-escena .ab-top-l { flex: 1 1 auto; min-width: 0; }
+    .ab-escena .ab-title { font-size: 1.7rem !important; white-space: nowrap; }
+    .ab-escena .ab-live { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; min-width: 0; }
+    .ab-escena .ab-top-r { display: flex; align-items: center; gap: 14px; flex: none; }
+    .ab-escena .ab-price { font-size: clamp(2.5rem, 3.2vw, 3.2rem); }
+    .ab-escena .ab-pills { display: grid; gap: 4px; }
+  }
+
+  /* celu y tablet: el grafico ocupa la pantalla y la hoja asoma abajo con las respuestas del analisis */
+  @media (max-width: 999.98px) {
+    .ab { --asoma: 172px; display: block; max-width: none; }
+    #dash-root, html.ab-tm-on #dash-root, html.ab-panel-fijo #dash-root { padding: 0 !important; }
+    .ab-escena { top: 0; height: calc(100svh - var(--asoma)); gap: 8px; background: var(--panel);   /* del color del grafico: sin bordes */
+      padding: max(10px, calc(env(safe-area-inset-top) + 4px)) max(12px, env(safe-area-inset-right)) 10px max(12px, env(safe-area-inset-left)); }
+    .ab-escena #grafico:not(.ab-fs) { background: transparent; border: 0; border-radius: 0; padding: 0; gap: 0 8px; }
+    /* una sola fila: plazos (se desliza si no entran), capas y pantalla completa */
+    .ab-escena #grafico:not(.ab-fs) { grid-template-columns: minmax(0, 1fr) auto auto;
+      grid-template-areas: "tfs capasb head" "capas capas capas" "help help help" "chart chart chart" "ex ex ex" "note note note"; }
+    .ab-escena #grafico:not(.ab-fs) > .ab-tools { display: contents; }
+    .ab-escena #grafico:not(.ab-fs) #tfs { grid-area: tfs; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+    .ab-escena #grafico:not(.ab-fs) #tfs { grid-auto-columns: max-content; }
+    .ab-escena #grafico:not(.ab-fs) #tfs button { padding-inline: 10px; }
+    .ab-escena #grafico:not(.ab-fs) #capas-n { display: none; }
+    .ab-escena #grafico:not(.ab-fs) #scens { grid-area: tfs; }
+    .ab-escena #grafico:not(.ab-fs) #capas-btn { grid-area: capasb; }
+    .ab-escena .ab-live { display: none !important; }
+    .ab-escena #grafico:not(.ab-fs) #help-btn { display: none; }
+    /* cabecera en dos filas: activo y botones; precio, cambio y la curva del dia */
+    .ab-escena .ab-top { flex-wrap: nowrap; flex-direction: column; align-items: stretch; gap: 4px; }
+    .ab-escena .ab-top-l { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; position: relative; }
+    .ab-escena .ab-title-row { display: contents; }
+    .ab-escena .ab-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .ab-escena .ab-act-chip { order: -1; margin-right: auto; min-height: 40px; padding: 4px 12px 4px 14px; }
+    .ab-escena .ab-act-chip .ab-asset-k { display: none; }
+    .ab-escena .ab-top-r { display: flex; align-items: center; gap: 12px; width: 100%; order: -1; }
+    .ab-escena .ab-top-price { flex: 1 1 auto; min-width: 0; }
+    .ab-escena .ab-price { font-size: clamp(2.7rem, 13vw, 3.6rem); }
+    .ab-escena .ab-pills { display: grid; gap: 4px; justify-items: end; }
+    .ab-hoja { border-radius: 24px 24px 0 0; box-shadow: 0 -1px 0 var(--line), 0 -18px 40px var(--sombra-hoja); min-height: calc(100svh - 44px); background: var(--hoja);
+      padding: 0 max(16px, env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+    .ab-hoja .ab-ce-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .ab-hoja .ab-ce-p { padding: 12px 12px 14px 0; }
+    .ab-hoja .ab-ce-p:nth-child(even) { border-left: 1px solid var(--line); padding-left: 12px; padding-right: 0; }
+    .ab-hoja .ab-ce-p > b { font-size: clamp(1.3rem, 6vw, 1.7rem); }
+    .ab-hoja .ab-ce-p > span, .ab-hoja .ab-ce-p details { font-size: 12.5px; }
+    .ab-hoja > .ab-centro .ab-card-head { padding-top: 2px; }
+  }
 </style>
 
 <div class="ab ab-first ab-cargando" id="analista" data-source="analisis">
+  <!-- escena: cabecera y grafico, quietos atras; la hoja con el analisis pasa por encima al subir -->
+  <div class="ab-escena" id="escena">
   <header class="ab-top" id="resumen">
     <div class="ab-top-l">
       <span class="ab-live"><i></i><span><span id="moneda-lbl">BTC</span>/USDT perpetuo · actualizado <span data-source="analisis" data-field="hora_local" data-where="tabla=resumen">—</span> · <span id="next-run">—</span></span><span class="ab-live-state" id="live-state"></span></span>
@@ -957,6 +1070,69 @@
       </div>
     </div>
   </header>
+  <section class="ab-card" id="grafico" aria-labelledby="graf-t">
+      <div class="ab-card-head ab-graf-head">
+        <div><h2 id="graf-t">Dónde está BTC</h2></div>
+        <div class="ab-head-act">
+          <button type="button" class="ab-iconbtn ab-round" id="help-btn" aria-expanded="false" aria-controls="chart-help" aria-label="Cómo se usa el gráfico" title="Cómo se usa">?</button>
+          <button type="button" class="ab-iconbtn ab-round" id="ex-fs-btn" aria-expanded="false" aria-controls="ex-box" aria-label="Qué estás viendo" title="Qué estás viendo">ⓘ</button>
+          <button type="button" class="ab-iconbtn ab-round ab-fs-btn" id="fs-btn" aria-pressed="false" aria-label="Ver el gráfico en pantalla completa" title="Pantalla completa">⤢</button>
+        </div></div>
+      <div class="ab-tools">
+        <nav class="ab-seg ab-small" id="tfs" aria-label="Velas del gráfico">
+          <span class="ab-seg-thumb"></span>
+          <button type="button" data-tf="5m" aria-pressed="false">5m</button>
+          <button type="button" data-tf="15m" aria-pressed="false">15m</button>
+          <button type="button" data-tf="30m" aria-pressed="false">30m</button>
+          <button type="button" data-tf="1h" aria-pressed="true">1h</button>
+          <button type="button" data-tf="4h" aria-pressed="false">4h</button>
+          <button type="button" data-tf="1d" aria-pressed="false">1D</button>
+          <button type="button" data-tf="1w" aria-pressed="false" title="Semanal (sin predicción: pocas velas para medirla)">1S</button>
+          <button type="button" data-tf="1M" aria-pressed="false" title="Mensual (sin predicción: pocas velas para medirla)">1M</button>
+        </nav>
+        <nav class="ab-seg ab-small" id="scens" aria-label="Escenario" style="display: none">
+          <span class="ab-seg-thumb"></span>
+          <button type="button" data-scen="tipico" aria-pressed="true">Típico</button>
+          <button type="button" data-scen="alcista" aria-pressed="false">Alcista</button>
+          <button type="button" data-scen="bajista" aria-pressed="false">Bajista</button>
+        </nav>
+        <button type="button" class="ab-iconbtn ab-capas-btn" id="capas-btn" aria-expanded="false" aria-controls="capas">Capas <b id="capas-n"></b></button>
+      </div>
+      <div class="ab-capas" id="capas">
+        <div class="ab-chips" id="layers">
+          <button type="button" class="ab-chipbtn" data-layer="ema" aria-pressed="true"><i style="background: var(--ab-c0)"></i>EMA 20 / 50 / 200</button>
+          <button type="button" class="ab-chipbtn" data-layer="bb" aria-pressed="true"><i style="background: var(--color-fg-muted)"></i>Bollinger</button>
+          <button type="button" class="ab-chipbtn" data-layer="fvg" aria-pressed="true"><i style="background: var(--color-ok)"></i>FVG</button>
+          <button type="button" class="ab-chipbtn" data-layer="patrones" aria-pressed="true"><i style="background: var(--color-warn)"></i>Patrones</button>
+          <button type="button" class="ab-chipbtn" data-layer="ondas" aria-pressed="true"><i style="background: var(--color-fg)"></i>Ondas</button>
+          <button type="button" class="ab-chipbtn" data-layer="fib" aria-pressed="true"><i style="background: var(--ab-c2)"></i>Fibonacci</button>
+          <button type="button" class="ab-chipbtn" data-layer="liq" aria-pressed="true"><i style="background: var(--color-bad)"></i>Liquidaciones</button>
+          <button type="button" class="ab-chipbtn" data-layer="osc" aria-pressed="true"><i style="background: var(--ab-c2)"></i>RSI · MACD</button>
+          <button type="button" class="ab-chipbtn" data-layer="plan" aria-pressed="true" hidden><i style="background: var(--color-fg)"></i>Mi plan</button>
+          <button type="button" class="ab-chipbtn" data-layer="opc" aria-pressed="true"><i style="background: var(--ab-c2)"></i>Opciones</button>
+        </div>
+        <div class="ab-zoom" role="group" aria-label="Zoom del gráfico">
+          <span class="ab-zoom-g"><button type="button" class="ab-iconbtn ab-round" data-zoom="out" aria-label="Ver más velas">−</button>
+            <span id="zoom-info" class="ab-num">— velas</span>
+            <button type="button" class="ab-iconbtn ab-round" data-zoom="in" aria-label="Ver menos velas">+</button></span>
+          <button type="button" class="ab-iconbtn" id="fit">Ajustar</button>
+          <button type="button" class="ab-iconbtn" id="log-btn" aria-pressed="false" title="Escala logarítmica: las mismas subas y bajas en % miden lo mismo (tecla L)">Log</button>
+          <button type="button" class="ab-iconbtn" id="medir-btn" aria-pressed="false" title="Medir: arrastrá en el gráfico para ver el % y las velas entre dos puntos (con el mouse: Shift + arrastrar; tecla M)">Medir</button>
+          <button type="button" class="ab-iconbtn" id="iman-btn" aria-pressed="false" title="Imán: la mira y los puntos de Medir se pegan a la apertura, máximo, mínimo o cierre de la vela más cercana (tecla I; mientras medís, Cmd o Ctrl lo invierte)">Imán</button>
+          <button type="button" class="ab-iconbtn" id="foto-btn" title="Guardar o compartir una imagen del gráfico">Imagen</button>
+          <button type="button" class="ab-iconbtn" id="replay" title="Repetir la animación del escenario" style="display: none">↻</button>
+        </div>
+      </div>
+      <p class="ab-note ab-help" id="chart-help" hidden><span class="ab-only-mouse">Arrastrá el gráfico para moverte · rueda: zoom · arrastrá el eje de precios o el de horas para estirarlos · arrastrá el borde de abajo del precio o de cada indicador para hacerlo más alto o más bajo · doble clic en un eje: vuelve ese eje a como estaba (en el de horas, todos los paneles) · doble clic en el gráfico: ajusta todo · Shift + arrastrar: medir % y velas · teclas (con el mouse sobre el gráfico): ← → moverse, + − zoom, 0 ajustar, L logarítmica, M medir, I imán (Cmd/Ctrl mientras medís lo invierte), 1 a 6 temporalidad, F pantalla completa, Esc borrar la medición</span><span class="ab-only-touch">Arrastrá con un dedo para moverte · pellizcá para zoom (de costado: velas; vertical: precios) · arrastrá los ejes para estirarlos · arrastrá la manija de abajo de cada panel para cambiar su alto · doble toque en un eje lo vuelve a como estaba · tocá una vela para ver sus datos · "Medir" y arrastrá: % y velas entre dos puntos ("Imán" los pega a la apertura, máximo, mínimo o cierre)</span></p>
+      <div class="ab-chart dash-skeleton" id="chart" data-source="analisis"></div>
+      <details class="ab-exbox" id="ex-box"><summary>Qué estás viendo <b id="ex-n"></b></summary>
+        <div class="ab-explain" id="legend"></div>
+        <button type="button" class="ab-ex-limpiar" id="ex-limpiar" hidden>Quitar marcas</button></details>
+      <p class="ab-note" id="scen-note"></p>
+    </section>
+  </div>
+  <div class="ab-hoja" id="hoja">
+    <button type="button" class="ab-asa" id="asa" aria-label="Subir o bajar el análisis"><i></i></button>
 
   <!-- el analisis central: todos los calculos convergen en 5 puntos, en la temporalidad elegida (fila 'central') -->
   <section class="ab-card ab-centro" id="centro" aria-labelledby="ce-t" data-source="analisis" hidden>
@@ -970,11 +1146,11 @@
     </div>
     <div class="ab-ce-riesgo" id="ce-riesgo" hidden></div>
   </section>
+  <button type="button" class="ab-tm-tab" id="tm-tab" aria-expanded="false" aria-controls="tm-panel" hidden title="Termómetro del ciclo (semanas o meses): 0 = momento de comprar · 100 = de vender">
+    <small class="ab-tm-k">Ciclo</small><span class="ab-tm-bar"><span class="ab-tm-dot" id="tm-dot"></span></span><b id="tm-num">—</b><small id="tm-zona">—</small>
+  </button>
 
   <!-- una sola conclusion arriba: cada señal mira un plazo distinto y antes parecian contradecirse -->
-  <button type="button" class="ab-mini" id="mini" tabindex="-1" aria-hidden="true" title="Volver arriba">
-    <b id="mini-mon">BTC</b><span class="ab-mini-p" id="mini-p">—</span><span id="mini-c"></span><span class="ab-mini-h" id="mini-h"></span><i aria-hidden="true">↑</i>
-  </button>
   <section class="ab-conclu" id="conclusion" aria-label="En resumen" hidden>
     <div><small>Próxima hora</small><b id="cc-hora">—</b></div>
     <div><small id="cc-ind-k">Indicadores</small><b id="cc-ind">—</b></div>
@@ -982,28 +1158,6 @@
     <p id="cc-txt"></p>
   </section>
 
-  <button type="button" class="ab-tm-tab" id="tm-tab" aria-expanded="false" aria-controls="tm-panel" hidden title="Termómetro del ciclo (semanas o meses): 0 = momento de comprar · 100 = de vender">
-    <small class="ab-tm-k">Ciclo</small><span class="ab-tm-bar"><span class="ab-tm-dot" id="tm-dot"></span></span><b id="tm-num">—</b><small id="tm-zona">—</small>
-  </button>
-  <div class="ab-tm-back" id="tm-back" hidden></div>
-  <div class="ab-tm-back" id="nt-back" hidden></div>
-  <div class="ab-nt-modal" id="nt-modal" role="dialog" aria-modal="true" aria-labelledby="nt-m-t" hidden>
-    <div class="ab-tm-head"><div><span class="ab-kicker" id="nt-m-k"></span><h2 id="nt-m-t" style="margin:2px 0 0">Notificación</h2></div>
-      <button type="button" class="ab-iconbtn ab-round" id="nt-m-x" aria-label="Cerrar">✕</button></div>
-    <div id="nt-m-body"></div>
-  </div>
-  <button type="button" class="ab-act-borde" id="act-borde" aria-label="Abrir la lista de activos" title="Activos" hidden><span aria-hidden="true">‹</span></button>
-  <div class="ab-act-fondo" id="act-fondo" hidden></div>
-  <aside class="ab-act-panel" id="act-panel" aria-labelledby="act-t" role="dialog" aria-modal="true" hidden>
-    <div class="ab-act-head"><h2 id="act-t">Activos</h2><span class="ab-kicker">precio · 24 h · en vivo</span>
-      <button type="button" class="ab-iconbtn ab-round" id="act-x" aria-label="Cerrar">✕</button></div>
-    <div id="act-list"></div>
-  </aside>
-  <aside class="ab-tm-panel" id="tm-panel" aria-labelledby="tm-t" role="dialog" aria-modal="true" hidden>
-    <div class="ab-tm-head"><div><span class="ab-kicker" id="tm-kick">Ciclo de BTC · semanas o meses</span><h2 id="tm-t" style="margin:2px 0 0">Termómetro de compra y venta</h2></div>
-      <button type="button" class="ab-iconbtn ab-round" id="tm-x" aria-label="Cerrar">✕</button></div>
-    <div id="tm-body"></div>
-  </aside>
   <section class="ab-card ab-qp" id="que-pasa" aria-labelledby="qp-t" data-source="analisis" hidden>
     <!-- cerrado hasta que se toca (pedido de Diego): adentro, el movimiento, lo que coincide y las noticias -->
     <details class="ab-qp-all" id="qp-box">
@@ -1085,66 +1239,6 @@
     </div>
   </section>
 
-  <section class="ab-card" id="grafico" aria-labelledby="graf-t">
-      <div class="ab-card-head ab-graf-head">
-        <div><h2 id="graf-t">Dónde está BTC</h2></div>
-        <div class="ab-head-act">
-          <button type="button" class="ab-iconbtn ab-round" id="help-btn" aria-expanded="false" aria-controls="chart-help" aria-label="Cómo se usa el gráfico" title="Cómo se usa">?</button>
-          <button type="button" class="ab-iconbtn ab-round" id="ex-fs-btn" aria-expanded="false" aria-controls="ex-box" aria-label="Qué estás viendo" title="Qué estás viendo">ⓘ</button>
-          <button type="button" class="ab-iconbtn ab-round ab-fs-btn" id="fs-btn" aria-pressed="false" aria-label="Ver el gráfico en pantalla completa" title="Pantalla completa">⤢</button>
-        </div></div>
-      <div class="ab-tools">
-        <nav class="ab-seg ab-small" id="tfs" aria-label="Velas del gráfico">
-          <span class="ab-seg-thumb"></span>
-          <button type="button" data-tf="5m" aria-pressed="false">5m</button>
-          <button type="button" data-tf="15m" aria-pressed="false">15m</button>
-          <button type="button" data-tf="30m" aria-pressed="false">30m</button>
-          <button type="button" data-tf="1h" aria-pressed="true">1h</button>
-          <button type="button" data-tf="4h" aria-pressed="false">4h</button>
-          <button type="button" data-tf="1d" aria-pressed="false">1D</button>
-          <button type="button" data-tf="1w" aria-pressed="false" title="Semanal (sin predicción: pocas velas para medirla)">1S</button>
-          <button type="button" data-tf="1M" aria-pressed="false" title="Mensual (sin predicción: pocas velas para medirla)">1M</button>
-        </nav>
-        <nav class="ab-seg ab-small" id="scens" aria-label="Escenario" style="display: none">
-          <span class="ab-seg-thumb"></span>
-          <button type="button" data-scen="tipico" aria-pressed="true">Típico</button>
-          <button type="button" data-scen="alcista" aria-pressed="false">Alcista</button>
-          <button type="button" data-scen="bajista" aria-pressed="false">Bajista</button>
-        </nav>
-        <button type="button" class="ab-iconbtn ab-capas-btn" id="capas-btn" aria-expanded="false" aria-controls="capas">Capas <b id="capas-n"></b></button>
-      </div>
-      <div class="ab-capas" id="capas">
-        <div class="ab-chips" id="layers">
-          <button type="button" class="ab-chipbtn" data-layer="ema" aria-pressed="true"><i style="background: var(--ab-c0)"></i>EMA 20 / 50 / 200</button>
-          <button type="button" class="ab-chipbtn" data-layer="bb" aria-pressed="true"><i style="background: var(--color-fg-muted)"></i>Bollinger</button>
-          <button type="button" class="ab-chipbtn" data-layer="fvg" aria-pressed="true"><i style="background: var(--color-ok)"></i>FVG</button>
-          <button type="button" class="ab-chipbtn" data-layer="patrones" aria-pressed="true"><i style="background: var(--color-warn)"></i>Patrones</button>
-          <button type="button" class="ab-chipbtn" data-layer="ondas" aria-pressed="true"><i style="background: var(--color-fg)"></i>Ondas</button>
-          <button type="button" class="ab-chipbtn" data-layer="fib" aria-pressed="true"><i style="background: var(--ab-c2)"></i>Fibonacci</button>
-          <button type="button" class="ab-chipbtn" data-layer="liq" aria-pressed="true"><i style="background: var(--color-bad)"></i>Liquidaciones</button>
-          <button type="button" class="ab-chipbtn" data-layer="osc" aria-pressed="true"><i style="background: var(--ab-c2)"></i>RSI · MACD</button>
-          <button type="button" class="ab-chipbtn" data-layer="plan" aria-pressed="true" hidden><i style="background: var(--color-fg)"></i>Mi plan</button>
-          <button type="button" class="ab-chipbtn" data-layer="opc" aria-pressed="true"><i style="background: var(--ab-c2)"></i>Opciones</button>
-        </div>
-        <div class="ab-zoom" role="group" aria-label="Zoom del gráfico">
-          <span class="ab-zoom-g"><button type="button" class="ab-iconbtn ab-round" data-zoom="out" aria-label="Ver más velas">−</button>
-            <span id="zoom-info" class="ab-num">— velas</span>
-            <button type="button" class="ab-iconbtn ab-round" data-zoom="in" aria-label="Ver menos velas">+</button></span>
-          <button type="button" class="ab-iconbtn" id="fit">Ajustar</button>
-          <button type="button" class="ab-iconbtn" id="log-btn" aria-pressed="false" title="Escala logarítmica: las mismas subas y bajas en % miden lo mismo (tecla L)">Log</button>
-          <button type="button" class="ab-iconbtn" id="medir-btn" aria-pressed="false" title="Medir: arrastrá en el gráfico para ver el % y las velas entre dos puntos (con el mouse: Shift + arrastrar; tecla M)">Medir</button>
-          <button type="button" class="ab-iconbtn" id="iman-btn" aria-pressed="false" title="Imán: la mira y los puntos de Medir se pegan a la apertura, máximo, mínimo o cierre de la vela más cercana (tecla I; mientras medís, Cmd o Ctrl lo invierte)">Imán</button>
-          <button type="button" class="ab-iconbtn" id="foto-btn" title="Guardar o compartir una imagen del gráfico">Imagen</button>
-          <button type="button" class="ab-iconbtn" id="replay" title="Repetir la animación del escenario" style="display: none">↻</button>
-        </div>
-      </div>
-      <p class="ab-note ab-help" id="chart-help" hidden><span class="ab-only-mouse">Arrastrá el gráfico para moverte · rueda: zoom · arrastrá el eje de precios o el de horas para estirarlos · arrastrá el borde de abajo del precio o de cada indicador para hacerlo más alto o más bajo · doble clic en un eje: vuelve ese eje a como estaba (en el de horas, todos los paneles) · doble clic en el gráfico: ajusta todo · Shift + arrastrar: medir % y velas · teclas (con el mouse sobre el gráfico): ← → moverse, + − zoom, 0 ajustar, L logarítmica, M medir, I imán (Cmd/Ctrl mientras medís lo invierte), 1 a 6 temporalidad, F pantalla completa, Esc borrar la medición</span><span class="ab-only-touch">Arrastrá con un dedo para moverte · pellizcá para zoom (de costado: velas; vertical: precios) · arrastrá los ejes para estirarlos · arrastrá la manija de abajo de cada panel para cambiar su alto · doble toque en un eje lo vuelve a como estaba · tocá una vela para ver sus datos · "Medir" y arrastrá: % y velas entre dos puntos ("Imán" los pega a la apertura, máximo, mínimo o cierre)</span></p>
-      <div class="ab-chart dash-skeleton" id="chart" data-source="analisis"></div>
-      <details class="ab-exbox" id="ex-box"><summary>Qué estás viendo <b id="ex-n"></b></summary>
-        <div class="ab-explain" id="legend"></div>
-        <button type="button" class="ab-ex-limpiar" id="ex-limpiar" hidden>Quitar marcas</button></details>
-      <p class="ab-note" id="scen-note"></p>
-    </section>
 
   <!-- vista simple (por defecto): solo lo necesario para decidir. El analisis completo sigue calculandose y se abre aca -->
   <button type="button" class="ab-vista-btn" id="vista-btn" aria-expanded="false" aria-controls="que-espero aprendizaje mas-detalle">
@@ -1236,6 +1330,29 @@
   </div>
 
   <p class="ab-foot">Datos públicos de Binance Futures, Bybit, OKX, Bitget y BingX. Las probabilidades y los escenarios cuentan lo que pasó en situaciones parecidas del pasado reciente; el mercado puede hacer otra cosa. No es una recomendación de inversión.</p>
+  </div>
+  <button type="button" class="ab-mini" id="mini" tabindex="-1" aria-hidden="true" title="Volver arriba">
+    <b id="mini-mon">BTC</b><span class="ab-mini-p" id="mini-p">—</span><span id="mini-c"></span><span class="ab-mini-h" id="mini-h"></span><i aria-hidden="true">↑</i>
+  </button>
+  <div class="ab-tm-back" id="tm-back" hidden></div>
+  <div class="ab-tm-back" id="nt-back" hidden></div>
+  <div class="ab-nt-modal" id="nt-modal" role="dialog" aria-modal="true" aria-labelledby="nt-m-t" hidden>
+    <div class="ab-tm-head"><div><span class="ab-kicker" id="nt-m-k"></span><h2 id="nt-m-t" style="margin:2px 0 0">Notificación</h2></div>
+      <button type="button" class="ab-iconbtn ab-round" id="nt-m-x" aria-label="Cerrar">✕</button></div>
+    <div id="nt-m-body"></div>
+  </div>
+  <button type="button" class="ab-act-borde" id="act-borde" aria-label="Abrir la lista de activos" title="Activos" hidden><span aria-hidden="true">‹</span></button>
+  <div class="ab-act-fondo" id="act-fondo" hidden></div>
+  <aside class="ab-act-panel" id="act-panel" aria-labelledby="act-t" role="dialog" aria-modal="true" hidden>
+    <div class="ab-act-head"><h2 id="act-t">Activos</h2><span class="ab-kicker">precio · 24 h · en vivo</span>
+      <button type="button" class="ab-iconbtn ab-round" id="act-x" aria-label="Cerrar">✕</button></div>
+    <div id="act-list"></div>
+  </aside>
+  <aside class="ab-tm-panel" id="tm-panel" aria-labelledby="tm-t" role="dialog" aria-modal="true" hidden>
+    <div class="ab-tm-head"><div><span class="ab-kicker" id="tm-kick">Ciclo de BTC · semanas o meses</span><h2 id="tm-t" style="margin:2px 0 0">Termómetro de compra y venta</h2></div>
+      <button type="button" class="ab-iconbtn ab-round" id="tm-x" aria-label="Cerrar">✕</button></div>
+    <div id="tm-body"></div>
+  </aside>
 </div>
 
 <script>
@@ -1330,7 +1447,7 @@
   });
   const helpBtn = document.getElementById('help-btn'), help = document.getElementById('chart-help');
   helpBtn.addEventListener('click', () => { help.hidden = !help.hidden; helpBtn.setAttribute('aria-expanded', String(!help.hidden)); });
-  document.getElementById('ex-box').open = window.innerWidth >= 900;
+  document.getElementById('ex-box').open = false;   // el grafico es la escena: la explicacion se abre a pedido
   window.addEventListener('pagehide', () => {
     try { sessionStorage.setItem('ab-vista', JSON.stringify({ plazo: S.plazo, tf: S.tf, scen: S.scen, layers: S.layers, fs: S.fs, log: S.log, iman: S.iman })); } catch (e) { /* idem */ }
   });
@@ -1853,6 +1970,24 @@
     const pr = root.querySelector('.ab-price'); if (pr) ojo.observe(pr);
   }
   MINI.addEventListener('click', () => window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }));
+  // con la hoja (celu): el precio queda quieto atras, asi que la barra aparece cuando la hoja tapa la cabecera
+  const HOJA = document.getElementById('hoja'), CEL = matchMedia('(max-width: 999.98px)');
+  let miniRaf = 0;
+  addEventListener('scroll', () => {
+    if (miniRaf || !CEL.matches) return;
+    miniRaf = requestAnimationFrame(() => {
+      miniRaf = 0;
+      const on = HOJA.getBoundingClientRect().top < 64;
+      if (on === MINI.classList.contains('on')) return;
+      MINI.classList.toggle('on', on); MINI.tabIndex = on ? 0 : -1; MINI.setAttribute('aria-hidden', String(!on));
+      if (on) miniPintar();
+    });
+  }, { passive: true });
+  // el asa: sube la hoja hasta arriba, o la vuelve a bajar si ya esta arriba
+  document.getElementById('asa').addEventListener('click', () => {
+    const top = HOJA.getBoundingClientRect().top;
+    window.scrollTo({ top: top < 80 ? 0 : scrollY + top - 44, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  });
   // plazos en el celu: se marca por que lado hay mas tarjetas
   function plazosBordes() {
     const n = document.getElementById('plazos'); if (!n) return;
@@ -2612,7 +2747,7 @@
     const v = num(t.medidor), zi = Math.max(0, t.m_zonas.findIndex((z) => z[0] === t.medidor_zona)), col = TM_COL[zi];
     tab.style.setProperty('--tm-col', col); document.getElementById('tm-panel').style.setProperty('--tm-col', col);
     const dot = document.getElementById('tm-dot');
-    if (matchMedia('(max-width: 700px)').matches) { dot.style.left = `${v}%`; dot.style.bottom = ''; } else { dot.style.bottom = `${v}%`; dot.style.left = ''; }
+    dot.style.left = `${v}%`; dot.style.bottom = '';   // fila horizontal dentro de la hoja
     document.getElementById('tm-num').textContent = f0(v);
     document.getElementById('tm-zona').textContent = t.medidor_zona;
     const mon = t.moneda || 'BTC';

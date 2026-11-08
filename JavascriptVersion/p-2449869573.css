@@ -11,19 +11,19 @@
     --cds-chart-grid: #e6ecf4; --cds-surface-popover: #ffffff; --cds-border: #d3dcea; --cds-text-secondary: #56667f;
     --cds-shadow-popover: 0 10px 30px rgba(13, 26, 48, .14);
     --font-anthropic-sans: "Archivo", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    --font-cifras: "Big Shoulders", "Archivo", sans-serif;
+    --font-cifras: "Big Shoulders", "Archivo", sans-serif; --hoja: #ffffff; --sombra-hoja: rgba(13, 26, 48, .10);
     --font-anthropic-serif: var(--font-anthropic-sans); --cds-radius: 10px; }
   /* oscuro: el del sistema, salvo que elijas claro u oscuro con el boton (data-theme en <html>) */
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) { --color-fg: #e8eef7; --color-fg-muted: #8fa0bb; --color-bg: #0d1626; --color-panel: #132036;
       --color-border-line: #22324d; --color-ok: #22ab94; --color-warn: #f0b90b; --color-bad: #f7525f; --senal: #8db4ff;
       --cds-chart-grid: #1a2842; --cds-surface-popover: #182742; --cds-border: #2b3d5c; --cds-text-secondary: #8fa0bb;
-      --cds-shadow-popover: 0 12px 34px rgba(2, 6, 14, .55); }
+      --cds-shadow-popover: 0 12px 34px rgba(2, 6, 14, .55); --hoja: #182844; --sombra-hoja: rgba(2, 6, 14, .45); }
   }
   :root[data-theme="dark"] { --color-fg: #e8eef7; --color-fg-muted: #8fa0bb; --color-bg: #0d1626; --color-panel: #132036;
       --color-border-line: #22324d; --color-ok: #22ab94; --color-warn: #f0b90b; --color-bad: #f7525f; --senal: #8db4ff;
       --cds-chart-grid: #1a2842; --cds-surface-popover: #182742; --cds-border: #2b3d5c; --cds-text-secondary: #8fa0bb;
-      --cds-shadow-popover: 0 12px 34px rgba(2, 6, 14, .55); }
+      --cds-shadow-popover: 0 12px 34px rgba(2, 6, 14, .55); --hoja: #182844; --sombra-hoja: rgba(2, 6, 14, .45); }
   body { background: var(--color-bg); -webkit-font-smoothing: antialiased; }
   /* Layout: franja superior (precio · prediccion protagonista · sesgo), selector de temporalidad,
      grafico grande con panel de probabilidades al costado, y debajo senales, niveles, ondas, indicadores. */
@@ -909,3 +909,114 @@
   .ab button:focus-visible, .ab :is(a, summary, [tabindex="0"], select, input):focus-visible, .ab-plegable:focus-visible,
   .ab-ex-link:focus-visible, .ab-more summary:focus-visible { outline-color: var(--senal); }
   #mini-p { font-family: var(--font-cifras); font-weight: 800; font-size: 1.25rem; letter-spacing: .01em; }
+
+  /* ---------- escena y hoja ----------
+     El grafico es el fondo de la app: queda quieto atras (con la cabecera) y el analisis va en una hoja que pasa por
+     encima al deslizar. En la compu: el grafico fijo a la izquierda y la hoja como columna a la derecha. */
+  .ab-escena { position: sticky; isolation: isolate; display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
+  html.ab-fs-on .ab-escena { z-index: 100; }
+  .ab-escena .ab-top .ab-spark { display: none; }   /* el grafico esta justo abajo: la curva del dia sobraba */
+  .ab-escena #grafico:not(.ab-fs) { flex: 1 1 auto; min-height: 0; display: grid; gap: 0 8px; resize: none; overflow: hidden;
+    grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
+    grid-template-areas: "tools head" "capas capas" "help help" "chart chart" "ex ex" "note note"; }
+  .ab-escena #grafico:not(.ab-fs) > .ab-card-head { grid-area: head; align-self: start; }
+  .ab-escena #grafico:not(.ab-fs) > .ab-card-head > div:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .ab-escena #grafico:not(.ab-fs) > .ab-tools { grid-area: tools; min-width: 0; }
+  .ab-escena #grafico:not(.ab-fs) > .ab-capas { grid-area: capas; }
+  .ab-escena #grafico:not(.ab-fs) > #chart-help { grid-area: help; }
+  .ab-escena #grafico:not(.ab-fs) > .ab-chart { grid-area: chart; height: auto !important; min-height: 0; margin-top: 10px; }
+  .ab-escena #grafico:not(.ab-fs) > .ab-capas, .ab-escena #grafico:not(.ab-fs) > #chart-help { margin-top: 10px; }
+  .ab-escena #grafico:not(.ab-fs) > #ex-box { grid-area: ex; margin-top: 6px; }
+  .ab-escena #grafico:not(.ab-fs) > #scen-note:empty { display: none; }
+  .ab-escena #grafico:not(.ab-fs) > #ex-box[open] { max-height: 38vh; overflow-y: auto; overscroll-behavior: contain; }
+  .ab-escena #grafico:not(.ab-fs) > #scen-note { grid-area: note; }
+  .ab-hoja { position: relative; background: var(--panel); display: grid; align-content: start; min-width: 0; }
+  .ab-hoja > .ab-card { background: transparent; border: 0; border-radius: 0; box-shadow: none; resize: none; overflow: visible;
+    border-top: 1px solid var(--line); padding: 20px 0; }
+  .ab-hoja > .ab-asa + .ab-card, .ab-hoja > .ab-card[hidden] + .ab-card:not(.ab-centro) { border-top-color: var(--line); }
+  .ab-hoja > .ab-centro { border-top: 0; padding-top: 4px; }
+  .ab-hoja .ab-ce-tfs { display: none; }   /* el plazo se elige en el grafico: es el mismo */
+  .ab-hoja > .ab-conclu, .ab-hoja > .ab-plazos, .ab-hoja > .ab-vista-btn, .ab-hoja > .ab-more-list { margin-block: 12px; }
+  .ab-hoja > .ab-foot { margin: 18px 0 0; padding-top: 16px; border-top: 1px solid var(--line); }
+  /* que pasa con movimiento fuerte: una raya a la izquierda en vez del recuadro rojo */
+  .ab-hoja > .ab-qp { box-shadow: inset 3px 0 0 transparent; }
+  .ab-asa { display: grid; place-items: center; width: 100%; height: 28px; margin: 0; padding: 0; border: 0; background: transparent; cursor: grab; }
+  .ab-asa i { width: 44px; height: 5px; border-radius: 3px; background: color-mix(in srgb, var(--ink) 22%, transparent); }
+  /* termometro: una fila dentro de la hoja (antes, pestaña fija que tapaba) */
+  .ab-hoja .ab-tm-tab { position: static; transform: none; width: 100%; display: flex; align-items: center; gap: 12px; margin: 0;
+    padding: 14px 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; box-shadow: none; text-align: left; }
+  .ab-hoja .ab-tm-tab[hidden] { display: none; }
+  .ab-hoja .ab-tm-bar { width: 96px; height: 10px; flex: none; background: linear-gradient(to right, var(--color-ok), var(--soft2) 50%, var(--color-bad)); }
+  .ab-hoja .ab-tm-dot { width: 16px; height: 16px; top: 50%; transform: translate(-50%, -50%); border-width: 3px; }
+  .ab-hoja .ab-tm-tab b { font-family: var(--font-cifras); font-weight: 800; font-size: 1.6rem; letter-spacing: .01em; }
+  .ab-hoja .ab-tm-tab small { max-width: none; text-align: left; font-size: 13px !important; }
+  .ab-hoja .ab-tm-tab .ab-tm-k { display: inline; color: var(--mute); font-weight: 500; }
+  .ab-hoja .ab-tm-tab #tm-zona { color: var(--ink); font-weight: 600; }
+  .ab-hoja .ab-tm-tab::after { content: "›"; margin-left: auto; color: var(--mute); font-size: 20px; }
+  @media (min-width: 701px) {
+    html.ab-tm-on #dash-root { padding-right: max(16px, var(--dash-gutter, 24px)); }
+    html.ab-panel-fijo.ab-tm-on #dash-root { padding-right: calc(var(--ab-panel-w) + max(16px, var(--dash-gutter, 24px))); }
+  }
+
+  /* compu: grafico a la izquierda, fijo y del alto de la pantalla; la hoja como columna a la derecha */
+  @media (min-width: 1000px) {
+    #dash-root { padding-top: 16px; }
+    .ab { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(380px, 1fr); gap: 20px; align-items: start; max-width: 110rem; }
+    .ab-escena { top: 16px; height: calc(100dvh - 32px); }
+    .ab-hoja { border: 1px solid var(--line); border-radius: 18px; padding: 6px 22px 22px; }
+    .ab-hoja .ab-asa { display: none; }
+    .ab-hoja > .ab-centro { padding-top: 14px; }
+    .ab-hoja .ab-ce-grid { grid-template-columns: minmax(0, 1fr); }
+    .ab-hoja .ab-ce-p, .ab-hoja .ab-ce-p:nth-child(odd) { padding: 14px 0 16px; border-left: 0 !important; }
+    .ab-hoja .ab-ce-p.sube, .ab-hoja .ab-ce-p.baja, .ab-hoja .ab-ce-p.fuerte { padding-left: 14px; }
+    .ab-hoja .ab-ce-p.sube { box-shadow: inset 3px 0 0 var(--up); } .ab-hoja .ab-ce-p.baja { box-shadow: inset 3px 0 0 var(--down); }
+    .ab-hoja .ab-ce-p.fuerte { box-shadow: inset 3px 0 0 var(--color-warn); }
+    .ab { grid-template-columns: minmax(0, 1.6fr) minmax(380px, 1fr); }
+    .ab-escena .ab-top { flex-wrap: nowrap; align-items: center; }
+    .ab-escena .ab-top-l { flex: 1 1 auto; min-width: 0; }
+    .ab-escena .ab-title { font-size: 1.7rem !important; white-space: nowrap; }
+    .ab-escena .ab-live { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; min-width: 0; }
+    .ab-escena .ab-top-r { display: flex; align-items: center; gap: 14px; flex: none; }
+    .ab-escena .ab-price { font-size: clamp(2.5rem, 3.2vw, 3.2rem); }
+    .ab-escena .ab-pills { display: grid; gap: 4px; }
+  }
+
+  /* celu y tablet: el grafico ocupa la pantalla y la hoja asoma abajo con las respuestas del analisis */
+  @media (max-width: 999.98px) {
+    .ab { --asoma: 172px; display: block; max-width: none; }
+    #dash-root, html.ab-tm-on #dash-root, html.ab-panel-fijo #dash-root { padding: 0 !important; }
+    .ab-escena { top: 0; height: calc(100svh - var(--asoma)); gap: 8px; background: var(--panel);   /* del color del grafico: sin bordes */
+      padding: max(10px, calc(env(safe-area-inset-top) + 4px)) max(12px, env(safe-area-inset-right)) 10px max(12px, env(safe-area-inset-left)); }
+    .ab-escena #grafico:not(.ab-fs) { background: transparent; border: 0; border-radius: 0; padding: 0; gap: 0 8px; }
+    /* una sola fila: plazos (se desliza si no entran), capas y pantalla completa */
+    .ab-escena #grafico:not(.ab-fs) { grid-template-columns: minmax(0, 1fr) auto auto;
+      grid-template-areas: "tfs capasb head" "capas capas capas" "help help help" "chart chart chart" "ex ex ex" "note note note"; }
+    .ab-escena #grafico:not(.ab-fs) > .ab-tools { display: contents; }
+    .ab-escena #grafico:not(.ab-fs) #tfs { grid-area: tfs; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+    .ab-escena #grafico:not(.ab-fs) #tfs { grid-auto-columns: max-content; }
+    .ab-escena #grafico:not(.ab-fs) #tfs button { padding-inline: 10px; }
+    .ab-escena #grafico:not(.ab-fs) #capas-n { display: none; }
+    .ab-escena #grafico:not(.ab-fs) #scens { grid-area: tfs; }
+    .ab-escena #grafico:not(.ab-fs) #capas-btn { grid-area: capasb; }
+    .ab-escena .ab-live { display: none !important; }
+    .ab-escena #grafico:not(.ab-fs) #help-btn { display: none; }
+    /* cabecera en dos filas: activo y botones; precio, cambio y la curva del dia */
+    .ab-escena .ab-top { flex-wrap: nowrap; flex-direction: column; align-items: stretch; gap: 4px; }
+    .ab-escena .ab-top-l { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; position: relative; }
+    .ab-escena .ab-title-row { display: contents; }
+    .ab-escena .ab-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .ab-escena .ab-act-chip { order: -1; margin-right: auto; min-height: 40px; padding: 4px 12px 4px 14px; }
+    .ab-escena .ab-act-chip .ab-asset-k { display: none; }
+    .ab-escena .ab-top-r { display: flex; align-items: center; gap: 12px; width: 100%; order: -1; }
+    .ab-escena .ab-top-price { flex: 1 1 auto; min-width: 0; }
+    .ab-escena .ab-price { font-size: clamp(2.7rem, 13vw, 3.6rem); }
+    .ab-escena .ab-pills { display: grid; gap: 4px; justify-items: end; }
+    .ab-hoja { border-radius: 24px 24px 0 0; box-shadow: 0 -1px 0 var(--line), 0 -18px 40px var(--sombra-hoja); min-height: calc(100svh - 44px); background: var(--hoja);
+      padding: 0 max(16px, env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+    .ab-hoja .ab-ce-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .ab-hoja .ab-ce-p { padding: 12px 12px 14px 0; }
+    .ab-hoja .ab-ce-p:nth-child(even) { border-left: 1px solid var(--line); padding-left: 12px; padding-right: 0; }
+    .ab-hoja .ab-ce-p > b { font-size: clamp(1.3rem, 6vw, 1.7rem); }
+    .ab-hoja .ab-ce-p > span, .ab-hoja .ab-ce-p details { font-size: 12.5px; }
+    .ab-hoja > .ab-centro .ab-card-head { padding-top: 2px; }
+  }

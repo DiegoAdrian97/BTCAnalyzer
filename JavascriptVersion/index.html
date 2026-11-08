@@ -48,16 +48,18 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <link rel="preconnect" href="https://fapi.binance.com" crossorigin>
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
-<link rel="stylesheet" href="p-12f65b9f49.css">
-<script>window.AB_PAGINA = "e88d1f8ba1";</script>
+<link rel="stylesheet" href="p-2449869573.css">
+<script>window.AB_PAGINA = "0d832f64d4";</script>
 <script defer src="app.js?v=54f8587a8f"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-787d1a267d.js"></script>
+<script defer src="p-68b9e4bbe1.js"></script>
 </head><body><div id="dash-root">
 
 
 <div class="ab ab-first ab-cargando" id="analista" data-source="analisis">
+  <!-- escena: cabecera y grafico, quietos atras; la hoja con el analisis pasa por encima al subir -->
+  <div class="ab-escena" id="escena">
   <header class="ab-top" id="resumen">
     <div class="ab-top-l">
       <span class="ab-live"><i></i><span><span id="moneda-lbl">BTC</span>/USDT perpetuo · actualizado <span data-source="analisis" data-field="hora_local" data-where="tabla=resumen">—</span> · <span id="next-run">—</span></span><span class="ab-live-state" id="live-state"></span></span>
@@ -102,6 +104,69 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       </div>
     </div>
   </header>
+  <section class="ab-card" id="grafico" aria-labelledby="graf-t">
+      <div class="ab-card-head ab-graf-head">
+        <div><h2 id="graf-t">Dónde está BTC</h2></div>
+        <div class="ab-head-act">
+          <button type="button" class="ab-iconbtn ab-round" id="help-btn" aria-expanded="false" aria-controls="chart-help" aria-label="Cómo se usa el gráfico" title="Cómo se usa">?</button>
+          <button type="button" class="ab-iconbtn ab-round" id="ex-fs-btn" aria-expanded="false" aria-controls="ex-box" aria-label="Qué estás viendo" title="Qué estás viendo">ⓘ</button>
+          <button type="button" class="ab-iconbtn ab-round ab-fs-btn" id="fs-btn" aria-pressed="false" aria-label="Ver el gráfico en pantalla completa" title="Pantalla completa">⤢</button>
+        </div></div>
+      <div class="ab-tools">
+        <nav class="ab-seg ab-small" id="tfs" aria-label="Velas del gráfico">
+          <span class="ab-seg-thumb"></span>
+          <button type="button" data-tf="5m" aria-pressed="false">5m</button>
+          <button type="button" data-tf="15m" aria-pressed="false">15m</button>
+          <button type="button" data-tf="30m" aria-pressed="false">30m</button>
+          <button type="button" data-tf="1h" aria-pressed="true">1h</button>
+          <button type="button" data-tf="4h" aria-pressed="false">4h</button>
+          <button type="button" data-tf="1d" aria-pressed="false">1D</button>
+          <button type="button" data-tf="1w" aria-pressed="false" title="Semanal (sin predicción: pocas velas para medirla)">1S</button>
+          <button type="button" data-tf="1M" aria-pressed="false" title="Mensual (sin predicción: pocas velas para medirla)">1M</button>
+        </nav>
+        <nav class="ab-seg ab-small" id="scens" aria-label="Escenario" style="display: none">
+          <span class="ab-seg-thumb"></span>
+          <button type="button" data-scen="tipico" aria-pressed="true">Típico</button>
+          <button type="button" data-scen="alcista" aria-pressed="false">Alcista</button>
+          <button type="button" data-scen="bajista" aria-pressed="false">Bajista</button>
+        </nav>
+        <button type="button" class="ab-iconbtn ab-capas-btn" id="capas-btn" aria-expanded="false" aria-controls="capas">Capas <b id="capas-n"></b></button>
+      </div>
+      <div class="ab-capas" id="capas">
+        <div class="ab-chips" id="layers">
+          <button type="button" class="ab-chipbtn" data-layer="ema" aria-pressed="true"><i style="background: var(--ab-c0)"></i>EMA 20 / 50 / 200</button>
+          <button type="button" class="ab-chipbtn" data-layer="bb" aria-pressed="true"><i style="background: var(--color-fg-muted)"></i>Bollinger</button>
+          <button type="button" class="ab-chipbtn" data-layer="fvg" aria-pressed="true"><i style="background: var(--color-ok)"></i>FVG</button>
+          <button type="button" class="ab-chipbtn" data-layer="patrones" aria-pressed="true"><i style="background: var(--color-warn)"></i>Patrones</button>
+          <button type="button" class="ab-chipbtn" data-layer="ondas" aria-pressed="true"><i style="background: var(--color-fg)"></i>Ondas</button>
+          <button type="button" class="ab-chipbtn" data-layer="fib" aria-pressed="true"><i style="background: var(--ab-c2)"></i>Fibonacci</button>
+          <button type="button" class="ab-chipbtn" data-layer="liq" aria-pressed="true"><i style="background: var(--color-bad)"></i>Liquidaciones</button>
+          <button type="button" class="ab-chipbtn" data-layer="osc" aria-pressed="true"><i style="background: var(--ab-c2)"></i>RSI · MACD</button>
+          <button type="button" class="ab-chipbtn" data-layer="plan" aria-pressed="true" hidden><i style="background: var(--color-fg)"></i>Mi plan</button>
+          <button type="button" class="ab-chipbtn" data-layer="opc" aria-pressed="true"><i style="background: var(--ab-c2)"></i>Opciones</button>
+        </div>
+        <div class="ab-zoom" role="group" aria-label="Zoom del gráfico">
+          <span class="ab-zoom-g"><button type="button" class="ab-iconbtn ab-round" data-zoom="out" aria-label="Ver más velas">−</button>
+            <span id="zoom-info" class="ab-num">— velas</span>
+            <button type="button" class="ab-iconbtn ab-round" data-zoom="in" aria-label="Ver menos velas">+</button></span>
+          <button type="button" class="ab-iconbtn" id="fit">Ajustar</button>
+          <button type="button" class="ab-iconbtn" id="log-btn" aria-pressed="false" title="Escala logarítmica: las mismas subas y bajas en % miden lo mismo (tecla L)">Log</button>
+          <button type="button" class="ab-iconbtn" id="medir-btn" aria-pressed="false" title="Medir: arrastrá en el gráfico para ver el % y las velas entre dos puntos (con el mouse: Shift + arrastrar; tecla M)">Medir</button>
+          <button type="button" class="ab-iconbtn" id="iman-btn" aria-pressed="false" title="Imán: la mira y los puntos de Medir se pegan a la apertura, máximo, mínimo o cierre de la vela más cercana (tecla I; mientras medís, Cmd o Ctrl lo invierte)">Imán</button>
+          <button type="button" class="ab-iconbtn" id="foto-btn" title="Guardar o compartir una imagen del gráfico">Imagen</button>
+          <button type="button" class="ab-iconbtn" id="replay" title="Repetir la animación del escenario" style="display: none">↻</button>
+        </div>
+      </div>
+      <p class="ab-note ab-help" id="chart-help" hidden><span class="ab-only-mouse">Arrastrá el gráfico para moverte · rueda: zoom · arrastrá el eje de precios o el de horas para estirarlos · arrastrá el borde de abajo del precio o de cada indicador para hacerlo más alto o más bajo · doble clic en un eje: vuelve ese eje a como estaba (en el de horas, todos los paneles) · doble clic en el gráfico: ajusta todo · Shift + arrastrar: medir % y velas · teclas (con el mouse sobre el gráfico): ← → moverse, + − zoom, 0 ajustar, L logarítmica, M medir, I imán (Cmd/Ctrl mientras medís lo invierte), 1 a 6 temporalidad, F pantalla completa, Esc borrar la medición</span><span class="ab-only-touch">Arrastrá con un dedo para moverte · pellizcá para zoom (de costado: velas; vertical: precios) · arrastrá los ejes para estirarlos · arrastrá la manija de abajo de cada panel para cambiar su alto · doble toque en un eje lo vuelve a como estaba · tocá una vela para ver sus datos · "Medir" y arrastrá: % y velas entre dos puntos ("Imán" los pega a la apertura, máximo, mínimo o cierre)</span></p>
+      <div class="ab-chart dash-skeleton" id="chart" data-source="analisis"></div>
+      <details class="ab-exbox" id="ex-box"><summary>Qué estás viendo <b id="ex-n"></b></summary>
+        <div class="ab-explain" id="legend"></div>
+        <button type="button" class="ab-ex-limpiar" id="ex-limpiar" hidden>Quitar marcas</button></details>
+      <p class="ab-note" id="scen-note"></p>
+    </section>
+  </div>
+  <div class="ab-hoja" id="hoja">
+    <button type="button" class="ab-asa" id="asa" aria-label="Subir o bajar el análisis"><i></i></button>
 
   <!-- el analisis central: todos los calculos convergen en 5 puntos, en la temporalidad elegida (fila 'central') -->
   <section class="ab-card ab-centro" id="centro" aria-labelledby="ce-t" data-source="analisis" hidden>
@@ -115,11 +180,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     </div>
     <div class="ab-ce-riesgo" id="ce-riesgo" hidden></div>
   </section>
+  <button type="button" class="ab-tm-tab" id="tm-tab" aria-expanded="false" aria-controls="tm-panel" hidden title="Termómetro del ciclo (semanas o meses): 0 = momento de comprar · 100 = de vender">
+    <small class="ab-tm-k">Ciclo</small><span class="ab-tm-bar"><span class="ab-tm-dot" id="tm-dot"></span></span><b id="tm-num">—</b><small id="tm-zona">—</small>
+  </button>
 
   <!-- una sola conclusion arriba: cada señal mira un plazo distinto y antes parecian contradecirse -->
-  <button type="button" class="ab-mini" id="mini" tabindex="-1" aria-hidden="true" title="Volver arriba">
-    <b id="mini-mon">BTC</b><span class="ab-mini-p" id="mini-p">—</span><span id="mini-c"></span><span class="ab-mini-h" id="mini-h"></span><i aria-hidden="true">↑</i>
-  </button>
   <section class="ab-conclu" id="conclusion" aria-label="En resumen" hidden>
     <div><small>Próxima hora</small><b id="cc-hora">—</b></div>
     <div><small id="cc-ind-k">Indicadores</small><b id="cc-ind">—</b></div>
@@ -127,28 +192,6 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     <p id="cc-txt"></p>
   </section>
 
-  <button type="button" class="ab-tm-tab" id="tm-tab" aria-expanded="false" aria-controls="tm-panel" hidden title="Termómetro del ciclo (semanas o meses): 0 = momento de comprar · 100 = de vender">
-    <small class="ab-tm-k">Ciclo</small><span class="ab-tm-bar"><span class="ab-tm-dot" id="tm-dot"></span></span><b id="tm-num">—</b><small id="tm-zona">—</small>
-  </button>
-  <div class="ab-tm-back" id="tm-back" hidden></div>
-  <div class="ab-tm-back" id="nt-back" hidden></div>
-  <div class="ab-nt-modal" id="nt-modal" role="dialog" aria-modal="true" aria-labelledby="nt-m-t" hidden>
-    <div class="ab-tm-head"><div><span class="ab-kicker" id="nt-m-k"></span><h2 id="nt-m-t" style="margin:2px 0 0">Notificación</h2></div>
-      <button type="button" class="ab-iconbtn ab-round" id="nt-m-x" aria-label="Cerrar">✕</button></div>
-    <div id="nt-m-body"></div>
-  </div>
-  <button type="button" class="ab-act-borde" id="act-borde" aria-label="Abrir la lista de activos" title="Activos" hidden><span aria-hidden="true">‹</span></button>
-  <div class="ab-act-fondo" id="act-fondo" hidden></div>
-  <aside class="ab-act-panel" id="act-panel" aria-labelledby="act-t" role="dialog" aria-modal="true" hidden>
-    <div class="ab-act-head"><h2 id="act-t">Activos</h2><span class="ab-kicker">precio · 24 h · en vivo</span>
-      <button type="button" class="ab-iconbtn ab-round" id="act-x" aria-label="Cerrar">✕</button></div>
-    <div id="act-list"></div>
-  </aside>
-  <aside class="ab-tm-panel" id="tm-panel" aria-labelledby="tm-t" role="dialog" aria-modal="true" hidden>
-    <div class="ab-tm-head"><div><span class="ab-kicker" id="tm-kick">Ciclo de BTC · semanas o meses</span><h2 id="tm-t" style="margin:2px 0 0">Termómetro de compra y venta</h2></div>
-      <button type="button" class="ab-iconbtn ab-round" id="tm-x" aria-label="Cerrar">✕</button></div>
-    <div id="tm-body"></div>
-  </aside>
   <section class="ab-card ab-qp" id="que-pasa" aria-labelledby="qp-t" data-source="analisis" hidden>
     <!-- cerrado hasta que se toca (pedido de Diego): adentro, el movimiento, lo que coincide y las noticias -->
     <details class="ab-qp-all" id="qp-box">
@@ -230,66 +273,6 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     </div>
   </section>
 
-  <section class="ab-card" id="grafico" aria-labelledby="graf-t">
-      <div class="ab-card-head ab-graf-head">
-        <div><h2 id="graf-t">Dónde está BTC</h2></div>
-        <div class="ab-head-act">
-          <button type="button" class="ab-iconbtn ab-round" id="help-btn" aria-expanded="false" aria-controls="chart-help" aria-label="Cómo se usa el gráfico" title="Cómo se usa">?</button>
-          <button type="button" class="ab-iconbtn ab-round" id="ex-fs-btn" aria-expanded="false" aria-controls="ex-box" aria-label="Qué estás viendo" title="Qué estás viendo">ⓘ</button>
-          <button type="button" class="ab-iconbtn ab-round ab-fs-btn" id="fs-btn" aria-pressed="false" aria-label="Ver el gráfico en pantalla completa" title="Pantalla completa">⤢</button>
-        </div></div>
-      <div class="ab-tools">
-        <nav class="ab-seg ab-small" id="tfs" aria-label="Velas del gráfico">
-          <span class="ab-seg-thumb"></span>
-          <button type="button" data-tf="5m" aria-pressed="false">5m</button>
-          <button type="button" data-tf="15m" aria-pressed="false">15m</button>
-          <button type="button" data-tf="30m" aria-pressed="false">30m</button>
-          <button type="button" data-tf="1h" aria-pressed="true">1h</button>
-          <button type="button" data-tf="4h" aria-pressed="false">4h</button>
-          <button type="button" data-tf="1d" aria-pressed="false">1D</button>
-          <button type="button" data-tf="1w" aria-pressed="false" title="Semanal (sin predicción: pocas velas para medirla)">1S</button>
-          <button type="button" data-tf="1M" aria-pressed="false" title="Mensual (sin predicción: pocas velas para medirla)">1M</button>
-        </nav>
-        <nav class="ab-seg ab-small" id="scens" aria-label="Escenario" style="display: none">
-          <span class="ab-seg-thumb"></span>
-          <button type="button" data-scen="tipico" aria-pressed="true">Típico</button>
-          <button type="button" data-scen="alcista" aria-pressed="false">Alcista</button>
-          <button type="button" data-scen="bajista" aria-pressed="false">Bajista</button>
-        </nav>
-        <button type="button" class="ab-iconbtn ab-capas-btn" id="capas-btn" aria-expanded="false" aria-controls="capas">Capas <b id="capas-n"></b></button>
-      </div>
-      <div class="ab-capas" id="capas">
-        <div class="ab-chips" id="layers">
-          <button type="button" class="ab-chipbtn" data-layer="ema" aria-pressed="true"><i style="background: var(--ab-c0)"></i>EMA 20 / 50 / 200</button>
-          <button type="button" class="ab-chipbtn" data-layer="bb" aria-pressed="true"><i style="background: var(--color-fg-muted)"></i>Bollinger</button>
-          <button type="button" class="ab-chipbtn" data-layer="fvg" aria-pressed="true"><i style="background: var(--color-ok)"></i>FVG</button>
-          <button type="button" class="ab-chipbtn" data-layer="patrones" aria-pressed="true"><i style="background: var(--color-warn)"></i>Patrones</button>
-          <button type="button" class="ab-chipbtn" data-layer="ondas" aria-pressed="true"><i style="background: var(--color-fg)"></i>Ondas</button>
-          <button type="button" class="ab-chipbtn" data-layer="fib" aria-pressed="true"><i style="background: var(--ab-c2)"></i>Fibonacci</button>
-          <button type="button" class="ab-chipbtn" data-layer="liq" aria-pressed="true"><i style="background: var(--color-bad)"></i>Liquidaciones</button>
-          <button type="button" class="ab-chipbtn" data-layer="osc" aria-pressed="true"><i style="background: var(--ab-c2)"></i>RSI · MACD</button>
-          <button type="button" class="ab-chipbtn" data-layer="plan" aria-pressed="true" hidden><i style="background: var(--color-fg)"></i>Mi plan</button>
-          <button type="button" class="ab-chipbtn" data-layer="opc" aria-pressed="true"><i style="background: var(--ab-c2)"></i>Opciones</button>
-        </div>
-        <div class="ab-zoom" role="group" aria-label="Zoom del gráfico">
-          <span class="ab-zoom-g"><button type="button" class="ab-iconbtn ab-round" data-zoom="out" aria-label="Ver más velas">−</button>
-            <span id="zoom-info" class="ab-num">— velas</span>
-            <button type="button" class="ab-iconbtn ab-round" data-zoom="in" aria-label="Ver menos velas">+</button></span>
-          <button type="button" class="ab-iconbtn" id="fit">Ajustar</button>
-          <button type="button" class="ab-iconbtn" id="log-btn" aria-pressed="false" title="Escala logarítmica: las mismas subas y bajas en % miden lo mismo (tecla L)">Log</button>
-          <button type="button" class="ab-iconbtn" id="medir-btn" aria-pressed="false" title="Medir: arrastrá en el gráfico para ver el % y las velas entre dos puntos (con el mouse: Shift + arrastrar; tecla M)">Medir</button>
-          <button type="button" class="ab-iconbtn" id="iman-btn" aria-pressed="false" title="Imán: la mira y los puntos de Medir se pegan a la apertura, máximo, mínimo o cierre de la vela más cercana (tecla I; mientras medís, Cmd o Ctrl lo invierte)">Imán</button>
-          <button type="button" class="ab-iconbtn" id="foto-btn" title="Guardar o compartir una imagen del gráfico">Imagen</button>
-          <button type="button" class="ab-iconbtn" id="replay" title="Repetir la animación del escenario" style="display: none">↻</button>
-        </div>
-      </div>
-      <p class="ab-note ab-help" id="chart-help" hidden><span class="ab-only-mouse">Arrastrá el gráfico para moverte · rueda: zoom · arrastrá el eje de precios o el de horas para estirarlos · arrastrá el borde de abajo del precio o de cada indicador para hacerlo más alto o más bajo · doble clic en un eje: vuelve ese eje a como estaba (en el de horas, todos los paneles) · doble clic en el gráfico: ajusta todo · Shift + arrastrar: medir % y velas · teclas (con el mouse sobre el gráfico): ← → moverse, + − zoom, 0 ajustar, L logarítmica, M medir, I imán (Cmd/Ctrl mientras medís lo invierte), 1 a 6 temporalidad, F pantalla completa, Esc borrar la medición</span><span class="ab-only-touch">Arrastrá con un dedo para moverte · pellizcá para zoom (de costado: velas; vertical: precios) · arrastrá los ejes para estirarlos · arrastrá la manija de abajo de cada panel para cambiar su alto · doble toque en un eje lo vuelve a como estaba · tocá una vela para ver sus datos · "Medir" y arrastrá: % y velas entre dos puntos ("Imán" los pega a la apertura, máximo, mínimo o cierre)</span></p>
-      <div class="ab-chart dash-skeleton" id="chart" data-source="analisis"></div>
-      <details class="ab-exbox" id="ex-box"><summary>Qué estás viendo <b id="ex-n"></b></summary>
-        <div class="ab-explain" id="legend"></div>
-        <button type="button" class="ab-ex-limpiar" id="ex-limpiar" hidden>Quitar marcas</button></details>
-      <p class="ab-note" id="scen-note"></p>
-    </section>
 
   <!-- vista simple (por defecto): solo lo necesario para decidir. El analisis completo sigue calculandose y se abre aca -->
   <button type="button" class="ab-vista-btn" id="vista-btn" aria-expanded="false" aria-controls="que-espero aprendizaje mas-detalle">
@@ -381,6 +364,29 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   </div>
 
   <p class="ab-foot">Datos públicos de Binance Futures, Bybit, OKX y Bitget, calculados en este teléfono. Las probabilidades y los escenarios cuentan lo que pasó en situaciones parecidas del pasado reciente; el mercado puede hacer otra cosa. No es una recomendación de inversión.</p>
+  </div>
+  <button type="button" class="ab-mini" id="mini" tabindex="-1" aria-hidden="true" title="Volver arriba">
+    <b id="mini-mon">BTC</b><span class="ab-mini-p" id="mini-p">—</span><span id="mini-c"></span><span class="ab-mini-h" id="mini-h"></span><i aria-hidden="true">↑</i>
+  </button>
+  <div class="ab-tm-back" id="tm-back" hidden></div>
+  <div class="ab-tm-back" id="nt-back" hidden></div>
+  <div class="ab-nt-modal" id="nt-modal" role="dialog" aria-modal="true" aria-labelledby="nt-m-t" hidden>
+    <div class="ab-tm-head"><div><span class="ab-kicker" id="nt-m-k"></span><h2 id="nt-m-t" style="margin:2px 0 0">Notificación</h2></div>
+      <button type="button" class="ab-iconbtn ab-round" id="nt-m-x" aria-label="Cerrar">✕</button></div>
+    <div id="nt-m-body"></div>
+  </div>
+  <button type="button" class="ab-act-borde" id="act-borde" aria-label="Abrir la lista de activos" title="Activos" hidden><span aria-hidden="true">‹</span></button>
+  <div class="ab-act-fondo" id="act-fondo" hidden></div>
+  <aside class="ab-act-panel" id="act-panel" aria-labelledby="act-t" role="dialog" aria-modal="true" hidden>
+    <div class="ab-act-head"><h2 id="act-t">Activos</h2><span class="ab-kicker">precio · 24 h · en vivo</span>
+      <button type="button" class="ab-iconbtn ab-round" id="act-x" aria-label="Cerrar">✕</button></div>
+    <div id="act-list"></div>
+  </aside>
+  <aside class="ab-tm-panel" id="tm-panel" aria-labelledby="tm-t" role="dialog" aria-modal="true" hidden>
+    <div class="ab-tm-head"><div><span class="ab-kicker" id="tm-kick">Ciclo de BTC · semanas o meses</span><h2 id="tm-t" style="margin:2px 0 0">Termómetro de compra y venta</h2></div>
+      <button type="button" class="ab-iconbtn ab-round" id="tm-x" aria-label="Cerrar">✕</button></div>
+    <div id="tm-body"></div>
+  </aside>
 </div>
 
 

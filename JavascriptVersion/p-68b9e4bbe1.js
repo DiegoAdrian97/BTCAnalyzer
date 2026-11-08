@@ -89,7 +89,7 @@
   });
   const helpBtn = document.getElementById('help-btn'), help = document.getElementById('chart-help');
   helpBtn.addEventListener('click', () => { help.hidden = !help.hidden; helpBtn.setAttribute('aria-expanded', String(!help.hidden)); });
-  document.getElementById('ex-box').open = window.innerWidth >= 900;
+  document.getElementById('ex-box').open = false;   // el grafico es la escena: la explicacion se abre a pedido
   window.addEventListener('pagehide', () => {
     try { sessionStorage.setItem('ab-vista', JSON.stringify({ plazo: S.plazo, tf: S.tf, scen: S.scen, layers: S.layers, fs: S.fs, log: S.log, iman: S.iman })); } catch (e) { /* idem */ }
   });
@@ -612,6 +612,24 @@
     const pr = root.querySelector('.ab-price'); if (pr) ojo.observe(pr);
   }
   MINI.addEventListener('click', () => window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }));
+  // con la hoja (celu): el precio queda quieto atras, asi que la barra aparece cuando la hoja tapa la cabecera
+  const HOJA = document.getElementById('hoja'), CEL = matchMedia('(max-width: 999.98px)');
+  let miniRaf = 0;
+  addEventListener('scroll', () => {
+    if (miniRaf || !CEL.matches) return;
+    miniRaf = requestAnimationFrame(() => {
+      miniRaf = 0;
+      const on = HOJA.getBoundingClientRect().top < 64;
+      if (on === MINI.classList.contains('on')) return;
+      MINI.classList.toggle('on', on); MINI.tabIndex = on ? 0 : -1; MINI.setAttribute('aria-hidden', String(!on));
+      if (on) miniPintar();
+    });
+  }, { passive: true });
+  // el asa: sube la hoja hasta arriba, o la vuelve a bajar si ya esta arriba
+  document.getElementById('asa').addEventListener('click', () => {
+    const top = HOJA.getBoundingClientRect().top;
+    window.scrollTo({ top: top < 80 ? 0 : scrollY + top - 44, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  });
   // plazos en el celu: se marca por que lado hay mas tarjetas
   function plazosBordes() {
     const n = document.getElementById('plazos'); if (!n) return;
@@ -1371,7 +1389,7 @@
     const v = num(t.medidor), zi = Math.max(0, t.m_zonas.findIndex((z) => z[0] === t.medidor_zona)), col = TM_COL[zi];
     tab.style.setProperty('--tm-col', col); document.getElementById('tm-panel').style.setProperty('--tm-col', col);
     const dot = document.getElementById('tm-dot');
-    if (matchMedia('(max-width: 700px)').matches) { dot.style.left = `${v}%`; dot.style.bottom = ''; } else { dot.style.bottom = `${v}%`; dot.style.left = ''; }
+    dot.style.left = `${v}%`; dot.style.bottom = '';   // fila horizontal dentro de la hoja
     document.getElementById('tm-num').textContent = f0(v);
     document.getElementById('tm-zona').textContent = t.medidor_zona;
     const mon = t.moneda || 'BTC';
