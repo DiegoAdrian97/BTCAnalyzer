@@ -1,0 +1,33 @@
+name: Medir ideas de Kronos
+# A mano desde Actions (o al cambiar el medidor): ¿calendario, mechas o monto en USDT mejoran el movimiento fuerte o la
+# direccion? Solo mide y deja el resultado como artefacto; no cambia nada del analisis.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/ideas_kronos.yml", "medir_ideas_kronos.py"]
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        moneda: [BTC, SOL, XRP, ZEC]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install numpy lightgbm scikit-learn
+      - run: python datos_entrenamiento.py
+      - run: |
+          V=velas_1h.json; if [ "$MON" != BTC ]; then V=velas_1h_$MON.json; fi
+          python -u -W ignore medir_ideas_kronos.py "$V" eventos.json "$MON" | tee "ideas_$MON.txt"
+        env: { MON: "${{ matrix.moneda }}" }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ideas-${{ matrix.moneda }}
+          path: |
+            ideas_${{ matrix.moneda }}.txt
+            resultado_ideas_${{ matrix.moneda }}.json
