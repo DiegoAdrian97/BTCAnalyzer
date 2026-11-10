@@ -305,7 +305,9 @@ def main():
     if a.prueba:
         Id = Id[np.linspace(0, len(Id) - 1, 8).astype(int)]
     if len(Id) and time.time() < limite + 30 * 60:
-        Pd = caminos(tok, mod, Dd, Id, D, 1, a.muestras, a.lote, limite + 30 * 60)
+        od = np.random.permutation(len(Id))                    # mezclado, como arriba
+        Pm = caminos(tok, mod, Dd, Id[od], D, 1, a.muestras, a.lote, limite + 30 * 60)
+        Pd = np.full_like(Pm, np.nan); Pd[od] = Pm
         hd = np.isfinite(Pd).all(axis=(1, 2, 3)); Id, Pd = Id[hd], Pd[hd]
         res["momentos_dia"] = int(len(Id))
         evaluar(res, f"{a.moneda} 1 dia", td[Id], lcd, Id, np.log(Pd[:, :, 0, 3]) - lcd[Id][:, None], 1, D,
