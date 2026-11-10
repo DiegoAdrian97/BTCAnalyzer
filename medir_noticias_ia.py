@@ -17,6 +17,7 @@
      movimiento fuerte (1 y 4 h):  el modelo de la app (entrenar_fuerte, prueba honesta) contra el mismo + noticias
    Entra si mejora en las dos mitades del periodo con z por dia > 2.
 Uso: python medir_noticias_ia.py velas_1h.json eventos.json [--dias 88] [--minutos 200]
+     en paralelo: --parte k/n en n maquinas (baja y lee su tramo), y despues sin --parte con los titulares_parte_*.jsonl
 """
 import argparse, json, math, os, random, re, time, urllib.parse, urllib.request
 from datetime import datetime, timedelta, timezone
@@ -44,28 +45,40 @@ def _get(u, tries=4):
     return None
 
 
-def bajar(dias, horas_ventana=6):
+def ventanas(dias, parte=None, horas_ventana=6):
+    """Las ventanas de 6 h de los ultimos `dias` (hasta hoy 00 UTC, igual en todos los trabajos). Con parte = (k, n):
+    solo el tramo k de n, para bajar en paralelo desde varias maquinas (GDELT limita por maquina)."""
+    fin = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    vs = [fin - timedelta(days=dias) + timedelta(hours=horas_ventana * i) for i in range(dias * 24 // horas_ventana)]
+    if parte:
+        k, n = parte; m = -(-len(vs) // n); vs = vs[k * m:(k + 1) * m]
+    return [(a, a + timedelta(hours=horas_ventana)) for a in vs]
+
+
+def bajar(dias, parte=None, minutos=None):
     hechos = {}
     if os.path.exists(CACHE):
         for l in open(CACHE):
             r = json.loads(l); hechos[r["url"]] = r
     listo = {r["ventana"] for r in hechos.values()}
-    fin = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
-    a = fin - timedelta(days=dias)
+    t0, fallas = time.time(), 0
     with open(CACHE, "a") as f:
-        while a < fin:
-            b = a + timedelta(hours=horas_ventana)
+      for pasada in range(3):                               # lo que fallo se reintenta en la pasada siguiente
+        fallas = 0
+        for a, b in ventanas(dias, parte):
             for cat, q in QUERIES.items():
               v = f"{cat}:{a:%Y%m%d%H}"
-              if v not in listo:
+              if v not in listo and not (minutos and time.time() - t0 > minutos * 60):
                 u = "https://api.gdeltproject.org/api/v2/doc/doc?" + urllib.parse.urlencode({
                     "query": q, "mode": "artlist", "maxrecords": 250, "format": "json",
                     "startdatetime": a.strftime("%Y%m%d%H%M%S"), "enddatetime": b.strftime("%Y%m%d%H%M%S")})
                 txt = _get(u); time.sleep(5.5)            # GDELT: no mas de un pedido cada 5 segundos
-                try:
-                    arts = json.loads(txt).get("articles", []) if txt else []
+                try:                                      # GDELT a veces contesta con un texto ("limit requests")
+                    arts = json.loads(txt).get("articles", []) if txt is not None else None
                 except json.JSONDecodeError:
-                    arts = []
+                    arts = None
+                if arts is None:                          # fallo: no se marca, se reintenta en otra pasada
+                    fallas += 1; print(f"  {v}: fallo", flush=True); time.sleep(20); continue
                 n = 0
                 for x in arts:
                     tit = (x.get("title") or "").strip()
@@ -78,8 +91,13 @@ def bajar(dias, horas_ventana=6):
                 # ventana vacia: igual queda marcada (con una fila sin titulo) para no repetir el pedido
                 if not n:
                     f.write(json.dumps({"url": f"vacio:{v}", "titulo": "", "t": 0, "medio": "", "ventana": v}) + "\n")
-                print(f"  {v}: {n} titulares", flush=True)
-            a = b
+                listo.add(v); print(f"  {v}: {n} titulares", flush=True)
+        if not fallas:
+            break
+    print(f"bajada: {fallas} ventanas fallaron ({time.time() - t0:.0f} s)", flush=True)
+    if parte:
+        dentro = {f"{c}:{a:%Y%m%d%H}" for a, _ in ventanas(dias, parte) for c in QUERIES}
+        hechos = {k: r for k, r in hechos.items() if r["ventana"] in dentro}
     rows = [r for r in hechos.values() if r["titulo"]]
     # el mismo titular en dos direcciones (sindicacion): uno solo, el primero
     vistos, out = set(), []
@@ -183,8 +201,28 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("velas"); ap.add_argument("eventos")
     ap.add_argument("--dias", type=int, default=88); ap.add_argument("--minutos", type=float, default=200)
+    ap.add_argument("--parte", help="k/n: solo baja y lee con la IA el tramo k de n (trabajos en paralelo)")
+    ap.add_argument("--bajar-min", type=float, default=None, help="tope de minutos para bajar titulares")
     a = ap.parse_args()
-    rows = bajar(a.dias)
+    if a.parte:
+        k, n = map(int, a.parte.split("/"))
+        rows = bajar(a.dias, (k, n), a.bajar_min)
+        s = leer_ia([r["titulo"] for r in rows], a.minutos)
+        with open(f"titulares_parte_{k}.jsonl", "w") as f:
+            for r, x in zip(rows, s):
+                f.write(json.dumps({**r, "ia": None if not np.isfinite(x) else round(float(x), 4)}) + "\n")
+        print(f"parte {k}/{n}: {len(rows)} titulares, {int(np.isfinite(s).sum())} leidos por la IA")
+        return
+    import glob
+    partes = sorted(glob.glob("titulares_parte_*.jsonl"))
+    if partes:                                              # lo bajado y leido en paralelo
+        vistos, rows = set(), []
+        for r in sorted((json.loads(l) for p in partes for l in open(p)), key=lambda r: r["t"]):
+            if r["titulo"].lower() not in vistos:
+                vistos.add(r["titulo"].lower()); rows.append(r)
+        print(f"{len(partes)} partes")
+    else:
+        rows = bajar(a.dias)
     t = np.array([r["t"] for r in rows], dtype=float)
     print(f"\n{len(rows)} titulares distintos en {a.dias} dias ({len({r['medio'] for r in rows})} medios): "
           + " · ".join(f"{k} {sum(GRUPO[r['tema']] == k for r in rows)}" for k in ("cripto", "guerras", "EE.UU. y la Fed")))
@@ -207,9 +245,12 @@ def main():
 
     # lectura: reglas en cada titular, IA en el primero de cada hecho (con el umbral mas estricto; los demas usan esa)
     reglas = np.array([{"alcista": 1, "bajista": -1}.get(nt.sesgo(r["titulo"], r["tema"]), 0) for r in rows], float)
-    g8 = G["IA 0.80"]; primeros = np.unique(g8)
-    s = leer_ia([rows[i]["titulo"] for i in primeros], a.minutos)
-    ia_hecho = dict(zip(primeros, s)); ia = np.array([ia_hecho[g8[i]] for i in range(len(rows))])
+    if partes:
+        ia = np.array([np.nan if r.get("ia") is None else r["ia"] for r in rows], float)
+    else:
+        g8 = G["IA 0.80"]; primeros = np.unique(g8)
+        s = leer_ia([rows[i]["titulo"] for i in primeros], a.minutos)
+        ia_hecho = dict(zip(primeros, s)); ia = np.array([ia_hecho[g8[i]] for i in range(len(rows))])
     print(f"\nLECTURA: reglas alcista {np.mean(reglas > 0):.0%} · bajista {np.mean(reglas < 0):.0%} · IA media {np.nanmean(ia):+.2f}"
           f" · coinciden en el signo {np.mean(np.sign(reglas[np.isfinite(ia)]) == np.sign(np.round(ia[np.isfinite(ia)], 1))):.0%}")
 

@@ -1,28 +1,51 @@
 name: Medir noticias con IA
 # A mano desde Actions (o al cambiar el medidor): ¿una IA abierta que lee los titulares (y junta la misma noticia de
 # varios medios) anticipa mejor a BTC que las reglas de hoy? Solo mide y deja el resultado como artefacto.
+# GDELT limita los pedidos por maquina: 8 trabajos bajan (y leen con la IA) un tramo cada uno, y uno junta y mide.
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths: [".github/workflows/noticias_ia.yml", "medir_noticias_ia.py"]
 jobs:
-  medir:
+  bajar:
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        parte: [0, 1, 2, 3, 4, 5, 6, 7]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
-      - run: pip install numpy lightgbm scikit-learn transformers sentence-transformers
+      - run: pip install numpy transformers
       - uses: actions/cache@v4
-        with: { path: ~/.cache/huggingface, key: noticias-ia-modelos }
-      # los titulares ya bajados de corridas anteriores (GDELT es lento: un pedido cada 5 s)
-      - uses: actions/cache@v4
-        with: { path: titulares_gdelt.jsonl, key: "titulares-${{ github.run_id }}", restore-keys: titulares- }
+        with: { path: ~/.cache/huggingface, key: noticias-ia-qwen }
+      - run: python -u -W ignore medir_noticias_ia.py - - --parte ${{ matrix.parte }}/8 --bajar-min 110 --minutos 100 | tee bajar_${{ matrix.parte }}.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: titulares-parte-${{ matrix.parte }}
+          path: |
+            titulares_parte_${{ matrix.parte }}.jsonl
+            bajar_${{ matrix.parte }}.txt
+  medir:
+    needs: bajar
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install numpy lightgbm scikit-learn sentence-transformers
+      - uses: actions/download-artifact@v4
+        with: { pattern: titulares-parte-*, merge-multiple: true }
       - run: python datos_entrenamiento.py
-      - run: python -u -W ignore medir_noticias_ia.py velas_1h.json eventos.json --minutos 130 | tee noticias_ia.txt
+      - run: python -u -W ignore medir_noticias_ia.py velas_1h.json eventos.json | tee noticias_ia.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
