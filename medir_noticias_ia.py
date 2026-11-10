@@ -149,14 +149,10 @@ def leer_ia(titulos, minutos):
     nom = "Qwen/Qwen2.5-1.5B-Instruct"
     tok = AutoTokenizer.from_pretrained(nom); tok.padding_side = "left"
     mod = AutoModelForCausalLM.from_pretrained(nom, torch_dtype=torch.float32).eval()
-    try:                                                    # pesos de 8 bits en la CPU: ~2 veces mas rapido
-        mod = torch.ao.quantization.quantize_dynamic(mod, {torch.nn.Linear}, dtype=torch.qint8)
-    except Exception as e:
-        print("  sin 8 bits:", type(e).__name__, flush=True)
     ids = [tok.encode(w, add_special_tokens=False)[0] for w in ("positive", "negative", "neutral")]
     msgs = [tok.apply_chat_template([
-        {"role": "system", "content": "You are a crypto market analyst. Answer with one word."},
-        {"role": "user", "content": f"Headline: \"{x[:200]}\"\nFor the bitcoin price in the next hours this is: positive, negative or neutral?"}],
+        {"role": "system", "content": "You are an expert crypto market analyst."},
+        {"role": "user", "content": f"News headline: \"{x[:200]}\"\nIs this news positive, negative or neutral for the price of bitcoin over the next few hours? Answer with one word: positive, negative or neutral."}],
         tokenize=False, add_generation_prompt=True) for x in titulos]
     # en orden de fecha (si se acaba el tiempo, queda leido un tramo seguido); dentro de cada tanda de 512, por largo
     out, t0, B = np.full(len(titulos), np.nan), time.time(), 16

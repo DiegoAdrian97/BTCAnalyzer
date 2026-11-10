@@ -1,7 +1,7 @@
 name: Medir noticias con IA
 # A mano desde Actions (o al cambiar el medidor): ¿una IA abierta que lee los titulares (y junta la misma noticia de
 # varios medios) anticipa mejor a BTC que las reglas de hoy? Solo mide y deja el resultado como artefacto.
-# 20 trabajos bajan los archivos de GDELT de un tramo de dias y leen sus titulares con la IA; uno junta todo y mide.
+# 40 trabajos (20 a la vez) bajan los archivos de GDELT de un tramo de dias y leen sus titulares con la IA; uno junta todo y mide.
 on:
   workflow_dispatch:
     inputs:
@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        parte: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+        parte: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -25,7 +25,7 @@ jobs:
       - run: pip install numpy transformers sentence-transformers
       - uses: actions/cache@v4
         with: { path: ~/.cache/huggingface, key: noticias-ia-modelos-2 }
-      - run: python -u -W ignore medir_noticias_ia.py - - --parte ${{ matrix.parte }}/20 --dias ${{ inputs.dias || 88 }} --minutos 165 | tee bajar_${{ matrix.parte }}.txt
+      - run: python -u -W ignore medir_noticias_ia.py - - --parte ${{ matrix.parte }}/40 --dias ${{ inputs.dias || 88 }} --minutos 165 | tee bajar_${{ matrix.parte }}.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
