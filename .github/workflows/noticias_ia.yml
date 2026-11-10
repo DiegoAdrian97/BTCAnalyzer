@@ -22,7 +22,7 @@ jobs:
       - uses: actions/cache@v4
         with: { path: titulares_gdelt.jsonl, key: "titulares-${{ github.run_id }}", restore-keys: titulares- }
       - run: python datos_entrenamiento.py
-      - run: python -u -W ignore medir_noticias_ia.py velas_1h.json eventos.json --minutos 170 | tee noticias_ia.txt
+      - run: python -u -W ignore medir_noticias_ia.py velas_1h.json eventos.json --minutos 130 | tee noticias_ia.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:

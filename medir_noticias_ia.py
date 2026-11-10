@@ -1,6 +1,7 @@
 """¿Una IA que lee las noticias anticipa mejor a BTC que las reglas de hoy? (medir antes de sumar)
 
-1. Titulares: GDELT (gratis, en ingles, con la hora en que salieron) de los ultimos ~88 dias que nombran bitcoin o cripto.
+1. Titulares: GDELT (gratis, en ingles, con la hora en que salieron) de los ultimos ~88 dias, en tres busquedas: cripto,
+   escalada de guerras y Trump / politica de EE.UU. (y la Fed). Quedan los que noticias.tema reconoce de esos temas.
 2. Misma noticia en varios medios, tres formas de contar:
      cada titular   (sin agrupar: lo que preocupa, la misma noticia vale varias veces)
      reglas         (noticias.misma_noticia: palabras en comun, lo que hace la app hoy)
@@ -24,7 +25,13 @@ import noticias as nt
 
 H, D = 3_600_000, 86_400_000
 CACHE = "titulares_gdelt.jsonl"
-SOBRE_BTC = re.compile(r"bitcoin|\bbtc\b|crypto|cripto|\bether|ethereum|stablecoin|\betfs?\b|saylor|microstrategy|coinbase|binance", re.I)
+QUERIES = {"cripto": "(bitcoin OR btc OR crypto OR cryptocurrency) sourcelang:english",
+           "guerra": "(war OR missile OR airstrike OR invasion OR escalation OR nuclear) sourcelang:english",
+           "eeuu": "(trump OR \"white house\" OR congress OR \"federal reserve\" OR tariffs OR \"executive order\") sourcelang:english"}
+# temas de noticias.tema que cuentan (lo mismo que mira la app para BTC, sin "Grandes gobiernos" de otros paises)
+TEMAS_OK = {"Cripto", "ETF", "Hackeo de exchange", "Hackeo o quiebra", "Guerras grandes", "Gobierno de EE.UU.", "Fed y tasas"}
+GRUPO = {"Cripto": "cripto", "ETF": "cripto", "Hackeo de exchange": "cripto", "Hackeo o quiebra": "cripto",
+         "Guerras grandes": "guerras", "Gobierno de EE.UU.": "EE.UU. y la Fed", "Fed y tasas": "EE.UU. y la Fed"}
 
 
 # ---------- 1. titulares de GDELT ----------
@@ -37,7 +44,7 @@ def _get(u, tries=4):
     return None
 
 
-def bajar(dias, horas_ventana=4):
+def bajar(dias, horas_ventana=6):
     hechos = {}
     if os.path.exists(CACHE):
         for l in open(CACHE):
@@ -47,10 +54,12 @@ def bajar(dias, horas_ventana=4):
     a = fin - timedelta(days=dias)
     with open(CACHE, "a") as f:
         while a < fin:
-            b = a + timedelta(hours=horas_ventana); v = a.strftime("%Y%m%d%H")
-            if v not in listo:
+            b = a + timedelta(hours=horas_ventana)
+            for cat, q in QUERIES.items():
+              v = f"{cat}:{a:%Y%m%d%H}"
+              if v not in listo:
                 u = "https://api.gdeltproject.org/api/v2/doc/doc?" + urllib.parse.urlencode({
-                    "query": "(bitcoin OR btc OR crypto) sourcelang:english", "mode": "artlist", "maxrecords": 250, "format": "json",
+                    "query": q, "mode": "artlist", "maxrecords": 250, "format": "json",
                     "startdatetime": a.strftime("%Y%m%d%H%M%S"), "enddatetime": b.strftime("%Y%m%d%H%M%S")})
                 txt = _get(u); time.sleep(5.5)            # GDELT: no mas de un pedido cada 5 segundos
                 try:
@@ -60,10 +69,11 @@ def bajar(dias, horas_ventana=4):
                 n = 0
                 for x in arts:
                     tit = (x.get("title") or "").strip()
-                    if not tit or x["url"] in hechos or not SOBRE_BTC.search(tit):
+                    tm = nt.tema(tit, "mundo") if tit else None
+                    if not tit or x["url"] in hechos or tm not in TEMAS_OK:
                         continue
                     t = int(datetime.strptime(x["seendate"], "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc).timestamp() * 1000)
-                    r = {"url": x["url"], "titulo": tit, "t": t, "medio": x.get("domain", ""), "ventana": v}
+                    r = {"url": x["url"], "titulo": tit, "t": t, "medio": x.get("domain", ""), "ventana": v, "tema": tm}
                     hechos[x["url"]] = r; f.write(json.dumps(r) + "\n"); n += 1
                 # ventana vacia: igual queda marcada (con una fila sin titulo) para no repetir el pedido
                 if not n:
@@ -84,7 +94,6 @@ def bajar(dias, horas_ventana=4):
 def grupos_reglas(rows):
     g, abiertos = np.zeros(len(rows), int), []
     for i, r in enumerate(rows):
-        r.setdefault("tema", nt.tema(r["titulo"], "cripto") or "Cripto")
         abiertos = [(j, x) for j, x in abiertos if r["t"] - x["t"] <= 12 * H]
         igual = next((j for j, x in abiertos if nt.misma_noticia(x, r)), None)
         if igual is None:
@@ -177,7 +186,8 @@ def main():
     a = ap.parse_args()
     rows = bajar(a.dias)
     t = np.array([r["t"] for r in rows], dtype=float)
-    print(f"\n{len(rows)} titulares distintos sobre bitcoin/cripto en {a.dias} dias ({len({r['medio'] for r in rows})} medios)")
+    print(f"\n{len(rows)} titulares distintos en {a.dias} dias ({len({r['medio'] for r in rows})} medios): "
+          + " · ".join(f"{k} {sum(GRUPO[r['tema']] == k for r in rows)}" for k in ("cripto", "guerras", "EE.UU. y la Fed")))
 
     from sentence_transformers import SentenceTransformer
     E = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2").encode(
@@ -216,6 +226,12 @@ def main():
         for cuenta, g in (("cada titular", np.arange(len(rows))), ("hechos (reglas)", gr), ("hechos (IA)", G["IA 0.75"])):
             pr = np.array([i for i in range(len(rows)) if g[i] == i and ok[i]])
             variantes[f"{lect} · {cuenta}"] = senal(T, t[pr], v[pr])
+    # cada tipo de noticia por separado (IA, hechos agrupados por IA)
+    gi = G["IA 0.75"]
+    for k in ("cripto", "guerras", "EE.UU. y la Fed"):
+        pr = np.array([i for i in range(len(rows)) if gi[i] == i and np.isfinite(ia[i]) and GRUPO[rows[i]["tema"]] == k])
+        if len(pr):
+            variantes[f"IA · solo {k}"] = senal(T, t[pr], ia[pr])
     res, mitad = [], np.median(tv[sel])
     for que in ("para donde", "movimiento fuerte"):
         for hz in (1, 4):
