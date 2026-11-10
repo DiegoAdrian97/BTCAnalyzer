@@ -95,14 +95,35 @@ def bajar(dias, parte=None):
 
 # ---------- 2. misma noticia ----------
 def grupos_reglas(rows):
-    g, abiertos = np.zeros(len(rows), int), []
+    """Lo mismo que noticias.misma_noticia contra los hechos de las ultimas 12 h (el primero que coincide), pero rapido:
+    solo se comparan los titulares que comparten alguna palabra clave (con 88 dias son cientos de miles)."""
+    from collections import defaultdict, deque
+    K = [nt.claves(r["titulo"]) for r in rows]
+    idx, g, ev = defaultdict(deque), np.zeros(len(rows), int), defaultdict(list)
     for i, r in enumerate(rows):
-        abiertos = [(j, x) for j, x in abiertos if r["t"] - x["t"] <= 12 * H]
-        igual = next((j for j, x in abiertos if nt.misma_noticia(x, r)), None)
-        if igual is None:
-            g[i] = i; abiertos.append((i, r))
+        viejo = lambda j: r["t"] - rows[j]["t"] > 12 * H
+        cnt = defaultdict(int)
+        for w in K[i]:
+            dq = idx[w]
+            while dq and viejo(dq[0]):
+                dq.popleft()
+            for j in dq:
+                cnt[j] += 1
+        ki, ok = len(K[i]), []
+        for j, c in cnt.items():
+            m = min(ki, len(K[j]))
+            if (c >= 3 and c / m >= 0.5) or (rows[j].get("tema") == r.get("tema") and c >= 2 and c / m >= 0.6):
+                ok.append(j)
+        if r.get("tema") in nt.EVENTO:                     # mismo exchange hackeado: lo decide misma_noticia
+            ok += [j for j in ev[r["tema"]] if not viejo(j) and nt.misma_noticia(rows[j], r)]
+        if ok:
+            g[i] = g[min(ok)]
         else:
-            g[i] = g[igual]
+            g[i] = i
+            for w in K[i]:
+                idx[w].append(i)
+            if r.get("tema") in nt.EVENTO:
+                ev[r["tema"]].append(i)
     return g
 
 
@@ -128,22 +149,30 @@ def leer_ia(titulos, minutos):
     nom = "Qwen/Qwen2.5-1.5B-Instruct"
     tok = AutoTokenizer.from_pretrained(nom); tok.padding_side = "left"
     mod = AutoModelForCausalLM.from_pretrained(nom, torch_dtype=torch.float32).eval()
+    try:                                                    # pesos de 8 bits en la CPU: ~2 veces mas rapido
+        mod = torch.ao.quantization.quantize_dynamic(mod, {torch.nn.Linear}, dtype=torch.qint8)
+    except Exception as e:
+        print("  sin 8 bits:", type(e).__name__, flush=True)
     ids = [tok.encode(w, add_special_tokens=False)[0] for w in ("positive", "negative", "neutral")]
-    out, t0 = np.full(len(titulos), np.nan), time.time()
-    for a in range(0, len(titulos), 16):
-        if time.time() - t0 > minutos * 60:
-            print(f"  tiempo agotado: {a} de {len(titulos)} titulares leidos", flush=True); break
-        msgs = [tok.apply_chat_template([
-            {"role": "system", "content": "You are an expert crypto market analyst."},
-            {"role": "user", "content": f"News headline: \"{x}\"\nIs this news positive, negative or neutral for the price of bitcoin over the next few hours? Answer with one word: positive, negative or neutral."}],
-            tokenize=False, add_generation_prompt=True) for x in titulos[a:a + 16]]
-        enc = tok(msgs, return_tensors="pt", padding=True)
-        with torch.no_grad():
-            lg = mod(**enc).logits[:, -1, ids]
-        p = torch.softmax(lg, -1).numpy()
-        out[a:a + 16] = p[:, 0] - p[:, 1]
-        if a % 800 == 0:
-            print(f"  IA: {a + len(msgs)}/{len(titulos)} ({time.time() - t0:.0f} s)", flush=True)
+    msgs = [tok.apply_chat_template([
+        {"role": "system", "content": "You are a crypto market analyst. Answer with one word."},
+        {"role": "user", "content": f"Headline: \"{x[:200]}\"\nFor the bitcoin price in the next hours this is: positive, negative or neutral?"}],
+        tokenize=False, add_generation_prompt=True) for x in titulos]
+    # en orden de fecha (si se acaba el tiempo, queda leido un tramo seguido); dentro de cada tanda de 512, por largo
+    out, t0, B = np.full(len(titulos), np.nan), time.time(), 16
+    for c in range(0, len(msgs), 512):
+        orden = sorted(range(c, min(c + 512, len(msgs))), key=lambda i: len(msgs[i]))
+        for a in range(0, len(orden), B):
+            if time.time() - t0 > minutos * 60:
+                print(f"  tiempo agotado: {int(np.isfinite(out).sum())} de {len(titulos)} titulares leidos", flush=True)
+                return out
+            ix = orden[a:a + B]
+            enc = tok([msgs[i] for i in ix], return_tensors="pt", padding=True)
+            with torch.no_grad():
+                lg = mod(**enc).logits[:, -1, ids]
+            p = torch.softmax(lg, -1).numpy()
+            out[ix] = p[:, 0] - p[:, 1]
+        print(f"  IA: {min(c + 512, len(msgs))}/{len(msgs)} ({time.time() - t0:.0f} s)", flush=True)
     return out
 
 
