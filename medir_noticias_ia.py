@@ -1,7 +1,7 @@
 """¿Una IA que lee las noticias anticipa mejor a BTC que las reglas de hoy? (medir antes de sumar)
 
-1. Titulares: GDELT (gratis, en ingles, con la hora en que salieron) de los ultimos ~88 dias, en tres busquedas: cripto,
-   escalada de guerras y Trump / politica de EE.UU. (y la Fed). Quedan los que noticias.tema reconoce de esos temas.
+1. Titulares: GDELT (gratis, todas las noticias en ingles cada 15 minutos, con su titular) de los ultimos ~88 dias.
+   Quedan los que noticias.tema reconoce de cripto, escalada de guerras y Trump / politica de EE.UU. (y la Fed).
 2. Misma noticia en varios medios, tres formas de contar:
      cada titular   (sin agrupar: lo que preocupa, la misma noticia vale varias veces)
      reglas         (noticias.misma_noticia: palabras en comun, lo que hace la app hoy)
@@ -19,16 +19,12 @@
 Uso: python medir_noticias_ia.py velas_1h.json eventos.json [--dias 88] [--minutos 200]
      en paralelo: --parte k/n en n maquinas (baja y lee su tramo), y despues sin --parte con los titulares_parte_*.jsonl
 """
-import argparse, json, math, os, random, re, time, urllib.parse, urllib.request
+import argparse, json, math, os, random, re, time, urllib.error, urllib.request
 from datetime import datetime, timedelta, timezone
 import numpy as np
 import noticias as nt
 
 H, D = 3_600_000, 86_400_000
-CACHE = "titulares_gdelt.jsonl"
-QUERIES = {"cripto": "(bitcoin OR btc OR crypto OR cryptocurrency) sourcelang:english",
-           "guerra": "(war OR missile OR airstrike OR invasion OR escalation OR nuclear) sourcelang:english",
-           "eeuu": "(trump OR \"white house\" OR congress OR \"federal reserve\" OR tariffs OR \"executive order\") sourcelang:english"}
 # temas de noticias.tema que cuentan (lo mismo que mira la app para BTC, sin "Grandes gobiernos" de otros paises)
 TEMAS_OK = {"Cripto", "ETF", "Hackeo de exchange", "Hackeo o quiebra", "Guerras grandes", "Gobierno de EE.UU.", "Fed y tasas"}
 GRUPO = {"Cripto": "cripto", "ETF": "cripto", "Hackeo de exchange": "cripto", "Hackeo o quiebra": "cripto",
@@ -36,75 +32,64 @@ GRUPO = {"Cripto": "cripto", "ETF": "cripto", "Hackeo de exchange": "cripto", "H
 
 
 # ---------- 1. titulares de GDELT ----------
-def _get(u, tries=4):
-    for k in range(tries):
-        try:
-            return urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"}), timeout=60).read().decode("utf-8", "replace")
-        except Exception as e:
-            print("  reintento", k, type(e).__name__, flush=True); time.sleep(10 * (k + 1))
-    return None
+# La API de busqueda de GDELT casi no contesta desde GitHub (limita por maquina). Se usan sus archivos de cada 15 minutos
+# (GKG 2.0: todas las noticias en ingles que vio, con el titular de la pagina), que no tienen limite.
+GKG = "http://data.gdeltproject.org/gdeltv2/{:%Y%m%d%H%M%S}.gkg.csv.zip"
+TIT = re.compile(rb"<PAGE_TITLE>(.*?)</PAGE_TITLE>")
 
 
-def ventanas(dias, parte=None, horas_ventana=6):
-    """Las ventanas de 6 h de los ultimos `dias` (hasta hoy 00 UTC, igual en todos los trabajos). Con parte = (k, n):
-    solo el tramo k de n, para bajar en paralelo desde varias maquinas (GDELT limita por maquina)."""
+def momentos(dias, parte=None):
+    """Los archivos de 15 min de los ultimos `dias` (hasta hoy 00 UTC, igual en todos los trabajos); con parte = (k, n),
+    solo el tramo k de n (para bajar en varias maquinas)."""
     fin = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    vs = [fin - timedelta(days=dias) + timedelta(hours=horas_ventana * i) for i in range(dias * 24 // horas_ventana)]
+    vs = [fin - timedelta(days=dias) + timedelta(minutes=15 * i) for i in range(dias * 96)]
     if parte:
         k, n = parte; m = -(-len(vs) // n); vs = vs[k * m:(k + 1) * m]
-    return [(a, a + timedelta(hours=horas_ventana)) for a in vs]
+    return vs
 
 
-def bajar(dias, parte=None, minutos=None):
-    hechos = {}
-    if os.path.exists(CACHE):
-        for l in open(CACHE):
-            r = json.loads(l); hechos[r["url"]] = r
-    listo = {r["ventana"] for r in hechos.values()}
-    t0, fallas = time.time(), 0
-    with open(CACHE, "a") as f:
-      for pasada in range(3):                               # lo que fallo se reintenta en la pasada siguiente
-        fallas = 0
-        for a, b in ventanas(dias, parte):
-            for cat, q in QUERIES.items():
-              v = f"{cat}:{a:%Y%m%d%H}"
-              if v not in listo and not (minutos and time.time() - t0 > minutos * 60):
-                u = "https://api.gdeltproject.org/api/v2/doc/doc?" + urllib.parse.urlencode({
-                    "query": q, "mode": "artlist", "maxrecords": 250, "format": "json",
-                    "startdatetime": a.strftime("%Y%m%d%H%M%S"), "enddatetime": b.strftime("%Y%m%d%H%M%S")})
-                txt = _get(u); time.sleep(5.5)            # GDELT: no mas de un pedido cada 5 segundos
-                try:                                      # GDELT a veces contesta con un texto ("limit requests")
-                    arts = json.loads(txt).get("articles", []) if txt is not None else None
-                except json.JSONDecodeError:
-                    arts = None
-                if arts is None:                          # fallo: no se marca, se reintenta en otra pasada
-                    fallas += 1; print(f"  {v}: fallo", flush=True); time.sleep(20); continue
-                n = 0
-                for x in arts:
-                    tit = (x.get("title") or "").strip()
-                    tm = nt.tema(tit, "mundo") if tit else None
-                    if not tit or x["url"] in hechos or tm not in TEMAS_OK:
-                        continue
-                    t = int(datetime.strptime(x["seendate"], "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc).timestamp() * 1000)
-                    r = {"url": x["url"], "titulo": tit, "t": t, "medio": x.get("domain", ""), "ventana": v, "tema": tm}
-                    hechos[x["url"]] = r; f.write(json.dumps(r) + "\n"); n += 1
-                # ventana vacia: igual queda marcada (con una fila sin titulo) para no repetir el pedido
-                if not n:
-                    f.write(json.dumps({"url": f"vacio:{v}", "titulo": "", "t": 0, "medio": "", "ventana": v}) + "\n")
-                listo.add(v); print(f"  {v}: {n} titulares", flush=True)
-        if not fallas:
+def _archivo(a):
+    import html, io, zipfile
+    for k in range(3):
+        try:
+            z = urllib.request.urlopen(urllib.request.Request(GKG.format(a), headers={"User-Agent": "Mozilla/5.0"}), timeout=120).read()
             break
-    print(f"bajada: {fallas} ventanas fallaron ({time.time() - t0:.0f} s)", flush=True)
-    if parte:
-        dentro = {f"{c}:{a:%Y%m%d%H}" for a, _ in ventanas(dias, parte) for c in QUERIES}
-        hechos = {k: r for k, r in hechos.items() if r["ventana"] in dentro}
-    rows = [r for r in hechos.values() if r["titulo"]]
-    # el mismo titular en dos direcciones (sindicacion): uno solo, el primero
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return None                                 # GDELT a veces saltea un cuarto de hora
+            time.sleep(5 * (k + 1))
+        except Exception:
+            time.sleep(5 * (k + 1))
+    else:
+        return None
+    t, out = int(a.timestamp() * 1000), []
+    with zipfile.ZipFile(io.BytesIO(z)) as zf:
+        for l in zf.open(zf.namelist()[0]):
+            m = TIT.search(l)
+            if not m:
+                continue
+            tit = html.unescape(m.group(1).decode("utf-8", "replace")).strip()
+            tm = nt.tema(tit, "mundo") if 12 < len(tit) < 300 else None
+            if tm in TEMAS_OK:
+                c = l.split(b"\t")
+                out.append({"url": c[4].decode("utf-8", "replace"), "titulo": tit, "t": t, "medio": c[3].decode("utf-8", "replace"), "tema": tm})
+    return out
+
+
+def bajar(dias, parte=None):
+    from concurrent.futures import ThreadPoolExecutor
+    ms, t0 = momentos(dias, parte), time.time()
+    with ThreadPoolExecutor(8) as ex:
+        res = list(ex.map(_archivo, ms))
+    faltan = sum(r is None for r in res)
+    rows = [r for x in res if x for r in x]
+    print(f"bajada: {len(ms) - faltan} de {len(ms)} archivos de 15 min, {len(rows)} titulares de los temas ({time.time() - t0:.0f} s)", flush=True)
+    # la misma direccion o el mismo titular (sindicacion): uno solo, el primero
     vistos, out = set(), []
     for r in sorted(rows, key=lambda r: r["t"]):
         k = r["titulo"].lower()
-        if k not in vistos:
-            vistos.add(k); out.append(r)
+        if k not in vistos and r["url"] not in vistos:
+            vistos.add(k); vistos.add(r["url"]); out.append(r)
     return out
 
 
@@ -202,12 +187,18 @@ def main():
     ap.add_argument("velas"); ap.add_argument("eventos")
     ap.add_argument("--dias", type=int, default=88); ap.add_argument("--minutos", type=float, default=200)
     ap.add_argument("--parte", help="k/n: solo baja y lee con la IA el tramo k de n (trabajos en paralelo)")
-    ap.add_argument("--bajar-min", type=float, default=None, help="tope de minutos para bajar titulares")
     a = ap.parse_args()
     if a.parte:
         k, n = map(int, a.parte.split("/"))
-        rows = bajar(a.dias, (k, n), a.bajar_min)
-        s = leer_ia([r["titulo"] for r in rows], a.minutos)
+        rows = bajar(a.dias, (k, n))
+        # la IA lee solo el primer titular de cada hecho (los demas medios toman esa lectura): rinde el tiempo
+        from sentence_transformers import SentenceTransformer
+        E = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2").encode(
+            [r["titulo"] for r in rows], batch_size=64, normalize_embeddings=True, show_progress_bar=False)
+        g = grupos_ia(np.array([r["t"] for r in rows], float), E, 0.80); pr = np.unique(g)
+        print(f"{len(pr)} hechos distintos para la IA", flush=True)
+        lei = dict(zip(pr, leer_ia([rows[i]["titulo"] for i in pr], a.minutos)))
+        s = np.array([lei[g[i]] for i in range(len(rows))])
         with open(f"titulares_parte_{k}.jsonl", "w") as f:
             for r, x in zip(rows, s):
                 f.write(json.dumps({**r, "ia": None if not np.isfinite(x) else round(float(x), 4)}) + "\n")
