@@ -34,7 +34,7 @@ const app = http.createServer((q, r) => {
 // ---- exchanges falsos (https en 8443; Chrome resuelve todos los dominios aca)
 const cert = path.join(os.tmpdir(), 'ab-prueba-cert');
 if (!fs.existsSync(cert + '.pem')) execSync(`openssl req -x509 -newkey rsa:2048 -nodes -keyout ${cert}.key -out ${cert}.pem -days 30 -subj /CN=localhost`, { stdio: 'ignore' });
-const PR = {}; ['BTC', 'ZEC', 'SOL', 'XRP', 'BABA', 'NVDA', 'GOOGL', 'AMD', 'AAPL', 'MSFT', 'AMZN', 'SPCX', 'META', 'TSLA', 'QQQ', 'SPY', 'MELI'].forEach((m, i) => { PR[`${m}USDT`] = 50 + i * 37; });
+const PR = {}; ['BTC', 'ZEC', 'SOL', 'XRP', 'BABA', 'NVDA', 'GOOGL', 'AMD', 'AAPL', 'MSFT', 'AMZN', 'SPCX', 'META', 'TSLA', 'QQQ', 'SPY', 'MSTR', 'MELI'].forEach((m, i) => { PR[`${m}USDT`] = 50 + i * 37; });
 const TF = { '5m': 3e5, '15m': 9e5, '30m': 18e5, '1h': 36e5, '4h': 144e5, '1d': 864e5 };
 const falsos = https.createServer({ key: fs.readFileSync(cert + '.key'), cert: fs.readFileSync(cert + '.pem') }, (q, r) => {
   const u = new URL(q.url, `https://${q.headers.host}`), cors = { 'Access-Control-Allow-Origin': '*' };

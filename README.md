@@ -293,7 +293,7 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
 - Botones de 40 px en pantallas táctiles, textos de al menos 11 px, explicaciones largas plegadas (se abren tocándolas),
   resumen de una línea en "Qué está pasando" cerrado, y horarios aclarados (vela en curso vs. desde ahora).
 
-### Acciones en la app: AAPL, NVDA, MSFT, GOOGL, AMZN, SPCX, META, TSLA, AMD, BABA, MELI y los índices SPY y QQQ
+### Acciones en la app: AAPL, NVDA, MSFT, GOOGL, AMZN, SPCX, META, TSLA, AMD, BABA, MSTR, MELI y los índices SPY y QQQ
 
 Los perpetuos de acciones (`BABAUSDT`, `NVDAUSDT`, `GOOGLUSDT`, `AMDUSDT` en Binance; `MELIUSDT` solo en Bitget) se
 analizan en la app como una cripto más: mismas velas, indicadores, patrones, predicciones con su propio repaso,
@@ -315,6 +315,8 @@ Noticias propias de cada una (nada de cripto; el calendario de EE.UU. sigue apar
   En META, "meta" sola no cuenta (en castellano es "objetivo": "la meta de inflación").
 - **SPCX**: SpaceX, Starlink y Starship (y Elon Musk), espacio y defensa (contratos del Pentágono, NASA), EE.UU. y la bolsa.
 - **TSLA**: Tesla y Elon Musk, autos eléctricos y robotaxis (BYD, Rivian, Waymo como rivales), EE.UU. y la bolsa.
+- **MSTR**: Strategy (ex MicroStrategy), Michael Saylor y sus compras de bitcoin, el precio de BTC y los ETF, EE.UU. y la bolsa.
+  "Strategy" sola no cuenta (es una palabra común): tiene que venir junto a bitcoin, acciones o sus preferidas.
 - **QQQ** y **SPY**: el Nasdaq o el S&P 500, las grandes tecnológicas (las 7 magníficas), economía de EE.UU. y la bolsa.
 
 Cada titular se marca bueno o malo **para esa acción**: se corta lo que viene después de "pese a"/"despite", manda lo que
@@ -333,6 +335,9 @@ y flujo salen de Binance, y funding y precio de marca de Bitget. **MELI**: velas
 Bitget (en vivo por su WebSocket); no hay historia gratis de open interest, long/short ni flujo, así que le faltan esas
 señales y el mapa de liquidaciones. Existe desde agosto de 2026 y tiene poco volumen: su tabla de movimiento es la más
 débil (el último grupo, con un solo caso, no se usa en la práctica).
+**MSTR** (`MSTRUSDT` de Binance, desde fines de octubre de 2026): todavía no tiene tabla de movimiento fuerte, porque con
+pocas semanas no se puede medir (aparece sin probabilidad y se suma cuando haya unos 3 meses). Las posiciones de BingX
+entran igual: el símbolo de BingX de las acciones (`NCSKMSTR2USD-USDT` o `MSTR-USDT`) se lee como MSTR.
 
 ### Criptos en la app: BTC, ZEC, SOL y XRP
 

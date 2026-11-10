@@ -762,7 +762,7 @@
   // Cuando hay una suba o baja fuerte junta lo que coincide en el tiempo: liquidaciones o dinero nuevo en futuros,
   // compras o ventas a mercado, compras desde EE.UU. (prima de Coinbase), entradas o salidas de los ETF y las noticias
   // de esas horas (guerras, la Fed, aranceles, hackeos...). Son coincidencias, no pruebas de la causa.
-  const TEMA_ORDEN = ['Hackeo de exchange', 'Fed y tasas', 'Guerras grandes', 'Gobierno de EE.UU.', 'Grandes gobiernos', 'ETF', 'Hackeo o quiebra', 'Alibaba', 'Nvidia', 'Alphabet', 'AMD', 'Apple', 'Microsoft', 'Amazon', 'SpaceX', 'Meta', 'Tesla', 'Nasdaq 100', 'S&P 500', 'Mercado Libre', 'China', 'Economía de EE.UU.', 'Latinoamérica', 'Chips e IA', 'IA y tecnología', 'Grandes tecnológicas', 'Autos eléctricos', 'Espacio y defensa', 'Mercado bursátil', 'Cripto'];
+  const TEMA_ORDEN = ['Hackeo de exchange', 'Fed y tasas', 'Guerras grandes', 'Gobierno de EE.UU.', 'Grandes gobiernos', 'ETF', 'Hackeo o quiebra', 'Alibaba', 'Nvidia', 'Alphabet', 'AMD', 'Apple', 'Microsoft', 'Amazon', 'SpaceX', 'Meta', 'Tesla', 'Nasdaq 100', 'S&P 500', 'Strategy', 'Mercado Libre', 'China', 'Economía de EE.UU.', 'Latinoamérica', 'Chips e IA', 'IA y tecnología', 'Grandes tecnológicas', 'Autos eléctricos', 'Espacio y defensa', 'Mercado bursátil', 'Cripto'];
   // acciones (perpetuos): de donde salen sus noticias y desde cuando hay velas
   const ACC_INFO = { BABA: ['Alibaba, China, Wall Street y Hang Seng', 'Binance', 'mediados de 2026'], NVDA: ['Nvidia, chips e IA, economía de EE.UU. y Wall Street', 'Binance', '2026'],
     GOOGL: ['Alphabet/Google, IA y tecnología, economía de EE.UU. y Wall Street', 'Binance', '2026'], AMD: ['AMD, chips e IA, economía de EE.UU. y Wall Street', 'Binance', '2026'],
@@ -771,6 +771,7 @@
     META: ['Meta (Facebook, Instagram, WhatsApp), IA y tecnología, economía de EE.UU. y Wall Street', 'Binance', 'marzo de 2026'], TSLA: ['Tesla y Elon Musk, autos eléctricos, economía de EE.UU. y Wall Street', 'Binance', 'enero de 2026'],
     QQQ: ['el Nasdaq, las grandes tecnológicas, la economía de EE.UU. y Wall Street', 'Binance', 'abril de 2026'],
     SPY: ['el S&P 500, las grandes tecnológicas, la economía de EE.UU. y Wall Street', 'Binance', 'abril de 2026'],
+    MSTR: ['Strategy (MicroStrategy) y el bitcoin que compra, Bitcoin, economía de EE.UU. y Wall Street', 'Binance', 'fines de octubre de 2026'],
     MELI: ['Mercado Libre, Latinoamérica (Brasil, Argentina, México) y Wall Street', 'Bitget', 'agosto de 2026'] };
   const haceTxt = (t) => {
     const m = Math.max(0, Math.round((Date.now() - t) / 60000));

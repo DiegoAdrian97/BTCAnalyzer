@@ -29,13 +29,20 @@ async function pedir(path, params, key, secret) {
   return j.data;
 }
 
+/** Simbolo de BingX -> activo de la app: BTC-USDT -> BTC; acciones: NCSKMSTR2USD-USDT, NCSKMSTR-USDT o MSTR-USDT -> MSTR. */
+function activo(symbol) {
+  const b = String(symbol).toUpperCase().split('-')[0];
+  const m = /^NCS[KIC]([A-Z0-9]+?)(?:2USD)?$/.exec(b);
+  return m ? m[1] : b;
+}
+
 /** Posiciones por cripto (BTC-USDT -> BTC), en el formato de plan_compras.json "posiciones" mas lo que da BingX. */
 function posiciones(data) {
   const out = {};
   (Array.isArray(data) ? data : []).forEach((p) => {
     const cant = Math.abs(+p.positionAmt || 0);
     if (!cant) return;
-    const m = String(p.symbol).split('-')[0];
+    const m = activo(p.symbol);
     // signo: 1 long, -1 short (en modo de una sola direccion, BingX lo da con el signo de positionAmt)
     const signo = p.positionSide === 'SHORT' || (p.positionSide !== 'LONG' && +p.positionAmt < 0) ? -1 : 1;
     out[m] = { cantidad: cant, signo, entrada: +p.avgPrice, margen: +(p.margin || p.initialMargin || 0), lado: p.positionSide,
@@ -52,7 +59,7 @@ function ordenes(data) {
   const out = {};
   ((data && data.orders) || []).forEach((o) => {
     if (o.side !== 'BUY' || o.type !== 'LIMIT') return;
-    const m = String(o.symbol).split('-')[0];
+    const m = activo(o.symbol);
     (out[m] = out[m] || []).push({ precio: +o.price, cantidad: +o.origQty, valor: +o.price * +o.origQty });
   });
   return out;

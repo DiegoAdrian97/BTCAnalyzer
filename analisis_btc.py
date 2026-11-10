@@ -267,7 +267,9 @@ def movimiento(c5, price, moneda="BTC"):
     rangos.sort()
     normal = rangos[len(rangos) // 2]
     k = sum(1 for x in MOV_CORTES if vol >= x)
-    t = MOV_TABLA[moneda]
+    t = MOV_TABLA.get(moneda)
+    if t is None:             # MSTR: pocas semanas de historia, sin tabla medida (no se inventa)
+        return None
     nivel = "Calma" if vol < 0.8 else "Normal" if vol < 1.3 else "Agitado" if vol < 1.8 else "Se despertó"
     return {"tabla": "movimiento", "volatilidad": round(vol, 2), "nivel": nivel, "prob_fuerte": t["prob"][k],
             "prob_normal": t["base"], "veces": t["veces"][k], "normal_pct": round(normal * 100, 2),

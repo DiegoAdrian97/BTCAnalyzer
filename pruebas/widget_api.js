@@ -40,5 +40,9 @@ const llamar = async (fn, clave) => new Promise((ok) => {
   falla = new Set();
   r = await llamar(pos, 'clave-de-prueba');
   assert.strictEqual(r.c, 200); assert.strictEqual(r.j.capital.total, 9830.75); assert.ok(r.j.posiciones.BTC);
+  // simbolos de acciones de BingX -> activo de la app (MSTR)
+  const ps = pos.posiciones([{ symbol: 'NCSKMSTR2USD-USDT', positionAmt: '2', avgPrice: '300' }, { symbol: 'MSTR-USDT', positionAmt: '-1', avgPrice: '1' },
+    { symbol: '1000PEPE-USDT', positionAmt: '1', avgPrice: '1' }]);
+  assert.deepStrictEqual(Object.keys(ps).sort(), ['1000PEPE', 'MSTR']);
   console.log('widget_api: todo bien');
 })().catch((e) => { console.error(e); process.exit(1); });

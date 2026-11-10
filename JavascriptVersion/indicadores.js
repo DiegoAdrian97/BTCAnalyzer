@@ -17,6 +17,7 @@
    * hacia el par. toFixed de JavaScript desempata siempre hacia arriba.
    */
   function fixedLikePython(x, d) {
+    if (!Number.isFinite(x)) return Number.isNaN(x) ? 'nan' : x > 0 ? 'inf' : '-inf';   // como Python (poca historia: MSTR)
     // atajo: si no esta cerca de un empate (…5 justo), toFixed ya redondea igual que Python (los dos miran el valor
     // binario exacto). Solo los casi empates van por el camino lento. Se llama decenas de miles de veces por analisis
     const m = Math.abs(x) * 10 ** d, fr = m - Math.floor(m);

@@ -9,7 +9,7 @@
   let rows = null;
   const fns = [];
   // el activo que se analiza (cada uno con su ultimo analisis: en memoria y guardado en el telefono para mostrarlo al toque)
-  const MONEDAS = ['BTC', 'ZEC', 'SOL', 'XRP', 'BABA', 'NVDA', 'GOOGL', 'AMD', 'AAPL', 'MSFT', 'AMZN', 'SPCX', 'META', 'TSLA', 'QQQ', 'SPY', 'MELI'];
+  const MONEDAS = ['BTC', 'ZEC', 'SOL', 'XRP', 'BABA', 'NVDA', 'GOOGL', 'AMD', 'AAPL', 'MSFT', 'AMZN', 'SPCX', 'META', 'TSLA', 'QQQ', 'SPY', 'MSTR', 'MELI'];
   let moneda = 'BTC';
   try { const g = localStorage.getItem('app-moneda'); moneda = MONEDAS.includes(g) ? g : 'BTC'; } catch (e) { /* sin almacenamiento */ }
   // Contexto del activo (como un Context de React, sin React): una sola fuente de verdad de que activo se esta mirando.

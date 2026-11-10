@@ -102,7 +102,7 @@
   }
   function fase(y) { return y % 4 === 2 ? 'bajista' : `alcista ${(((y - 3) % 4) + 4) % 4 + 1}`; }
   // minimo probable en los proximos 6 meses (como piso de termometro.py)
-  const ACCIONES_PISO = new Set(['BABA', 'NVDA', 'GOOGL', 'AMD', 'AAPL', 'MSFT', 'AMZN', 'SPCX', 'META', 'TSLA', 'QQQ', 'SPY', 'MELI']);
+  const ACCIONES_PISO = new Set(['BABA', 'NVDA', 'GOOGL', 'AMD', 'AAPL', 'MSFT', 'AMZN', 'SPCX', 'META', 'TSLA', 'QQQ', 'SPY', 'MSTR', 'MELI']);
   function interpCdf(x, xs, ys) {
     if (x <= xs[0]) return 0;
     if (x >= xs[xs.length - 1]) return 1;
@@ -247,6 +247,7 @@
     }
     rangos.sort((a, b) => a - b);
     const normal = rangos[Math.floor(rangos.length / 2)], k = MOV_CORTES.filter((x) => vol >= x).length, t = MOV_TABLA[moneda];
+    if (!t) return null;     // MSTR: pocas semanas de historia, sin tabla medida (no se inventa)
     const nivel = vol < 0.8 ? 'Calma' : vol < 1.3 ? 'Normal' : vol < 1.8 ? 'Agitado' : 'Se despertó';
     return { tabla: 'movimiento', volatilidad: rnd(vol, 2), nivel, prob_fuerte: t.prob[k], prob_normal: t.base, veces: t.veces[k],
       normal_pct: rnd(normal * 100, 2), esperado_pct: rnd(normal * t.veces[k] * 100, 2), normal_usd: rp(normal * price),

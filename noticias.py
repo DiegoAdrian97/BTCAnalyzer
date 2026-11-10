@@ -29,7 +29,7 @@ FEEDS = [
     ("cripto", GN_EN + "(hack+OR+hacked+OR+breach+OR+exploit+OR+drained+OR+stolen)+(Binance+OR+Coinbase+OR+Kraken+OR+OKX+OR+Bybit+OR+Bitget+OR+BingX+OR+KuCoin+OR+Tether+OR+exchange)+when:1d"),
     ("cripto", "https://www.coindesk.com/arc/outboundfeeds/rss/"),
 ]
-# ---------- acciones e indices (perpetuos de BABA, NVDA, GOOGL, AMD, AAPL, MSFT, AMZN, SPCX, META, TSLA, QQQ, SPY y MELI) ----------
+# ---------- acciones e indices (perpetuos de BABA, NVDA, GOOGL, AMD, AAPL, MSFT, AMZN, SPCX, META, TSLA, QQQ, SPY, MSTR y MELI) ----------
 # Nada de cripto. Para cada una: la empresa, su pais o region (la economia que la mueve), su sector si tiene uno claro
 # y la bolsa. Un titular de un rival solo (sin la empresa) entra al sector como neutral. Igual que contexto.js.
 BOLSA = r"\bmercados?\b|\bmarkets?\b|wall street|s&p ?500|\bnasdaq\b|dow jones|\bdow\b|hang seng|\bbolsas?\b|stock market|\bstocks?\b|\bacciones\b|\bnyse\b|\bvix\b|equities|mercado burs[aá]til|[ií]ndices burs|merval|ibovespa|bovespa"
@@ -105,6 +105,10 @@ ACCIONES = {
             "region": "Economía de EE.UU.", "region_rx": EEUU, "region_solo": EEUU_SOLO, "sector": "Grandes tecnológicas", "sector_rx": MEGA_TEC,
             "rivales": NUNCA,
             "feeds": [_GN("%22S%26P+500%22+OR+%22Wall+Street%22"), _GN_EN("%22S%26P+500%22+OR+SPY+OR+%22stock+market%22+OR+%22Wall+Street%22")] + EEUU_FEEDS + BOLSA_FEEDS},
+    "MSTR": {"empresa": "Strategy", "rx": r"microstrategy|\bmstr\b|michael saylor|\bsaylor\b|strategy inc|\bstrategy\b.{0,40}(?:bitcoin|btc|shares|stock|acciones|preferred|stretch|strk|strf|strd|strc)|(?:bitcoin|btc).{0,40}\bstrategy\b|phong le",
+             "region": "Economía de EE.UU.", "region_rx": EEUU, "region_solo": EEUU_SOLO, "sector": "Bitcoin", "sector_rx": r"bitcoin|\bbtc\b|criptomonedas?|cryptocurrenc|\bcrypto\b|spot bitcoin etf|etf de bitcoin|coinbase|metaplanet|tesorer[ií]a",
+             "rivales": r"metaplanet|marathon|\bmara\b|riot|coinbase|bitmine|twenty one|semler|trump media",
+             "feeds": [_GN("MicroStrategy+OR+Strategy+OR+%22Michael+Saylor%22"), _GN_EN("MicroStrategy+OR+MSTR+OR+%22Michael+Saylor%22+OR+%22Strategy+Inc%22"), _GN_EN("bitcoin+(price+OR+ETF+OR+treasury)")] + EEUU_FEEDS + BOLSA_FEEDS},
     "MELI": {"empresa": "Mercado Libre", "rx": r"mercado ?libre|\bmeli\b|mercado pago|galperin|szarfsztejn",
              "region": "Latinoamérica", "region_rx": LATAM, "region_solo": LATAM_SOLO, "sector": None, "sector_rx": None,
              "rivales": r"amazon|shopee|\btemu\b|shein|magalu|nubank|ual[aá]",
