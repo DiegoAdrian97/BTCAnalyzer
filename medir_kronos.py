@@ -120,13 +120,15 @@ def logit_online(t, p, y, h_ms, minimo=150):
         if len(prev) < minimo:
             continue
         a, b = 1.0, 0.0
-        for _ in range(60):                                   # Newton, 2 parametros
-            f = 1 / (1 + np.exp(-(a * lp[prev] + b)))
+        for _ in range(60):                                   # Newton, 2 parametros (pasos acotados: no diverge)
+            f = 1 / (1 + np.exp(-np.clip(a * lp[prev] + b, -30, 30)))
             g = f - y[prev]; w_ = f * (1 - f) + 1e-9
             Hm = np.array([[np.sum(w_ * lp[prev] ** 2), np.sum(w_ * lp[prev])], [np.sum(w_ * lp[prev]), np.sum(w_)]]) + 1e-6 * np.eye(2)
-            da, db = np.linalg.solve(Hm, [np.sum(g * lp[prev]), np.sum(g)])
+            da, db = np.clip(np.linalg.solve(Hm, [np.sum(g * lp[prev]), np.sum(g)]), -1, 1)
             a, b = a - da, b - db
-        out[i] = 1 / (1 + np.exp(-(a * lp[i] + b)))
+        if not (np.isfinite(a) and np.isfinite(b)):
+            a, b = 0.0, float(np.log((y[prev].mean() + 1e-3) / (1 - y[prev].mean() + 1e-3)))
+        out[i] = 1 / (1 + np.exp(-np.clip(a * lp[i] + b, -30, 30)))
     return out
 
 

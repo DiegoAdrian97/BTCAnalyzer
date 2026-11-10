@@ -620,6 +620,25 @@ Cada una contra un control (lo que daría el azar en la misma situación), BTC 2
 | Vencimiento de opciones (dolor máximo) | No hay historia gratuita del interés abierto por precio | No se mide |
 | Nasdaq (QQQ) adelantándose a BTC | Yahoo no le da velas de 1 h a GitHub (429); no hay otra fuente gratuita de intradiario | No se pudo medir |
 
+### Kronos, el modelo de IA de velas (`medir_kronos.py`, nov. 2026)
+
+[Kronos](https://github.com/shiyu-coder/Kronos) es un modelo abierto entrenado con unos 12 mil millones de velas de 45
+bolsas. Se midió sin ajuste propio (como viene): con las últimas 512 velas arma 30 caminos posibles y de ahí salen la
+probabilidad de subir, el rango del 80%, el precio esperado (mediana) y la probabilidad de movimiento fuerte, todo contra lo
+que ya usa la app. Solo desde sep-2025, porque podría haber visto velas anteriores al entrenarse. BTC, SOL, XRP y ZEC con
+Kronos-mini (unos 1.270 momentos por moneda, cada 8 h, más unos 420 días) y BTC y SOL con Kronos-small (cada 24 h). Corre en
+GitHub Actions (`.github/workflows/kronos.yml`, a mano), porque pide torch.
+
+| Qué predice (1 h, 4 h y 1 día) | Kronos contra lo de la app (z, por día; positivo = Kronos mejor) | ¿Entra? |
+|---|---|---|
+| Para dónde va (probabilidad de subir) | Crudo: −2,8 a −7,0, peor que la tasa base · calibrado: −8,1 a +1,4 · acierta 44–53% | No |
+| Rango del 80% | −1,3 a −11,5: más ancho con la misma cobertura (BTC 1 h: 1,3–1,5% contra 0,9–1,1%) | No |
+| Precio esperado | −2,8 a −9,7: peor que "queda donde está" | No |
+| Movimiento fuerte | Solo: −0,1 a −2,9 · promediado con el modelo de la app: −1,6 a +1,4 (empata) | No |
+
+Ninguna mejora en un solo tramo con z > 2, y el modelo más grande (small) tampoco. Para volver a medir otra versión:
+Actions → "Medir Kronos" → Run workflow (modelo mini, small o base).
+
 ### Compresión de las Bollinger (`medir_compresion.py`)
 
 Con el ancho de las Bollinger (20, 2; velas de 1 hora) entre el 10% más angosto de los últimos 30 días, medido con BTC
