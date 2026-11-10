@@ -644,6 +644,22 @@ GitHub Actions (`.github/workflows/kronos.yml`, a mano), porque pide torch.
 Ninguna mejora en un solo tramo con z > 2, y el modelo más grande (small) tampoco. Para volver a medir otra versión:
 Actions → "Medir Kronos" → Run workflow (modelo mini, small o base).
 
+**Lo que Kronos mira y la app no** (`medir_ideas_kronos.py`, Actions → "Medir ideas de Kronos"): calendario (día de la
+semana, día del mes, fin de mes), mechas de arriba y de abajo por separado (última vela y promedio de 6) y monto en USDT
+contra su semana. Cada grupo y los tres juntos, sumados a las señales del modelo de movimiento fuerte y a un modelo de
+dirección igual, a 1 y 4 h, en BTC, SOL, XRP y ZEC (2023-24, 2025 y 2026):
+
+| Idea | Movimiento fuerte (z) | Para dónde (z) | ¿Entra? |
+|---|---|---|---|
+| Calendario | −1,8 a +3,5 (3 de 24 tramos con z > 2) | −1,5 a +2,9 (1 de 24) | No |
+| Mechas | −2,2 a +2,3 (3 de 24) | −2,1 a +2,5 (3 de 24) | No |
+| Monto en USDT | −2,2 a +2,1 (1 de 24) | −2,6 a +2,0 (0 de 24) | No |
+| Los tres juntos | −2,0 a +2,7 (3 de 24) | −1,8 a +2,4 (2 de 24) | No |
+
+Ninguna gana en los tres tramos de ninguna moneda: los pocos tramos sueltos con z > 2 son los que da el azar al probar
+tantas combinaciones. De paso: el modelo de dirección con todas las señales le gana a la tasa base por −1,4% a +1,2%
+(casi nada), mientras que el de movimiento fuerte gana 3,5% a 11,9%.
+
 ### Compresión de las Bollinger (`medir_compresion.py`)
 
 Con el ancho de las Bollinger (20, 2; velas de 1 hora) entre el 10% más angosto de los últimos 30 días, medido con BTC
