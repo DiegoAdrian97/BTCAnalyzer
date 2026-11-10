@@ -18,3 +18,4 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python pruebas/paridad.py
       - run: python pruebas/sesgo.py
+      - run: node pruebas/widget_api.js   # /api/widget y el capital, con BingX simulado

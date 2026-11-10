@@ -112,6 +112,18 @@ cantidad × (precio de ahora − precio al leer BingX), así la diferencia entre
 error). El punto verde dice que llegan precios; gris, que se está usando el de cada 15 s. Se corta con la app en
 segundo plano o al mirar una acción.
 
+**Capital total** (al lado del PnL): futuros USDT-M de BingX (saldo + PnL no realizado, `/openApi/swap/v3/user/balance`)
+más el resto de tus cuentas de BingX en USDT (spot, fondos, grid, copy trading: `/openApi/account/v1/allAccountBalance`).
+Se lee con las posiciones y se mueve en vivo con el PnL. Si BingX no da una de las dos partes, dice "parcial".
+
+**Widget de iPhone** (pantalla de inicio o de bloqueo): con la app gratis
+[Scriptable](https://apps.apple.com/app/scriptable/id1405459188) y `JavascriptVersion/widget-iphone.js` (en la app:
+Mis posiciones → "Widget de iPhone" → "Copiar el código", y los pasos ahí mismo). Pide `/api/widget`
+(`JavascriptVersion/api/widget.js`: solo capital total, PnL no realizado, su % sobre el margen y el de cada cripto) con la
+misma contraseña, que el widget guarda en el llavero del iPhone y manda en un encabezado (nunca en la dirección ni en el
+código). Parámetro del widget: `capital`, `pnl` o vacío. iOS decide cada cuánto se actualiza (en general 5 a 15 min);
+abajo dice hace cuánto se leyó, y sin conexión muestra el último dato con un aviso. Prueba: `node pruebas/widget_api.js`.
+
 ### Notificaciones en la página
 
 La campanita al lado del título junta los avisos, en el propio dispositivo: cambio de zona del termómetro, funding

@@ -546,31 +546,59 @@
       fs.forEach(([, lado, peso, txt]) => { const li = el('li', punto === 'fuerza' ? (lado > 0 ? 'fuerte' : '') : lado > 0 ? 'sube' : 'baja'); li.append(el('span', '', txt), el('i', '', `${lado > 0 ? '+' : '−'}${String(peso).replace('.', ',')}`)); ul.append(li); });
       return d;
     };
-    const bloque = (id, cls, k, titulo, sub, extra) => {
+    const bloque = (id, cls, k, lineas, extra) => {
       const b = document.getElementById(id); b.className = `ab-ce-p ${cls}`.trim();
-      b.replaceChildren(el('small', '', k), el('b', '', titulo), ...(sub ? [el('span', '', sub)] : []), ...(extra || []).filter(Boolean));
+      b.replaceChildren(el('h3', '', k), ...lineas.filter(Boolean).map((t) => el('span', '', t)), ...(extra || []).filter(Boolean));
     };
-    // 1. fuerza
+    // precios cortos para la fila de respuestas: 91,8k (de 10.000 para arriba), si no el precio comun
+    const fk = (x) => (x >= 10000 ? `${f1(x / 1000)}k` : fp(x));
+    const par = (a, b) => (a >= 10000 && b >= 10000 ? `${f1(a / 1000)}–${f1(b / 1000)}k` : `${fk(a)}–${fk(b)}`);
     const hs = pick(rows, 'horas')[0];
-    const fzTxt = c.fuerza === 'alta' ? 'Sí, se viene movimiento fuerte' : c.fuerza === 'media' ? 'Puede venir un movimiento fuerte' : 'No por ahora';
-    const fzSub = [okv(c.prob_fuerte) ? `Chance ${f0(num(c.prob_fuerte))}% (lo normal ${f0(num(c.prob_normal))}%)` : null,
-      hs && hs.max_f - hs.min_f >= 0.3 && ['5m', '15m', '30m', '1h'].includes(c.tf) ? `suele moverse más a las ${horaAR(hs.max_t)} h` : null].filter(Boolean).join(' · ');
-    bloque('ce-fuerza', c.fuerza === 'alta' ? 'fuerte' : '', '¿Se viene movimiento fuerte?', fzTxt, fzSub, [lista('fuerza')]);
+    // 0. la fila de respuestas
+    const tira = document.getElementById('ce-tira');
+    const celda = (k, cls, lbl, val, nota) => {
+      const d = el('div', `ab-ce-c ${cls}`.trim()); d.setAttribute('role', 'listitem'); d.dataset.k = k;
+      const b = el('b', '', val); if (nota) b.append(el('i', '', nota));
+      d.append(el('small', '', lbl), b); return d;
+    };
+    tira.replaceChildren(
+      celda('fz', c.fuerza === 'alta' ? 'fuerte' : '', 'Mov. fuerte', c.fuerza === 'alta' ? 'Sí' : c.fuerza === 'media' ? 'Puede' : 'No',
+        okv(c.prob_fuerte) ? `${f0(num(c.prob_fuerte))}%` : ''),
+      celda('dir', c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '', 'Dirección',
+        c.direccion === 'sube' ? '▲ Sube' : c.direccion === 'baja' ? '▼ Baja' : 'Neutral'),
+      celda('rng', '', 'Rango', okv(c.rango_min) ? par(num(c.rango_min), num(c.rango_max)) : '—'),
+      celda('niv', '', 'Sop. – res.', okv(c.soporte) && okv(c.resistencia) ? par(num(c.soporte), num(c.resistencia))
+        : okv(c.soporte) ? `S ${fk(num(c.soporte))}` : okv(c.resistencia) ? `R ${fk(num(c.resistencia))}` : '—'));
+    // 1. fuerza
+    bloque('ce-fuerza', c.fuerza === 'alta' ? 'fuerte' : '', '¿Movimiento fuerte?', [
+      okv(c.prob_fuerte) ? `Chance ${f0(num(c.prob_fuerte))}% (lo normal: ${f0(num(c.prob_normal))}%)` : 'Sin chance medida en este plazo',
+      hs && hs.max_f - hs.min_f >= 0.3 && ['5m', '15m', '30m', '1h'].includes(c.tf) ? `Suele moverse más a las ${horaAR(hs.max_t)} h` : null], [lista('fuerza')]);
     // 2. direccion
-    const drTxt = c.direccion === 'sube' ? '▲ Más probable que suba' : c.direccion === 'baja' ? '▼ Más probable que baje' : 'Sin dirección clara';
-    const drSub = `señales: ${String(c.a_favor).replace('.', ',')} a favor de la suba · ${String(c.en_contra).replace('.', ',')} de la baja`
-      + (okv(c.prob_sube) ? ` · toca primero arriba ${f0(num(c.prob_sube))}%` : '');
-    bloque('ce-dir', c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '', '¿Sube o baja?', drTxt, drSub, [lista('direccion')]);
-    // 3. alcance
-    const alc = [];
-    if (okv(c.obj_arriba) && okv(c.obj_abajo)) alc.push(`objetivos ▲ ${fp(num(c.obj_arriba))}${okv(c.toca_arriba) ? ` (${f0(num(c.toca_arriba))}%)` : ''} · ▼ ${fp(num(c.obj_abajo))}${okv(c.toca_abajo) ? ` (${f0(num(c.toca_abajo))}%)` : ''}`);
-    if (okv(c.esperado_usd)) alc.push(`en una hora suele moverse ~${fp(num(c.esperado_usd))} USD`);
-    if (okv(c.elliott_objetivo)) alc.push(`objetivo de Elliott ${fp(num(c.elliott_objetivo))}`);
-    bloque('ce-alc', '', '¿Hasta dónde?', okv(c.rango_min) ? `${fp(num(c.rango_min))} – ${fp(num(c.rango_max))}` : '—',
-      [okv(c.rango_min) ? '8 de cada 10 veces terminó en ese rango' : 'sin predicción en esta temporalidad', ...alc].join(' · '));
-    // 4. niveles
-    bloque('ce-niv', '', 'Niveles', `${okv(c.soporte) ? `soporte ${fp(num(c.soporte))}` : 'sin soporte cerca'} · ${okv(c.resistencia) ? `resistencia ${fp(num(c.resistencia))}` : 'sin resistencia cerca'}`,
-      c.invalida || '');
+    bloque('ce-dir', c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '', '¿Para dónde?', [
+      `Señales: ${String(c.a_favor).replace('.', ',')} a favor de la suba, ${String(c.en_contra).replace('.', ',')} de la baja`,
+      okv(c.prob_sube) ? `Toca primero arriba: ${f0(num(c.prob_sube))}%` : null], [lista('direccion')]);
+    // 3. mapa de precios: rango, objetivos y niveles en una escalera, con el precio de ahora en su lugar
+    const ahora = sum && okv(sum.precio) ? num(sum.precio) : null;
+    const pts = [];
+    const pon = (v, txt, cls) => { if (okv(v)) pts.push({ p: num(v), txt, cls }); };
+    pon(c.rango_max, 'techo del rango', 'borde'); pon(c.rango_min, 'piso del rango', 'borde');
+    pon(c.obj_arriba, `objetivo ▲${okv(c.toca_arriba) ? ` · ${f0(num(c.toca_arriba))}%` : ''}`, 'obj sube');
+    pon(c.obj_abajo, `objetivo ▼${okv(c.toca_abajo) ? ` · ${f0(num(c.toca_abajo))}%` : ''}`, 'obj baja');
+    pon(c.resistencia, 'resistencia', 'nivel'); pon(c.soporte, 'soporte', 'nivel');
+    pon(c.elliott_objetivo, 'objetivo de Elliott', 'obj');
+    if (ahora) pts.push({ p: ahora, txt: 'ahora', cls: 'ahora' });
+    pts.sort((a, b) => b.p - a.p);
+    const lo = okv(c.rango_min) ? num(c.rango_min) : -Infinity, hi = okv(c.rango_max) ? num(c.rango_max) : Infinity;
+    const mapa = el('ol', 'ab-mapa');
+    pts.forEach((x) => {
+      const li = el('li', `${x.cls}${x.p >= lo && x.p <= hi && okv(c.rango_min) ? ' en' : ''}`);
+      li.append(el('b', '', fp(x.p)), el('span', '', x.txt), el('i', '', x.cls === 'ahora' || !ahora ? '' : sg((x.p / ahora - 1) * 100, Math.abs(x.p / ahora - 1) < 0.01 ? 2 : 1)));
+      mapa.append(li);
+    });
+    const mb = document.getElementById('ce-mapa'); mb.className = 'ab-ce-p ab-ce-mapa';
+    mb.replaceChildren(el('h3', '', '¿Hasta dónde? · niveles'), mapa,
+      ...[okv(c.rango_min) ? '8 de cada 10 veces terminó entre el piso y el techo.' : 'Sin rango medido en este plazo.',
+        okv(c.esperado_usd) ? `En una hora suele moverse ~${fp(num(c.esperado_usd))} USD.` : null, c.invalida || null].filter(Boolean).map((t) => el('span', '', t)));
     // 5. riesgo
     const rz = document.getElementById('ce-riesgo');
     rz.hidden = !c.riesgo.length;
@@ -600,8 +628,8 @@
     document.getElementById('mini-mon').textContent = MON();
     document.getElementById('mini-p').textContent = pe && pe.firstChild ? pe.firstChild.textContent : '—';
     const mc = document.getElementById('mini-c'); mc.textContent = c ? c.textContent : ''; mc.className = c ? c.className : '';
-    const d = document.querySelector('#ce-dir > b'), f = document.querySelector('#ce-fuerza > b');
-    document.getElementById('mini-h').textContent = d ? `${d.textContent}${f && !/^No/.test(f.textContent) ? ' · ⚡' : ''}` : '';
+    const d = document.querySelector('#ce-tira [data-k="dir"] b'), f = document.querySelector('#ce-tira [data-k="fz"] b');
+    document.getElementById('mini-h').textContent = d ? `${d.textContent}${f && !/^No/.test(f.textContent) ? ' · ⚡ fuerte' : ''}` : '';
   }
   if ('IntersectionObserver' in window) {
     const ojo = new IntersectionObserver(([e]) => {
@@ -619,12 +647,30 @@
     if (miniRaf || !CEL.matches) return;
     miniRaf = requestAnimationFrame(() => {
       miniRaf = 0;
-      const on = HOJA.getBoundingClientRect().top < 64;
+      const tope = HOJA.getBoundingClientRect().top, on = tope < 64;
+      document.documentElement.classList.toggle('ab-hoja-arriba', tope < innerHeight * 0.55);
       if (on === MINI.classList.contains('on')) return;
       MINI.classList.toggle('on', on); MINI.tabIndex = on ? 0 : -1; MINI.setAttribute('aria-hidden', String(!on));
       if (on) miniPintar();
     });
   }, { passive: true });
+  { const det = document.getElementById('widget-ios'), btn = document.getElementById('widget-copiar');
+    let cod = null, pedido = null;
+    const bajar = () => (pedido = pedido || fetch('widget-iphone.js', { cache: 'no-cache' }).then((r) => r.text()).then((t) => (cod = t)));
+    det.addEventListener('toggle', () => { if (det.open) bajar().catch(() => { pedido = null; }); });
+    btn.addEventListener('click', async () => {
+      try {
+        if (cod) await navigator.clipboard.writeText(cod);
+        else await navigator.clipboard.write([new ClipboardItem({ 'text/plain': bajar().then((t) => new Blob([t], { type: 'text/plain' })) })]);
+        btn.textContent = 'Copiado ✓';
+      } catch (e) { btn.textContent = 'No se pudo copiar: abrí widget-iphone.js'; window.open('widget-iphone.js', '_blank', 'noopener'); }
+      setTimeout(() => { btn.textContent = 'Copiar el código'; }, 3000);
+    });
+  }
+  // plazos que no entran: desvanecido en el borde mientras quede algo a la derecha
+  { const t = document.getElementById('tfs');
+    const ver = () => t.classList.toggle('ab-desliza', t.scrollWidth - t.clientWidth - t.scrollLeft > 4);
+    t.addEventListener('scroll', ver, { passive: true }); addEventListener('resize', ver); setTimeout(ver, 300); }
   // el asa: sube la hoja hasta arriba, o la vuelve a bajar si ya esta arriba
   document.getElementById('asa').addEventListener('click', () => {
     const top = HOJA.getBoundingClientRect().top;
@@ -783,7 +829,11 @@
       const j = await r.json();
       if (j.plan && typeof j.plan === 'object' && Array.isArray(j.plan.compras)) PLAN_COMPRAS = j.plan;   // el plan privado
       BX.planError = j.plan_error || null;
-      if (j.ok) { Object.assign(BX, { ok: true, posiciones: j.posiciones || {}, ordenes: j.ordenes, hora: new Date(j.hora), error: null }); pnlRef(); }
+      if (j.ok) {
+        Object.assign(BX, { ok: true, posiciones: j.posiciones || {}, ordenes: j.ordenes, hora: new Date(j.hora), error: null, capital: j.capital || null,
+          pnlLeido: Object.values(j.posiciones || {}).reduce((a, p) => a + (p.resultado || 0), 0) });
+        pnlRef();
+      }
       else {
         Object.assign(BX, { ok: false, error: j.error || `error ${r.status}` });
         if (r.status === 401) { BX.autorizado = false; try { localStorage.removeItem('ab-bingx-clave'); } catch (e) { /* idem */ } }
@@ -1116,6 +1166,14 @@
     const por = document.getElementById('pnl-por'); por.replaceChildren();
     v.por.forEach(([m, r]) => { const s = el('span', r >= 0 ? 'ab-pos-ok' : 'ab-pos-bad', `${m} ${sg(r)}`); por.append(s); });
     document.getElementById('pnl-vivo').classList.toggle('quieto', !PNL.ws || Date.now() - PNL.t > 5000);
+    // capital total: el de BingX al leer, mas lo que se movio el PnL desde entonces
+    const cap = BX.capital, cb = document.getElementById('pos-cap');
+    cb.hidden = !cap || !Number.isFinite(cap.total);
+    if (!cb.hidden) {
+      document.getElementById('cap-total').textContent = `${f2(cap.total + (v.total - (BX.pnlLeido || 0)))} USDT`;
+      document.getElementById('cap-det').textContent = cap.parcial ? 'parcial: BingX no dio todas las cuentas'
+        : `futuros ${f0(cap.futuros || 0)}${cap.otras ? ` · spot y otras ${f0(cap.otras)}` : ''}`;
+    }
   }
   // Un solo WebSocket: precio de marca de las posiciones (para el PnL, con Mis posiciones a la vista) y ultimo precio de
   // las criptos del plan (para Proximas compras y los avisos, aunque estes mirando una accion).
@@ -1471,7 +1529,7 @@
     const col = dir > 0 ? 'var(--color-ok)' : 'var(--color-bad)';
     box.classList.toggle('ab-qp-on', strong);
     box.style.setProperty('--qp-col', strong ? col : 'var(--color-fg-muted)');
-    document.getElementById('qp-k').textContent = strong ? 'movimiento fuerte' : MON();
+    document.getElementById('qp-k').textContent = strong ? (dir > 0 ? 'ya subió fuerte' : 'ya cayó fuerte') : '';
     const big = document.getElementById('qp-big'); big.replaceChildren();
     const ctx = (k) => pick(rows, 'contexto').find((c) => c.clave === k);
     // lo que coincide con el movimiento: cada factor dice si empuja para el mismo lado (si) o no
@@ -2216,7 +2274,7 @@
         if (y - 13 < lh && xl < lw) return;                  // debajo de la leyenda no se leia (la linea queda igual)
         const tw = ctx.measureText(f.txt).width;
         ctx.fillStyle = alpha(P.panel, 0.7); ctx.fillRect(xl - 3, y - 13, tw + 6, 12);          // fondo suave para leerlo sobre las velas
-        ctx.fillStyle = alpha(col, f.extremo || f.fuerte ? 0.95 : 0.7); ctx.fillText(f.txt, xl, y - 2);
+        ctx.fillStyle = alpha(col, f.extremo || f.fuerte ? 1 : 0.9); ctx.fillText(f.txt, xl, y - 2);
       });
       ['a', 'b'].forEach((k) => {                            // los dos puntos: se arrastran (como en TradingView)
         const x = fibX(d.fib[k]), y = Y(d.fib[k].p); if (y === null || x < -10 || x > w + 10 || y < -10 || y > h + 10) return;
@@ -2487,11 +2545,11 @@
     const cross = { color: alpha(P.mute, 0.7), width: 1, style: LW.LineStyle.Dashed, labelBackgroundColor: P.lbl };
     const chart = LW.createChart(box, {
       autoSize: true,
-      layout: { background: { type: 'solid', color: P.panel }, textColor: P.mute, fontFamily: P.font, fontSize: 11,
+      layout: { background: { type: 'solid', color: P.panel }, textColor: P.mute, fontFamily: P.font, fontSize: 11, attributionLogo: false,   // la atribucion va en el pie
         panes: { separatorColor: P.line, separatorHoverColor: alpha(P.fg, 0.12), enableResize: true } },
       grid: { vertLines: { color: P.grid }, horzLines: { color: P.grid } },
       crosshair: { mode: S.iman ? LW.CrosshairMode.MagnetOHLC : LW.CrosshairMode.Normal, vertLine: cross, horzLine: cross },
-      rightPriceScale: { borderVisible: false, scaleMargins: { top: narrow ? 0.17 : 0.11, bottom: 0.2 }, minimumWidth: narrow ? 58 : 70 },
+      rightPriceScale: { borderVisible: false, scaleMargins: { top: narrow ? 0.09 : 0.11, bottom: 0.2 }, minimumWidth: narrow ? 58 : 70 },
       timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 4, barSpacing: narrow ? 6 : 8, minBarSpacing: 1,
         shiftVisibleRangeOnNewBar: true },
       localization: { locale: 'es-AR', timeFormatter: (t) => fmtSec(t) },
@@ -2581,7 +2639,8 @@
     const ch = el('b', '', sg((b.c / b.o - 1) * 100)); ch.style.color = col;
     if (d.narrow) row1.append(kv('C', fp(b.c)), ch);
     else row1.append(kv('A', fp(b.o)), kv('Máx', fp(b.h)), kv('Mín', fp(b.l)), kv('C', fp(b.c)), ch);
-    const rows = [row1];
+    const rows = [row1], toca = i !== null && i !== undefined && i >= 0;
+    if (d.narrow && !toca) { G.leg.replaceChildren(row1); return legendOsc(b, fut); }
     if (d.narrow && !fut) { const r = el('div', 'ab-ohlc-r'); r.append(kv('Máx', fp(b.h)), kv('Mín', fp(b.l))); rows.push(r); }
     if (!fut) {
       const r2 = el('div', 'ab-ohlc-r');
@@ -2590,6 +2649,11 @@
       rows.push(r2);
     }
     G.leg.replaceChildren(...rows);
+    legendOsc(b, fut);
+  }
+  function legendOsc(b, fut) {
+    const d = G.d, P = G.P;
+    const kv = (k, v, c) => { const sp = el('span'); const bb = el('b', '', v); bb.style.color = c; sp.append(k, bb); return sp; };
     if (G.legO.length) {
       const ob = fut ? null : b.rsi !== null && b.rsi !== undefined ? b : d.lastOsc;
       // arriba de cada panel: la suma de los altos de los paneles de arriba (y 1 px por cada separador)

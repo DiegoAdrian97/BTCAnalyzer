@@ -74,6 +74,30 @@ async function leerPlan() {
   return plan;
 }
 
+/** Capital total en USDT: el patrimonio de futuros USDT-M (saldo + PnL no realizado, de /swap/v3/user/balance) mas el
+ *  resto de las cuentas (spot, fondos, grid, copy trading...) del resumen de BingX en USDT (/account/v1/allAccountBalance).
+ *  Si una de las dos falla, devuelve lo que haya con parcial: true; si fallan las dos, null. */
+async function capital(key, secret) {
+  const [fut, todas] = await Promise.all([
+    pedir('/openApi/swap/v3/user/balance', {}, key, secret).catch(() => null),
+    pedir('/openApi/account/v1/allAccountBalance', {}, key, secret).catch(() => null)]);
+  const f = Array.isArray(fut) ? fut.find((x) => x && x.asset === 'USDT') || null : fut && fut.balance ? fut.balance : null;
+  let futuros = f ? +f.equity || 0 : null, otras = null;
+  const partes = {};
+  if (Array.isArray(todas)) {
+    otras = 0;
+    todas.forEach((a) => {
+      const v = +a.usdtBalance || 0;
+      if (a.accountType === 'USDTMPerp') { if (futuros === null) futuros = v; return; }   // ya esta (con mas detalle) arriba
+      if (v) { partes[a.accountType] = v; otras += v; }
+    });
+  }
+  if (futuros === null && otras === null) return null;
+  const r2 = (x) => Math.round(x * 100) / 100;
+  return { total: r2((futuros || 0) + (otras || 0)), futuros: futuros === null ? null : r2(futuros), otras: otras === null ? null : r2(otras),
+    partes, parcial: !f || otras === null, pnl: f ? r2(+f.unrealizedProfit || 0) : null };
+}
+
 function claveOk(dada, esperada) {
   const a = Buffer.from(String(dada || '')), b = Buffer.from(String(esperada || ''));
   return a.length === b.length && b.length >= 8 && crypto.timingSafeEqual(a, b);
@@ -88,14 +112,17 @@ module.exports = async (req, res) => {
   let planError = null;
   const planP = leerPlan().catch((e) => { planError = String(e.message || e).slice(0, 120); return planCache ? planCache[1] : null; });
   try {
-    const [pos, ord, plan] = await Promise.all([pedir('/openApi/swap/v2/user/positions', {}, key, secret),
-      pedir('/openApi/swap/v2/trade/openOrders', {}, key, secret).catch(() => null), planP]);
-    res.status(200).send(JSON.stringify({ ok: true, hora: Date.now(), posiciones: posiciones(pos), ordenes: ord ? ordenes(ord) : null, plan, plan_error: planError }));
+    const [pos, ord, plan, cap] = await Promise.all([pedir('/openApi/swap/v2/user/positions', {}, key, secret),
+      pedir('/openApi/swap/v2/trade/openOrders', {}, key, secret).catch(() => null), planP, capital(key, secret).catch(() => null)]);
+    res.status(200).send(JSON.stringify({ ok: true, hora: Date.now(), posiciones: posiciones(pos), ordenes: ord ? ordenes(ord) : null, capital: cap, plan, plan_error: planError }));
   } catch (e) {
     // BingX fallo: el plan igual va (la contraseña ya se verifico)
     res.status(502).send(JSON.stringify({ ok: false, error: String(e.message || e).slice(0, 200), plan: await planP, plan_error: planError }));
   }
 };
 module.exports.firmar = firmar;
+module.exports.pedir = pedir;
+module.exports.capital = capital;
+module.exports.claveOk = claveOk;
 module.exports.posiciones = posiciones;
 module.exports.ordenes = ordenes;

@@ -506,19 +506,7 @@
   .ab-ce-tfs { display: flex; gap: 4px; flex-wrap: wrap; margin: 2px 0 12px; }
   .ab-ce-tfs button { font: inherit; font-size: 12.5px; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--mute); cursor: pointer; }
   .ab-ce-tfs button[aria-pressed="true"] { color: var(--ink); background: var(--soft2); border-color: transparent; font-weight: 600; }
-  .ab-ce-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  @media (max-width: 600px) { .ab-ce-grid { grid-template-columns: minmax(0, 1fr); } }
-  .ab-ce-p { display: grid; gap: 4px; align-content: start; padding: 12px 14px; border-radius: 12px; background: var(--paper); border-left: 3px solid var(--line); min-width: 0; }
-  .ab-ce-p.sube { border-left-color: var(--up); } .ab-ce-p.baja { border-left-color: var(--down); } .ab-ce-p.fuerte { border-left-color: var(--color-warn, #e5a823); }
-  .ab-ce-p > small { color: var(--mute); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
-  .ab-ce-p > b { font-size: 1.15rem; font-weight: 650; line-height: 1.25; }
-  .ab-ce-p.sube > b { color: var(--up); } .ab-ce-p.baja > b { color: var(--down); }
-  .ab-ce-p > span { color: var(--mute); font-size: 13px; line-height: 1.4; }
-  .ab-ce-p details { margin-top: 4px; font-size: 13px; }
-  .ab-ce-p summary { cursor: pointer; color: var(--ink); font-weight: 600; list-style: none; }
-  .ab-ce-p summary::-webkit-details-marker { display: none; }
-  .ab-ce-p summary::after { content: " ›"; color: var(--mute); }
-  .ab-ce-p details[open] summary::after { content: " ⌄"; }
+  .ab-ce-p summary::-webkit-details-marker { display: none; }   /* el resto, en "analisis: fila de respuestas" */
   .ab-ce-f { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 5px; }
   .ab-ce-f li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; line-height: 1.4; }
   .ab-ce-f li::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--mute); transform: translateY(-1px); }
@@ -893,16 +881,6 @@
   @media (max-width: 700px) { .ab-price { font-size: clamp(3.2rem, 16.5vw, 4.8rem); }
     .ab-top-r, .ab-top-price { width: 100%; min-width: 0; }
     .ab-top .ab-spark { flex: 1 1 auto; width: auto; min-width: 48px; height: 44px; } }
-  /* analisis: un tablero de cuatro cuadrantes separados por lineas, la respuesta grande y el color arriba */
-  .ab-ce-grid { gap: 0; border-top: 1px solid var(--line); }
-  .ab-ce-p { background: transparent; border-radius: 0; border-left: 0; padding: 16px 18px 18px; gap: 6px;
-    border-bottom: 1px solid var(--line); box-shadow: inset 0 2px 0 transparent; }
-  .ab-ce-p.sube { box-shadow: inset 0 2px 0 var(--up); } .ab-ce-p.baja { box-shadow: inset 0 2px 0 var(--down); }
-  .ab-ce-p.fuerte { box-shadow: inset 0 2px 0 var(--color-warn); }
-  @media (min-width: 601px) { .ab-ce-p:nth-child(even) { border-left: 1px solid var(--line); } .ab-ce-p:nth-child(odd) { padding-left: 0; } }
-  @media (max-width: 600px) { .ab-ce-p { padding-inline: 0; } }
-  .ab-ce-p > b { font-family: var(--font-cifras); font-weight: 800; font-size: clamp(1.7rem, 3vw, 2.1rem); line-height: 1.02; letter-spacing: .01em; }
-  .ab-ce-p > small { font-size: 13px !important; }
   /* senal: el acento de la app (seleccion y foco), aparte del verde y rojo que dicen sube o baja */
   .ab-seg button[aria-pressed="true"], .ab-ce-tfs button[aria-pressed="true"] { color: var(--senal); }
   .ab-seg-thumb { background: color-mix(in srgb, var(--senal) 16%, var(--panel)) !important; }
@@ -953,6 +931,8 @@
   .ab-hoja .ab-tm-tab small { max-width: none; text-align: left; font-size: 13px !important; }
   .ab-hoja .ab-tm-tab .ab-tm-k { display: inline; color: var(--mute); font-weight: 500; }
   .ab-hoja .ab-tm-tab #tm-zona { color: var(--ink); font-weight: 600; }
+  .ab-hoja .ab-tm-tab #tm-zona { white-space: normal; min-width: 0; line-height: 1.25; }
+  @media (max-width: 380px) { .ab-hoja .ab-tm-bar { width: 64px; } .ab-hoja .ab-tm-tab { gap: 9px; } }
   .ab-hoja .ab-tm-tab::after { content: "›"; margin-left: auto; color: var(--mute); font-size: 20px; }
   @media (min-width: 701px) {
     html.ab-tm-on #dash-root { padding-right: max(16px, var(--dash-gutter, 24px)); }
@@ -967,11 +947,6 @@
     .ab-hoja { border: 1px solid var(--line); border-radius: 18px; padding: 6px 22px 22px; }
     .ab-hoja .ab-asa { display: none; }
     .ab-hoja > .ab-centro { padding-top: 14px; }
-    .ab-hoja .ab-ce-grid { grid-template-columns: minmax(0, 1fr); }
-    .ab-hoja .ab-ce-p, .ab-hoja .ab-ce-p:nth-child(odd) { padding: 14px 0 16px; border-left: 0 !important; }
-    .ab-hoja .ab-ce-p.sube, .ab-hoja .ab-ce-p.baja, .ab-hoja .ab-ce-p.fuerte { padding-left: 14px; }
-    .ab-hoja .ab-ce-p.sube { box-shadow: inset 3px 0 0 var(--up); } .ab-hoja .ab-ce-p.baja { box-shadow: inset 3px 0 0 var(--down); }
-    .ab-hoja .ab-ce-p.fuerte { box-shadow: inset 3px 0 0 var(--color-warn); }
     .ab { grid-template-columns: minmax(0, 1.6fr) minmax(380px, 1fr); }
     .ab-escena .ab-top { flex-wrap: nowrap; align-items: center; }
     .ab-escena .ab-top-l { flex: 1 1 auto; min-width: 0; }
@@ -1014,13 +989,81 @@
     .ab-escena .ab-pills { display: grid; gap: 4px; justify-items: end; }
     .ab-hoja { border-radius: 24px 24px 0 0; box-shadow: 0 -1px 0 var(--line), 0 -18px 40px var(--sombra-hoja); min-height: calc(100svh - 44px); background: var(--hoja);
       padding: 0 max(16px, env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
-    .ab-hoja .ab-ce-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-    .ab-hoja .ab-ce-p { padding: 12px 12px 14px 0; }
-    .ab-hoja .ab-ce-p:nth-child(even) { border-left: 1px solid var(--line); padding-left: 12px; padding-right: 0; }
-    .ab-hoja .ab-ce-p > b { font-size: clamp(1.3rem, 6vw, 1.7rem); }
-    .ab-hoja .ab-ce-p > span, .ab-hoja .ab-ce-p details { font-size: 12.5px; }
     .ab-hoja > .ab-centro .ab-card-head { padding-top: 2px; }
   }
+
+  /* ---------- analisis: fila de respuestas + detalle + mapa de precios ---------- */
+  .ab-ce-tira { display: grid; grid-template-columns: auto auto minmax(0, 1fr) minmax(0, 1fr);
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .ab-ce-c { display: grid; gap: 2px; align-content: start; padding: 10px 9px 12px; min-width: 0; box-shadow: inset 0 2px 0 transparent; }
+  .ab-ce-c + .ab-ce-c { border-left: 1px solid var(--line); }
+  .ab-ce-c:first-child { padding-left: 0; }
+  .ab-ce-c small { color: var(--mute); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ab-ce-c b { font-family: var(--font-cifras); font-weight: 800; font-size: 1.22rem; line-height: 1.05; letter-spacing: .005em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ab-ce-c b i { font-style: normal; font-family: var(--sans); font-weight: 600; font-size: 12px; color: var(--mute); margin-left: 5px; letter-spacing: 0; }
+  .ab-ce-c.fuerte { box-shadow: inset 0 2px 0 var(--color-warn); } .ab-ce-c.fuerte b { color: var(--color-warn); }
+  .ab-ce-c.sube { box-shadow: inset 0 2px 0 var(--up); } .ab-ce-c.sube b { color: var(--up); }
+  .ab-ce-c.baja { box-shadow: inset 0 2px 0 var(--down); } .ab-ce-c.baja b { color: var(--down); }
+  .ab-ce-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0; }
+  .ab-ce-p { display: grid; gap: 3px; align-content: start; padding: 14px 14px 14px 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; }
+  .ab-ce-p + .ab-ce-p:not(.ab-ce-mapa) { border-left: 1px solid var(--line); padding-left: 14px; padding-right: 0; }
+  .ab-ce-p h3 { margin: 0 0 2px; font-size: 14.5px; font-weight: 650; color: var(--ink); }
+  .ab-ce-p > span { color: var(--mute); font-size: 13px; line-height: 1.4; }
+  .ab-ce-p details { margin-top: 2px; font-size: 13px; }
+  .ab-ce-p summary { display: inline-flex; align-items: center; gap: 4px; min-height: 40px; cursor: pointer; color: var(--ink); font-weight: 600; list-style: none; }
+  .ab-ce-p summary::after { content: "⌄"; color: var(--mute); transform: translateY(-3px); }
+  .ab-ce-p details[open] summary::after { content: "⌃"; transform: translateY(3px); }
+  .ab-ce-mapa { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-right: 0; }
+  .ab-mapa { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; }
+  .ab-mapa li { position: relative; display: grid; grid-template-columns: 18px minmax(64px, auto) minmax(0, 1fr) auto; column-gap: 10px; align-items: baseline; padding: 4px 0; }
+  .ab-mapa li::before { content: ""; grid-row: 1; grid-column: 1; justify-self: center; align-self: stretch; width: 2px; margin-block: -4px; background: var(--line); }
+  .ab-mapa li.en::before { width: 6px; border-radius: 0; background: color-mix(in srgb, var(--senal) 35%, transparent); }
+  .ab-mapa li.en:first-child::before, .ab-mapa li:not(.en) + li.en::before { border-radius: 3px 3px 0 0; margin-top: 4px; }
+  .ab-mapa li.en:last-child::before, .ab-mapa li.en:has(+ li:not(.en))::before { border-radius: 0 0 3px 3px; margin-bottom: 4px; }
+  .ab-mapa b { grid-column: 2; font-family: var(--font-cifras); font-weight: 800; font-size: 1.2rem; letter-spacing: .01em; line-height: 1.1; }
+  .ab-mapa span { grid-column: 3; color: var(--mute); font-size: 13px; }
+  .ab-mapa i { grid-column: 4; font-style: normal; color: var(--mute); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .ab-mapa li.ahora b, .ab-mapa li.ahora span { color: var(--senal); }
+  .ab-mapa li.ahora span { font-weight: 650; }
+  .ab-mapa li.ahora::after { content: ""; position: absolute; left: 3px; top: 50%; width: 12px; height: 12px; border-radius: 50%; transform: translateY(-50%);
+    background: var(--senal); box-shadow: 0 0 0 3px var(--hoja, var(--panel)); }
+  .ab-mapa li.nivel span { color: var(--ink); }
+  .ab-mapa li.borde b { color: var(--mute); }
+  @media (max-width: 999.98px) {
+    .ab-hoja > .ab-centro { padding-bottom: 8px; }
+    .ab-ce-c b { font-size: clamp(1.12rem, 4.9vw, 1.36rem); }
+  }
+  @media (max-width: 380px) { .ab-ce-grid { grid-template-columns: minmax(0, 1fr); } .ab-ce-p + .ab-ce-p:not(.ab-ce-mapa) { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); } }
+
+  /* plazos: si no entran, un desvanecido en el borde avisa que se deslizan */
+  #tfs.ab-desliza { -webkit-mask-image: linear-gradient(to right, #000 82%, transparent); mask-image: linear-gradient(to right, #000 82%, transparent); }
+  /* capas: icono en el celu; en la compu, plegadas detras del boton para que el grafico tenga lugar */
+  .ab-capas-ico { display: none; }
+  @media (max-width: 999.98px) { .ab-escena .ab-capas-ico { display: block; } .ab-escena .ab-capas-txt, .ab-escena #capas-n { display: none; }
+    .ab-escena #capas-btn { width: 44px; padding: 0; justify-content: center; } }
+  @media (min-width: 1000px) {
+    .ab-escena #grafico:not(.ab-fs) .ab-capas { display: none; }
+    .ab-escena #grafico:not(.ab-fs) .ab-capas.is-open { display: flex; padding: 10px; background: var(--soft); }
+    .ab-escena #grafico:not(.ab-fs) .ab-capas-btn { display: inline-flex; }
+    .ab-escena .ab-live-par { display: none; }
+  }
+  /* pestaña de Activos: con la hoja arriba no hace falta (el chip del activo abre el panel) */
+  html.ab-hoja-arriba .ab-act-borde { opacity: 0; pointer-events: none; }
+  .ab-act-borde { transition: opacity .2s; }
+  .ab-foot a { color: inherit; }
+
+  /* capital total y widget de iPhone (en Mis posiciones) */
+  .ab-pos-cap[hidden] { display: none; }
+  .ab-pos-cap b { color: var(--ink); }
+  .ab-widget { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 4px; font-size: 13.5px; }
+  .ab-widget summary { display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; list-style: none; font-weight: 600; }
+  .ab-widget summary::-webkit-details-marker { display: none; }
+  .ab-widget summary::after { content: "⌄"; margin-left: auto; color: var(--mute); transform: translateY(-3px); }
+  .ab-widget[open] summary::after { content: "⌃"; transform: translateY(3px); }
+  .ab-widget ol { margin: 4px 0 8px; padding-left: 20px; display: grid; gap: 8px; line-height: 1.45; }
+  .ab-widget a { color: var(--senal); }
+  #widget-copiar { min-height: 36px; margin-right: 6px; }
 </style>
 
 <div class="ab ab-first ab-cargando" id="analista" data-source="analisis">
@@ -1028,7 +1071,7 @@
   <div class="ab-escena" id="escena">
   <header class="ab-top" id="resumen">
     <div class="ab-top-l">
-      <span class="ab-live"><i></i><span><span id="moneda-lbl">BTC</span>/USDT perpetuo · actualizado <span data-source="analisis" data-field="hora_local" data-where="tabla=resumen">—</span> · <span id="next-run">—</span></span><span class="ab-live-state" id="live-state"></span></span>
+      <span class="ab-live"><i></i><span><span class="ab-live-par"><span id="moneda-lbl">BTC</span>/USDT perpetuo · </span>actualizado <span data-source="analisis" data-field="hora_local" data-where="tabla=resumen">—</span><span class="ab-live-sig"> · <span id="next-run">—</span></span></span><span class="ab-live-state" id="live-state"></span></span>
       <div class="ab-title-row"><h1 class="ab-title" id="ab-title">Analista BTC</h1>
         <button type="button" class="ab-iconbtn ab-round ab-nt-btn" id="nt-btn" aria-label="Notificaciones" aria-expanded="false" aria-controls="nt-pop">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15L6 16zM10 20a2 2 0 0 0 4 0"/></svg>
@@ -1096,7 +1139,7 @@
           <button type="button" data-scen="alcista" aria-pressed="false">Alcista</button>
           <button type="button" data-scen="bajista" aria-pressed="false">Bajista</button>
         </nav>
-        <button type="button" class="ab-iconbtn ab-capas-btn" id="capas-btn" aria-expanded="false" aria-controls="capas">Capas <b id="capas-n"></b></button>
+        <button type="button" class="ab-iconbtn ab-capas-btn" id="capas-btn" aria-expanded="false" aria-controls="capas" aria-label="Capas del gráfico"><svg class="ab-capas-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M12 3 2.5 8 12 13l9.5-5L12 3zM2.5 12.5 12 17.5l9.5-5M2.5 16.5 12 21.5l9.5-5"/></svg><span class="ab-capas-txt">Capas</span> <b id="capas-n"></b></button>
       </div>
       <div class="ab-capas" id="capas">
         <div class="ab-chips" id="layers">
@@ -1138,11 +1181,12 @@
   <section class="ab-card ab-centro" id="centro" aria-labelledby="ce-t" data-source="analisis" hidden>
     <div class="ab-card-head"><h2 id="ce-t">Análisis</h2><span class="ab-kicker" id="ce-k"></span></div>
     <div class="ab-ce-tfs" id="ce-tfs" role="group" aria-label="Temporalidad del análisis"></div>
+    <!-- las cuatro respuestas en una fila: es lo que se ve con la hoja abajo -->
+    <div class="ab-ce-tira" id="ce-tira" role="list"></div>
     <div class="ab-ce-grid">
       <div class="ab-ce-p" id="ce-fuerza"></div>
       <div class="ab-ce-p" id="ce-dir"></div>
-      <div class="ab-ce-p" id="ce-alc"></div>
-      <div class="ab-ce-p" id="ce-niv"></div>
+      <div class="ab-ce-p ab-ce-mapa" id="ce-mapa"></div>
     </div>
     <div class="ab-ce-riesgo" id="ce-riesgo" hidden></div>
   </section>
@@ -1186,11 +1230,22 @@
     <div class="ab-pos-total" id="pos-total" hidden aria-live="polite">
       <div class="ab-pos-total-main"><small>PnL no realizado · todas tus posiciones abiertas <span class="ab-pos-vivo" id="pnl-vivo">en vivo</span></small>
         <b id="pnl-total">—</b><span id="pnl-pct"></span></div>
+      <div class="ab-pos-total-main ab-pos-cap" id="pos-cap" hidden><small>Capital total · todas tus cuentas de BingX</small><b id="cap-total">—</b><span id="cap-det"></span></div>
       <div class="ab-pos-total-por" id="pnl-por"></div>
     </div>
     <div class="ab-cmp-grid" id="pos-body"></div>
     <p class="ab-foot" id="pos-bx-nota" hidden>Tus posiciones abiertas en BingX (solo lectura, cada minuto): cantidad, entrada, margen, liquidación y resultado son los de BingX; el equilibrio cuenta sus comisiones. "Órdenes pendientes" son tus órdenes límite de compra: la liquidación con todo ejecutado las suma. La toma de ganancias y el piramidado siguen las reglas de tu plan.</p>
     <p class="ab-foot" id="pos-foot-plan">Se recalcula cada 15 segundos con el precio de ahora. Parte de lo que ya tenías abierto en BingX (cargado del 01/11: cantidad, entrada y margen) y le suma las compras del plan que se ejecuten desde ahí. La liquidación es aproximada (mantenimiento 0,4% BTC, 1% el resto): la exacta la muestra BingX. Precio de equilibrio: la entrada con las comisiones de BingX (y el funding pagado), como el de BingX. Toma de ganancias: cada +40% sobre tu equilibrio, pasar 25% de la posición a spot. Piramidar: cuando sube 15% sobre tu equilibrio, cuánto podés sumar sin plata nueva con la liquidación como mucho en 75% de tu compra más baja.</p>
+    <details class="ab-widget" id="widget-ios">
+      <summary>Widget de iPhone: capital y PnL en la pantalla de inicio o de bloqueo</summary>
+      <ol>
+        <li>Instalá <a href="https://apps.apple.com/app/scriptable/id1405459188" target="_blank" rel="noopener">Scriptable</a> (gratis).</li>
+        <li><button type="button" class="ab-iconbtn" id="widget-copiar">Copiar el código</button> En Scriptable tocá +, pegalo y ponele de nombre "Analista BTC".</li>
+        <li>Tocá ▶ una vez: te pide la contraseña de BingX (la misma de acá) y la guarda en el llavero del iPhone.</li>
+        <li>En la pantalla de inicio o de bloqueo: mantené apretado → Editar → + → Scriptable → elegí "Analista BTC". En "Parameter" poné <b>capital</b>, <b>pnl</b> o dejalo vacío para ver los dos.</li>
+      </ol>
+      <p class="ab-foot">iOS decide cuándo actualizar los widgets (en general cada 5 a 15 minutos), así que no es al segundo como acá; abajo dice hace cuánto se leyó. Tocarlo abre la app.</p>
+    </details>
   </section>
 
   <section class="ab-card ab-mov" id="movimiento" aria-labelledby="mov-t" data-source="analisis" hidden>
@@ -1329,7 +1384,7 @@
     </details>
   </div>
 
-  <p class="ab-foot">Datos públicos de Binance Futures, Bybit, OKX, Bitget y BingX. Las probabilidades y los escenarios cuentan lo que pasó en situaciones parecidas del pasado reciente; el mercado puede hacer otra cosa. No es una recomendación de inversión.</p>
+  <p class="ab-foot">Datos públicos de Binance Futures, Bybit, OKX, Bitget y BingX. Gráfico hecho con <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView Lightweight Charts™</a>. Las probabilidades y los escenarios cuentan lo que pasó en situaciones parecidas del pasado reciente; el mercado puede hacer otra cosa. No es una recomendación de inversión.</p>
   </div>
   <button type="button" class="ab-mini" id="mini" tabindex="-1" aria-hidden="true" title="Volver arriba">
     <b id="mini-mon">BTC</b><span class="ab-mini-p" id="mini-p">—</span><span id="mini-c"></span><span class="ab-mini-h" id="mini-h"></span><i aria-hidden="true">↑</i>
@@ -1904,31 +1959,59 @@
       fs.forEach(([, lado, peso, txt]) => { const li = el('li', punto === 'fuerza' ? (lado > 0 ? 'fuerte' : '') : lado > 0 ? 'sube' : 'baja'); li.append(el('span', '', txt), el('i', '', `${lado > 0 ? '+' : '−'}${String(peso).replace('.', ',')}`)); ul.append(li); });
       return d;
     };
-    const bloque = (id, cls, k, titulo, sub, extra) => {
+    const bloque = (id, cls, k, lineas, extra) => {
       const b = document.getElementById(id); b.className = `ab-ce-p ${cls}`.trim();
-      b.replaceChildren(el('small', '', k), el('b', '', titulo), ...(sub ? [el('span', '', sub)] : []), ...(extra || []).filter(Boolean));
+      b.replaceChildren(el('h3', '', k), ...lineas.filter(Boolean).map((t) => el('span', '', t)), ...(extra || []).filter(Boolean));
     };
-    // 1. fuerza
+    // precios cortos para la fila de respuestas: 91,8k (de 10.000 para arriba), si no el precio comun
+    const fk = (x) => (x >= 10000 ? `${f1(x / 1000)}k` : fp(x));
+    const par = (a, b) => (a >= 10000 && b >= 10000 ? `${f1(a / 1000)}–${f1(b / 1000)}k` : `${fk(a)}–${fk(b)}`);
     const hs = pick(rows, 'horas')[0];
-    const fzTxt = c.fuerza === 'alta' ? 'Sí, se viene movimiento fuerte' : c.fuerza === 'media' ? 'Puede venir un movimiento fuerte' : 'No por ahora';
-    const fzSub = [okv(c.prob_fuerte) ? `Chance ${f0(num(c.prob_fuerte))}% (lo normal ${f0(num(c.prob_normal))}%)` : null,
-      hs && hs.max_f - hs.min_f >= 0.3 && ['5m', '15m', '30m', '1h'].includes(c.tf) ? `suele moverse más a las ${horaAR(hs.max_t)} h` : null].filter(Boolean).join(' · ');
-    bloque('ce-fuerza', c.fuerza === 'alta' ? 'fuerte' : '', '¿Se viene movimiento fuerte?', fzTxt, fzSub, [lista('fuerza')]);
+    // 0. la fila de respuestas
+    const tira = document.getElementById('ce-tira');
+    const celda = (k, cls, lbl, val, nota) => {
+      const d = el('div', `ab-ce-c ${cls}`.trim()); d.setAttribute('role', 'listitem'); d.dataset.k = k;
+      const b = el('b', '', val); if (nota) b.append(el('i', '', nota));
+      d.append(el('small', '', lbl), b); return d;
+    };
+    tira.replaceChildren(
+      celda('fz', c.fuerza === 'alta' ? 'fuerte' : '', 'Mov. fuerte', c.fuerza === 'alta' ? 'Sí' : c.fuerza === 'media' ? 'Puede' : 'No',
+        okv(c.prob_fuerte) ? `${f0(num(c.prob_fuerte))}%` : ''),
+      celda('dir', c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '', 'Dirección',
+        c.direccion === 'sube' ? '▲ Sube' : c.direccion === 'baja' ? '▼ Baja' : 'Neutral'),
+      celda('rng', '', 'Rango', okv(c.rango_min) ? par(num(c.rango_min), num(c.rango_max)) : '—'),
+      celda('niv', '', 'Sop. – res.', okv(c.soporte) && okv(c.resistencia) ? par(num(c.soporte), num(c.resistencia))
+        : okv(c.soporte) ? `S ${fk(num(c.soporte))}` : okv(c.resistencia) ? `R ${fk(num(c.resistencia))}` : '—'));
+    // 1. fuerza
+    bloque('ce-fuerza', c.fuerza === 'alta' ? 'fuerte' : '', '¿Movimiento fuerte?', [
+      okv(c.prob_fuerte) ? `Chance ${f0(num(c.prob_fuerte))}% (lo normal: ${f0(num(c.prob_normal))}%)` : 'Sin chance medida en este plazo',
+      hs && hs.max_f - hs.min_f >= 0.3 && ['5m', '15m', '30m', '1h'].includes(c.tf) ? `Suele moverse más a las ${horaAR(hs.max_t)} h` : null], [lista('fuerza')]);
     // 2. direccion
-    const drTxt = c.direccion === 'sube' ? '▲ Más probable que suba' : c.direccion === 'baja' ? '▼ Más probable que baje' : 'Sin dirección clara';
-    const drSub = `señales: ${String(c.a_favor).replace('.', ',')} a favor de la suba · ${String(c.en_contra).replace('.', ',')} de la baja`
-      + (okv(c.prob_sube) ? ` · toca primero arriba ${f0(num(c.prob_sube))}%` : '');
-    bloque('ce-dir', c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '', '¿Sube o baja?', drTxt, drSub, [lista('direccion')]);
-    // 3. alcance
-    const alc = [];
-    if (okv(c.obj_arriba) && okv(c.obj_abajo)) alc.push(`objetivos ▲ ${fp(num(c.obj_arriba))}${okv(c.toca_arriba) ? ` (${f0(num(c.toca_arriba))}%)` : ''} · ▼ ${fp(num(c.obj_abajo))}${okv(c.toca_abajo) ? ` (${f0(num(c.toca_abajo))}%)` : ''}`);
-    if (okv(c.esperado_usd)) alc.push(`en una hora suele moverse ~${fp(num(c.esperado_usd))} USD`);
-    if (okv(c.elliott_objetivo)) alc.push(`objetivo de Elliott ${fp(num(c.elliott_objetivo))}`);
-    bloque('ce-alc', '', '¿Hasta dónde?', okv(c.rango_min) ? `${fp(num(c.rango_min))} – ${fp(num(c.rango_max))}` : '—',
-      [okv(c.rango_min) ? '8 de cada 10 veces terminó en ese rango' : 'sin predicción en esta temporalidad', ...alc].join(' · '));
-    // 4. niveles
-    bloque('ce-niv', '', 'Niveles', `${okv(c.soporte) ? `soporte ${fp(num(c.soporte))}` : 'sin soporte cerca'} · ${okv(c.resistencia) ? `resistencia ${fp(num(c.resistencia))}` : 'sin resistencia cerca'}`,
-      c.invalida || '');
+    bloque('ce-dir', c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '', '¿Para dónde?', [
+      `Señales: ${String(c.a_favor).replace('.', ',')} a favor de la suba, ${String(c.en_contra).replace('.', ',')} de la baja`,
+      okv(c.prob_sube) ? `Toca primero arriba: ${f0(num(c.prob_sube))}%` : null], [lista('direccion')]);
+    // 3. mapa de precios: rango, objetivos y niveles en una escalera, con el precio de ahora en su lugar
+    const ahora = sum && okv(sum.precio) ? num(sum.precio) : null;
+    const pts = [];
+    const pon = (v, txt, cls) => { if (okv(v)) pts.push({ p: num(v), txt, cls }); };
+    pon(c.rango_max, 'techo del rango', 'borde'); pon(c.rango_min, 'piso del rango', 'borde');
+    pon(c.obj_arriba, `objetivo ▲${okv(c.toca_arriba) ? ` · ${f0(num(c.toca_arriba))}%` : ''}`, 'obj sube');
+    pon(c.obj_abajo, `objetivo ▼${okv(c.toca_abajo) ? ` · ${f0(num(c.toca_abajo))}%` : ''}`, 'obj baja');
+    pon(c.resistencia, 'resistencia', 'nivel'); pon(c.soporte, 'soporte', 'nivel');
+    pon(c.elliott_objetivo, 'objetivo de Elliott', 'obj');
+    if (ahora) pts.push({ p: ahora, txt: 'ahora', cls: 'ahora' });
+    pts.sort((a, b) => b.p - a.p);
+    const lo = okv(c.rango_min) ? num(c.rango_min) : -Infinity, hi = okv(c.rango_max) ? num(c.rango_max) : Infinity;
+    const mapa = el('ol', 'ab-mapa');
+    pts.forEach((x) => {
+      const li = el('li', `${x.cls}${x.p >= lo && x.p <= hi && okv(c.rango_min) ? ' en' : ''}`);
+      li.append(el('b', '', fp(x.p)), el('span', '', x.txt), el('i', '', x.cls === 'ahora' || !ahora ? '' : sg((x.p / ahora - 1) * 100, Math.abs(x.p / ahora - 1) < 0.01 ? 2 : 1)));
+      mapa.append(li);
+    });
+    const mb = document.getElementById('ce-mapa'); mb.className = 'ab-ce-p ab-ce-mapa';
+    mb.replaceChildren(el('h3', '', '¿Hasta dónde? · niveles'), mapa,
+      ...[okv(c.rango_min) ? '8 de cada 10 veces terminó entre el piso y el techo.' : 'Sin rango medido en este plazo.',
+        okv(c.esperado_usd) ? `En una hora suele moverse ~${fp(num(c.esperado_usd))} USD.` : null, c.invalida || null].filter(Boolean).map((t) => el('span', '', t)));
     // 5. riesgo
     const rz = document.getElementById('ce-riesgo');
     rz.hidden = !c.riesgo.length;
@@ -1958,8 +2041,8 @@
     document.getElementById('mini-mon').textContent = MON();
     document.getElementById('mini-p').textContent = pe && pe.firstChild ? pe.firstChild.textContent : '—';
     const mc = document.getElementById('mini-c'); mc.textContent = c ? c.textContent : ''; mc.className = c ? c.className : '';
-    const d = document.querySelector('#ce-dir > b'), f = document.querySelector('#ce-fuerza > b');
-    document.getElementById('mini-h').textContent = d ? `${d.textContent}${f && !/^No/.test(f.textContent) ? ' · ⚡' : ''}` : '';
+    const d = document.querySelector('#ce-tira [data-k="dir"] b'), f = document.querySelector('#ce-tira [data-k="fz"] b');
+    document.getElementById('mini-h').textContent = d ? `${d.textContent}${f && !/^No/.test(f.textContent) ? ' · ⚡ fuerte' : ''}` : '';
   }
   if ('IntersectionObserver' in window) {
     const ojo = new IntersectionObserver(([e]) => {
@@ -1977,12 +2060,30 @@
     if (miniRaf || !CEL.matches) return;
     miniRaf = requestAnimationFrame(() => {
       miniRaf = 0;
-      const on = HOJA.getBoundingClientRect().top < 64;
+      const tope = HOJA.getBoundingClientRect().top, on = tope < 64;
+      document.documentElement.classList.toggle('ab-hoja-arriba', tope < innerHeight * 0.55);
       if (on === MINI.classList.contains('on')) return;
       MINI.classList.toggle('on', on); MINI.tabIndex = on ? 0 : -1; MINI.setAttribute('aria-hidden', String(!on));
       if (on) miniPintar();
     });
   }, { passive: true });
+  { const det = document.getElementById('widget-ios'), btn = document.getElementById('widget-copiar');
+    let cod = null, pedido = null;
+    const bajar = () => (pedido = pedido || fetch('widget-iphone.js', { cache: 'no-cache' }).then((r) => r.text()).then((t) => (cod = t)));
+    det.addEventListener('toggle', () => { if (det.open) bajar().catch(() => { pedido = null; }); });
+    btn.addEventListener('click', async () => {
+      try {
+        if (cod) await navigator.clipboard.writeText(cod);
+        else await navigator.clipboard.write([new ClipboardItem({ 'text/plain': bajar().then((t) => new Blob([t], { type: 'text/plain' })) })]);
+        btn.textContent = 'Copiado ✓';
+      } catch (e) { btn.textContent = 'No se pudo copiar: abrí widget-iphone.js'; window.open('widget-iphone.js', '_blank', 'noopener'); }
+      setTimeout(() => { btn.textContent = 'Copiar el código'; }, 3000);
+    });
+  }
+  // plazos que no entran: desvanecido en el borde mientras quede algo a la derecha
+  { const t = document.getElementById('tfs');
+    const ver = () => t.classList.toggle('ab-desliza', t.scrollWidth - t.clientWidth - t.scrollLeft > 4);
+    t.addEventListener('scroll', ver, { passive: true }); addEventListener('resize', ver); setTimeout(ver, 300); }
   // el asa: sube la hoja hasta arriba, o la vuelve a bajar si ya esta arriba
   document.getElementById('asa').addEventListener('click', () => {
     const top = HOJA.getBoundingClientRect().top;
@@ -2141,7 +2242,11 @@
       const j = await r.json();
       if (j.plan && typeof j.plan === 'object' && Array.isArray(j.plan.compras)) PLAN_COMPRAS = j.plan;   // el plan privado
       BX.planError = j.plan_error || null;
-      if (j.ok) { Object.assign(BX, { ok: true, posiciones: j.posiciones || {}, ordenes: j.ordenes, hora: new Date(j.hora), error: null }); pnlRef(); }
+      if (j.ok) {
+        Object.assign(BX, { ok: true, posiciones: j.posiciones || {}, ordenes: j.ordenes, hora: new Date(j.hora), error: null, capital: j.capital || null,
+          pnlLeido: Object.values(j.posiciones || {}).reduce((a, p) => a + (p.resultado || 0), 0) });
+        pnlRef();
+      }
       else {
         Object.assign(BX, { ok: false, error: j.error || `error ${r.status}` });
         if (r.status === 401) { BX.autorizado = false; try { localStorage.removeItem('ab-bingx-clave'); } catch (e) { /* idem */ } }
@@ -2474,6 +2579,14 @@
     const por = document.getElementById('pnl-por'); por.replaceChildren();
     v.por.forEach(([m, r]) => { const s = el('span', r >= 0 ? 'ab-pos-ok' : 'ab-pos-bad', `${m} ${sg(r)}`); por.append(s); });
     document.getElementById('pnl-vivo').classList.toggle('quieto', !PNL.ws || Date.now() - PNL.t > 5000);
+    // capital total: el de BingX al leer, mas lo que se movio el PnL desde entonces
+    const cap = BX.capital, cb = document.getElementById('pos-cap');
+    cb.hidden = !cap || !Number.isFinite(cap.total);
+    if (!cb.hidden) {
+      document.getElementById('cap-total').textContent = `${f2(cap.total + (v.total - (BX.pnlLeido || 0)))} USDT`;
+      document.getElementById('cap-det').textContent = cap.parcial ? 'parcial: BingX no dio todas las cuentas'
+        : `futuros ${f0(cap.futuros || 0)}${cap.otras ? ` · spot y otras ${f0(cap.otras)}` : ''}`;
+    }
   }
   // Un solo WebSocket: precio de marca de las posiciones (para el PnL, con Mis posiciones a la vista) y ultimo precio de
   // las criptos del plan (para Proximas compras y los avisos, aunque estes mirando una accion).
@@ -2829,7 +2942,7 @@
     const col = dir > 0 ? 'var(--color-ok)' : 'var(--color-bad)';
     box.classList.toggle('ab-qp-on', strong);
     box.style.setProperty('--qp-col', strong ? col : 'var(--color-fg-muted)');
-    document.getElementById('qp-k').textContent = strong ? 'movimiento fuerte' : MON();
+    document.getElementById('qp-k').textContent = strong ? (dir > 0 ? 'ya subió fuerte' : 'ya cayó fuerte') : '';
     const big = document.getElementById('qp-big'); big.replaceChildren();
     const ctx = (k) => pick(rows, 'contexto').find((c) => c.clave === k);
     // lo que coincide con el movimiento: cada factor dice si empuja para el mismo lado (si) o no
@@ -3574,7 +3687,7 @@
         if (y - 13 < lh && xl < lw) return;                  // debajo de la leyenda no se leia (la linea queda igual)
         const tw = ctx.measureText(f.txt).width;
         ctx.fillStyle = alpha(P.panel, 0.7); ctx.fillRect(xl - 3, y - 13, tw + 6, 12);          // fondo suave para leerlo sobre las velas
-        ctx.fillStyle = alpha(col, f.extremo || f.fuerte ? 0.95 : 0.7); ctx.fillText(f.txt, xl, y - 2);
+        ctx.fillStyle = alpha(col, f.extremo || f.fuerte ? 1 : 0.9); ctx.fillText(f.txt, xl, y - 2);
       });
       ['a', 'b'].forEach((k) => {                            // los dos puntos: se arrastran (como en TradingView)
         const x = fibX(d.fib[k]), y = Y(d.fib[k].p); if (y === null || x < -10 || x > w + 10 || y < -10 || y > h + 10) return;
@@ -3845,11 +3958,11 @@
     const cross = { color: alpha(P.mute, 0.7), width: 1, style: LW.LineStyle.Dashed, labelBackgroundColor: P.lbl };
     const chart = LW.createChart(box, {
       autoSize: true,
-      layout: { background: { type: 'solid', color: P.panel }, textColor: P.mute, fontFamily: P.font, fontSize: 11,
+      layout: { background: { type: 'solid', color: P.panel }, textColor: P.mute, fontFamily: P.font, fontSize: 11, attributionLogo: false,   // la atribucion va en el pie
         panes: { separatorColor: P.line, separatorHoverColor: alpha(P.fg, 0.12), enableResize: true } },
       grid: { vertLines: { color: P.grid }, horzLines: { color: P.grid } },
       crosshair: { mode: S.iman ? LW.CrosshairMode.MagnetOHLC : LW.CrosshairMode.Normal, vertLine: cross, horzLine: cross },
-      rightPriceScale: { borderVisible: false, scaleMargins: { top: narrow ? 0.17 : 0.11, bottom: 0.2 }, minimumWidth: narrow ? 58 : 70 },
+      rightPriceScale: { borderVisible: false, scaleMargins: { top: narrow ? 0.09 : 0.11, bottom: 0.2 }, minimumWidth: narrow ? 58 : 70 },
       timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 4, barSpacing: narrow ? 6 : 8, minBarSpacing: 1,
         shiftVisibleRangeOnNewBar: true },
       localization: { locale: 'es-AR', timeFormatter: (t) => fmtSec(t) },
@@ -3939,7 +4052,8 @@
     const ch = el('b', '', sg((b.c / b.o - 1) * 100)); ch.style.color = col;
     if (d.narrow) row1.append(kv('C', fp(b.c)), ch);
     else row1.append(kv('A', fp(b.o)), kv('Máx', fp(b.h)), kv('Mín', fp(b.l)), kv('C', fp(b.c)), ch);
-    const rows = [row1];
+    const rows = [row1], toca = i !== null && i !== undefined && i >= 0;
+    if (d.narrow && !toca) { G.leg.replaceChildren(row1); return legendOsc(b, fut); }
     if (d.narrow && !fut) { const r = el('div', 'ab-ohlc-r'); r.append(kv('Máx', fp(b.h)), kv('Mín', fp(b.l))); rows.push(r); }
     if (!fut) {
       const r2 = el('div', 'ab-ohlc-r');
@@ -3948,6 +4062,11 @@
       rows.push(r2);
     }
     G.leg.replaceChildren(...rows);
+    legendOsc(b, fut);
+  }
+  function legendOsc(b, fut) {
+    const d = G.d, P = G.P;
+    const kv = (k, v, c) => { const sp = el('span'); const bb = el('b', '', v); bb.style.color = c; sp.append(k, bb); return sp; };
     if (G.legO.length) {
       const ob = fut ? null : b.rsi !== null && b.rsi !== undefined ? b : d.lastOsc;
       // arriba de cada panel: la suma de los altos de los paneles de arriba (y 1 px por cada separador)

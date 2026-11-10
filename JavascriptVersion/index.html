@@ -48,12 +48,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <link rel="preconnect" href="https://fapi.binance.com" crossorigin>
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
-<link rel="stylesheet" href="p-2449869573.css">
-<script>window.AB_PAGINA = "0d832f64d4";</script>
+<link rel="stylesheet" href="p-09840353db.css">
+<script>window.AB_PAGINA = "08bbfe87ff";</script>
 <script defer src="app.js?v=54f8587a8f"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-68b9e4bbe1.js"></script>
+<script defer src="p-323ac3d1ee.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -62,7 +62,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   <div class="ab-escena" id="escena">
   <header class="ab-top" id="resumen">
     <div class="ab-top-l">
-      <span class="ab-live"><i></i><span><span id="moneda-lbl">BTC</span>/USDT perpetuo · actualizado <span data-source="analisis" data-field="hora_local" data-where="tabla=resumen">—</span> · <span id="next-run">—</span></span><span class="ab-live-state" id="live-state"></span></span>
+      <span class="ab-live"><i></i><span><span class="ab-live-par"><span id="moneda-lbl">BTC</span>/USDT perpetuo · </span>actualizado <span data-source="analisis" data-field="hora_local" data-where="tabla=resumen">—</span><span class="ab-live-sig"> · <span id="next-run">—</span></span></span><span class="ab-live-state" id="live-state"></span></span>
       <div class="ab-title-row"><h1 class="ab-title" id="ab-title">Analista BTC</h1>
         <button type="button" class="ab-iconbtn ab-round ab-nt-btn" id="nt-btn" aria-label="Notificaciones" aria-expanded="false" aria-controls="nt-pop">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15L6 16zM10 20a2 2 0 0 0 4 0"/></svg>
@@ -130,7 +130,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
           <button type="button" data-scen="alcista" aria-pressed="false">Alcista</button>
           <button type="button" data-scen="bajista" aria-pressed="false">Bajista</button>
         </nav>
-        <button type="button" class="ab-iconbtn ab-capas-btn" id="capas-btn" aria-expanded="false" aria-controls="capas">Capas <b id="capas-n"></b></button>
+        <button type="button" class="ab-iconbtn ab-capas-btn" id="capas-btn" aria-expanded="false" aria-controls="capas" aria-label="Capas del gráfico"><svg class="ab-capas-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M12 3 2.5 8 12 13l9.5-5L12 3zM2.5 12.5 12 17.5l9.5-5M2.5 16.5 12 21.5l9.5-5"/></svg><span class="ab-capas-txt">Capas</span> <b id="capas-n"></b></button>
       </div>
       <div class="ab-capas" id="capas">
         <div class="ab-chips" id="layers">
@@ -172,11 +172,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   <section class="ab-card ab-centro" id="centro" aria-labelledby="ce-t" data-source="analisis" hidden>
     <div class="ab-card-head"><h2 id="ce-t">Análisis</h2><span class="ab-kicker" id="ce-k"></span></div>
     <div class="ab-ce-tfs" id="ce-tfs" role="group" aria-label="Temporalidad del análisis"></div>
+    <!-- las cuatro respuestas en una fila: es lo que se ve con la hoja abajo -->
+    <div class="ab-ce-tira" id="ce-tira" role="list"></div>
     <div class="ab-ce-grid">
       <div class="ab-ce-p" id="ce-fuerza"></div>
       <div class="ab-ce-p" id="ce-dir"></div>
-      <div class="ab-ce-p" id="ce-alc"></div>
-      <div class="ab-ce-p" id="ce-niv"></div>
+      <div class="ab-ce-p ab-ce-mapa" id="ce-mapa"></div>
     </div>
     <div class="ab-ce-riesgo" id="ce-riesgo" hidden></div>
   </section>
@@ -220,11 +221,22 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     <div class="ab-pos-total" id="pos-total" hidden aria-live="polite">
       <div class="ab-pos-total-main"><small>PnL no realizado · todas tus posiciones abiertas <span class="ab-pos-vivo" id="pnl-vivo">en vivo</span></small>
         <b id="pnl-total">—</b><span id="pnl-pct"></span></div>
+      <div class="ab-pos-total-main ab-pos-cap" id="pos-cap" hidden><small>Capital total · todas tus cuentas de BingX</small><b id="cap-total">—</b><span id="cap-det"></span></div>
       <div class="ab-pos-total-por" id="pnl-por"></div>
     </div>
     <div class="ab-cmp-grid" id="pos-body"></div>
     <p class="ab-foot" id="pos-bx-nota" hidden>Tus posiciones abiertas en BingX (solo lectura, cada minuto): cantidad, entrada, margen, liquidación y resultado son los de BingX; el equilibrio cuenta sus comisiones. "Órdenes pendientes" son tus órdenes límite de compra: la liquidación con todo ejecutado las suma. La toma de ganancias y el piramidado siguen las reglas de tu plan.</p>
     <p class="ab-foot" id="pos-foot-plan">Se recalcula cada 15 segundos con el precio de ahora. Parte de lo que ya tenías abierto en BingX (cargado del 01/11: cantidad, entrada y margen) y le suma las compras del plan que se ejecuten desde ahí. La liquidación es aproximada (mantenimiento 0,4% BTC, 1% el resto): la exacta la muestra BingX. Precio de equilibrio: la entrada con las comisiones de BingX (y el funding pagado), como el de BingX. Toma de ganancias: cada +40% sobre tu equilibrio, pasar 25% de la posición a spot. Piramidar: cuando sube 15% sobre tu equilibrio, cuánto podés sumar sin plata nueva con la liquidación como mucho en 75% de tu compra más baja.</p>
+    <details class="ab-widget" id="widget-ios">
+      <summary>Widget de iPhone: capital y PnL en la pantalla de inicio o de bloqueo</summary>
+      <ol>
+        <li>Instalá <a href="https://apps.apple.com/app/scriptable/id1405459188" target="_blank" rel="noopener">Scriptable</a> (gratis).</li>
+        <li><button type="button" class="ab-iconbtn" id="widget-copiar">Copiar el código</button> En Scriptable tocá +, pegalo y ponele de nombre "Analista BTC".</li>
+        <li>Tocá ▶ una vez: te pide la contraseña de BingX (la misma de acá) y la guarda en el llavero del iPhone.</li>
+        <li>En la pantalla de inicio o de bloqueo: mantené apretado → Editar → + → Scriptable → elegí "Analista BTC". En "Parameter" poné <b>capital</b>, <b>pnl</b> o dejalo vacío para ver los dos.</li>
+      </ol>
+      <p class="ab-foot">iOS decide cuándo actualizar los widgets (en general cada 5 a 15 minutos), así que no es al segundo como acá; abajo dice hace cuánto se leyó. Tocarlo abre la app.</p>
+    </details>
   </section>
 
   <section class="ab-card ab-mov" id="movimiento" aria-labelledby="mov-t" data-source="analisis" hidden>
@@ -363,7 +375,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     </details>
   </div>
 
-  <p class="ab-foot">Datos públicos de Binance Futures, Bybit, OKX y Bitget, calculados en este teléfono. Las probabilidades y los escenarios cuentan lo que pasó en situaciones parecidas del pasado reciente; el mercado puede hacer otra cosa. No es una recomendación de inversión.</p>
+  <p class="ab-foot">Datos públicos de Binance Futures, Bybit, OKX y Bitget, calculados en este teléfono. Gráfico hecho con <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView Lightweight Charts™</a>. Las probabilidades y los escenarios cuentan lo que pasó en situaciones parecidas del pasado reciente; el mercado puede hacer otra cosa. No es una recomendación de inversión.</p>
   </div>
   <button type="button" class="ab-mini" id="mini" tabindex="-1" aria-hidden="true" title="Volver arriba">
     <b id="mini-mon">BTC</b><span class="ab-mini-p" id="mini-p">—</span><span id="mini-c"></span><span class="ab-mini-h" id="mini-h"></span><i aria-hidden="true">↑</i>
