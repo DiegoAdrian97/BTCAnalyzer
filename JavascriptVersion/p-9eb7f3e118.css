@@ -1393,7 +1393,7 @@
   .ab-lm-min, .ab-lm-perf { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--mute); }
   .ab-lm-min input { accent-color: var(--senal); width: 120px; }
   .ab-lm-box { position: relative; }
-  .ab-lm-chart { height: min(62svh, 560px); background: #0b0f1c; border-radius: 16px; overflow: hidden; }
+  .ab-lm-chart { height: min(62svh, 560px); background: radial-gradient(120% 90% at 50% 40%, #111733, #090c18); border-radius: 16px; overflow: hidden; }
   .ab-lm-perfil { position: absolute; top: 0; right: 64px; width: 72px; height: calc(100% - 28px); pointer-events: none; }
   .ab-lm-estado { position: absolute; inset: 40% 10% auto; text-align: center; color: var(--mute); margin: 0; }
   .ab-lm-punto { margin: 0; min-height: 1.3em; font-size: 13px; color: var(--mute); font-variant-numeric: tabular-nums; }

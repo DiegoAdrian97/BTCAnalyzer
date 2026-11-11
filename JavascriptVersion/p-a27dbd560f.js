@@ -3352,7 +3352,7 @@
       scalping: [[50, 0.45], [75, 0.2], [100, 0.35]],          // apalancamiento alto: zonas cerca del precio
       swing: [[5, 0.2], [10, 0.35], [20, 0.25], [25, 0.2]],      // bajo: zonas mas lejos
     };
-    const NB = 220, MANT = 0.005;
+    const NB = 320, MANT = 0.005;
     function serieEn(pares, ms) {     // [[t, valor]] -> valor en cada apertura de vela (el dato de esa vela, o el de la anterior)
       const m = new Map(); pares.forEach(([t, v]) => { m.set(Math.floor(t / ms) * ms, v); });
       return m;
@@ -3395,8 +3395,10 @@
       }
       return { V: V.slice(ini), grid, NB, gLo, gHi, paso, ver, L: Float64Array.from(L), S: Float64Array.from(S2), liqEst, precioBin, ms };
     }
-    // azul -> cian -> verde -> amarillo -> rojo (como mapaliquidaciones.com); x de 0 a 1
-    const STOPS = [[0, [30, 64, 175]], [0.25, [6, 182, 212]], [0.5, [34, 197, 94]], [0.75, [250, 204, 21]], [1, [239, 68, 68]]];
+    // azul noche -> azul -> cian -> verde -> amarillo -> naranja -> rojo (la escala de mapaliquidaciones.com, con mas
+    // pasos para que el degrade sea parejo); x de 0 a 1
+    const STOPS = [[0, [17, 28, 78]], [0.16, [37, 58, 160]], [0.34, [14, 165, 233]], [0.52, [16, 185, 129]], [0.7, [190, 220, 40]],
+      [0.82, [250, 204, 21]], [0.92, [249, 115, 22]], [1, [239, 68, 68]]];
     function color(x) {
       for (let i = 1; i < STOPS.length; i++) if (x <= STOPS[i][0]) {
         const [a, ca] = STOPS[i - 1], [b, cb] = STOPS[i], u = (x - a) / (b - a);
@@ -3404,15 +3406,31 @@
       }
       return STOPS[STOPS.length - 1][1];
     }
+    // cada columna, difuminada entre niveles vecinos (gaussiana de ~1,6 niveles): franjas continuas en vez de rayas de un
+    // pixel. Solo para dibujar: los numeros (al pasar el dedo, el perfil, los totales) salen del mapa sin difuminar
+    const NUCLEO = (() => { const r = 4, k = []; let s = 0; for (let i = -r; i <= r; i++) { const v = Math.exp(-(i * i) / (2 * 1.6 * 1.6)); k.push(v); s += v; } return k.map((v) => v / s); })();
+    function suave(m) {
+      const out = new Float32Array(m.grid.length), R = (NUCLEO.length - 1) / 2;
+      for (let c = 0; c < m.ver; c++) {
+        const o = c * m.NB;
+        for (let k = 0; k < m.NB; k++) {
+          let v = 0; for (let q = -R; q <= R; q++) { const kk = k + q; if (kk >= 0 && kk < m.NB) v += m.grid[o + kk] * NUCLEO[q + R]; }
+          out[o + k] = v;
+        }
+      }
+      return out;
+    }
     function imagen(m, minimo) {
-      let mx = 0; for (let i = 0; i < m.grid.length; i++) if (m.grid[i] > mx) mx = m.grid[i];
+      const g = m.suave || (m.suave = suave(m));
+      let mx = 0; for (let i = 0; i < g.length; i++) if (g[i] > mx) mx = g[i];
       const cv = document.createElement('canvas'); cv.width = m.ver; cv.height = m.NB;
       const cx = cv.getContext('2d'), img = cx.createImageData(m.ver, m.NB);
       if (mx > 0) for (let c = 0; c < m.ver; c++) for (let k = 0; k < m.NB; k++) {
-        const x = Math.pow(m.grid[c * m.NB + k] / mx, 0.6);       // un poco mas que lineal: que se vean tambien las medianas
+        const x = Math.pow(g[c * m.NB + k] / mx, 0.75);           // casi lineal: lo fuerte se destaca y lo mediano queda tenue
         if (x <= minimo) continue;
-        const [r, g, b] = color(x), o = ((m.NB - 1 - k) * m.ver + c) * 4;
-        img.data[o] = r; img.data[o + 1] = g; img.data[o + 2] = b; img.data[o + 3] = Math.round(255 * Math.min(0.95, 0.08 + 0.95 * x * x));   // lo flojo casi transparente
+        // transparencia que sube suave desde el minimo elegido: sin bordes duros donde empieza a verse
+        const u = Math.min(1, (x - minimo) / Math.max(0.05, 1 - minimo)), [r, gg, b] = color(x), o = ((m.NB - 1 - k) * m.ver + c) * 4;
+        img.data[o] = r; img.data[o + 1] = gg; img.data[o + 2] = b; img.data[o + 3] = Math.round(255 * Math.min(0.96, 0.03 + 0.93 * Math.pow(u, 1.25)));
       }
       cx.putImageData(img, 0, 0);
       return { cv, mx };
@@ -3441,7 +3459,7 @@
             const yT = self._s.priceToCoordinate(m.gHi), yB = self._s.priceToCoordinate(m.gLo);
             if ([x0, x1, yT, yB].some((v) => v === null)) return;
             const bw = V.length > 1 ? (x1 - x0) / (V.length - 1) : 6;
-            ctx.save(); ctx.imageSmoothingEnabled = false;
+            ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';   // escalado suave: sin bloques
             ctx.drawImage(LM.img.cv, x0 - bw / 2, yT, x1 - x0 + bw, yB - yT);
             // liquidaciones reales (OKX): circulos, rojo = largos liquidados, verde = cortos
             const P = G.P || pal();
@@ -3487,11 +3505,14 @@
       let mx = 0; for (let k = 0; k < m.NB; k++) mx = Math.max(mx, m.L[k], m.S[k]);
       if (!mx) return;
       const y = (p) => LM.serie.priceToCoordinate(p), P = G.P || pal(), ahora = m.V[m.V.length - 1][4];
+      const crudo = Float64Array.from({ length: m.NB }, (_, k) => m.L[k] + m.S[k]), R = 2, perf = new Float64Array(m.NB);
+      for (let k = 0; k < m.NB; k++) { let v = 0, w = 0; for (let q = -R; q <= R; q++) { const kk = k + q; if (kk >= 0 && kk < m.NB) { const f = 1 - Math.abs(q) / (R + 1); v += crudo[kk] * f; w += f; } } perf[k] = v / w; }
+      mx = 0; for (let k = 0; k < m.NB; k++) mx = Math.max(mx, perf[k]);
       for (let k = 0; k < m.NB; k++) {
-        const v = m.L[k] + m.S[k]; if (!v) continue;
+        const v = perf[k]; if (!v) continue;
         const pa = y(m.gLo + (k + 1) * m.paso), pb = y(m.gLo + k * m.paso); if (pa === null || pb === null || pb < 0 || pa > H) continue;
-        const x = Math.sqrt(v / mx), [r, g, b] = LiqMapa.color(x);
-        ctx.fillStyle = `rgba(${r},${g},${b},0.85)`; ctx.fillRect(W - x * (W - 4), pa, x * (W - 4), Math.max(1, pb - pa - 0.5));
+        const x = Math.pow(v / mx, 0.7), [r, g, b] = LiqMapa.color(x);
+        ctx.fillStyle = `rgba(${r},${g},${b},${0.35 + 0.6 * x})`; ctx.fillRect(W - x * (W - 4), pa, x * (W - 4), Math.max(1, pb - pa));
       }
       const ya = y(ahora); if (ya !== null) { ctx.fillStyle = P.mute; ctx.fillRect(0, ya, W, 1); }
     }
