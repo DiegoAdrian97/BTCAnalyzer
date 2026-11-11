@@ -665,6 +665,29 @@ Ninguna gana en los tres tramos de ninguna moneda: los pocos tramos sueltos con 
 tantas combinaciones. De paso: el modelo de dirección con todas las señales le gana a la tasa base por −1,4% a +1,2%
 (casi nada), mientras que el de movimiento fuerte gana 3,5% a 11,9%.
 
+### Noticias leídas por una IA (`medir_noticias_ia.py`, nov. 2026)
+
+¿Una IA abierta que lee los titulares (Qwen2.5-1.5B, en GitHub Actions) anticipa a BTC mejor que las reglas de hoy?
+Titulares de GDELT (todas las noticias en inglés, cada 15 minutos) de 88 días: **310.562 de 6.293 medios**, los que
+`noticias.tema` reconoce de cripto (53 mil), escalada de guerras (65 mil) y Trump / política de EE.UU. y la Fed (193 mil).
+La misma noticia en varios medios cuenta **una sola vez** (un hecho = un voto, cuando aparece): con las reglas de hoy
+quedan 171.644 hechos; con la IA (parecido de significado) entre 161.125 y 206.949 según el umbral. Señal de cada hora:
+la suma de los hechos nuevos de las últimas 4 h. Regresión que se reentrena cada día con lo ya terminado; entra si
+mejora en las dos mitades con z por día > 2.
+
+| Qué | Reglas o IA, por titular o por hecho, y cada tema solo | ¿Entra? |
+|---|---|---|
+| Para dónde, 1 h | aciertan 48–51% en las horas con noticias; z −2,0 a +1,0 | No |
+| Para dónde, 4 h | 42–50%; z −2,4 a +0,1 | No |
+| Movimiento fuerte, 1 h (sumado al modelo de la app) | z −1,4 a +1,0 | No |
+| Movimiento fuerte, 4 h | z −1,8 a +2,4 (una mitad sola) | No |
+
+Ninguna variante mejora en las dos mitades: los titulares (con reglas o con IA, juntando o no la misma noticia) no
+anticipan a BTC en 1 a 4 horas más allá de lo que ya mira la app. Por eso siguen solo en "Qué está pasando". Notas: la
+búsqueda de GDELT casi no contesta desde GitHub (se usan sus archivos de 15 min, en 40 partes en paralelo); la primera
+corrida dio el movimiento fuerte mucho peor por un error de la medición (sumas de cientos de titulares sin escalar), ya
+arreglado. Para volver a medir sin rebajar ni releer: workflow "Medir noticias con IA (solo medir)".
+
 ### Compresión de las Bollinger (`medir_compresion.py`)
 
 Con el ancho de las Bollinger (20, 2; velas de 1 hora) entre el 10% más angosto de los últimos 30 días, medido con BTC
