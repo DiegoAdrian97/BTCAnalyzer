@@ -9,7 +9,7 @@
  */
 (function (root) {
   'use strict';
-  const { TIMEFRAMES, TF_MS } = root.Analisis;
+  const { TIMEFRAMES, TF_MS, DIAS_LARGOS } = root.Analisis;
   const DAY = 86400000;
   const BINANCE = 'https://fapi.binance.com';
   const BYBIT_TF = { '5m': '5', '15m': '15', '30m': '30', '1h': '60', '4h': '240', '1d': 'D' };
@@ -180,8 +180,10 @@
     /** Velas cerradas: lo guardado en el telefono mas lo nuevo. */
     // Si otro ciclo ya esta bajando las mismas velas (el analisis de fondo cortado al elegir ese activo), se espera ese
     // pedido en vez de repetirlo: antes se bajaban dos veces y las dos escrituras se pisaban.
+    // las diarias se guardan con toda la historia (DIAS_LARGOS, para la semanal y la mensual) en otra clave: la de antes
+    // tenia 1.500 dias y solo se le suman las nuevas
     function updateCandles(src, tf, days, now) {
-      const key = `${pre()}velas:${src}:${tf}`;
+      const key = `${pre()}velas:${src}:${tf}${days > TIMEFRAMES[tf][0] ? ':largo' : ''}`;
       if (!velasEnVuelo[key]) velasEnVuelo[key] = bajarVelas(key, src, tf, days, now).finally(() => { delete velasEnVuelo[key]; });
       return velasEnVuelo[key];
     }
@@ -368,10 +370,14 @@
     const candles = {};
     let done = 0;
     await Promise.all(Object.entries(TIMEFRAMES).map(async ([tf, [days]]) => {
-      candles[tf] = await updateCandles(src, tf, days, now);
+      candles[tf] = await updateCandles(src, tf, tf === '1d' ? Math.max(days, DIAS_LARGOS) : days, now);
       done += 1;
       if (onProgress) onProgress(`Velas listas: ${done} de 6 temporalidades`);
     }));
+    // toda la historia diaria va aparte (semanal y mensual, con EMA como las del exchange); el analisis diario y el
+    // termometro siguen con sus 1.500 dias
+    const d1Largo = candles['1d'];
+    candles['1d'] = d1Largo.filter((c) => c[0] >= now - TIMEFRAMES['1d'][0] * DAY);
     let live5m = null;
     try {
       const last = candles['5m'][candles['5m'].length - 1][0];
@@ -386,7 +392,7 @@
     const p = pre(), [ctxR, booksR, liqR, extR, opcR] = await Promise.all([aTiempo(ctxP, `${p}contexto`, 3000, null),
       aTiempo(booksP, `${p}libros`, 3000, []), aTiempo(liqP, `${p}liquidaciones`, 3000, null), aTiempo(extP, extK, 3000, null),
       aTiempo(opcP, 'opciones', 3000, null)]);
-    return { candles, live5m, price, now, ctxRaw: ctxR, booksRaw: booksR, liqRaw: liqR, externo: extR, opcionesRaw: opcR, log, fuente: src };
+    return { candles, d1Largo, live5m, price, now, ctxRaw: ctxR, booksRaw: booksR, liqRaw: liqR, externo: extR, opcionesRaw: opcR, log, fuente: src };
   }
 
   // el ultimo analisis de cada activo, guardado en el telefono: al abrir la app se muestra al toque mientras se calcula

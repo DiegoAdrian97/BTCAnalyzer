@@ -2717,6 +2717,17 @@
     G.under.update(); G.over.update();
   }
 
+  // EMA 20, 50 y 200 de la vela en curso con su precio de ahora (como el grafico del exchange): la de la vela anterior
+  // ya cerrada mas el cierre de ahora. Antes quedaban con el precio del ultimo analisis, y en una vela nueva no habia
+  // EMA hasta el analisis siguiente (la linea terminaba una vela antes)
+  function emaVivo(prev, c) {
+    const o = {};
+    [['e20', 20], ['e50', 50], ['e200', 200]].forEach(([k, n]) => {
+      if (prev && prev[k] !== null && prev[k] !== undefined) o[k] = c * 2 / (n + 1) + prev[k] * (1 - 2 / (n + 1));
+    });
+    return o;
+  }
+
   // un tick del WebSocket: mueve la ultima vela al instante, sin rehacer el grafico
   function liveTick() {
     if (!G.chart || !G.d || G.tf !== S.tf || !liveBar || liveBar.tf !== S.tf || liveBar.mon !== MON() || G.mon !== MON()) return;
@@ -2727,8 +2738,12 @@
       G.vol.update({ time: t, value: liveBar.v, color: alpha(liveBar.c >= liveBar.o ? G.P.up : G.P.dn, 0.3) });
     } catch (e) { return; }
     d.price = liveBar.c; d.nowCol = liveBar.c >= liveBar.o ? G.P.up : G.P.dn;
-    const last = d.all[d.all.length - 1];
-    if (liveBar.t === last.t) Object.assign(last, { h: liveBar.h, l: liveBar.l, c: liveBar.c, v: liveBar.v });
+    const last = d.all[d.all.length - 1], igual = liveBar.t === last.t;
+    const e = emaVivo(igual ? d.all[d.all.length - 2] : last, liveBar.c);
+    if (S.layers.ema) {
+      try { [['e20', G.e20], ['e50', G.e50], ['e200', G.e200]].forEach(([k, se]) => { if (e[k] !== undefined) se.update({ time: t, value: e[k] }); }); } catch (er) { /* la serie puede estar vacia */ }
+    }
+    if (igual) Object.assign(last, { h: liveBar.h, l: liveBar.l, c: liveBar.c, v: liveBar.v }, e);
     if (!G.hover) legend(null);
   }
 
@@ -2751,8 +2766,8 @@
     // grafico de BTC y la escala quedaba de 1.300 a 100.000
     const vivo = liveBar && liveBar.tf === tf && liveBar.mon === MON() ? liveBar : null;
     if (vivo) {
-      if (liveBar.t === lastA.t) all[lastIdx] = { ...lastA, h: liveBar.h, l: liveBar.l, c: liveBar.c, v: liveBar.v };
-      else if (liveBar.t > lastA.t) all.push({ ...liveBar, e20: null, e50: null, e200: null, bu: null, bl: null, rsi: null, macd: null, sig: null, hist: null });
+      if (liveBar.t === lastA.t) all[lastIdx] = { ...lastA, h: liveBar.h, l: liveBar.l, c: liveBar.c, v: liveBar.v, ...emaVivo(all[lastIdx - 1], liveBar.c) };
+      else if (liveBar.t > lastA.t) all.push({ ...liveBar, e20: null, e50: null, e200: null, ...emaVivo(lastA, liveBar.c), bu: null, bl: null, rsi: null, macd: null, sig: null, hist: null });
     }
     const price = vivo ? vivo.c : num(sum.precio);
     const ghosts = SIN_FUTURO ? [] : pick(rows, 'escenario', tf).filter((r) => r.escenario === S.scen)

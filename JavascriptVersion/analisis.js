@@ -18,6 +18,7 @@
   const DAY_MS = 86400000;
   // temporalidad: [dias de historia, horizontes de probabilidad en velas]
   const TIMEFRAMES = { '5m': [30, [3, 12]], '15m': [90, [4, 16]], '30m': [180, [4, 16]], '1h': [365, [4, 24]], '4h': [730, [3, 6]], '1d': [1500, [3, 7]] };
+  const DIAS_LARGOS = 3000;      // historia diaria para la semanal y la mensual (como DIAS_LARGOS de Python)
   const TF_MS = { '5m': 300000, '15m': 900000, '30m': 1800000, '1h': 3600000, '4h': 14400000, '1d': 86400000 };
   const TF_TXT = { '5m': '5 min', '15m': '15 min', '30m': '30 min', '1h': '1 hora', '4h': '4 horas', '1d': 'diario', '1w': 'semanal', '1M': 'mensual' };
   const NICE_STEPS = [];      // como en Python: 1, 2,5 y 5 por cada potencia de 10
@@ -1267,7 +1268,9 @@
       }
     });
 
-    Object.keys(TF_LARGOS).forEach((tf) => analisisLargo(full['1d'], tf, price, full['1d'].length > candles['1d'].length).forEach((r) => rows.push(r)));   // semanal y mensual
+    // semanal y mensual: con toda la historia diaria si la hay (input.d1Largo), mas la vela diaria en curso
+    const d1Largo = input.d1Largo ? input.d1Largo.concat(full['1d'].slice(candles['1d'].length)) : full['1d'];
+    Object.keys(TF_LARGOS).forEach((tf) => analisisLargo(d1Largo, tf, price, full['1d'].length > candles['1d'].length).forEach((r) => rows.push(r)));
 
     // una prediccion por plazo, cada una con la temporalidad que mas casos tiene para ese plazo
     PLAZOS.forEach(([name, tf, h]) => {
@@ -1392,7 +1395,7 @@
     return { rows, log };
   }
 
-  const Analisis = { piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, fibTramo, compresion, perfilHoras, central, liqReales, calificarUltimas };
+  const Analisis = { piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, DIAS_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, fibTramo, compresion, perfilHoras, central, liqReales, calificarUltimas };
   root.Analisis = Analisis;
   if (typeof module !== 'undefined' && module.exports) module.exports = Analisis;
 })(typeof self !== 'undefined' ? self : globalThis);

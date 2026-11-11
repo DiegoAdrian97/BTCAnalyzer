@@ -13,6 +13,8 @@ tocarlo o "Quitar marcas". En pantalla completa va en un panel a la derecha: fij
 se abre con ⓘ y se cierra con ✕, deslizando a la derecha o con Esc.
 Capa **EMA 20 / 50 / 200**: azul, naranja y una gris más gruesa (la EMA 200 de esa temporalidad, en todos los activos;
 solo aparece donde hay 200 velas para calcularla, así que en la mensual no).
+Las EMA de la vela en curso se mueven con el precio en vivo (la de la vela anterior más el cierre de ahora, como el
+gráfico del exchange); antes quedaban con el precio del último análisis y en una vela nueva la línea terminaba una antes.
 Herramientas: **Mi plan** (las compras que faltan de `plan_compras.json`, tu promedio, la próxima toma de ganancias y la
 liquidación, como líneas con nombre), **Medir** (Shift + arrastrar o el botón: %, precio, velas y tiempo entre dos puntos),
 **Imán** (la mira y los puntos de Medir se pegan a la apertura, máximo, mínimo o cierre; Cmd/Ctrl mientras medís lo invierte), escala **Log**, **»** para volver a la última vela, **Imagen** (en el iPhone se comparte, en la compu se baja) y teclas con el
@@ -171,8 +173,11 @@ en silencio: así un reinicio de Render no la pierde. No lo borres.
 
 ### Velas semanales y mensuales
 
-Botones **1S** y **1M** en el gráfico, para todos los activos: se arman con las 1.500 velas diarias (~214 semanas y ~49
-meses; la semana empieza el lunes, como en Binance) y se actualizan en vivo. Tienen indicadores, sesgo técnico, giros,
+Botones **1S** y **1M** en el gráfico, para todos los activos: se arman con toda la historia diaria del futuro (hasta
+3.000 días, `DIAS_LARGOS`; en BTC desde que cotiza en Binance, sep. 2019: ~375 semanas y ~86 meses; la semana empieza el
+lunes, como en Binance) y se actualizan en vivo. Así sus EMA dan lo mismo que en TradingView con la misma historia: con
+solo 1.500 días la EMA 200 semanal arrancaba en 2022 y quedaba corrida (en una prueba, 41.828 contra 39.827, un 5%).
+El análisis diario y el termómetro siguen con sus 1.500 días. Tienen indicadores, sesgo técnico, giros,
 Elliott, FVG, patrones y divergencias, pero no predicción ni escenarios: con tan pocas velas no se puede repasar si
 acertaría. En la mensual, la EMA de 200 no se muestra (hacen falta 200 meses).
 

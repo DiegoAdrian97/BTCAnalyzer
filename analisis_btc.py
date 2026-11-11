@@ -129,10 +129,16 @@ FUNDING_TTL = 3 * 3600
 
 
 
-def update_candles(ex, tf, days):
+# las velas semanales y mensuales salen de las diarias: con toda la historia (desde que cotiza el futuro, como
+# TradingView) sus EMA 50 y 200 dan lo mismo que en el grafico del exchange. Con 1.500 dias la EMA 200 semanal
+# arrancaba en 2022 y quedaba corrida. El analisis diario (y el termometro) siguen con sus 1.500 dias.
+DIAS_LARGOS = 3000
+
+
+def update_candles(ex, tf, days, archivo=None):
     """Velas cerradas con cache incremental en data/ (un archivo por exchange)."""
     name = "binance" if ex.id == "binanceusdm" else ex.id
-    path = os.path.join(DATA_DIR, f"BTC_USDT_{name}_perp_{tf}.csv")
+    path = os.path.join(DATA_DIR, f"BTC_USDT_{name}_perp_{archivo or tf}.csv")
     tf_ms = ex.parse_timeframe(tf) * 1000
     candles = []
     if os.path.exists(path):
@@ -1604,8 +1610,12 @@ def analyze():
     # (que se piden como mucho cada 20 s) se bajan mientras se calcula lo demas
     pool = ThreadPoolExecutor(max_workers=8)
     books_job = pool.submit(cached, "libros", 20, order_books)
-    jobs = {tf: pool.submit(update_candles, src, tf, days) for tf, (days, _) in TIMEFRAMES.items()}
+    jobs = {tf: pool.submit(update_candles, src, tf, *((DIAS_LARGOS, "1d_largo") if tf == "1d" else (days,)))
+            for tf, (days, _) in TIMEFRAMES.items()}
     candles = {tf: job.result() for tf, job in jobs.items()}
+    d1_largo = candles["1d"]                       # toda la historia diaria: para la semanal y la mensual
+    corte = int(time.time() * 1000) - TIMEFRAMES["1d"][0] * 86_400_000
+    candles["1d"] = [c for c in d1_largo if c[0] >= corte]
     global ULTIMAS_VELAS
     ULTIMAS_VELAS = candles          # velas cerradas: las usan los avisos (setups) en el modo en vivo
     # el analisis incluye la vela en curso de cada temporalidad (como TradingView): los indicadores, patrones y
@@ -1695,7 +1705,7 @@ def analyze():
                          "macd_senal": round(ms[k], dec_precio(price) + 1), "macd_hist": round(mh[k], dec_precio(price) + 1)})
 
     for tf in TF_LARGOS:                  # semanal y mensual con las diarias (sin prediccion)
-        rows += analisis_largo(full["1d"], tf, price, len(full["1d"]) > len(candles["1d"]))
+        rows += analisis_largo(d1_largo + full["1d"][len(candles["1d"]):], tf, price, len(full["1d"]) > len(candles["1d"]))
 
     # una prediccion por plazo, cada una con la temporalidad que mas casos tiene para ese plazo
     for name, tf, h, *_ in PLAZOS:
