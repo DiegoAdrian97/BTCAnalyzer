@@ -147,9 +147,13 @@ const ENT = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
 const unesc = (s) => s.replace(/&(#x?[0-9a-f]+|\w+);/gi, (m, e) => (e[0] === '#'
   ? String.fromCodePoint(e[1].toLowerCase() === 'x' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)) : ENT[e.toLowerCase()] ?? m));
 
+// opinion, cartas de lectores, editoriales, podcasts y videos: no son un hecho ni una decision (como NO_ES_NOTICIA de Python)
+const NO_ES_NOTICIA = /^\W*(?:opini[oó]n|opinion|op-ed|carta|cartas|letters?(?: to the editor)?|editorial|columna|column|commentary|comentario|podcast|video|watch|listen|fotos?|photos?|quiz)\s*[:|]/;
+
 function tema(titulo, feed) {
   const t = titulo.toLowerCase();
   if (feed.startsWith('accion:')) return temaAccion(t, ACCIONES[feed.slice(7)]);
+  if (NO_ES_NOTICIA.test(t)) return null;
   if (HACK.test(t) && EXCHANGE.test(t)) return 'Hackeo de exchange';
   if (FED.test(t)) return 'Fed y tasas';
   if (GUERRA.test(t) && ACTOR_GRANDE.test(t)) return 'Guerras grandes';

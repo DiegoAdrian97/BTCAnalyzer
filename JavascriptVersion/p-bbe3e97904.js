@@ -3174,6 +3174,8 @@
     hits.forEach((h) => { const tr = el('tr'); tr.dataset.key = `${encodeURIComponent(h.tf)},${encodeURIComponent(h.horizonte)}`;
       const er = num(h.en_rango), cr = num(h.con_rango) || 0;
       [h.tf, h.horizonte, h.pronosticos, pc(h.aciertos), num(h.brier) === null ? '—' : ar.format('.3f')(num(h.brier))].forEach((v) => tr.append(el('td', '', String(v))));
+      // con menos de 10 casos el porcentaje no dice nada (2 de 2 es "100%"): se muestra apagado y se avisa
+      if ((num(h.pronosticos) || 0) < 10) { tr.children[3].style.color = 'var(--mute)'; tr.children[3].title = 'Pocos casos todavía: el porcentaje no dice nada'; tr.children[3].textContent += ' · pocos'; }
       // el rango es honesto si queda cerca de 80%: muy por debajo, el cono es angosto; muy por arriba, exagera
       const td = el('td', '', er === null ? '—' : `${f1(er)}% (${cr})`);
       if (er !== null && cr >= 30) { td.style.color = Math.abs(er - 80) <= 7 ? 'var(--color-ok)' : 'var(--color-warn)'; td.title = Math.abs(er - 80) <= 7 ? 'Cerca del 80%: el rango es honesto' : er < 80 ? 'Debajo del 80%: el rango viene angosto' : 'Arriba del 80%: el rango viene ancho'; }

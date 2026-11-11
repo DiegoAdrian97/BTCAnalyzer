@@ -587,7 +587,7 @@ mediciones abajo): el puntaje de dirección resume lo que dicen las señales, no
 tarjeta "Análisis" reemplaza al resumen, a Movimiento y a Predicción (siguen en la vista completa).
 
 Soporte y resistencia de cada temporalidad: los niveles más cercanos que estén al menos a media vela típica (ATR) de esa
-temporalidad; si no hay ninguno tan lejos, el más cercano. Antes eran los más cercanos a secas y en la semanal y la
+temporalidad; si no hay ninguno tan lejos, el más lejano que haya. Antes eran los más cercanos a secas y en la semanal y la
 mensual quedaba un muro del libro de órdenes a 0,1% del precio. Y el objetivo de Elliott desaparece cuando la onda en
 curso ya lo pasó (antes una onda A bajista con el objetivo ya arriba del precio contaba como señal alcista).
 

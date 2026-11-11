@@ -390,12 +390,12 @@
       const lado = dr >= 2.5 ? 'sube' : dr <= -2.5 ? 'baja' : 'neutral';
       // ----- alcance y niveles -----
       // soporte y resistencia de cada temporalidad: los mas cercanos a media vela tipica (ATR) o mas; si no hay, el mas
-      // cercano (como central() de Python)
+      // lejano que haya (como central() de Python)
       const lejos = 0.5 * (marco.atr_pct || 0) / 100 * price;
       let sop = null, res = null, sop0 = null, res0 = null;
       niveles.forEach((n) => {
-        if (n.precio < price && (sop0 === null || n.precio > sop0)) sop0 = n.precio;
-        if (n.precio > price && (res0 === null || n.precio < res0)) res0 = n.precio;
+        if (n.precio < price && (sop0 === null || n.precio < sop0)) sop0 = n.precio;      // si no hay tan lejos: el mas lejano
+        if (n.precio > price && (res0 === null || n.precio > res0)) res0 = n.precio;
         if (n.precio < price && n.precio <= price - lejos && (sop === null || n.precio > sop)) sop = n.precio;
         if (n.precio > price && n.precio >= price + lejos && (res === null || n.precio < res)) res = n.precio;
       });
@@ -1139,7 +1139,7 @@
     const agree = bias === 'alcista' ? nUp : nDn;
     let why;
     if (!signals.length) why = 'No hay señales fuertes en este plazo.';
-    else if (bias === 'neutral') why = `Las señales están repartidas: ${nUp} alcistas y ${nDn} bajistas.`;
+    else if (bias === 'neutral') why = `Las señales están repartidas: ${nUp} alcista${nUp === 1 ? '' : 's'} y ${nDn} bajista${nDn === 1 ? '' : 's'}.`;
     else if (agree * 2 > signals.length) why = `Lo acompañan ${agree} de ${signals.length} señales.`;
     else why = `Ojo: solo ${agree} de ${signals.length} señales acompañan. Convicción baja.`;
 

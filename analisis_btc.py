@@ -1409,12 +1409,12 @@ def central(rows, price, candles, now_ms):
         # ----- alcance y niveles -----
         # el soporte y la resistencia de cada temporalidad: los mas cercanos que esten al menos a media vela tipica
         # (ATR) de esa temporalidad. Antes eran los mas cercanos a secas: en la semanal y la mensual quedaba un muro
-        # del libro de ordenes a 0,1% del precio. Si no hay ninguno tan lejos, el mas cercano.
+        # del libro de ordenes a 0,1% del precio. Si no hay ninguno tan lejos, el mas lejano que haya.
         lejos = 0.5 * (marco.get("atr_pct") or 0) / 100 * price
         sop = max((n["precio"] for n in niveles if n["precio"] <= price - lejos and n["precio"] < price),
-                  default=max((n["precio"] for n in niveles if n["precio"] < price), default=None))
+                  default=min((n["precio"] for n in niveles if n["precio"] < price), default=None))
         res = min((n["precio"] for n in niveles if n["precio"] >= price + lejos and n["precio"] > price),
-                  default=min((n["precio"] for n in niveles if n["precio"] > price), default=None))
+                  default=max((n["precio"] for n in niveles if n["precio"] > price), default=None))
         inval = next((e["texto"] for e in rows if e.get("tabla") == "explicacion" and e["plazo"] == nombre_plazo and e["tipo"] == "invalida"), None) if p else None
         # ----- riesgo -----
         R = []
@@ -1522,7 +1522,7 @@ def explain(rows, price, spec):
     if not signals:
         why = "No hay señales fuertes en este plazo."
     elif bias == "neutral":
-        why = f"Las señales están repartidas: {n_up} alcistas y {n_dn} bajistas."
+        why = f"Las señales están repartidas: {n_up} alcista{'' if n_up == 1 else 's'} y {n_dn} bajista{'' if n_dn == 1 else 's'}."
     elif agree * 2 > len(signals):
         why = f"Lo acompañan {agree} de {len(signals)} señales."
     else:
@@ -1753,7 +1753,10 @@ def analyze():
     except Exception as e:  # el contexto es complementario: si una fuente falla, el resto sirve
         funding = None
         rows.append({"tabla": "contexto", "clave": "error", "titulo": "Contexto no disponible", "valor": "",
-                     "senal": "neutral", "detalle": f"No se pudo leer: {type(e).__name__}"})
+                     "senal": "neutral",
+                     "detalle": ("El exchange limitó los pedidos por un rato: funding, interés abierto y liquidaciones vuelven solos en los próximos análisis."
+                                 if type(e).__name__ in ("DDoSProtection", "RateLimitExceeded", "ExchangeNotAvailable", "NetworkError", "RequestTimeout")
+                                 else f"No se pudo leer: {type(e).__name__}")})
     try:   # opciones de BTC (Deribit): volatilidad implicita, puts/calls, dolor maximo del viernes. Contexto
         libro, dv = cached("opciones", 600, lambda: opciones_deribit(now_ms))
         rows += opciones(libro, dv, price, now_ms)

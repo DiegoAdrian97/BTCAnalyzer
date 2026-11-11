@@ -284,11 +284,18 @@ def tema_accion(t, c):
     return None
 
 
+# opinion, cartas de lectores, editoriales, podcasts y videos: no son un hecho ni una decision (entraban muchos por
+# nombrar a Trump: "Opinión: ...", "Carta: ...")
+NO_ES_NOTICIA = r"^\W*(?:opini[oó]n|opinion|op-ed|carta|cartas|letters?(?: to the editor)?|editorial|columna|column|commentary|comentario|podcast|video|watch|listen|fotos?|photos?|quiz)\s*[:|]"
+
+
 def tema(titulo, feed):
     """De que habla un titular (guerra grande, gobierno de EE.UU. o grande, ETF, hackeo, cripto). None: se descarta."""
     t = titulo.lower()
     if feed.startswith("accion:"):
         return tema_accion(t, ACCIONES[feed[7:]])
+    if re.search(NO_ES_NOTICIA, t):
+        return None
     if re.search(HACK, t) and re.search(EXCHANGE, t):
         return "Hackeo de exchange"
     if re.search(FED, t):
