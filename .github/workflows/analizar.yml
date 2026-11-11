@@ -13,7 +13,8 @@ jobs:
         with: { python-version: "3.12" }
       - run: pip install -r requirements.txt numpy lightgbm
       # Bybit y Binance bloquean las maquinas de GitHub (EE.UU.): las velas salen de BingX, el exchange de Diego
-      - run: python -u -c "import analisis_btc as a; a.candle_source = lambda: a.exchange('bingx'); a.main()" | tee analisis.txt
+      - run: |
+          python -u -c "import analisis_btc as a; a.candle_source = lambda: a.exchange('bingx'); a.main()" | tee analisis.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: analisis, path: analisis.txt }
