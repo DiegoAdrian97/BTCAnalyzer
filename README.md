@@ -261,7 +261,12 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
   franja se corta; cuando el open interest baja, se cierran en proporción, y con el tiempo se van cerrando solas. Se
   eligen los apalancamientos a mostrar (la grilla se estira hasta donde caen: 3x queda a ~33 %), intensidad mínima,
   paleta de zonas brillantes sobre violeta (franjas nítidas dibujadas en píxeles reales, sin difuminar) y perfil lateral apilado por apalancamiento (un color cada uno, como el
-  "Liquidation Profile" de TradingDifferent), con el total y el nivel más cargado de cada uno. Coinglass, Hyblock, Kingfisher y TradingDifferent no publican sus datos (API paga);
+  "Liquidation Profile" de TradingDifferent), con el total y el nivel más cargado de cada uno.
+  **En vivo** (mientras el panel está abierto y a la vista): liquidaciones de Binance (`forceOrder`, la mayor de cada
+  segundo), Bybit (`allLiquidation`, todas) y OKX (`liquidation-orders`, con el tamaño de contrato que da la API)
+  directo por WebSocket desde el teléfono; aparecen como burbujas en su precio (crecen con un anillo al llegar) y en una
+  lista con los totales de largos y cortos de los últimos 5 min. La vela en curso se actualiza con Binance. Al cerrar el
+  panel o salir de la app se desconecta. Coinglass, Hyblock, Kingfisher y TradingDifferent no publican sus datos (API paga);
   Coinalyze tiene una API gratis con clave (se puede sumar). Prueba: `node pruebas/liquidaciones.js`.
 - **Calendario: lo que viene** ("Más detalle"): solo lo futuro, en hora de Argentina: datos de EE.UU. de importancia alta
   (TradingView, por `api/contexto`) y lo propio de las criptos (vencimientos de opciones de Deribit, semanal, mensual y

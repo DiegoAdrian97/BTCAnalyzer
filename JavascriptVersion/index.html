@@ -47,12 +47,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <link rel="preconnect" href="https://fapi.binance.com" crossorigin>
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
-<link rel="stylesheet" href="p-02c8c7769c.css">
-<script>window.AB_PAGINA = "1585d5994e";</script>
+<link rel="stylesheet" href="p-b4fb82affc.css">
+<script>window.AB_PAGINA = "5a0213df64";</script>
 <script defer src="app.js?v=015fe70079"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-e892f8cbac.js"></script>
+<script defer src="p-0913d43708.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -424,6 +424,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     <div class="ab-lm-box"><div class="ab-repro-chart ab-lm-chart" id="lm-chart"></div><canvas class="ab-lm-perfil" id="lm-perfil"></canvas>
       <p class="ab-lm-estado" id="lm-estado" hidden></p></div>
     <p class="ab-lm-punto" id="lm-punto" aria-live="polite"></p>
+    <section class="ab-lm-vivo" id="lm-vivo" aria-label="Liquidaciones en vivo">
+      <div class="ab-lm-vivo-h"><span class="ab-lm-dot" id="lm-vivo-dot"></span><b>En vivo</b><span class="ab-lm-vivo-est" id="lm-vivo-est">conectando…</span></div>
+      <div class="ab-lm-vivo-tot" id="lm-vivo-tot"></div>
+      <ol class="ab-lm-feed" id="lm-feed"></ol>
+    </section>
     <div class="ab-lm-res" id="lm-res"></div>
     <p class="ab-repro-res"><span id="lm-fuentes"></span> Las franjas son una estimación de dónde se liquidarían posiciones apalancadas si el precio llegara (cuanto más brillante, más cargado comparado con el nivel más cargado de la vista; cortos arriba, largos abajo). El perfil del costado separa cada nivel por apalancamiento. Los círculos son liquidaciones reales. No predice el precio ni es consejo financiero.</p>
   </div>

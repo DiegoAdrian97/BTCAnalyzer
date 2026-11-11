@@ -3455,6 +3455,8 @@
     const LM = { tf: '1h', niveles: [3, 5, 10, 25, 50, 100], minimo: 0.15, perfil: true, datos: null, m: null, img: null, ch: null, serie: null, carga: 0, mon: 'BTC' };
     const sel = $('lm-mon'); sel.append(...MON_LM.map((m) => { const o = el('option', '', m); o.value = m; return o; }));
     const usd = (x) => (x >= 1e9 ? `${ar.format(',.2f')(x / 1e9)} mil M` : x >= 1e6 ? `${ar.format(',.1f')(x / 1e6)} M` : x >= 1e3 ? `${f0(x / 1e3)} mil` : x > 0 ? 'menos de mil' : '0');
+    // liquidaciones en vivo: t, lado ('l' largos liquidados, 's' cortos), precio, USD, exchange, cuando llego (para animar)
+    const VIVO = { items: [], socks: [], gen: 0, t: 0, quieto: matchMedia('(prefers-reduced-motion: reduce)').matches, raf: 0, lista: 0 };
     // la capa del mapa, detras de las velas (primitiva de Lightweight Charts)
     const capa = {
       _vista: null,
@@ -3467,7 +3469,9 @@
           const ts = self._ch.timeScale(), m = LM.m, V = m.V;
           const x0 = ts.timeToCoordinate(V[0][0] / 1000), x1 = ts.timeToCoordinate(V[V.length - 1][0] / 1000);
           if (x0 === null || x1 === null) return;
-          const bw = V.length > 1 ? (x1 - x0) / (V.length - 1) : 6;
+          const bw = V.length > 1 ? (x1 - x0) / (V.length - 1) : 6, tUlt = V[V.length - 1][0];
+          // con la vela en vivo, lo que sigue cargado al final se estira hasta ella
+          const extra = VIVO.t > tUlt ? Math.round((VIVO.t - tUlt) / m.ms) : 0;
           // franjas en pixeles del dispositivo, redondeadas: bordes nitidos, sin escalar ni difuminar
           target.useBitmapCoordinateSpace(({ context: ctx, bitmapSize, horizontalPixelRatio: hr, verticalPixelRatio: vr }) => {
             const Wb = bitmapSize.width, Hb = bitmapSize.height, img = LM.img;
@@ -3478,7 +3482,8 @@
               const a = Math.round(ya * vr), h = Math.max(1, Math.round(yb * vr) - a);
               if (a > Hb || a + h < 0) return;
               for (let i = 0; i < tr.length; i += 3) {
-                const xa = Math.max(0, Math.round((x0 + (tr[i] - 0.5) * bw) * hr)), xb = Math.min(Wb, Math.round((x0 + (tr[i + 1] + 0.5) * bw) * hr));
+                const fin = tr[i + 1] === m.ver - 1 ? tr[i + 1] + extra : tr[i + 1];
+                const xa = Math.max(0, Math.round((x0 + (tr[i] - 0.5) * bw) * hr)), xb = Math.min(Wb, Math.round((x0 + (fin + 0.5) * bw) * hr));
                 if (xb <= xa) continue;
                 const st = img.estilo[tr[i + 2]]; if (st !== ult) { ctx.fillStyle = st; ult = st; }
                 ctx.fillRect(xa, a, xb - xa, h);
@@ -3495,6 +3500,17 @@
               if (x === null || y === null) return;
               ctx.beginPath(); ctx.arc(x, y, Math.max(2, Math.min(14, Math.sqrt(u / 2e4) * 2)), 0, 2 * Math.PI);
               ctx.fillStyle = alpha(lado === 'l' ? P.dn : P.up, 0.55); ctx.strokeStyle = '#fff'; ctx.lineWidth = 0.8; ctx.fill(); ctx.stroke();
+            });
+            // en vivo (Binance, Bybit, OKX): en su momento y su precio; al llegar crecen y dejan un anillo que se abre
+            const ahora = performance.now();
+            VIVO.items.forEach((it) => {
+              const x = x1 + (it.t - tUlt - m.ms / 2) / m.ms * bw, y = self._s.priceToCoordinate(it.p);
+              if (y === null || x < -20) return;
+              const r = Math.max(2.5, Math.min(18, Math.sqrt(it.u / 1e4) * 2.2)), a = VIVO.quieto ? 1 : Math.min(1, (ahora - it.nace) / 900);
+              const c = it.lado === 'l' ? P.dn : P.up, e = 1 - Math.pow(1 - a, 3);
+              if (a < 1) { ctx.beginPath(); ctx.arc(x, y, r * (1 + 1.6 * e), 0, 2 * Math.PI); ctx.strokeStyle = alpha(c, 0.7 * (1 - a)); ctx.lineWidth = 2; ctx.stroke(); }
+              ctx.beginPath(); ctx.arc(x, y, r * (0.5 + 0.5 * e), 0, 2 * Math.PI);
+              ctx.fillStyle = alpha(c, 0.75); ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 1; ctx.fill(); ctx.stroke();
             });
             ctx.restore();
           });
@@ -3521,6 +3537,12 @@
         let v = 0; for (let q = Math.max(0, k - 1); q <= Math.min(m.NB - 1, k + 1); q++) v += m.grid[c * m.NB + q];
         info.textContent = `${fp(pr)}: ~${usd(v)} USD en liquidaciones estimadas (${pr > m.V[c][4] ? 'cortos' : 'largos'})`;
       });
+    }
+    // espacio a la derecha de la ultima vela del ancho del perfil: lo nuevo (vela y burbujas en vivo) no queda tapado
+    function hueco() {
+      if (!LM.ch) return;
+      const ts = LM.ch.timeScale(), w = LM.perfil ? $('lm-perfil').clientWidth + 14 : 0;
+      for (let i = 0; i < 2; i++) { ts.applyOptions({ rightOffset: Math.max(2, Math.ceil(w / ts.options().barSpacing)) }); ts.fitContent(); }
     }
     function perfil() {
       const cv = $('lm-perfil'), m = LM.m;
@@ -3589,7 +3611,7 @@
       LM.serie.setData(LM.m.V.map((b) => ({ time: b[0] / 1000, open: b[1], high: b[2], low: b[3], close: b[4] })));
       LM.ch.timeScale().applyOptions({ timeVisible: LM.tf !== '1d' });
       LM.ch.timeScale().fitContent();
-      resumen(); requestAnimationFrame(perfil);
+      resumen(); requestAnimationFrame(() => { hueco(); perfil(); });
     }
     async function cargar() {
       armar();
@@ -3602,18 +3624,92 @@
         if (!j.ok) throw new Error(j.error || r.status);
         if (!Object.values(j.oi).some((s) => s.length > 1)) throw new Error('ningún exchange devolvió el open interest');
         LM.datos = j; $('lm-estado').hidden = true; pintar();
+        if (!pan.hidden && !document.hidden) vivoAbrir();
       } catch (e) {
         if (n === LM.carga) $('lm-estado').textContent = `No se pudo armar el mapa (${e.message || e}). Probá de nuevo en un rato.`;
       }
     }
+    // ---- en vivo: solo mientras el panel esta abierto y a la vista (no gasta bateria ni datos con el panel cerrado)
+    function vivoCerrar() { VIVO.gen++; VIVO.socks.forEach((w) => { try { w.close(); } catch (e) { /* ya cerrado */ } }); VIVO.socks = []; clearInterval(VIVO.ping); $('lm-vivo-dot').classList.remove('on'); }
+    function vivoAbrir() {
+      vivoCerrar();
+      const gen = VIVO.gen, mon = LM.mon, tf = LM.tf, sym = `${mon}USDT`, on = new Set();
+      if (VIVO.mon !== mon) { VIVO.items = []; VIVO.mon = mon; $('lm-feed').replaceChildren(); }
+      VIVO.t = 0;
+      const estado = () => { $('lm-vivo-dot').classList.toggle('on', on.size > 0); $('lm-vivo-est').textContent = on.size ? [...on].join(' · ') : 'conectando…'; };
+      const con = (nombre, url, alAbrir, alMsg) => {
+        if (gen !== VIVO.gen) return;
+        let w; try { w = new WebSocket(url); } catch (e) { return; }
+        VIVO.socks.push(w);
+        w.onopen = () => { on.add(nombre); estado(); if (alAbrir) alAbrir(w); };
+        w.onmessage = (e) => { if (gen !== VIVO.gen || typeof e.data !== 'string' || e.data === 'pong') return; try { alMsg(JSON.parse(e.data)); } catch (err) { /* mensaje raro */ } };
+        w.onclose = () => { on.delete(nombre); VIVO.socks = VIVO.socks.filter((x) => x !== w); if (gen === VIVO.gen) { estado(); setTimeout(() => con(nombre, url, alAbrir, alMsg), 5000); } };
+      };
+      estado();
+      // Binance: liquidaciones (la mayor de cada segundo) + la vela en curso de la temporalidad del mapa
+      con('Binance', `wss://fstream.binance.com/stream?streams=${sym.toLowerCase()}@forceOrder/${sym.toLowerCase()}@kline_${tf}`, null, (j) => {
+        const d = j.data || {};
+        if (d.e === 'forceOrder') { const o = d.o; nueva(+o.T, o.S === 'SELL' ? 'l' : 's', +o.ap, +o.z * +o.ap, 'Binance'); }
+        else if (d.e === 'kline') vela(d.k);
+      });
+      // Bybit: todas las liquidaciones (cada 500 ms); "Buy" = se liquido un largo
+      con('Bybit', 'wss://stream.bybit.com/v5/public/linear', (w) => w.send(JSON.stringify({ op: 'subscribe', args: [`allLiquidation.${sym}`] })), (j) => {
+        (Array.isArray(j.data) ? j.data : []).forEach((x) => nueva(+x.T, x.S === 'Buy' ? 'l' : 's', +x.p, +x.v * +x.p, 'Bybit'));
+      });
+      // OKX: todas las de los contratos perpetuos; se queda con las de esta moneda (contratos a USD con el tamano de contrato)
+      const ct = LM.datos && LM.datos.moneda === mon ? LM.datos.okxCt : 0;
+      if (ct) con('OKX', 'wss://ws.okx.com:8443/ws/v5/public', (w) => w.send(JSON.stringify({ op: 'subscribe', args: [{ channel: 'liquidation-orders', instType: 'SWAP' }] })), (j) => {
+        (j.data || []).forEach((x) => { if (x.instId === `${mon}-USDT-SWAP`) (x.details || []).forEach((dd) => nueva(+dd.ts, dd.posSide === 'long' || (dd.posSide === 'net' && dd.side === 'sell') ? 'l' : 's', +dd.bkPx, +dd.sz * ct * +dd.bkPx, 'OKX')); });
+      });
+      // que no se corten por inactividad (Bybit y OKX piden ping)
+      VIVO.ping = setInterval(() => VIVO.socks.forEach((w) => { if (w.readyState !== 1) return; if (/bybit/.test(w.url)) w.send('{"op":"ping"}'); else if (/okx/.test(w.url)) w.send('ping'); }), 20000);
+    }
+    function vela(k) {
+      if (!LM.m || !LM.datos || LM.datos.tf !== LM.tf || LM.datos.moneda !== LM.mon) return;
+      const t = +k.t; if (t < LM.m.V[LM.m.V.length - 1][0]) return;
+      try { LM.serie.update({ time: t / 1000, open: +k.o, high: +k.h, low: +k.l, close: +k.c }); VIVO.t = t; } catch (e) { /* vela vieja */ }
+    }
+    function nueva(t, lado, p, u, ex) {
+      if (!(p > 0) || !(u > 0) || !isFinite(t)) return;
+      VIVO.items.push({ t, lado, p, u, ex, nace: performance.now() });
+      const corte = Date.now() - 6 * 36e5; if (VIVO.items.length > 600 || VIVO.items[0].t < corte) VIVO.items = VIVO.items.filter((x) => x.t >= corte).slice(-600);
+      animar(); if (!VIVO.lista) VIVO.lista = setTimeout(lista, 250);       // la lista se rehace como mucho 4 veces por segundo
+    }
+    // redibujar mientras haya burbujas animandose (y nada mas)
+    function animar() {
+      if (VIVO.raf || !LM.serie) return;
+      VIVO.raf = requestAnimationFrame(() => {
+        VIVO.raf = 0; if (!LM.serie || pan.hidden) return;
+        LM.serie.applyOptions({});
+        if (!VIVO.quieto && VIVO.items.some((x) => performance.now() - x.nace < 900)) animar();
+      });
+    }
+    function lista() {
+      VIVO.lista = 0;
+      const ahora = Date.now(), r5 = VIVO.items.filter((x) => ahora - x.t < 5 * 6e4);
+      const suma = (l) => r5.filter((x) => x.lado === l).reduce((a, x) => a + x.u, 0);
+      const tot = $('lm-vivo-tot'); tot.replaceChildren();
+      [['l', 'Largos liquidados'], ['s', 'Cortos liquidados']].forEach(([l, n]) => { const d = el('div', l); d.append(`${n} · 5 min`, el('b', '', `${usd(suma(l))} USD`)); tot.append(d); });
+      // las ultimas 6 que pasan de mil USD (las chicas solo van al grafico); las grandes en negrita
+      const ult = VIVO.items.filter((x) => x.u >= 1000).slice(-6).reverse(), ol = $('lm-feed'), vistos = new Set([...ol.children].map((li) => li.dataset.k));
+      const grande = Math.max(1e5, ...VIVO.items.map((x) => x.u)) * 0.5;
+      ol.replaceChildren(...ult.map((x) => {
+        const k = `${x.ex}${x.t}${x.p}${x.u}`, li = el('li', `${x.lado}${x.u >= grande ? ' grande' : ''}${vistos.has(k) || VIVO.quieto ? '' : ' nuevo'}`); li.dataset.k = k;
+        li.append(el('i'), el('span', '', `${x.lado === 'l' ? 'Largo' : 'Corto'} · ${usd(x.u)} USD`), el('span', '', fp(x.p)), el('small', '', `${x.ex} ${new Date(x.t).toLocaleTimeString('es-AR', { ...tz, hourCycle: 'h23' })}`));
+        return li;
+      }));
+      if (!ult.length) ol.append(el('li', 'vacio', 'Todavía no llegó ninguna: aparecen acá y como burbujas en el gráfico.'));
+    }
+    document.addEventListener('visibilitychange', () => { if (pan.hidden) return; if (document.hidden) vivoCerrar(); else vivoAbrir(); });
     const marcar = (box, attr, v) => [...$(box).children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset[attr] === v)));
     function abrir() {
       pan.hidden = false; fondo.hidden = false; document.documentElement.style.overflow = 'hidden'; abFoco(pan, true);
       const m = MON(); if (MON_LM.includes(m) && m !== LM.mon && !LM.datos) LM.mon = m;
       sel.value = LM.mon; marcar('lm-tfs', 'tf', LM.tf); pintarX();
-      if (!LM.datos || LM.datos.moneda !== LM.mon || Date.now() - LM.datos.hora > 5 * 6e4) cargar(); else requestAnimationFrame(perfil);
+      if (!LM.datos || LM.datos.moneda !== LM.mon || Date.now() - LM.datos.hora > 5 * 6e4) cargar(); else { requestAnimationFrame(perfil); vivoAbrir(); }
+      lista();
     }
-    function cerrar() { if (pan.hidden) return; abFoco(pan, false); pan.hidden = true; fondo.hidden = true; document.documentElement.style.overflow = ''; }
+    function cerrar() { if (pan.hidden) return; vivoCerrar(); abFoco(pan, false); pan.hidden = true; fondo.hidden = true; document.documentElement.style.overflow = ''; }
     $('lm-btn').addEventListener('click', abrir);
     $('lm-abrir').addEventListener('click', abrir);
     $('lm-x').addEventListener('click', cerrar); fondo.addEventListener('click', cerrar);
@@ -3633,7 +3729,7 @@
     });
     pintarX();
     $('lm-min').addEventListener('input', (e) => { LM.minimo = +e.target.value / 100; if (LM.m) { LM.img = LiqMapa.imagen(LM.m, LM.minimo); LM.ch.timeScale().applyOptions({}); LM.serie.applyOptions({}); } });
-    $('lm-perf').addEventListener('change', (e) => { LM.perfil = e.target.checked; perfil(); });
+    $('lm-perf').addEventListener('change', (e) => { LM.perfil = e.target.checked; hueco(); perfil(); });
     new ResizeObserver(() => requestAnimationFrame(perfil)).observe($('lm-chart'));
     // el perfil sigue a la escala de precios (zoom o arrastre)
     let rafP = 0; const seguir = () => { if (!rafP) rafP = requestAnimationFrame(() => { rafP = 0; perfil(); }); };

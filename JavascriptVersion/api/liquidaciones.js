@@ -11,7 +11,7 @@
  *   velas          Binance Futures (si falla, Bybit)
  *   open interest  Binance (ultimos 30 dias), Bybit (de a 200, hacia atras) y OKX (todo OKX, 5m / 1H / 1D), en USD
  *   largos/cortos  Binance (cuentas) y Bybit (cuentas)
- *   liquidaciones  OKX (las reales de las ultimas horas)
+ *   liquidaciones  OKX (las reales de las ultimas horas; las en vivo las recibe la pagina directo de Binance, Bybit y OKX)
  * Coinglass, Hyblock, Kingfisher y TradingDifferent no publican sus datos (API paga o ninguna).
  */
 const TF_MS = { '5m': 3e5, '15m': 9e5, '1h': 36e5, '4h': 144e5, '1d': 864e5 };
@@ -85,10 +85,14 @@ async function lsBybit(sym, tf) {
   const j = await pedir(`https://api.bybit.com/v5/market/account-ratio?category=linear&symbol=${sym}&period=${BYBIT_TF[tf]}&limit=500`);
   return ((j.result && j.result.list) || []).map((x) => [+x.timestamp, +x.buyRatio]).sort((a, b) => a[0] - b[0]);
 }
-async function liqOkx(mon) {
-  // tamano de cada contrato (BTC 0,01, ETH 0,1, SOL 1...) para pasar los contratos a USD
+// tamano de cada contrato de OKX (BTC 0,01, ETH 0,1, SOL 1...) para pasar los contratos a USD (tambien lo usa la
+// pagina para las liquidaciones en vivo de OKX)
+async function ctOkx(mon) {
   const ins = await pedir(`https://www.okx.com/api/v5/public/instruments?instType=SWAP&instId=${mon}-USDT-SWAP`);
-  const ct = +((ins.data && ins.data[0] && ins.data[0].ctVal) || 0);
+  return +((ins.data && ins.data[0] && ins.data[0].ctVal) || 0);
+}
+async function liqOkx(mon, ctP) {
+  const ct = await ctP;
   if (!ct) return [];
   const out = []; let after = '';
   for (let k = 0; k < 5; k++) {
@@ -113,13 +117,14 @@ module.exports = async (req, res) => {
     const v = await velas(sym, tf, n);
     const cierre = new Map(v.velas.map((b) => [b[0], b[4]]));
     const precioDe = (t) => cierre.get(t) || cierre.get(t - TF_MS[tf]) || null;
+    const ctP = ctOkx(mon).catch(() => 0);
     const [bin, byb, okx, lsb, lsy, liq] = await Promise.all([intento(oiBinance(sym, tf)), intento(oiBybit(sym, tf, n, precioDe)), intento(oiOkx(mon, tf)),
-      intento(lsBinance(sym, tf)), intento(lsBybit(sym, tf)), intento(liqOkx(mon))]);
+      intento(lsBinance(sym, tf)), intento(lsBybit(sym, tf)), intento(liqOkx(mon, ctP))]);
     const ok = (x) => (Array.isArray(x) ? x : []), err = (x) => (Array.isArray(x) ? null : x.error);
     const fuentes = { velas: v.fuente, oi: { binance: ok(bin).length, bybit: ok(byb).length, okx: ok(okx).length }, ls: { binance: ok(lsb).length, bybit: ok(lsy).length },
       liquidaciones: { okx: ok(liq).length }, errores: [['Binance OI', err(bin)], ['Bybit OI', err(byb)], ['OKX OI', err(okx)], ['Binance L/S', err(lsb)], ['Bybit L/S', err(lsy)], ['OKX liq.', err(liq)]].filter((x) => x[1]) };
     res.status(200).send(JSON.stringify({ ok: true, moneda: mon, tf, ver: VER[tf], hora: Date.now(), velas: v.velas,
-      oi: { binance: ok(bin), bybit: ok(byb), okx: ok(okx) }, ls: { binance: ok(lsb), bybit: ok(lsy) }, liq: ok(liq), fuentes }));
+      oi: { binance: ok(bin), bybit: ok(byb), okx: ok(okx) }, ls: { binance: ok(lsb), bybit: ok(lsy) }, liq: ok(liq), okxCt: await ctP, fuentes }));
   } catch (e) {
     res.setHeader('Cache-Control', 'no-store');
     res.status(502).send(JSON.stringify({ ok: false, error: String(e.message || e).slice(0, 200) }));

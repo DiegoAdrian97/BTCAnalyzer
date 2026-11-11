@@ -1411,3 +1411,24 @@
   .ab-lm-pxi { display: inline-flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; }
   .ab-lm-pxi i { width: 9px; height: 9px; border-radius: 50%; }
   .ab-lm-pxi small { color: var(--mute); }
+
+  .ab-lm-vivo { margin: 4px 0 10px; padding: 10px 12px; border-radius: 14px; background: var(--vidrio); backdrop-filter: var(--vidrio-fx); -webkit-backdrop-filter: var(--vidrio-fx); border: 1px solid var(--line); }
+  .ab-lm-vivo-h { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .ab-lm-vivo-est { color: var(--mute); font-size: 12px; margin-left: auto; }
+  .ab-lm-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mute); }
+  .ab-lm-dot.on { background: var(--color-ok); }
+  @media (prefers-reduced-motion: no-preference) { .ab-lm-dot.on { animation: lmLate 2s ease-in-out infinite; } }
+  @keyframes lmLate { 50% { opacity: .35; } }
+  .ab-lm-vivo-tot { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 6px; font-variant-numeric: tabular-nums; }
+  .ab-lm-vivo-tot div { font-size: 12px; color: var(--mute); }
+  .ab-lm-vivo-tot b { display: block; font-size: 17px; font-stretch: 85%; color: var(--fg); }
+  .ab-lm-vivo-tot .l b { color: var(--color-bad); } .ab-lm-vivo-tot .s b { color: var(--color-ok); }
+  .ab-lm-feed { list-style: none; margin: 0; padding: 0; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .ab-lm-feed li { display: grid; grid-template-columns: 10px 1fr auto auto; gap: 8px; align-items: center; padding: 5px 0; border-top: 1px solid var(--line); }
+  .ab-lm-feed li i { width: 8px; height: 8px; border-radius: 50%; }
+  .ab-lm-feed li.l i { background: var(--color-bad); } .ab-lm-feed li.s i { background: var(--color-ok); }
+  .ab-lm-feed li.grande span:first-of-type { font-weight: 650; }
+  .ab-lm-feed li small { color: var(--mute); }
+  .ab-lm-feed li.vacio { display: block; color: var(--mute); }
+  @media (prefers-reduced-motion: no-preference) { .ab-lm-feed li.nuevo { animation: lmEntra .5s ease-out; } }
+  @keyframes lmEntra { from { opacity: 0; transform: translateY(-4px); } }

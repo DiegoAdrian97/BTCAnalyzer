@@ -25,6 +25,7 @@ const llamar = (url) => new Promise((ok) => { const res = { h: {}, setHeader(k, 
   assert.ok(r.j.oi.binance.length === 500 && r.j.oi.bybit.length > 500 && r.j.oi.okx.length === 300, JSON.stringify(r.j.fuentes));
   assert.deepStrictEqual(r.j.liq[0].slice(1), ['l', 69000, 69000]);             // 100 contratos x 0,01 BTC x 69.000
   assert.match(r.h['Cache-Control'], /s-maxage=300/);
+  assert.strictEqual(r.j.okxCt, 0.01);
   r = await llamar('/api/liquidaciones?moneda=XXX&tf=1h'); assert.strictEqual(r.c, 400);
   falla = new Set(['bybit.com', 'okx.com']);
   r = await llamar('/api/liquidaciones?moneda=BTC&tf=1h');
