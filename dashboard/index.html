@@ -589,7 +589,7 @@
   @media (max-width: 700px) {
     .ab-act-borde { width: 12px; font-size: 14px; border-radius: 8px 0 0 8px; overflow: visible; }
     .ab-act-borde span { transform: translateX(-2px); }
-    .ab-act-borde::before { content: ""; position: absolute; inset: -8px 0 -8px -22px; }
+    .ab-act-borde::before { content: ""; position: absolute; inset: -8px 0 -8px -6px; }   /* no mas: debajo esta el eje de precios (se arrastra); el selector de arriba abre lo mismo */
   }
   .ab-act-fondo { position: fixed; inset: 0; z-index: 1002; background: rgba(0, 0, 0, .35); opacity: 0; transition: opacity .2s; }
   .ab-act-fondo.on { opacity: 1; }
@@ -1091,6 +1091,25 @@
   .ab-mapa b { font-size: 1.08rem; }
   .ab-hoja .ab-tm-tab b { font-size: 1.5rem; }
   /* superficies */
+  .ab-dlg { border: 0; border-radius: 20px; padding: 20px; width: min(92vw, 360px); background: var(--hoja); color: var(--ink);
+    box-shadow: var(--cds-shadow-popover); font: inherit; }
+  .ab-dlg::backdrop { background: rgba(10, 12, 14, .45); }
+  .ab-dlg form { display: grid; gap: 10px; }
+  .ab-dlg h2 { margin: 0; font-size: 1.15rem; letter-spacing: -.015em; }
+  .ab-dlg p { margin: 0; color: var(--mute); font-size: var(--cds-font-size-caption); line-height: 1.45; }
+  .ab-dlg label { font-weight: 600; font-size: var(--cds-font-size-caption); margin-top: 4px; }
+  .ab-dlg input { font: inherit; font-size: 16px; min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--cds-border);
+    background: var(--panel); color: var(--ink); }
+  .ab-dlg input:focus-visible { outline: 2px solid var(--senal); outline-offset: 1px; }
+  .ab-dlg .ab-dlg-err { color: var(--down); }
+  .ab-dlg-acc { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+  .ab-btn-pri { font: inherit; font-weight: 600; min-height: 44px; padding: 0 18px; border: 0; border-radius: 12px; background: var(--ink);
+    color: var(--panel); cursor: pointer; }
+  .ab-btn-pri:disabled { opacity: .6; cursor: progress; }
+  .ab-btn-pri:focus-visible { outline: 2px solid var(--senal); outline-offset: 2px; }
+  .ab-act-p.ab-esq { display: inline-block; min-width: 4.6em; height: .95em; border-radius: 6px; background: var(--soft2); animation: ab-esq 1.2s ease-in-out infinite alternate; }
+  @keyframes ab-esq { from { opacity: .45; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .ab-act-p.ab-esq { animation: none; } }
   .ab { --paper: color-mix(in srgb, var(--color-fg) 5%, var(--color-panel)); }   /* fichas: un escalon sobre el panel (en oscuro eran pozos) */
   .ab-card { border-radius: 20px; border-color: var(--line); box-shadow: var(--elev); }
   .ab-pill { border-radius: 999px; padding: 4px 11px; background: var(--soft); }
@@ -1116,6 +1135,15 @@
   .ab-ce-c.baja { background: color-mix(in srgb, var(--down) 11%, transparent); }
   .ab-ce-c + .ab-ce-c { border-left: 0; }
   .ab-mapa li.en::before { background: color-mix(in srgb, var(--senal) 28%, transparent); }
+  /* flechas: una sola, dibujada (antes cuatro caracteres distintos: triangulo, angulo y dos flechitas) */
+  .ab-more summary > span:first-child::before, .ab-exbox summary::after, .ab-ce-p summary::after, .ab-widget summary::after {
+    content: ""; display: inline-block; flex: none; width: .45em; height: .45em; border: solid var(--mute); border-width: 0 1.6px 1.6px 0;
+    transform: translateY(-1px) rotate(-45deg); transition: transform .2s var(--cds-ease-out); font-size: 15px; }
+  .ab-more[open] summary > span:first-child::before, .ab-exbox[open] summary::after { transform: translateY(-2px) rotate(45deg); }
+  .ab-ce-p summary::after, .ab-widget summary::after { transform: translateY(-3px) rotate(45deg); }
+  .ab-ce-p details[open] summary::after, .ab-widget[open] summary::after { content: ""; transform: translateY(2px) rotate(225deg); }
+  .ab-more summary > span:first-child::before { margin-right: 12px; }
+  #grafico.ab-fs #ex-box summary::after { border: 0; width: auto; height: auto; transform: none !important; }
   @media (min-width: 1000px) { .ab-hoja { border-radius: 24px; box-shadow: var(--elev); } }
   @media (max-width: 999.98px) { .ab-hoja { border-radius: 28px 28px 0 0; } }
   /* en la compu la hoja es una columna de ~360 px, como un celu: mismas reglas que el celu para lo que no entraba */
@@ -1460,6 +1488,16 @@
   </div>
   <button type="button" class="ab-act-borde" id="act-borde" aria-label="Abrir la lista de activos" title="Activos" hidden><span aria-hidden="true">‹</span></button>
   <div class="ab-act-fondo" id="act-fondo" hidden></div>
+  <dialog class="ab-dlg" id="bx-dlg" aria-labelledby="bx-dlg-t">
+    <form id="bx-form" novalidate>
+      <h2 id="bx-dlg-t">Conectar BingX</h2>
+      <p>La contraseña que pusiste en Vercel como POSICIONES_CLAVE. Queda guardada solo en este navegador.</p>
+      <label for="bx-pass">Contraseña</label>
+      <input type="password" id="bx-pass" autocomplete="current-password" autocapitalize="off" spellcheck="false" required>
+      <p class="ab-dlg-err" id="bx-err" role="alert" hidden></p>
+      <div class="ab-dlg-acc"><button type="button" class="ab-iconbtn" id="bx-cancel">Cancelar</button><button type="submit" class="ab-btn-pri" id="bx-ok">Conectar</button></div>
+    </form>
+  </dialog>
   <aside class="ab-act-panel" id="act-panel" aria-labelledby="act-t" role="dialog" aria-modal="true" hidden>
     <div class="ab-act-head"><h2 id="act-t">Activos</h2><span class="ab-kicker">precio · 24 h · en vivo</span>
       <button type="button" class="ab-iconbtn ab-round" id="act-x" aria-label="Cerrar">✕</button></div>
@@ -1787,6 +1825,28 @@
   // el activo a la vista: del contexto de la app (app.js) o BTC en la pagina del servidor
   function MON() { return window.abActivo ? window.abActivo.get() : window.abMoneda || 'BTC'; }
   const ES_CRIPTO = (m) => ['BTC', 'ZEC', 'SOL', 'XRP'].includes(m);     // el plan de compras y las posiciones son solo de estas
+  // ---------- foco en los paneles (activos, termometro, avisos): al abrir va al primer control, Tab da la vuelta adentro
+  // y al cerrar vuelve al boton que lo abrio (con lector de pantalla o teclado no se pierde en la pagina de atras)
+  function abFoco(panel, abierto) {
+    if (abierto) {
+      panel._prev = document.activeElement;
+      const f = panel.querySelector('button, [href], input, select, [tabindex]:not([tabindex="-1"])');
+      if (f) setTimeout(() => f.focus({ preventScroll: true }), 30);
+    } else if (panel._prev && document.contains(panel._prev) && panel.contains(document.activeElement)) {
+      panel._prev.focus({ preventScroll: true }); panel._prev = null;
+    } else panel._prev = null;
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return;
+    const p = [...document.querySelectorAll('.ab-act-panel.on, .ab-tm-panel.on, .ab-nt-modal')].find((n) => !n.hidden && getComputedStyle(n).position === 'fixed');
+    if (!p) return;
+    const fs = [...p.querySelectorAll('button, [href], input, select, [tabindex]:not([tabindex="-1"])')].filter((n) => !n.disabled && n.offsetParent !== null);
+    if (!fs.length) return;
+    const [a, z] = [fs[0], fs[fs.length - 1]];
+    if (!p.contains(document.activeElement)) { e.preventDefault(); a.focus(); }
+    else if (e.shiftKey && document.activeElement === a) { e.preventDefault(); z.focus(); }
+    else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus(); }
+  });
   // ---------- panel lateral: todos los activos con su precio en vivo (solo en la app, que tiene varios activos) ----------
   (function panelActivos() {
     const A = window.abActivo, panel = document.getElementById('act-panel'), fondo = document.getElementById('act-fondo');
@@ -1812,18 +1872,20 @@
         const m = o.value, nombre = (o.textContent.split('·')[1] || '').trim();
         const b = el('button', 'ab-act-row'); b.type = 'button';
         const izq = el('span'); izq.append(el('b', '', m), el('i'), el('small', '', nombre));
-        const pr = el('span', 'ab-act-p', '—'), ch = el('span', 'ab-act-c', '');
+        const pr = el('span', 'ab-act-p ab-esq', ''), ch = el('span', 'ab-act-c', '');
         b.append(izq, pr, ch);
         b.addEventListener('click', () => { if (!fijo) cerrar(); A.set(m); });
         lista.append(b); filas[m] = { b, pr, ch, listo: izq.querySelector('i') };
       });
     });
+    // sin precio a los 15 s (sin conexion): el guion de siempre en vez del esqueleto
+    setTimeout(() => Object.values(filas).forEach((f) => { if (f.pr.classList.contains('ab-esq')) { f.pr.classList.remove('ab-esq'); f.pr.textContent = '—'; } }), 15000);
     function pintar(m) {
       const f = filas[m], x = P[m];
       if (!f || !x) return;
       const antes = f.pr.dataset.v ? +f.pr.dataset.v : null;
       if (antes === x.c && f.o === x.o) return;            // el mismo precio: no se toca la pantalla
-      f.o = x.o; f.pr.textContent = fp(x.c); f.pr.dataset.v = x.c;
+      f.o = x.o; f.pr.classList.remove('ab-esq'); f.pr.textContent = fp(x.c); f.pr.dataset.v = x.c;
       if (antes !== null && antes !== x.c) { f.pr.classList.remove('sube', 'baja'); f.pr.classList.add(x.c > antes ? 'sube' : 'baja'); clearTimeout(f.tm); f.tm = setTimeout(() => f.pr.classList.remove('sube', 'baja'), 700); }
       const c = x.o > 0 ? (x.c / x.o - 1) * 100 : null;
       f.ch.textContent = c === null ? '' : sg(c, 2); f.ch.className = 'ab-act-c' + (c > 0 ? ' up' : c < 0 ? ' dn' : '');
@@ -1907,12 +1969,12 @@
       A.todos().forEach((m) => { if (!P[m]) { const r = A.precio(m); if (r) { P[m] = r; pintar(m); } } });
       marcar(); panel.hidden = false; fondo.hidden = false; document.getElementById('act-borde').hidden = true;
       requestAnimationFrame(() => { panel.classList.add('on'); fondo.classList.add('on'); });
-      document.body.style.overflow = 'hidden'; conectar();
+      document.body.style.overflow = 'hidden'; conectar(); abFoco(panel, true);
       const act = filas[A.get()]; if (act) act.b.scrollIntoView({ block: 'nearest' });
     }
     function cerrar() {
       if (fijo || !abierto()) return;
-      panel.classList.remove('on'); fondo.classList.remove('on'); document.body.style.overflow = '';
+      abFoco(panel, false); panel.classList.remove('on'); fondo.classList.remove('on'); document.body.style.overflow = '';
       desconectar();
       setTimeout(() => { panel.hidden = true; fondo.hidden = true; document.getElementById('act-borde').hidden = false; }, 230);
     }
@@ -2695,12 +2757,23 @@
         try { localStorage.removeItem('ab-bingx-clave'); } catch (e) { /* idem */ }
         Object.assign(BX, { ok: false, error: null, autorizado: false, posiciones: null, ordenes: null }); PLAN_COMPRAS = PLAN_EMBEBIDO; planVisible(); return;
       }
-      const c = window.prompt('Contraseña de BingX (la que pusiste en Vercel como POSICIONES_CLAVE):');
-      if (!c) return;
-      try { localStorage.setItem('ab-bingx-clave', c.trim()); } catch (e) { /* sin almacenamiento: no se puede recordar */ }
-      await bxLeer();
-      if (!BX.autorizado) window.alert(BX.error ? `No se pudo conectar: ${BX.error}` : 'No se pudo conectar con BingX.');
+      bxErr.hidden = true; bxPass.value = ''; bxDlg.showModal(); bxPass.focus();
     };
+    const bxDlg = document.getElementById('bx-dlg'), bxPass = document.getElementById('bx-pass'), bxErr = document.getElementById('bx-err');
+    const bxOk = document.getElementById('bx-ok');
+    document.getElementById('bx-cancel').addEventListener('click', () => bxDlg.close());
+    document.getElementById('bx-form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const c = bxPass.value.trim();
+      if (!c) { bxErr.textContent = 'Escribí la contraseña.'; bxErr.hidden = false; bxPass.focus(); return; }
+      try { localStorage.setItem('ab-bingx-clave', c); } catch (e) { /* sin almacenamiento: no se puede recordar */ }
+      bxOk.disabled = true; bxOk.textContent = 'Conectando…';
+      await bxLeer();
+      bxOk.disabled = false; bxOk.textContent = 'Conectar';
+      if (BX.autorizado) { bxDlg.close(); return; }
+      bxErr.textContent = BX.error ? `No se pudo conectar: ${BX.error}` : 'No se pudo conectar con BingX. Revisá la contraseña.';
+      bxErr.hidden = false; bxPass.select();
+    });
     document.getElementById('bx-btn').addEventListener('click', conectar);
     document.getElementById('bx-llave').addEventListener('click', conectar);
     planVisible();
@@ -2763,9 +2836,9 @@
         go.addEventListener('click', () => { cerrar(); if (x.ir === 'termometro') document.getElementById('tm-tab').click(); else document.getElementById(x.ir).scrollIntoView({ behavior: 'smooth', block: 'start' }); });
         body.append(go);
       }
-      modal.hidden = false; back.hidden = false; back.classList.add('on'); document.documentElement.style.overflow = 'hidden';
+      modal.hidden = false; back.hidden = false; back.classList.add('on'); document.documentElement.style.overflow = 'hidden'; abFoco(modal, true);
     }
-    function cerrar() { modal.hidden = true; back.classList.remove('on'); back.hidden = true; document.documentElement.style.overflow = ''; }
+    function cerrar() { if (modal.hidden) return; abFoco(modal, false); modal.hidden = true; back.classList.remove('on'); back.hidden = true; document.documentElement.style.overflow = ''; }
     btn.addEventListener('click', (e) => { e.stopPropagation(); pop.hidden = !pop.hidden; btn.setAttribute('aria-expanded', String(!pop.hidden)); if (!pop.hidden) pintar(); });
     document.addEventListener('click', (e) => { if (!pop.hidden && !pop.contains(e.target) && e.target !== btn) { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); } });
     document.getElementById('nt-leer').addEventListener('click', () => { lista.forEach((x) => { x.leida = true; }); guardar(LS, lista); pintar(); });
@@ -2874,9 +2947,10 @@
       clearTimeout(cierre);
       tab.setAttribute('aria-expanded', String(open)); document.documentElement.style.overflow = open ? 'hidden' : '';
       if (open) {
-        pan.hidden = false; back.hidden = false;
+        pan.hidden = false; back.hidden = false; abFoco(pan, true);
         requestAnimationFrame(() => requestAnimationFrame(() => { pan.classList.add('on'); back.classList.add('on'); }));
       } else {
+        if (pan.classList.contains('on')) abFoco(pan, false);
         pan.classList.remove('on'); back.classList.remove('on');
         cierre = setTimeout(() => { pan.hidden = true; back.hidden = true; }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 320);
       }
@@ -2885,6 +2959,26 @@
     ['tm-x', 'tm-back'].forEach((id) => document.getElementById(id).addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); set(false); }));
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') set(false); });
   })();
+  // etiquetas de las lineas de precio sin pisarse: el precio en vivo (y su cuenta regresiva debajo) y despues cada linea en
+  // el orden en que se dibuja (soporte y resistencia, tu plan, opciones, objetivos). La que choca con una ya puesta pierde
+  // la etiqueta del eje y el titulo, la linea se sigue viendo
+  let ordenRaf = 0;
+  function ordenarEtiquetas() {
+    cancelAnimationFrame(ordenRaf);
+    ordenRaf = requestAnimationFrame(() => {
+      if (!G.c || !G.plines || !G.plines.length) return;
+      const dd = G.c.data(), ult = dd.length ? dd[dd.length - 1] : null, alto = 18, ocup = [];
+      const yv = ult && ult.close !== undefined ? G.c.priceToCoordinate(ult.close) : null;
+      if (yv !== null) ocup.push(yv, yv + alto);              // precio y cuenta regresiva
+      G.plines.forEach((pl) => {
+        if (!pl._v) return;
+        const y = G.c.priceToCoordinate(pl.options().price);
+        const choca = y !== null && ocup.some((o) => Math.abs(o - y) < alto);
+        if (!choca && y !== null) ocup.push(y);
+        if (pl.options().axisLabelVisible === choca) pl.applyOptions({ axisLabelVisible: !choca, title: choca ? '' : pl._t });
+      });
+    });
+  }
   // Fear & Greed Index: arco clasico de 5 colores y aguja
   function fngGauge(v, clase, ayer) {
     const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
@@ -3446,7 +3540,7 @@
     const pts = pick(rows, 'aprendizaje_curva').filter((r) => r.plazo === S.plazo)
       .map((r) => ({ k: num(r.paso), a: num(r.aprendido), o: num(r.original) })).sort((p, q) => p.k - q.k);
     if (pts.length > 1) {
-      const W = Math.max(260, box.clientWidth), H = 150, ml = 30, mr = 8, mt = 8, mb = 20;
+      const W = Math.max(260, box.clientWidth), H = 150, ml = 40, mr = 8, mt = 8, mb = 20;   // ml: que entre "+60%"
       const vals = pts.flatMap((p) => [p.a, p.o]).filter((v) => v !== null).concat([0]);
       const [lo, hi] = d3.extent(vals);
       const x = d3.scaleLinear(d3.extent(pts, (p) => p.k), [ml, W - mr]);
@@ -4081,6 +4175,7 @@
       ts.setVisibleLogicalRange({ from: total + 1 - len, to: total + 1 });
     });
     box.append(G.nowBtn);
+    chart.timeScale().subscribeVisibleLogicalRangeChange(() => ordenarEtiquetas());
     chart.timeScale().subscribeVisibleLogicalRangeChange((r) => {
       if (r) document.getElementById('zoom-info').textContent = `${Math.max(1, Math.round(r.to - r.from))} velas`;
       if (!G.dibujando) botonPresente();               // mientras se redibuja, el rango pasa por estados intermedios
@@ -4310,6 +4405,8 @@
       text: narrow ? '' : `${p.nombre}${p.exito !== null ? ` · ${f0(num(p.exito))}%` : ''}` })).sort((a, b) => a.time - b.time) : [];
     G.markers.setMarkers(marks);
     // niveles: soporte y resistencia del plazo y objetivos de las figuras, como lineas de precio con su etiqueta en el eje
+    // (si dos etiquetas quedan a menos de un renglon, se ve la que va primero; la otra queda como linea sola. Se recalcula
+    // al mover o hacer zoom, asi al separarse vuelven las dos)
     (G.plines || []).forEach((pl) => { try { G.c.removePriceLine(pl); } catch (e) { /* ya no estaba */ } });
     G.plines = [];
     pick(rows, 'explicacion').filter((e) => e.plazo === S.plazo && e.tipo === 'vigilar' && e.precio !== null && e.precio !== undefined).forEach((e) => {
@@ -4354,6 +4451,8 @@
       G.plines.push(G.c.createPriceLine({ price: obj, color: colOf(p.sesgo), lineWidth: 1, lineStyle: LW.LineStyle.SparseDotted, axisLabelVisible: true,
         title: p.estado === 'confirmado' ? 'Objetivo' : 'Objetivo si se confirma' }));
     });
+    G.plines.forEach((pl) => { if (pl._t === undefined) { pl._t = pl.options().title; pl._v = pl.options().axisLabelVisible; } });
+    ordenarEtiquetas();
     if (keep) ts.setVisibleLogicalRange(keep);
     else {
       const total = all.length + futN, nb = Math.min(total, defBars());

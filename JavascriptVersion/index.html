@@ -47,12 +47,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <link rel="preconnect" href="https://fapi.binance.com" crossorigin>
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
-<link rel="stylesheet" href="p-4c16a21d84.css">
-<script>window.AB_PAGINA = "3e70d6a6dd";</script>
+<link rel="stylesheet" href="p-1c585b4a66.css">
+<script>window.AB_PAGINA = "4267f317f9";</script>
 <script defer src="app.js?v=c63ed61188"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-66f975e28d.js"></script>
+<script defer src="p-d8ff77ae7f.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -389,6 +389,16 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   </div>
   <button type="button" class="ab-act-borde" id="act-borde" aria-label="Abrir la lista de activos" title="Activos" hidden><span aria-hidden="true">‹</span></button>
   <div class="ab-act-fondo" id="act-fondo" hidden></div>
+  <dialog class="ab-dlg" id="bx-dlg" aria-labelledby="bx-dlg-t">
+    <form id="bx-form" novalidate>
+      <h2 id="bx-dlg-t">Conectar BingX</h2>
+      <p>La contraseña que pusiste en Vercel como POSICIONES_CLAVE. Queda guardada solo en este navegador.</p>
+      <label for="bx-pass">Contraseña</label>
+      <input type="password" id="bx-pass" autocomplete="current-password" autocapitalize="off" spellcheck="false" required>
+      <p class="ab-dlg-err" id="bx-err" role="alert" hidden></p>
+      <div class="ab-dlg-acc"><button type="button" class="ab-iconbtn" id="bx-cancel">Cancelar</button><button type="submit" class="ab-btn-pri" id="bx-ok">Conectar</button></div>
+    </form>
+  </dialog>
   <aside class="ab-act-panel" id="act-panel" aria-labelledby="act-t" role="dialog" aria-modal="true" hidden>
     <div class="ab-act-head"><h2 id="act-t">Activos</h2><span class="ab-kicker">precio · 24 h · en vivo</span>
       <button type="button" class="ab-iconbtn ab-round" id="act-x" aria-label="Cerrar">✕</button></div>

@@ -588,7 +588,7 @@
   @media (max-width: 700px) {
     .ab-act-borde { width: 12px; font-size: 14px; border-radius: 8px 0 0 8px; overflow: visible; }
     .ab-act-borde span { transform: translateX(-2px); }
-    .ab-act-borde::before { content: ""; position: absolute; inset: -8px 0 -8px -22px; }
+    .ab-act-borde::before { content: ""; position: absolute; inset: -8px 0 -8px -6px; }   /* no mas: debajo esta el eje de precios (se arrastra); el selector de arriba abre lo mismo */
   }
   .ab-act-fondo { position: fixed; inset: 0; z-index: 1002; background: rgba(0, 0, 0, .35); opacity: 0; transition: opacity .2s; }
   .ab-act-fondo.on { opacity: 1; }
@@ -1090,6 +1090,25 @@
   .ab-mapa b { font-size: 1.08rem; }
   .ab-hoja .ab-tm-tab b { font-size: 1.5rem; }
   /* superficies */
+  .ab-dlg { border: 0; border-radius: 20px; padding: 20px; width: min(92vw, 360px); background: var(--hoja); color: var(--ink);
+    box-shadow: var(--cds-shadow-popover); font: inherit; }
+  .ab-dlg::backdrop { background: rgba(10, 12, 14, .45); }
+  .ab-dlg form { display: grid; gap: 10px; }
+  .ab-dlg h2 { margin: 0; font-size: 1.15rem; letter-spacing: -.015em; }
+  .ab-dlg p { margin: 0; color: var(--mute); font-size: var(--cds-font-size-caption); line-height: 1.45; }
+  .ab-dlg label { font-weight: 600; font-size: var(--cds-font-size-caption); margin-top: 4px; }
+  .ab-dlg input { font: inherit; font-size: 16px; min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--cds-border);
+    background: var(--panel); color: var(--ink); }
+  .ab-dlg input:focus-visible { outline: 2px solid var(--senal); outline-offset: 1px; }
+  .ab-dlg .ab-dlg-err { color: var(--down); }
+  .ab-dlg-acc { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+  .ab-btn-pri { font: inherit; font-weight: 600; min-height: 44px; padding: 0 18px; border: 0; border-radius: 12px; background: var(--ink);
+    color: var(--panel); cursor: pointer; }
+  .ab-btn-pri:disabled { opacity: .6; cursor: progress; }
+  .ab-btn-pri:focus-visible { outline: 2px solid var(--senal); outline-offset: 2px; }
+  .ab-act-p.ab-esq { display: inline-block; min-width: 4.6em; height: .95em; border-radius: 6px; background: var(--soft2); animation: ab-esq 1.2s ease-in-out infinite alternate; }
+  @keyframes ab-esq { from { opacity: .45; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .ab-act-p.ab-esq { animation: none; } }
   .ab { --paper: color-mix(in srgb, var(--color-fg) 5%, var(--color-panel)); }   /* fichas: un escalon sobre el panel (en oscuro eran pozos) */
   .ab-card { border-radius: 20px; border-color: var(--line); box-shadow: var(--elev); }
   .ab-pill { border-radius: 999px; padding: 4px 11px; background: var(--soft); }
@@ -1115,6 +1134,15 @@
   .ab-ce-c.baja { background: color-mix(in srgb, var(--down) 11%, transparent); }
   .ab-ce-c + .ab-ce-c { border-left: 0; }
   .ab-mapa li.en::before { background: color-mix(in srgb, var(--senal) 28%, transparent); }
+  /* flechas: una sola, dibujada (antes cuatro caracteres distintos: triangulo, angulo y dos flechitas) */
+  .ab-more summary > span:first-child::before, .ab-exbox summary::after, .ab-ce-p summary::after, .ab-widget summary::after {
+    content: ""; display: inline-block; flex: none; width: .45em; height: .45em; border: solid var(--mute); border-width: 0 1.6px 1.6px 0;
+    transform: translateY(-1px) rotate(-45deg); transition: transform .2s var(--cds-ease-out); font-size: 15px; }
+  .ab-more[open] summary > span:first-child::before, .ab-exbox[open] summary::after { transform: translateY(-2px) rotate(45deg); }
+  .ab-ce-p summary::after, .ab-widget summary::after { transform: translateY(-3px) rotate(45deg); }
+  .ab-ce-p details[open] summary::after, .ab-widget[open] summary::after { content: ""; transform: translateY(2px) rotate(225deg); }
+  .ab-more summary > span:first-child::before { margin-right: 12px; }
+  #grafico.ab-fs #ex-box summary::after { border: 0; width: auto; height: auto; transform: none !important; }
   @media (min-width: 1000px) { .ab-hoja { border-radius: 24px; box-shadow: var(--elev); } }
   @media (max-width: 999.98px) { .ab-hoja { border-radius: 28px 28px 0 0; } }
   /* en la compu la hoja es una columna de ~360 px, como un celu: mismas reglas que el celu para lo que no entraba */
