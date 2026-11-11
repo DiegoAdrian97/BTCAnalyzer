@@ -1346,6 +1346,17 @@
   .ab-siri ol { padding-left: 1.2em; display: grid; gap: 8px; margin: 8px 0; }
   .ab-siri code { display: block; margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: var(--soft); font-size: 12.5px; word-break: break-all; }
   .ab-siri .ab-foot code { display: inline; padding: 1px 4px; }
+
+  /* ---------- volver arriba: aparece despues de bajar una pantalla y media ---------- */
+  .ab-arriba { position: fixed; z-index: 60; right: max(16px, env(safe-area-inset-right)); bottom: max(18px, calc(env(safe-area-inset-bottom) + 10px));
+    width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; color: var(--ink);
+    background: var(--vidrio); -webkit-backdrop-filter: var(--vidrio-fx); backdrop-filter: var(--vidrio-fx); border: 1px solid var(--vidrio-borde);
+    box-shadow: 0 6px 20px -8px rgba(0, 0, 0, .35); opacity: 0; transform: translateY(12px) scale(.92); pointer-events: none;
+    transition: opacity .2s ease, transform .2s var(--cds-ease-out); }
+  .ab-arriba.on { opacity: 1; transform: none; pointer-events: auto; }
+  .ab-arriba:focus-visible { outline: 2px solid var(--senal); outline-offset: 2px; }
+  html.ab-vigilia .ab-arriba { display: none; }
+  @media (prefers-reduced-motion: reduce) { .ab-arriba { transition: none; } }
 </style>
 
 <div class="ab ab-first ab-cargando" id="analista" data-source="analisis">
@@ -1729,6 +1740,7 @@
     </div>
     <p class="ab-repro-res" id="repro-res"></p>
   </div>
+  <button type="button" class="ab-arriba" id="arriba-btn" aria-label="Volver arriba" title="Volver arriba"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   <div class="ab-vigilia-bar" id="vigilia-bar" hidden><span id="vigilia-est">Pantalla prendida</span><button type="button" class="ab-btn-pri" id="vigilia-salir">Salir</button></div>
   <dialog class="ab-dlg" id="bx-dlg" aria-labelledby="bx-dlg-t">
     <form id="bx-form" novalidate>
@@ -2463,6 +2475,17 @@
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && on) poner(false); });
     // al volver a la app (despues de bloquear o cambiar de app) el sistema solto el permiso: se vuelve a pedir
     document.addEventListener('visibilitychange', () => { if (!document.hidden) pedir(); });
+  })();
+  // ---------- volver arriba (con el analisis completo la pagina es larga) ----------
+  (function () {
+    const b = document.getElementById('arriba-btn'); let raf = 0;
+    const mira = () => { raf = 0; b.classList.toggle('on', window.scrollY > window.innerHeight * 1.5); };
+    window.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(mira); }, { passive: true });
+    b.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+      const t = document.getElementById('ab-title'); if (t) { t.tabIndex = -1; t.focus({ preventScroll: true }); }   // el foco tambien vuelve arriba
+    });
+    mira();
   })();
   // ---------- atajo de Siri: la direccion para pegar en Atajos ----------
   (function () {

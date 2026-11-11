@@ -709,6 +709,17 @@
     // al volver a la app (despues de bloquear o cambiar de app) el sistema solto el permiso: se vuelve a pedir
     document.addEventListener('visibilitychange', () => { if (!document.hidden) pedir(); });
   })();
+  // ---------- volver arriba (con el analisis completo la pagina es larga) ----------
+  (function () {
+    const b = document.getElementById('arriba-btn'); let raf = 0;
+    const mira = () => { raf = 0; b.classList.toggle('on', window.scrollY > window.innerHeight * 1.5); };
+    window.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(mira); }, { passive: true });
+    b.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+      const t = document.getElementById('ab-title'); if (t) { t.tabIndex = -1; t.focus({ preventScroll: true }); }   // el foco tambien vuelve arriba
+    });
+    mira();
+  })();
   // ---------- atajo de Siri: la direccion para pegar en Atajos ----------
   (function () {
     const url = `${location.origin}${location.pathname.replace(/[^/]*$/, '')}api/siri`, code = document.getElementById('siri-url');
