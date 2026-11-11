@@ -1,0 +1,18 @@
+name: Analizar BTC una vez
+# A mano desde Actions: corre el analisis completo una vez (como Render, sin el modo en vivo) y deja el reporte de la
+# consola como artefacto. Sirve para leer el analisis desde fuera de la app.
+on:
+  workflow_dispatch:
+jobs:
+  analizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r requirements.txt numpy lightgbm
+      - run: python -u analisis_btc.py | tee analisis.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: analisis, path: analisis.txt }
