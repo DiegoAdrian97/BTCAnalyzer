@@ -260,7 +260,7 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
   100x, los de TradingDifferent); cada posición tiene su precio de liquidación; cuando una vela lo cruza se liquida y la
   franja se corta; cuando el open interest baja, se cierran en proporción, y con el tiempo se van cerrando solas. Se
   eligen los apalancamientos a mostrar (la grilla se estira hasta donde caen: 3x queda a ~33 %), intensidad mínima,
-  paleta de zonas brillantes sobre violeta y perfil lateral apilado por apalancamiento (un color cada uno, como el
+  paleta de zonas brillantes sobre violeta (franjas nítidas dibujadas en píxeles reales, sin difuminar) y perfil lateral apilado por apalancamiento (un color cada uno, como el
   "Liquidation Profile" de TradingDifferent), con el total y el nivel más cargado de cada uno. Coinglass, Hyblock, Kingfisher y TradingDifferent no publican sus datos (API paga);
   Coinalyze tiene una API gratis con clave (se puede sumar). Prueba: `node pruebas/liquidaciones.js`.
 - **Calendario: lo que viene** ("Más detalle"): solo lo futuro, en hora de Argentina: datos de EE.UU. de importancia alta
