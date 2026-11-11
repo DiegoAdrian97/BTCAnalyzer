@@ -28,9 +28,11 @@ CARPETA = "historial/BTC"
 SUBIR_CADA = 1800                     # s entre dos subidas (48 commits por dia en la rama, como mucho)
 DIAS_EN_MEMORIA = 3
 COLUMNAS = ["t", "h", "precio", "sube", "min", "max", "mediana", "obj_arriba", "obj_abajo", "toca_arriba", "toca_abajo",
-            "primero_arriba"]
+            "primero_arriba", "fuerte", "prob_fuerte", "prob_normal", "umbral_fuerte"]
+# lo de cada prediccion que va despues del rango (las del movimiento fuerte: de la proxima hora, el mismo para todas las
+# del mismo analisis; fuerte = alta / media / baja, umbral_fuerte = % de rango de la hora que cuenta como fuerte)
 EXTRA = [("mediana", "m"), ("obj_arriba", "a"), ("obj_abajo", "b"), ("toca_arriba", "ta"), ("toca_abajo", "tb"),
-         ("primero_arriba", "pa")]
+         ("primero_arriba", "pa"), ("f", "f"), ("pf", "pf"), ("pn", "pn"), ("u", "u")]
 
 _datos = {}            # (tf, dia) -> {(t, h): fila (lista de textos)}
 _sucios = set()        # (tf, dia) que cambiaron desde la ultima subida
@@ -108,7 +110,7 @@ def anotar(entries):
             clave = (str(int(t)), str(int(h)))
             if clave in filas:
                 continue
-            filas[clave] = [clave[0], clave[1], _txt(p), _txt(pr), _txt(lo), _txt(hi)] + [_txt(x.get(k)) for k, _ in EXTRA]
+            filas[clave] = [clave[0], clave[1], _txt(p), _txt(pr), _txt(lo), _txt(hi)] + [_txt(x.get(k)) for _, k in EXTRA]
             _sucios.add((tf, dia))
         # fuera de la memoria lo de hace mas de unos dias (ya quedo subido)
         hoy = time.time() * 1000

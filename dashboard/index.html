@@ -1354,6 +1354,9 @@
     box-shadow: 0 6px 20px -8px rgba(0, 0, 0, .35); opacity: 0; transform: translateY(12px) scale(.92); pointer-events: none;
     transition: opacity .2s ease, transform .2s var(--cds-ease-out); }
   .ab-arriba.on { opacity: 1; transform: none; pointer-events: auto; }
+  /* en el color del mercado, como el fondo: verde si BTC sube en 24 h, rojo si baja */
+  .ab-arriba { background: color-mix(in srgb, var(--senal) 88%, transparent); color: var(--sobre-senal); border-color: transparent;
+    transition: opacity .2s ease, transform .2s var(--cds-ease-out), background-color 1.6s ease; }
   .ab-arriba:focus-visible { outline: 2px solid var(--senal); outline-offset: 2px; }
   html.ab-vigilia .ab-arriba { display: none; }
   @media (prefers-reduced-motion: reduce) { .ab-arriba { transition: none; } }
@@ -4702,7 +4705,7 @@
       return pick(S.rows, 'vela', tf).map((r) => ({ t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c) }))
         .filter((b) => b.t >= desde - m && b.t <= hasta).sort((a, b) => a.t - b.t);
     }
-    // historial del servidor: un archivo por temporalidad y dia (UTC). Columnas: t,h,precio,sube,min,max,mediana,obj_arriba,obj_abajo,toca_arriba,toca_abajo,primero_arriba
+    // historial del servidor: un archivo por temporalidad y dia (UTC). Columnas: t,h,precio,sube,min,max,mediana,obj_arriba,obj_abajo,toca_arriba,toca_abajo,primero_arriba,fuerte,prob_fuerte,prob_normal,umbral_fuerte
     async function historial(tf, desde, hasta) {
       if (MON() !== 'BTC') return [];
       const dias = [];
@@ -4711,7 +4714,7 @@
       const n = (x) => (x === '' || x === undefined ? null : +x), out = [];
       txt.forEach((t) => t.split('\n').slice(1).forEach((l) => {
         const c = l.split(','); if (c.length < 6) return;
-        out.push([+c[0], tf, +c[1], +c[2], +c[3], n(c[4]), n(c[5]), c.length > 6 ? { m: n(c[6]), a: n(c[7]), b: n(c[8]), ta: n(c[9]), tb: n(c[10]), pa: n(c[11]) } : undefined]);
+        out.push([+c[0], tf, +c[1], +c[2], +c[3], n(c[4]), n(c[5]), c.length > 6 ? { m: n(c[6]), a: n(c[7]), b: n(c[8]), ta: n(c[9]), tb: n(c[10]), pa: n(c[11]), f: c[12] || null, pf: n(c[13]), pn: n(c[14]), u: n(c[15]) } : undefined]);
       }));
       return out;
     }
@@ -4761,7 +4764,8 @@
       // [t, tf, h, precio, % sube, rango bajo, rango alto, extras]: hecha al cierre de la vela que abre en t - ms
       R.preds = log.filter((r) => r[2] === R.hMin && idx.has(r[0] - m)).map((r) => {
         const i = idx.get(r[0] - m), fin = idx.get(r[0] + (r[2] - 1) * m), x = r[7] || {};
-        return { i, fin: fin === undefined ? null : fin, h: r[2], p: r[3], pr: r[4], lo: r[5], hi: r[6], m: x.m, a: x.a, b: x.b, ta: x.ta, tb: x.tb, pa: x.pa };
+        return { i, fin: fin === undefined ? null : fin, h: r[2], p: r[3], pr: r[4], lo: r[5], hi: r[6], m: x.m, a: x.a, b: x.b, ta: x.ta, tb: x.tb, pa: x.pa,
+          f: x.f || null, pf: x.pf, pn: x.pn, u: x.u };
       }).sort((a, b) => a.i - b.i);
       R.nota = nota + (R.preds.length ? '' : ' En este lapso no hay predicciones guardadas: se ven solo las velas.');
       $('repro-sub').textContent = `${R.B.length} velas de ${R.tf} · ${hhmm(R.B[0].t, true)} → ${hhmm(R.B[R.B.length - 1].t + m, true)} · ${R.preds.length === 1 ? '1 predicción' : `${R.preds.length} predicciones`}`;
@@ -4782,6 +4786,19 @@
       }
       const listo = q.fin !== null && q.fin <= i, cierre = hasta > q.i ? R.B[hasta].c : null;
       return { listo, hasta, hi, lo, tA, tB, cierre, velas: hasta - q.i, acerto: listo && q.pr !== 50 ? (q.pr > 50) === (cierre > q.p) : null };
+    }
+    // movimiento fuerte: en la hora siguiente a la prediccion, ¿el rango (maximo - minimo) paso el doble del normal (u)?
+    // Con velas de mas de 1 h no se ve esa hora sola: no se juzga
+    function fuerte(q, i) {
+      if (!q.f || !q.u) return null;
+      const m = ms(), t0 = R.B[q.i].t + m, t1 = t0 + 36e5;
+      if (m > 36e5) return { f: q.f, sinVer: true };
+      let hi = -Infinity, lo = Infinity, ult = null;
+      for (let k = q.i + 1; k < R.B.length && R.B[k].t + m <= t1; k++) { if (k > i) break; hi = Math.max(hi, R.B[k].h); lo = Math.min(lo, R.B[k].l); ult = k; }
+      const fin = R.B.findIndex((b) => b.t + m >= t1), listo = fin !== -1 && fin <= i;
+      const mov = ult === null ? null : ((hi - lo) / q.p) * 100, hubo = mov !== null && mov >= q.u;
+      const acerto = !listo && !hubo ? null : q.f === 'media' ? null : (q.f === 'alta') === hubo;
+      return { f: q.f, mov, hubo, listo: listo || hubo, acerto: listo || hubo ? acerto : null, fin };
     }
     const celda = (cls, ...hijos) => { const e = el('span', cls); hijos.forEach((h) => e.append(typeof h === 'string' ? document.createTextNode(h) : h)); return e; };
     function ficha(q, i) {
@@ -4822,7 +4839,19 @@
           pri ? [pri === decia ? '✓ ' : pri.startsWith('los') ? '' : '✗ ', `Tocó primero ${pri}`] : [f.listo ? 'No tocó ninguno' : 'Todavía ninguno'],
           pri ? (pri === decia ? 'si' : pri.startsWith('los') ? 'va' : 'no') : 'va');
       }
-      if (q.a === undefined) g.append(el('span', 'ab-rf-vacia', 'Guardada antes de que se anotaran los objetivos: solo chance y rango.'));
+      const fz = fuerte(q, i);
+      if (fz) {
+        const dijo = fz.f === 'alta' ? 'Sí' : fz.f === 'media' ? 'Puede' : 'No';
+        const r = fz.sinVer ? ['Con velas de más de 1 h no se ve la hora siguiente']
+          : fz.mov === null ? ['—']
+          : fz.hubo ? [fz.acerto === true ? '✓ ' : fz.acerto === false ? '✗ ' : '', 'Hubo: se movió ', B_(`${ar.format('.2f')(fz.mov)}%`), ` (fuerte desde ${ar.format('.2f')(q.u)}%)`]
+          : fz.listo ? [fz.acerto === true ? '✓ ' : fz.acerto === false ? '✗ ' : '', 'No hubo: se movió ', B_(`${ar.format('.2f')(fz.mov)}%`), ` (fuerte desde ${ar.format('.2f')(q.u)}%)`]
+          : ['Va ', B_(`${ar.format('.2f')(fz.mov)}%`), ` de ${ar.format('.2f')(q.u)}%`];
+        fila('Movimiento fuerte (1 h)', [B_(dijo), q.pf !== null && q.pf !== undefined ? ` · chance ${ar.format('.0f')(q.pf)}%${q.pn ? ` (lo normal ${ar.format('.0f')(q.pn)}%)` : ''}` : ''], r,
+          fz.acerto === true ? 'si' : fz.acerto === false ? 'no' : 'va');
+      }
+      if (q.a === undefined) g.append(el('span', 'ab-rf-vacia', 'Guardada antes de que se anotaran los objetivos y el movimiento fuerte: solo chance y rango.'));
+      else if (!q.f) g.append(el('span', 'ab-rf-vacia', 'Guardada antes de que se anotara el movimiento fuerte.'));
     }
 
     function dibujar() {
@@ -4845,6 +4874,16 @@
         return { time: R.B[q.i].t / 1000, position: sube ? 'belowBar' : 'aboveBar', shape: sube ? 'arrowUp' : baja ? 'arrowDown' : 'circle', size: q === sel ? 1.3 : 0.6,
           color: f.acerto === null ? (sube ? P.up : baja ? P.dn : P.mute) : f.acerto ? P.up : P.dn, text: q === sel ? (f.acerto === null ? 'esta' : f.acerto ? '✓ esta' : '✗ esta') : f.acerto === null ? '' : f.acerto ? '✓' : '✗' };
       });
+      // donde avisaba movimiento fuerte (el primer aviso de cada racha), con lo que paso
+      let antes = null;
+      vistas.forEach((q) => {
+        if (q.f === 'alta' && antes !== 'alta') {
+          const fz = fuerte(q, i);
+          mk.push({ time: R.B[q.i].t / 1000, position: 'aboveBar', shape: 'square', size: 0.5, color: cssv('--color-warn'),
+            text: fz && fz.acerto === true ? '⚡✓' : fz && fz.acerto === false ? '⚡✗' : '⚡' });
+        }
+        antes = q.f;
+      });
       if (sel) {
         const f = seguir(sel, i);
         if (f.tA !== null) mk.push({ time: R.B[f.tA].t / 1000, position: 'aboveBar', shape: 'circle', size: 0.7, color: P.up, text: 'obj ↑' });
@@ -4864,6 +4903,19 @@
       $('repro-nota').textContent = R.nota || '';
       $('repro-res').replaceChildren();
       if (res.length) $('repro-res').append('Hasta acá: acertó la dirección en ', el('b', '', `${bien} de ${res.length}`), ` (${ar.format('.0f')((bien / res.length) * 100)}%) de las predicciones a ${plazoTxt(R.hMin * TF_MIN[R.tf])} que ya terminaron.`);
+      // movimiento fuerte: una vez por hora (todas las de la misma hora dicen lo mismo)
+      if (ms() <= 36e5) {
+        const porHora = new Map();
+        R.preds.forEach((q) => { if (q.f && q.u && q.i <= i) { const k = Math.floor((R.B[q.i].t + ms()) / 36e5); if (!porHora.has(k)) porHora.set(k, q); } });
+        const js = [...porHora.values()].map((q) => [q, fuerte(q, i)]).filter(([, z]) => z && z.listo);
+        const hubo = js.filter(([, z]) => z.hubo), aviso = js.filter(([q]) => q.f === 'alta');
+        if (js.length) {
+          const sin = hubo.filter(([q]) => q.f !== 'alta').length, puede = hubo.filter(([q]) => q.f === 'media').length;
+          $('repro-res').append(el('br'), 'Movimiento fuerte: hubo en ', el('b', '', `${hubo.length} de ${js.length}`), ` hora${js.length === 1 ? '' : 's'}; `,
+            ...(aviso.length ? ['avisó ', el('b', '', String(aviso.length)), ` ${aviso.length === 1 ? 'vez' : 'veces'} y acertó ${aviso.filter(([, z]) => z.hubo).length}`] : ['no avisó ninguna']),
+            sin ? `; ${sin === 1 ? 'uno vino' : `${sin} vinieron`} sin aviso${puede ? ` (${puede} con "Puede")` : ''}.` : '.');
+        }
+      }
       ficha(sel, i);
     }
     function paso() {

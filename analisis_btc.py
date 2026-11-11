@@ -1697,7 +1697,7 @@ def analyze():
             prob, tg = horizon_stats(tf, series[tf], h, price, tune(tf, series[tf], h))
             rows.append({"tabla": "probabilidad", **prob})
             rows += [{"tabla": "objetivo", "tf": tf, "horizonte": prob["horizonte"], "hora": prob["hora"], **t} for t in tg]
-            entries.append((bars[-1][0] + tf_ms, tf, h, closes[-1], prob["sube"], prob["min"], prob["max"], {k: prob.get(k) for k in ("mediana", "obj_arriba", "obj_abajo", "toca_arriba", "toca_abajo", "primero_arriba")}))
+            entries.append((bars[-1][0] + tf_ms, tf, h, closes[-1], prob["sube"], prob["min"], prob["max"], {c: prob.get(k) for c, k in (("m", "mediana"), ("a", "obj_arriba"), ("b", "obj_abajo"), ("ta", "toca_arriba"), ("tb", "toca_abajo"), ("pa", "primero_arriba"))}))
 
         sc, cone = scenarios(bars, idxs, price, tf_ms, vol_factor(series[tf], SCENARIO_STEPS),
                              calibracion(series[tf], main_fit["receta"], SCENARIO_STEPS)["k"])
@@ -1727,7 +1727,7 @@ def analyze():
         rows += [{"tabla": "objetivo_plazo", "plazo": name, **t} for t in tg]
         if not any(e[1] == tf and e[2] == h for e in entries):
             entries.append((series[tf]["bars"][-1][0] + series[tf]["tf_ms"], tf, h, series[tf]["closes"][-1], prob["sube"],
-                            prob["min"], prob["max"], {k: prob.get(k) for k in ("mediana", "obj_arriba", "obj_abajo", "toca_arriba", "toca_abajo", "primero_arriba")}))
+                            prob["min"], prob["max"], {c: prob.get(k) for c, k in (("m", "mediana"), ("a", "obj_arriba"), ("b", "obj_abajo"), ("ta", "toca_arriba"), ("tb", "toca_abajo"), ("pa", "primero_arriba"))}))
 
     # niveles clave
     h1, d1 = candles["1h"], candles["1d"]
@@ -1853,6 +1853,15 @@ def analyze():
     explanation = [e for spec in PLAZOS for e in explain(rows, price, spec)]
     rows += explanation
     rows += central(rows, price, candles, now_ms)
+    # al historial (historial.py): lo que decia del movimiento fuerte de la proxima hora (fuerte = el rango de la hora
+    # siguiente pasa el doble del normal: umbral u, en %), como la version JS
+    c1 = next((r for r in rows if r["tabla"] == "central" and r.get("plazo") == "1 hora"), None)
+    mv = next((r for r in rows if r["tabla"] == "movimiento"), None)
+    if c1:
+        for e in entries:
+            if len(e) > 7 and isinstance(e[7], dict):
+                e[7].update({"f": c1.get("fuerza"), "pf": c1.get("prob_fuerte"), "pn": c1.get("prob_normal"),
+                             "u": round(2 * mv["normal_pct"], 2) if mv and mv.get("normal_pct") else None})
     takeaway = next(e["texto"] for e in explanation if e["plazo"] == "1 hora" and e["tipo"] == "titular")
     local = datetime.fromtimestamp(now_ms / 1000, LOCAL_TZ)
     rows.insert(0, {"tabla": "resumen", "fecha": datetime.now(LOCAL_TZ).isoformat(timespec="milliseconds"),

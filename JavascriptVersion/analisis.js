@@ -1404,6 +1404,10 @@
     PLAZOS.forEach((spec) => explain(rows, price, spec).forEach((e) => explanation.push(e)));
     explanation.forEach((e) => rows.push(e));
     central(rows, price, candles, now).forEach((e) => rows.push(e));
+    // al registro (para "Reproducir"): lo que decia del movimiento fuerte de la proxima hora. Fuerte = el rango de la
+    // hora siguiente pasa el doble del normal (umbral u, en %). Mismo objeto que ya quedo en el registro: solo se completa
+    { const c1 = rows.find((r) => r.tabla === 'central' && r.plazo === '1 hora'), mv = rows.find((r) => r.tabla === 'movimiento');
+      if (c1) entries.forEach((e) => { if (e[7]) Object.assign(e[7], { f: c1.fuerza, pf: c1.prob_fuerte, pn: c1.prob_normal, u: mv && mv.normal_pct ? rnd(2 * mv.normal_pct, 2) : null }); }); }
     const takeaway = explanation.find((e) => e.plazo === '1 hora' && e.tipo === 'titular').texto;
     rows.unshift({ tabla: 'resumen', fecha: isoLocal(now), hora_local: fmtLocal(now), precio: rp(price),
       cambio_24h: rnd(changeSince(candles['5m'], now, price, 24), 2), cambio_7d: rnd(changeSince(candles['5m'], now, price, 168), 2),

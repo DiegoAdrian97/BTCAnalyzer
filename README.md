@@ -250,7 +250,9 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
   a mano, y ahí también la temporalidad de las velas) y pasa las velas en cámara rápida (de Binance, hasta 1.000) con lo
   que decía la app en cada momento. La ficha de cada predicción (la última, o la que elegís tocando el gráfico o con
   ‹ ›) muestra lo que dijo (dirección, precio más probable, rango del 80%, objetivo ↑ y ↓ con su chance de tocarlos, qué
-  tocaba primero) y lo que va pasando: a qué objetivo llegó y a qué hora, máximo, mínimo y cierre, y si acertó.
+  tocaba primero, movimiento fuerte en la hora siguiente: Sí/Puede/No con su chance) y lo que va pasando: a qué objetivo
+  llegó y a qué hora, máximo, mínimo y cierre, si hubo movimiento fuerte (el rango de esa hora pasó el doble del normal) y
+  si acertó. En el gráfico, ⚡ donde avisaba movimiento fuerte; abajo, el resumen de dirección y de movimiento fuerte.
 - **Historial constante de predicciones** (`historial.py`): Render analiza cada 20 s aunque nadie tenga la app abierta;
   cada predicción nueva de BTC se guarda en la rama `historial` del repositorio (`historial/BTC/<tf>/<día UTC>.csv`), en
   un commit cada 30 min. Reproducir las lee de ahí (raw.githubusercontent.com, sin claves) y las junta con las del
