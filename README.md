@@ -253,6 +253,20 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
   tocaba primero, movimiento fuerte en la hora siguiente: Sí/Puede/No con su chance) y lo que va pasando: a qué objetivo
   llegó y a qué hora, máximo, mínimo y cierre, si hubo movimiento fuerte (el rango de esa hora pasó el doble del normal) y
   si acertó. En el gráfico, ⚡ donde avisaba movimiento fuerte; abajo, el resumen de dirección y de movimiento fuerte.
+- **Mapa de liquidaciones** (botón de franjas del gráfico, o "Más detalle"): mapa de calor tiempo × precio de 20 criptos
+  en 5m, 15m, 1h, 4h y 1D, al estilo de Coinglass o mapaliquidaciones.com. Estimación propia con datos públicos
+  (`api/liquidaciones.js`: open interest de Binance, Bybit y OKX; largos/cortos de Binance y Bybit; liquidaciones reales
+  de OKX). Cada suba del open interest se reparte entre largos y cortos y entre apalancamientos (5x a 100x); cada posición
+  tiene su precio de liquidación; cuando una vela lo cruza se liquida y la franja se corta; cuando el open interest baja,
+  se cierran en proporción, y con el tiempo se van cerrando solas. Filtros Todo / Scalping (50-100x) / Swing (5-25x),
+  intensidad mínima y perfil lateral. Coinglass, Hyblock, Kingfisher y TradingDifferent no publican sus datos (API paga);
+  Coinalyze tiene una API gratis con clave (se puede sumar). Prueba: `node pruebas/liquidaciones.js`.
+- **Calendario: lo que viene** ("Más detalle"): solo lo futuro, en hora de Argentina: datos de EE.UU. de importancia alta
+  (TradingView, por `api/contexto`) y lo propio de las criptos (vencimientos de opciones de Deribit, semanal, mensual y
+  trimestral; cierres de vela semanal y mensual), con cuánto se movió BTC esas horas (lo medido 2021-2026).
+- **Confianza ahora** (en la predicción, donde antes decía "Aprendizaje"): de las predicciones pasadas del plazo (servidor
+  + teléfono), las hechas en un momento parecido (mismo lado, misma firmeza, misma agitación y del mismo lado de la
+  EMA 50) y cuántas acertaron la dirección, con su margen. Si hay menos de 25 parecidas, afloja el parecido.
 - **Historial constante de predicciones** (`historial.py`): Render analiza cada 20 s aunque nadie tenga la app abierta;
   cada predicción nueva de BTC se guarda en la rama `historial` del repositorio (`historial/BTC/<tf>/<día UTC>.csv`), en
   un commit cada 30 min. Reproducir las lee de ahí (raw.githubusercontent.com, sin claves) y las junta con las del

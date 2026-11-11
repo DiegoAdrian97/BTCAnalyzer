@@ -12,6 +12,9 @@
     "api/siri.js": {
       "maxDuration": 30,
       "includeFiles": "{indicadores.js,aprendizaje.js,fuerte.js,analisis.js,datos.js,termometro.json,modelo_fuerte.json}"
+    },
+    "api/liquidaciones.js": {
+      "maxDuration": 30
     }
   },
   "headers": [

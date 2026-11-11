@@ -329,7 +329,7 @@
   }
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Tab') return;
-    const p = [...document.querySelectorAll('.ab-act-panel.on, .ab-tm-panel.on, .ab-nt-modal, .ab-repro')].find((n) => !n.hidden && getComputedStyle(n).position === 'fixed');
+    const p = [...document.querySelectorAll('.ab-act-panel.on, .ab-tm-panel.on, .ab-nt-modal, .ab-repro:not([hidden])')].find((n) => !n.hidden && getComputedStyle(n).position === 'fixed');
     if (!p) return;
     const fs = [...p.querySelectorAll('button, [href], input, select, [tabindex]:not([tabindex="-1"])')].filter((n) => !n.disabled && n.offsetParent !== null);
     if (!fs.length) return;
@@ -529,6 +529,7 @@
     drawStory(rows);
     drawPrediction(rows, sum);
     drawMovimiento(rows);
+    try { drawCalendario(rows); } catch (e) { /* sin calendario: no frena lo demas */ }
     drawQuePasa(rows, sum);
     drawTermometro(rows);
     const pi = pick(rows, 'piso')[0];
@@ -1812,6 +1813,55 @@
     return [...g.entries()].sort((a, b) => a[0] - b[0]).map(([t, items]) => ({ t, items, nombres: [...new Set(items.map((e) => e.titulo))] }));
   }
 
+  // ---------- calendario: lo que viene (solo lo futuro), en hora de Argentina ----------
+  // Datos de EE.UU. de importancia alta (TradingView, via api/contexto) mas lo propio de las criptos, calculado:
+  // vencimiento de opciones de Deribit (viernes 08:00 UTC; el ultimo del mes es el mensual, y en mar/jun/sep/dic el
+  // trimestral, el mas grande) y cierres de vela semanal (lunes 00:00 UTC) y mensual. Lo que se movio BTC esas horas
+  // es lo medido 2021-2026 (ver api/contexto.js y analisis_btc.py): no dice para donde.
+  function eventosCripto(desde, hasta) {
+    const out = [];
+    for (let d = new Date(Date.UTC(new Date(desde).getUTCFullYear(), new Date(desde).getUTCMonth(), new Date(desde).getUTCDate())); d.getTime() <= hasta; d = new Date(d.getTime() + 864e5)) {
+      const y = d.getUTCFullYear(), m = d.getUTCMonth(), dia = d.getUTCDate(), dow = d.getUTCDay();
+      if (dow === 5) {
+        const t = Date.UTC(y, m, dia, 8), ultimo = dia + 7 > new Date(Date.UTC(y, m + 1, 0)).getUTCDate(), trim = ultimo && m % 3 === 2;
+        out.push({ t, titulo: trim ? 'Vencen opciones de BTC: trimestral' : ultimo ? 'Vencen opciones de BTC: mensual' : 'Vencen opciones de BTC (semanal)',
+          tag: 'cripto', nota: trim || ultimo ? 'Deribit. El vencimiento grande: el precio suele quedar cerca del "dolor máximo" en los días previos.' : 'Deribit, el vencimiento chico de cada viernes.', fuerte: trim });
+      }
+      if (dow === 1) out.push({ t: Date.UTC(y, m, dia), titulo: 'Cierra la vela semanal', tag: 'cripto', nota: 'Las del gráfico semanal y sus medias se actualizan.' });
+      if (dia === 1) out.push({ t: Date.UTC(y, m, 1), titulo: 'Cierra la vela mensual', tag: 'cripto', nota: 'Cambia la vela del gráfico mensual.' });
+    }
+    return out.filter((e) => e.t > desde && e.t <= hasta);
+  }
+  function drawCalendario(rows) {
+    const now = Date.now(), FED = /interest rate decision|fomc decision|interest rate fomc/i;
+    const eeuu = pick(rows, 'evento').filter((e) => num(e.t) > now).map((e) => {
+      const fed = FED.test(e.original || ''), pv = e.previsto, an = e.anterior;
+      const extra = [pv !== null && pv !== undefined && pv !== '' ? `se espera ${pv}` : '', an !== null && an !== undefined && an !== '' ? `antes ${an}` : ''].filter(Boolean).join(' · ');
+      return { t: num(e.t), titulo: e.titulo, tag: 'EE.UU.', fuerte: fed,
+        nota: (extra ? `${extra}. ` : '') + (fed ? 'La hora de la decisión BTC se movió ~3,2 veces lo normal, y más del doble el 78% de las veces.' : 'Esa hora BTC suele moverse 1,6–1,8 veces lo normal (fuerte 23–29% de las veces).') };
+    });
+    const hasta = eeuu.length ? Math.max(now + 7 * 864e5, ...eeuu.map((e) => e.t)) : now + 7 * 864e5;
+    const todos = eeuu.concat(eventosCripto(now, hasta)).sort((a, b) => a.t - b.t);
+    const box = document.getElementById('cal-list'), prox = document.getElementById('cal-prox');
+    box.replaceChildren();
+    if (!todos.length) { box.append(el('p', 'ab-note', 'Sin eventos en los próximos días.')); prox.textContent = ''; return; }
+    const p0 = todos[0];
+    prox.textContent = `próximo: ${p0.titulo.replace(/^Vencen opciones de BTC.*/, 'opciones')} en ${faltaTxt(p0.t - now)}`;
+    const porDia = new Map();
+    todos.forEach((e) => { const k = new Date(e.t).toLocaleDateString('es-AR', { ...tz, weekday: 'long', day: '2-digit', month: '2-digit' }); if (!porDia.has(k)) porDia.set(k, []); porDia.get(k).push(e); });
+    porDia.forEach((evs, k) => {
+      const d = el('div', 'ab-cal-dia'), dd = diaAR(evs[0].t);
+      d.append(el('h3', '', dd === 'hoy' || dd === 'mañana' ? `${dd[0].toUpperCase()}${dd.slice(1)} · ${k}` : k[0].toUpperCase() + k.slice(1)));
+      evs.forEach((e) => {
+        const r = el('div', `ab-cal-ev${e.fuerte ? ' fuerte' : ''}`), tt = el('time', '', horaAR(e.t)); tt.dateTime = new Date(e.t).toISOString();
+        const nm = el('span'); nm.append(el('b', '', e.titulo), el('span', 'ab-cal-tag', e.tag));
+        r.append(tt, nm, el('small', '', `${e.nota}${e.t - now < 864e5 ? ` Falta ${faltaTxt(e.t - now)}.` : ''}`));
+        d.append(r);
+      });
+      box.append(d);
+    });
+  }
+
   // ---------- movimiento fuerte en la proxima hora ----------
   function drawMovimiento(rows) {
     const m = pick(rows, 'movimiento')[0], box = document.getElementById('movimiento');
@@ -2081,11 +2131,82 @@
     });
     box.append(g);
   }
+  // ---------- confianza segun el momento: de las predicciones pasadas de este plazo (historial del servidor + las del
+  // telefono), las hechas en un momento parecido al de ahora (mismo lado, misma firmeza, misma agitacion del mercado y el
+  // precio del mismo lado de la EMA 50) y cuantas acertaron la direccion. Si hay pocas (menos de 25), se afloja el
+  // parecido: primero la EMA 50, despues la agitacion. Velas de Binance (1.500 de la temporalidad del plazo). Solo mira:
+  // no cambia las probabilidades. Se rehace al cambiar de plazo o cada 10 min.
+  const CONF = { clave: '', t: 0, txt: null, corriendo: false };
+  const HIST_URL = 'https://raw.githubusercontent.com/DiegoAdrian97/BTCAnalyzer/historial/historial/BTC';
+  async function historialServidor(tf, desde, hasta) {
+    if (MON() !== 'BTC') return [];
+    const dias = []; for (let d = Math.floor(desde / 864e5) * 864e5; d <= hasta; d += 864e5) dias.push(new Date(d).toISOString().slice(0, 10));
+    const txt = await Promise.all(dias.slice(-40).map((d) => fetch(`${HIST_URL}/${tf}/${d}.csv`, { signal: AbortSignal.timeout(10000) }).then((r) => (r.ok ? r.text() : '')).catch(() => '')));
+    const out = [];
+    txt.forEach((t) => t.split('\n').slice(1).forEach((l) => { const c = l.split(','); if (c.length >= 5) out.push([+c[0], tf, +c[1], +c[2], +c[3]]); }));
+    return out;
+  }
+  async function confianzaAhora(rows) {
+    const line = document.getElementById('apr-line'), pz = pick(rows, 'plazo').find((r) => r.plazo === S.plazo);
+    if (!pz || !pz.tf || !num(pz.velas)) { line.replaceChildren(); return; }
+    const tf = pz.tf, h = num(pz.velas), m = TF_MIN[tf] * 6e4, pr = num(pz.sube), clave = `${MON()}|${S.plazo}|${pr >= 50}|${Math.floor(Math.abs(pr - 50) / 5)}`;
+    if (CONF.txt && CONF.clave === clave && Date.now() - CONF.t < 10 * 6e4) { line.replaceChildren(...CONF.txt()); return; }
+    if (CONF.corriendo) { CONF.otra = rows; return; }      // cambio el plazo mientras medía: se rehace al terminar
+    CONF.corriendo = true;
+    try {
+      if (!line.childNodes.length) line.append(el('b', '', 'Confianza ahora'), el('span', '', 'midiendo en momentos parecidos…'));
+      const hasta = Date.now(), desde = hasta - 1500 * m;
+      const [k, hist, local] = await Promise.all([
+        fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${MON()}USDT&interval=${tf}&limit=1500`, { signal: AbortSignal.timeout(10000) }).then((r) => r.json()).catch(() => null),
+        historialServidor(tf, desde, hasta), window.abRegistro ? window.abRegistro(tf, desde, hasta) : []]);
+      if (!Array.isArray(k) || k.length < 300) { line.replaceChildren(el('b', '', 'Confianza ahora'), el('span', '', 'no se pudieron bajar las velas para comparar.')); return; }
+      const B = k.map((r) => ({ t: +r[0], h: +r[2], l: +r[3], c: +r[4] })), idx = new Map(B.map((b, i) => [b.t, i]));
+      // EMA 50 y agitacion (rango medio de las ultimas 12 velas contra la mediana de las 288 anteriores) en cada vela
+      const ema = [], agit = []; let e = B[0].c; const a = 2 / 51;
+      B.forEach((b, i) => {
+        e = a * b.c + (1 - a) * e; ema.push(e);
+        if (i < 300) { agit.push(null); return; }
+        const r = (j) => (B[j].h - B[j].l) / B[j].c;
+        let s12 = 0; for (let j = i - 11; j <= i; j++) s12 += r(j);
+        const ant = []; for (let j = i - 299; j <= i - 12; j++) ant.push(r(j)); ant.sort((x, y) => x - y);
+        const v = s12 / 12 / ant[ant.length >> 1];
+        agit.push(v < 0.8 ? 0 : v < 1.3 ? 1 : 2);
+      });
+      const firmeza = (x) => Math.min(2, Math.floor(Math.abs(x - 50) / 5));      // 0: menos de 5 puntos, 1: 5 a 10, 2: mas
+      const rasgos = (i, x) => ({ lado: x > 50, fir: firmeza(x), ag: agit[i], ema: B[i].c > ema[i] });
+      const ahora = rasgos(B.length - 1, pr);
+      const una = new Map(); hist.concat(local).forEach((r) => { if (r[2] === h) una.set(r[0], r); });
+      const casos = [];
+      una.forEach(([t, , , p, x]) => {
+        const i = idx.get(t - m), f = idx.get(t + (h - 1) * m);
+        if (i === undefined || f === undefined || x === 50 || agit[i] === null) return;
+        casos.push({ ...rasgos(i, x), ok: (x > 50) === (B[f].c > p) });
+      });
+      const pasos = [['lado', 'fir', 'ag', 'ema'], ['lado', 'fir', 'ag'], ['lado', 'fir']];
+      let usados = null, sel = [];
+      for (const ks of pasos) { sel = casos.filter((c) => ks.every((q) => c[q] === ahora[q])); usados = ks; if (sel.length >= 25) break; }
+      const pc = (xs) => (xs.length ? xs.filter((c) => c.ok).length / xs.length : null);
+      const AG = ['calmo', 'normal', 'agitado'], FI = ['casi pareja', 'con 55–60%', 'con más de 60%'];
+      const desc = [`${ahora.lado ? 'suba' : 'baja'} ${FI[ahora.fir]}`].concat(usados.includes('ag') && ahora.ag !== null ? [`mercado ${AG[ahora.ag]}`] : [], usados.includes('ema') ? [`${ahora.ema ? 'sobre' : 'debajo de'} la EMA 50`] : []).join(', ');
+      CONF.clave = clave; CONF.t = Date.now();
+      CONF.txt = () => {
+        if (casos.length < 10) return [el('b', '', 'Confianza ahora'), el('span', '', `todavía junta casos: ${casos.length} predicciones a ${S.plazo} ya terminadas. El historial del servidor va sumando cada día.`)];
+        if (sel.length < 10) return [el('b', '', 'Confianza ahora'), el('span', '', `pocos momentos parecidos todavía (${sel.length}). En total acertó la dirección ${f0(pc(casos) * 100)}% de ${f0(casos.length)}.`)];
+        const p = pc(sel), mg = 196 * Math.sqrt((p * (1 - p)) / sel.length);
+        return [el('b', '', 'Confianza ahora'), el('span', '', `en momentos como este (${desc}) acertó la dirección ${f0(p * 100)}% de ${f0(sel.length)} veces (±${f0(mg)}). En total: ${f0(pc(casos) * 100)}% de ${f0(casos.length)}.`)];
+      };
+      line.replaceChildren(...CONF.txt());
+    } finally {
+      CONF.corriendo = false;
+      if (CONF.otra) { const r = CONF.otra; CONF.otra = null; confianzaAhora(r); }
+    }
+  }
+  setInterval(() => { if (!document.hidden && S.rows) confianzaAhora(S.rows); }, 10 * 6e4);
   function drawLearning(rows) {
     const all = pick(rows, 'aprendizaje'), a = all.find((r) => r.plazo === S.plazo);
     drawCalibracion(a);
     const line = document.getElementById('apr-line'); line.replaceChildren();
-    if (a) line.append(el('b', '', 'Aprendizaje'), el('span', '', learnLine(a)));
+    confianzaAhora(rows);             // en lugar de "Aprendizaje": cuanto acierta en momentos como este (ver confianzaAhora)
     document.getElementById('apr-k').textContent = `a ${S.plazo}`;
     const put = (id, v, sub) => { document.getElementById(id).textContent = v; document.getElementById(id + '-n').textContent = sub; };
     if (!a || !num(a.repasadas)) {
@@ -3213,6 +3334,236 @@
     });
     // con el tema cambia la paleta: el grafico se rearma al abrir de nuevo
     new MutationObserver(() => { if (R.ch && pan.hidden) { R.ch.remove(); R.ch = null; } }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  })();
+
+  // ---------- mapa de liquidaciones (panel aparte), al estilo de Coinglass / mapaliquidaciones.com ----------
+  // Estimacion propia con datos publicos (api/liquidaciones.js: open interest de Binance, Bybit y OKX, largos/cortos de
+  // Binance y Bybit, liquidaciones reales de OKX). Cada vez que sube el open interest, lo nuevo se reparte entre largos y
+  // cortos (segun la proporcion de cuentas) y entre apalancamientos tipicos, al precio medio de esa vela; cada posicion
+  // tiene su precio de liquidacion (entrada x (1 -/+ 1/apalancamiento), con 0,5% de margen de mantenimiento). Cuando una
+  // vela cruza ese precio, se liquida y la franja se corta; cuando el open interest baja, se cierran en proporcion; y
+  // con el tiempo se van cerrando solas (vida media). El color compara cada nivel con el mas cargado de la vista: azul,
+  // cian, verde, amarillo, rojo. Cortos arriba del precio, largos abajo. No es una prediccion ni consejo financiero.
+  const LiqMapa = (function () {
+    const MS = { '5m': 3e5, '15m': 9e5, '1h': 36e5, '4h': 144e5, '1d': 864e5 };
+    const VIDA = { '5m': 864e5, '15m': 2 * 864e5, '1h': 5 * 864e5, '4h': 20 * 864e5, '1d': 120 * 864e5 };
+    const FILTROS = {
+      todo: [[5, 0.08], [10, 0.17], [20, 0.18], [25, 0.17], [50, 0.2], [75, 0.08], [100, 0.12]],
+      scalping: [[50, 0.45], [75, 0.2], [100, 0.35]],          // apalancamiento alto: zonas cerca del precio
+      swing: [[5, 0.2], [10, 0.35], [20, 0.25], [25, 0.2]],      // bajo: zonas mas lejos
+    };
+    const NB = 220, MANT = 0.005;
+    function serieEn(pares, ms) {     // [[t, valor]] -> valor en cada apertura de vela (el dato de esa vela, o el de la anterior)
+      const m = new Map(); pares.forEach(([t, v]) => { m.set(Math.floor(t / ms) * ms, v); });
+      return m;
+    }
+    function simular(d, filtro) {
+      const V = d.velas, n = V.length, ms = MS[d.tf], ver = Math.min(d.ver, n - 1), ini = n - ver;
+      let lo = Infinity, hi = -Infinity;
+      for (let j = ini; j < n; j++) { lo = Math.min(lo, V[j][3]); hi = Math.max(hi, V[j][2]); }
+      const pad = (hi - lo) * 0.45 + hi * 0.004, gLo = lo - pad, gHi = hi + pad, paso = (gHi - gLo) / NB;
+      const bin = (p) => Math.floor((p - gLo) / paso), precioBin = (k) => gLo + (k + 0.5) * paso;
+      const fuentes = Object.values(d.oi).filter((s) => s.length > 1).map((s) => serieEn(s, ms));
+      const lsF = Object.values(d.ls).filter((s) => s.length).map((s) => serieEn(s, ms));
+      const L = new Float64Array(NB), S2 = new Float64Array(NB), grid = new Float32Array(ver * NB), liqEst = new Float64Array(ver);
+      const dec = Math.pow(0.5, ms / VIDA[d.tf]), tiers = FILTROS[filtro] || FILTROS.todo;
+      let lsUlt = 0.5;
+      for (let j = 1; j < n; j++) {
+        const [t, , h, l, c] = V[j], tp = V[j - 1][0];
+        // 1) lo que cruzo esta vela se liquida (largos con su precio arriba del minimo, cortos debajo del maximo)
+        let quemado = 0;
+        const kl = Math.max(0, bin(l)), ks = Math.min(NB - 1, bin(h));
+        for (let k = kl; k < NB; k++) { quemado += L[k]; L[k] = 0; }
+        for (let k = 0; k <= ks; k++) { quemado += S2[k]; S2[k] = 0; }
+        // 2) cambio del open interest, sumando cada exchange (cada uno con su propio cambio)
+        let delta = 0, total = 0;
+        fuentes.forEach((f) => { const a = f.get(t), b = f.get(tp); if (a !== undefined && b !== undefined) { delta += a - b; total += b; } });
+        const f = dec * (delta < 0 && total > 0 ? Math.max(0, 1 + delta / total) : 1);
+        for (let k = 0; k < NB; k++) { L[k] *= f; S2[k] *= f; }
+        // 3) lo nuevo: largos y cortos segun las cuentas, en cada apalancamiento, al precio medio de la vela
+        if (delta > 0) {
+          const v = lsF.map((m) => m.get(t)).filter((x) => x !== undefined);
+          if (v.length) lsUlt = v.reduce((a, b) => a + b, 0) / v.length;
+          const e = (h + l + c) / 3;
+          tiers.forEach(([lev, w]) => {
+            const pl = e * (1 - 1 / lev + MANT), ps = e * (1 + 1 / lev - MANT), kL = bin(pl), kS = bin(ps);
+            if (pl < l && kL >= 0 && kL < NB) L[kL] += delta * lsUlt * w;
+            if (ps > h && kS >= 0 && kS < NB) S2[kS] += delta * (1 - lsUlt) * w;
+          });
+        }
+        if (j >= ini) { const o = (j - ini) * NB; for (let k = 0; k < NB; k++) grid[o + k] = L[k] + S2[k]; liqEst[j - ini] = quemado; }
+      }
+      return { V: V.slice(ini), grid, NB, gLo, gHi, paso, ver, L: Float64Array.from(L), S: Float64Array.from(S2), liqEst, precioBin, ms };
+    }
+    // azul -> cian -> verde -> amarillo -> rojo (como mapaliquidaciones.com); x de 0 a 1
+    const STOPS = [[0, [30, 64, 175]], [0.25, [6, 182, 212]], [0.5, [34, 197, 94]], [0.75, [250, 204, 21]], [1, [239, 68, 68]]];
+    function color(x) {
+      for (let i = 1; i < STOPS.length; i++) if (x <= STOPS[i][0]) {
+        const [a, ca] = STOPS[i - 1], [b, cb] = STOPS[i], u = (x - a) / (b - a);
+        return ca.map((v, k) => Math.round(v + (cb[k] - v) * u));
+      }
+      return STOPS[STOPS.length - 1][1];
+    }
+    function imagen(m, minimo) {
+      let mx = 0; for (let i = 0; i < m.grid.length; i++) if (m.grid[i] > mx) mx = m.grid[i];
+      const cv = document.createElement('canvas'); cv.width = m.ver; cv.height = m.NB;
+      const cx = cv.getContext('2d'), img = cx.createImageData(m.ver, m.NB);
+      if (mx > 0) for (let c = 0; c < m.ver; c++) for (let k = 0; k < m.NB; k++) {
+        const x = Math.pow(m.grid[c * m.NB + k] / mx, 0.6);       // un poco mas que lineal: que se vean tambien las medianas
+        if (x <= minimo) continue;
+        const [r, g, b] = color(x), o = ((m.NB - 1 - k) * m.ver + c) * 4;
+        img.data[o] = r; img.data[o + 1] = g; img.data[o + 2] = b; img.data[o + 3] = Math.round(255 * Math.min(0.95, 0.08 + 0.95 * x * x));   // lo flojo casi transparente
+      }
+      cx.putImageData(img, 0, 0);
+      return { cv, mx };
+    }
+    return { simular, imagen, color, MS };
+  })();
+
+  (function () {
+    const $ = (id) => document.getElementById(id), pan = $('lm'), fondo = $('lm-fondo');
+    const MON_LM = ['BTC', 'ETH', 'SOL', 'XRP', 'BNB', 'DOGE', 'ADA', 'AVAX', 'LINK', 'LTC', 'SUI', 'ZEC', 'TRX', 'DOT', 'NEAR', 'APT', 'ARB', 'OP', 'TON', 'HYPE'];
+    const LM = { tf: '1h', filtro: 'todo', minimo: 0.15, perfil: true, datos: null, m: null, img: null, ch: null, serie: null, carga: 0, mon: 'BTC' };
+    const sel = $('lm-mon'); sel.append(...MON_LM.map((m) => { const o = el('option', '', m); o.value = m; return o; }));
+    const usd = (x) => (x >= 1e9 ? `${ar.format(',.2f')(x / 1e9)} mil M` : x >= 1e6 ? `${ar.format(',.1f')(x / 1e6)} M` : x >= 1e3 ? `${f0(x / 1e3)} mil` : x > 0 ? 'menos de mil' : '0');
+    // la capa del mapa, detras de las velas (primitiva de Lightweight Charts)
+    const capa = {
+      _vista: null,
+      attached({ chart, series }) { this._ch = chart; this._s = series; },
+      updateAllViews() {},
+      paneViews() {
+        const self = this;
+        return [{ zOrder: () => 'bottom', renderer: () => ({ draw() {}, drawBackground(target) {
+          if (!LM.img || !LM.m) return;
+          target.useMediaCoordinateSpace(({ context: ctx }) => {
+            const ts = self._ch.timeScale(), m = LM.m, V = m.V;
+            const x0 = ts.timeToCoordinate(V[0][0] / 1000), x1 = ts.timeToCoordinate(V[V.length - 1][0] / 1000);
+            const yT = self._s.priceToCoordinate(m.gHi), yB = self._s.priceToCoordinate(m.gLo);
+            if ([x0, x1, yT, yB].some((v) => v === null)) return;
+            const bw = V.length > 1 ? (x1 - x0) / (V.length - 1) : 6;
+            ctx.save(); ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(LM.img.cv, x0 - bw / 2, yT, x1 - x0 + bw, yB - yT);
+            // liquidaciones reales (OKX): circulos, rojo = largos liquidados, verde = cortos
+            const P = G.P || pal();
+            (LM.datos.liq || []).forEach(([t, lado, p, u]) => {
+              if (t < V[0][0] || u < 2e4) return;
+              const x = ts.timeToCoordinate(Math.floor(t / m.ms) * m.ms / 1000), y = self._s.priceToCoordinate(p);
+              if (x === null || y === null) return;
+              ctx.beginPath(); ctx.arc(x, y, Math.max(2, Math.min(14, Math.sqrt(u / 2e4) * 2)), 0, 2 * Math.PI);
+              ctx.fillStyle = alpha(lado === 'l' ? P.dn : P.up, 0.55); ctx.strokeStyle = '#fff'; ctx.lineWidth = 0.8; ctx.fill(); ctx.stroke();
+            });
+            ctx.restore();
+          });
+        } }) }];
+      },
+    };
+    function armar() {
+      if (LM.ch) return;
+      const P = G.P || pal();
+      LM.ch = LW.createChart($('lm-chart'), { autoSize: true, layout: { background: { type: 'solid', color: 'rgba(0,0,0,0)' }, textColor: '#9aa3b5', fontFamily: cssv('--font-anthropic-sans'), attributionLogo: false },
+        grid: { vertLines: { visible: false }, horzLines: { visible: false } }, rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.04, bottom: 0.04 } },
+        timeScale: { borderVisible: false, timeVisible: true, rightOffset: 2 }, crosshair: { mode: 0 },
+        localization: { priceFormatter: (v) => fp(v), timeFormatter: (t) => new Date(t * 1000).toLocaleString('es-AR', { ...tz, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }) } });
+      LM.serie = LM.ch.addSeries(LW.CandlestickSeries, { upColor: '#22ab94', downColor: '#f7525f', wickUpColor: '#22ab94', wickDownColor: '#f7525f', borderVisible: false, priceLineVisible: false,
+        autoscaleInfoProvider: (orig) => { const r = orig(); if (!r || !LM.m) return r; const pad = (LM.m.gHi - LM.m.gLo) * 0.18; return { priceRange: { minValue: Math.max(LM.m.gLo, r.priceRange.minValue - pad), maxValue: Math.min(LM.m.gHi, r.priceRange.maxValue + pad) } }; } });
+      LM.serie.attachPrimitive(capa);
+      // al pasar el dedo: cuanto hay estimado en ese precio y en ese momento
+      LM.ch.subscribeCrosshairMove((p) => {
+        const info = $('lm-punto');
+        if (!p || !p.point || p.time === undefined || !LM.m) { info.textContent = ''; return; }
+        const m = LM.m, c = m.V.findIndex((b) => b[0] / 1000 === p.time), pr = LM.serie.coordinateToPrice(p.point.y);
+        if (c < 0 || pr === null) { info.textContent = ''; return; }
+        const k = Math.floor((pr - m.gLo) / m.paso); if (k < 0 || k >= m.NB) { info.textContent = ''; return; }
+        let v = 0; for (let q = Math.max(0, k - 1); q <= Math.min(m.NB - 1, k + 1); q++) v += m.grid[c * m.NB + q];
+        info.textContent = `${fp(pr)}: ~${usd(v)} USD en liquidaciones estimadas (${pr > m.V[c][4] ? 'cortos' : 'largos'})`;
+      });
+    }
+    function perfil() {
+      const cv = $('lm-perfil'), m = LM.m;
+      cv.hidden = !LM.perfil || !m; if (cv.hidden) return;
+      const W = cv.clientWidth, H = cv.clientHeight, dpr = window.devicePixelRatio || 1;
+      cv.width = W * dpr; cv.height = H * dpr;
+      const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr); ctx.clearRect(0, 0, W, H);
+      let mx = 0; for (let k = 0; k < m.NB; k++) mx = Math.max(mx, m.L[k], m.S[k]);
+      if (!mx) return;
+      const y = (p) => LM.serie.priceToCoordinate(p), P = G.P || pal(), ahora = m.V[m.V.length - 1][4];
+      for (let k = 0; k < m.NB; k++) {
+        const v = m.L[k] + m.S[k]; if (!v) continue;
+        const pa = y(m.gLo + (k + 1) * m.paso), pb = y(m.gLo + k * m.paso); if (pa === null || pb === null || pb < 0 || pa > H) continue;
+        const x = Math.sqrt(v / mx), [r, g, b] = LiqMapa.color(x);
+        ctx.fillStyle = `rgba(${r},${g},${b},0.85)`; ctx.fillRect(W - x * (W - 4), pa, x * (W - 4), Math.max(1, pb - pa - 0.5));
+      }
+      const ya = y(ahora); if (ya !== null) { ctx.fillStyle = P.mute; ctx.fillRect(0, ya, W, 1); }
+    }
+    function resumen() {
+      const m = LM.m, d = LM.datos, ahora = m.V[m.V.length - 1][4];
+      let arriba = 0, abajo = 0, kA = -1, kB = -1;
+      for (let k = 0; k < m.NB; k++) {
+        arriba += m.S[k]; abajo += m.L[k];
+        if (m.S[k] && (kA < 0 || m.S[k] > m.S[kA])) kA = k;
+        if (m.L[k] && (kB < 0 || m.L[k] > m.L[kB])) kB = k;
+      }
+      const dist = (p) => `${p >= ahora ? '+' : '−'}${ar.format('.1f')(Math.abs(p / ahora - 1) * 100)}%`;
+      const box = $('lm-res'); box.replaceChildren();
+      const fila = (k, ...v) => { const r = el('div', 'ab-lm-fila'); r.append(el('span', 'k', k), el('span', 'v', ...v)); box.append(r); };
+      fila('Arriba (cortos)', `${usd(arriba)} USD estimados`, kA >= 0 ? ` · más cargado en ${fp(m.precioBin(kA))} (${dist(m.precioBin(kA))})` : '');
+      fila('Abajo (largos)', `${usd(abajo)} USD estimados`, kB >= 0 ? ` · más cargado en ${fp(m.precioBin(kB))} (${dist(m.precioBin(kB))})` : '');
+      const lq = (d.liq || []), dsd = lq.length ? Math.min(...lq.map((x) => x[0])) : null;
+      if (lq.length) {
+        const sl = lq.filter((x) => x[1] === 'l').reduce((a, x) => a + x[3], 0), ss = lq.filter((x) => x[1] === 's').reduce((a, x) => a + x[3], 0);
+        fila('Liquidaciones reales (OKX)', `largos ${usd(sl)} · cortos ${usd(ss)} USD desde las ${horaAR(dsd)}`);
+      }
+      const f = d.fuentes, oi = Object.entries(f.oi).filter(([, n]) => n).map(([k]) => ({ binance: 'Binance', bybit: 'Bybit', okx: 'OKX' })[k]);
+      $('lm-fuentes').textContent = `Open interest de ${oi.join(', ') || '—'}; largos/cortos de ${Object.entries(f.ls).filter(([, n]) => n).map(([k]) => (k === 'binance' ? 'Binance' : 'Bybit')).join(' y ') || '—'}; velas de ${f.velas}. Actualizado a las ${horaAR(d.hora)}.`
+        + (f.errores.length ? ` Sin respuesta: ${f.errores.map((x) => x[0]).join(', ')}.` : '');
+    }
+    function pintar() {
+      if (!LM.datos) return;
+      LM.m = LiqMapa.simular(LM.datos, LM.filtro);
+      LM.img = LiqMapa.imagen(LM.m, LM.minimo);
+      LM.serie.setData(LM.m.V.map((b) => ({ time: b[0] / 1000, open: b[1], high: b[2], low: b[3], close: b[4] })));
+      LM.ch.timeScale().applyOptions({ timeVisible: LM.tf !== '1d' });
+      LM.ch.timeScale().fitContent();
+      resumen(); requestAnimationFrame(perfil);
+    }
+    async function cargar() {
+      armar();
+      const n = ++LM.carga;
+      $('lm-estado').textContent = 'Cargando el open interest y las velas…'; $('lm-estado').hidden = false;
+      try {
+        const r = await fetch(`api/liquidaciones?moneda=${LM.mon}&tf=${LM.tf}`, { signal: AbortSignal.timeout(30000) });
+        const j = await r.json();
+        if (n !== LM.carga) return;
+        if (!j.ok) throw new Error(j.error || r.status);
+        if (!Object.values(j.oi).some((s) => s.length > 1)) throw new Error('ningún exchange devolvió el open interest');
+        LM.datos = j; $('lm-estado').hidden = true; pintar();
+      } catch (e) {
+        if (n === LM.carga) $('lm-estado').textContent = `No se pudo armar el mapa (${e.message || e}). Probá de nuevo en un rato.`;
+      }
+    }
+    const marcar = (box, attr, v) => [...$(box).children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset[attr] === v)));
+    function abrir() {
+      pan.hidden = false; fondo.hidden = false; document.documentElement.style.overflow = 'hidden'; abFoco(pan, true);
+      const m = MON(); if (MON_LM.includes(m) && m !== LM.mon && !LM.datos) LM.mon = m;
+      sel.value = LM.mon; marcar('lm-tfs', 'tf', LM.tf); marcar('lm-filtros', 'f', LM.filtro);
+      if (!LM.datos || LM.datos.moneda !== LM.mon || Date.now() - LM.datos.hora > 5 * 6e4) cargar(); else requestAnimationFrame(perfil);
+    }
+    function cerrar() { if (pan.hidden) return; abFoco(pan, false); pan.hidden = true; fondo.hidden = true; document.documentElement.style.overflow = ''; }
+    $('lm-btn').addEventListener('click', abrir);
+    $('lm-abrir').addEventListener('click', abrir);
+    $('lm-x').addEventListener('click', cerrar); fondo.addEventListener('click', cerrar);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !pan.hidden) cerrar(); });
+    sel.addEventListener('change', () => { LM.mon = sel.value; cargar(); });
+    $('lm-tfs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; LM.tf = b.dataset.tf; marcar('lm-tfs', 'tf', LM.tf); cargar(); });
+    $('lm-filtros').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; LM.filtro = b.dataset.f; marcar('lm-filtros', 'f', LM.filtro); pintar(); });
+    $('lm-min').addEventListener('input', (e) => { LM.minimo = +e.target.value / 100; if (LM.m) { LM.img = LiqMapa.imagen(LM.m, LM.minimo); LM.ch.timeScale().applyOptions({}); LM.serie.applyOptions({}); } });
+    $('lm-perf').addEventListener('change', (e) => { LM.perfil = e.target.checked; perfil(); });
+    new ResizeObserver(() => requestAnimationFrame(perfil)).observe($('lm-chart'));
+    // el perfil sigue a la escala de precios (zoom o arrastre)
+    let rafP = 0; const seguir = () => { if (!rafP) rafP = requestAnimationFrame(() => { rafP = 0; perfil(); }); };
+    ['pointermove', 'wheel', 'touchmove'].forEach((ev) => $('lm-chart').addEventListener(ev, seguir, { passive: true }));
+    new MutationObserver(() => { if (LM.ch && pan.hidden) { LM.ch.remove(); LM.ch = null; LM.serie = null; } }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    window.abLiqMapa = LiqMapa;           // para la prueba (pruebas/mapa_liq.js)
   })();
 
   // un tick del WebSocket: mueve la ultima vela al instante, sin rehacer el grafico
