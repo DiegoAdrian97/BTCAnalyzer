@@ -1245,7 +1245,7 @@
   .ab-amb i:nth-child(1) { left: -50vmax; top: -48vmax; animation: amb-a 23s ease-in-out infinite alternate; }
   .ab-amb i:nth-child(2) { right: -55vmax; bottom: -50vmax; animation: amb-b 31s ease-in-out infinite alternate; }
   .ab-amb b { position: absolute; inset: 0; background: radial-gradient(120% 70% at 50% 0%, var(--pulso, transparent), transparent 70%); opacity: 0; }
-  .ab-amb b.on { animation: amb-pulso 1.1s ease-out; }
+  .ab-amb b.on { animation: amb-pulso .9s cubic-bezier(.2, .8, .2, 1); }   /* arranca a pleno junto con las cifras (que ruedan en .42 s) */
   @keyframes amb-a { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(22vmax, 18vmax, 0) scale(1.12); } }
   @keyframes amb-b { from { transform: translate3d(0, 0, 0) scale(1.08); } to { transform: translate3d(-20vmax, -24vmax, 0) scale(.95); } }
   @keyframes amb-pulso { from { opacity: calc(var(--amb-a) * .7); } to { opacity: 0; } }

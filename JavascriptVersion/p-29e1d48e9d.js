@@ -33,6 +33,7 @@
     if (!dir || QUIETO.matches || viejo.length !== txt.length) { w.replaceChildren(...[...txt].map((ch) => cifra(ch))); return; }
     const hijos = w.children;
     for (let i = 0; i < txt.length; i++) if (txt[i] !== viejo[i]) hijos[i].replaceWith(cifra(txt[i], dir > 0 ? 'r-up' : 'r-dn'));
+    if (pe.closest('.ab-top')) try { ambPulso(dir); } catch (e) { /* el fondo todavia no esta listo */ }   // en el mismo cuadro que ruedan las cifras
   }
   const later = (fn) => (reduce ? fn() : requestAnimationFrame(() => requestAnimationFrame(fn)));
   // cada plazo se mira con las velas que mejor lo muestran
@@ -666,14 +667,12 @@
     new MutationObserver(mira).observe(c, { childList: true, characterData: true, subtree: true }); mira();
   })();
 
-  // destello del ambiente con cada tick (como mucho uno cada 1,2 s, y solo si el precio cambio)
-  const AMB = { b: document.querySelector('#amb b'), ult: null, t: 0 };
-  function ambPulso(precio) {
-    const ahora = Date.now();
-    if (AMB.ult === null) { AMB.ult = precio; return; }
-    if (precio === AMB.ult || ahora - AMB.t < 1200 || document.hidden) return;
-    AMB.b.style.setProperty('--pulso', cssv(precio > AMB.ult ? '--color-ok' : '--color-bad'));
-    AMB.ult = precio; AMB.t = ahora;
+  // destello del ambiente: lo dispara ponerPrecio en el mismo momento en que cambian las cifras del precio de arriba
+  // (sube = verde, baja = rojo). Cada cambio reinicia el destello: nunca va antes ni despues de los numeros
+  const AMB = { b: document.querySelector('#amb b') };
+  function ambPulso(dir) {
+    if (!dir || document.hidden) return;
+    AMB.b.style.setProperty('--pulso', cssv(dir > 0 ? '--color-ok' : '--color-bad'));
     AMB.b.classList.remove('on'); void AMB.b.offsetWidth; AMB.b.classList.add('on');
   }
 
@@ -2846,7 +2845,6 @@
       G.vol.update({ time: t, value: liveBar.v, color: alpha(liveBar.c >= liveBar.o ? G.P.up : G.P.dn, 0.3) });
     } catch (e) { return; }
     d.price = liveBar.c; d.nowCol = liveBar.c >= liveBar.o ? G.P.up : G.P.dn;
-    ambPulso(liveBar.c);
     const last = d.all[d.all.length - 1], igual = liveBar.t === last.t;
     const e = emaVivo(igual ? d.all[d.all.length - 2] : last, liveBar.c);
     if (S.layers.ema) {
