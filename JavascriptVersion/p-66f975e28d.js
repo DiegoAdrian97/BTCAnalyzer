@@ -126,7 +126,7 @@
     temaBtn.title = on ? 'Modo claro' : 'Modo oscuro';
     document.getElementById('tema-ico').setAttribute('d', on ? SOL : LUNA);
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim() || (on ? '#0d1626' : '#e9eff7'));
+    if (meta) meta.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim() || (on ? '#101214' : '#eef0f3'));
   }
   temaBtn.addEventListener('click', () => {
     const t = oscuro() ? 'light' : 'dark';
@@ -2069,7 +2069,7 @@
     return { dark, up: cssv('--color-ok'), dn: cssv('--color-bad'), warn: cssv('--color-warn'), fg: cssv('--color-fg'), mute: cssv('--color-fg-muted'),
       panel: cssv('--color-panel'), line: cssv('--color-border-line'), grid: cssv('--cds-chart-grid'),
       c0: dash.colors[0], c1: dash.colors[1], c2: dash.colors[2], font: cssv('--font-anthropic-sans') || 'system-ui, sans-serif',
-      lbl: dark ? '#363a45' : '#131722' };
+      lbl: dark ? '#30353b' : '#14171b' };
   }
   const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
   const p2 = (v) => String(v).padStart(2, '0');

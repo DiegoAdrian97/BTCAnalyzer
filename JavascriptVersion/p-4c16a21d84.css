@@ -1,29 +1,27 @@
-  /* Tema: minimalista y moderno. Una sola familia tipografica (la del sistema: SF en el iPhone), superficies planas,
-     bordes finos y color solo donde dice algo (verde sube, rojo baja). Pisa los colores que trae cada version.
-     Verde y rojo validados para daltonismo (deuteranopia: diferencia 11 en claro y 9 en oscuro; los de antes daban 5-6). */
-  /* Tema "tablero nocturno": tinta azul de noche (no negro), cifras en Big Shoulders (condensada, de tablero de
-     cotizaciones) y todo lo demas en Archivo. Las dos alojadas en lib/ (sin Google Fonts), un solo grosor de la de cifras.
+  /* Tema "instrumento" (renovacion nov 2026): grafito neutro en vez de azul noche, una sola familia (Archivo, alojada
+     en lib/, con cifras tabulares) y el precio grande y fino como la lectura de un instrumento. Color solo donde dice algo:
+     verde sube, rojo baja, ambar atencion, azul la seleccion y el foco. Sin brillos ni degradados de adorno.
      Verde y rojo: los validados para daltonismo (deuteranopia: diferencia 11 en claro y 9 en oscuro). */
-  @font-face { font-family: "Big Shoulders"; src: url(lib/big-shoulders-800.woff2) format("woff2"); font-weight: 800; font-display: swap; }
   @font-face { font-family: "Archivo"; src: url(lib/archivo-var.woff2) format("woff2"); font-weight: 100 900; font-display: swap; }
-  :root { --color-fg: #0d1a30; --color-fg-muted: #56667f; --color-bg: #e9eff7; --color-panel: #ffffff;
-    --color-border-line: #d6dfeb; --color-ok: #089981; --color-warn: #c97a12; --color-bad: #f23645; --senal: #2f5fd0;
-    --cds-chart-grid: #e6ecf4; --cds-surface-popover: #ffffff; --cds-border: #d3dcea; --cds-text-secondary: #56667f;
-    --cds-shadow-popover: 0 10px 30px rgba(13, 26, 48, .14);
+  :root { --color-fg: #14171b; --color-fg-muted: #5b636e; --color-bg: #eef0f3; --color-panel: #ffffff;
+    --color-border-line: #e3e6ea; --color-ok: #089981; --color-warn: #c97a12; --color-bad: #f23645; --senal: #2f56d9;
+    --cds-chart-grid: #eff1f4; --cds-surface-popover: #ffffff; --cds-border: #d8dce2; --cds-text-secondary: #5b636e;
+    --cds-shadow-popover: 0 1px 2px rgba(20, 23, 27, .06), 0 16px 40px -12px rgba(20, 23, 27, .22);
     --font-anthropic-sans: "Archivo", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    --font-cifras: "Big Shoulders", "Archivo", sans-serif; --hoja: #ffffff; --sombra-hoja: rgba(13, 26, 48, .10);
-    --font-anthropic-serif: var(--font-anthropic-sans); --cds-radius: 10px; }
+    --font-cifras: var(--font-anthropic-sans); --hoja: #ffffff; --sombra-hoja: rgba(20, 23, 27, .10);
+    --elev: 0 1px 2px rgba(20, 23, 27, .04), 0 10px 28px -16px rgba(20, 23, 27, .16);
+    --font-anthropic-serif: var(--font-anthropic-sans); --cds-radius: 12px; }
   /* oscuro: el del sistema, salvo que elijas claro u oscuro con el boton (data-theme en <html>) */
   @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) { --color-fg: #e8eef7; --color-fg-muted: #8fa0bb; --color-bg: #0d1626; --color-panel: #132036;
-      --color-border-line: #22324d; --color-ok: #22ab94; --color-warn: #f0b90b; --color-bad: #f7525f; --senal: #8db4ff;
-      --cds-chart-grid: #1a2842; --cds-surface-popover: #182742; --cds-border: #2b3d5c; --cds-text-secondary: #8fa0bb;
-      --cds-shadow-popover: 0 12px 34px rgba(2, 6, 14, .55); --hoja: #182844; --sombra-hoja: rgba(2, 6, 14, .45); }
+    :root:not([data-theme="light"]) { --color-fg: #eceef1; --color-fg-muted: #979ea8; --color-bg: #101214; --color-panel: #17191c;
+      --color-border-line: #262a2f; --color-ok: #22ab94; --color-warn: #f0b90b; --color-bad: #f7525f; --senal: #8ea6ff;
+      --cds-chart-grid: #1d2024; --cds-surface-popover: #1f2226; --cds-border: #30353b; --cds-text-secondary: #979ea8;
+      --cds-shadow-popover: 0 16px 40px -10px rgba(0, 0, 0, .6); --hoja: #1b1e22; --sombra-hoja: rgba(0, 0, 0, .45); --elev: none; }
   }
-  :root[data-theme="dark"] { --color-fg: #e8eef7; --color-fg-muted: #8fa0bb; --color-bg: #0d1626; --color-panel: #132036;
-      --color-border-line: #22324d; --color-ok: #22ab94; --color-warn: #f0b90b; --color-bad: #f7525f; --senal: #8db4ff;
-      --cds-chart-grid: #1a2842; --cds-surface-popover: #182742; --cds-border: #2b3d5c; --cds-text-secondary: #8fa0bb;
-      --cds-shadow-popover: 0 12px 34px rgba(2, 6, 14, .55); --hoja: #182844; --sombra-hoja: rgba(2, 6, 14, .45); }
+  :root[data-theme="dark"] { --color-fg: #eceef1; --color-fg-muted: #979ea8; --color-bg: #101214; --color-panel: #17191c;
+      --color-border-line: #262a2f; --color-ok: #22ab94; --color-warn: #f0b90b; --color-bad: #f7525f; --senal: #8ea6ff;
+      --cds-chart-grid: #1d2024; --cds-surface-popover: #1f2226; --cds-border: #30353b; --cds-text-secondary: #979ea8;
+      --cds-shadow-popover: 0 16px 40px -10px rgba(0, 0, 0, .6); --hoja: #1b1e22; --sombra-hoja: rgba(0, 0, 0, .45); --elev: none; }
   body { background: var(--color-bg); -webkit-font-smoothing: antialiased; }
   /* Layout: franja superior (precio · prediccion protagonista · sesgo), selector de temporalidad,
      grafico grande con panel de probabilidades al costado, y debajo senales, niveles, ondas, indicadores. */
@@ -1075,3 +1073,54 @@
   .ab-widget ol { margin: 4px 0 8px; padding-left: 20px; display: grid; gap: 8px; line-height: 1.45; }
   .ab-widget a { color: var(--senal); }
   #widget-copiar { min-height: 36px; margin-right: 6px; }
+
+  /* ---------- renovacion "instrumento" (nov 2026) ----------
+     Jerarquia de radios: hoja 28, secciones 20, controles 12, chips redondos. Pesos: cifras 600 (el precio 300, fino y
+     grande: lo unico protagonista), titulos 600, texto 400. Seleccion en tinta invertida; el azul queda para el foco. */
+  .ab-title, .ab-verdict-big, .ab-price, .ab-tug b, .ab-plazo b, .ab-pred-when, .ab-likely-top b,
+  .ab-gauge-txt b, .ab-apr-stat b, .ab-ring text, .ab-pos-total-main b { font-weight: 600 !important; letter-spacing: -.02em !important; }
+  #mini-p, .ab-hoja .ab-tm-tab b, .ab-ce-c b, .ab-mapa b { font-weight: 600; letter-spacing: -.02em; }
+  .ab-price { font-weight: 300 !important; letter-spacing: -.045em !important; }
+  .ab-price small { font-weight: 500; letter-spacing: 0; color: var(--mute); }
+  .ab-pd > .d { width: .58em; } .ab-pd > .p { width: .25em; }
+  .ab-title { font-weight: 650 !important; letter-spacing: -.03em !important; font-size: clamp(1.4rem, 2.4vw, 1.8rem) !important; line-height: 1.05; }
+  .ab-verdict-big { font-weight: 650 !important; letter-spacing: -.03em !important; line-height: 1.02; }
+  .ab-card h2, .ab-story-head, .ab-wave-big { letter-spacing: -.018em !important; }
+  .ab-card h2 { font-size: 1.06rem; }
+  .ab-mapa b { font-size: 1.08rem; }
+  .ab-hoja .ab-tm-tab b { font-size: 1.5rem; }
+  /* superficies */
+  .ab { --paper: color-mix(in srgb, var(--color-fg) 5%, var(--color-panel)); }   /* fichas: un escalon sobre el panel (en oscuro eran pozos) */
+  .ab-card { border-radius: 20px; border-color: var(--line); box-shadow: var(--elev); }
+  .ab-pill { border-radius: 999px; padding: 4px 11px; background: var(--soft); }
+  .ab-iconbtn { border-radius: 12px; background: var(--soft); }
+  .ab-iconbtn.ab-round { border-radius: 50%; }
+  .ab-seg { border-radius: 12px; background: var(--soft); }
+  .ab-seg button { border-radius: 9px; }
+  .ab-vista-btn { border-radius: 16px; }
+  /* seleccion: tinta invertida (se lee sin depender del color) */
+  .ab-seg button[aria-pressed="true"] { color: var(--panel) !important; }
+  .ab-seg-thumb { background: var(--ink) !important; box-shadow: none; }
+  .ab-ce-tfs button[aria-pressed="true"] { color: var(--ink); background: var(--soft2); box-shadow: inset 0 0 0 1.5px var(--ink); }
+  .ab-chipbtn[aria-pressed="true"] { color: var(--panel); background: var(--ink); }
+  /* la tira de respuestas: sin rejilla de lineas, con aire */
+  /* 2x2: con cifras de ancho normal las 4 columnas cortaban los valores */
+  .ab-ce-tira { border-top: 0; border-bottom: 0; gap: 6px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .ab-ce-c { background: var(--soft); border-radius: 14px; padding: 8px 12px 9px; gap: 1px; }
+  .ab-ce-c b { font-size: 1.12rem; }
+  .ab-ce-c:first-child { padding-left: 12px; }
+  .ab-ce-c.fuerte, .ab-ce-c.sube, .ab-ce-c.baja { box-shadow: none; }
+  .ab-ce-c.fuerte { background: color-mix(in srgb, var(--color-warn) 13%, transparent); }
+  .ab-ce-c.sube { background: color-mix(in srgb, var(--up) 12%, transparent); }
+  .ab-ce-c.baja { background: color-mix(in srgb, var(--down) 11%, transparent); }
+  .ab-ce-c + .ab-ce-c { border-left: 0; }
+  .ab-mapa li.en::before { background: color-mix(in srgb, var(--senal) 28%, transparent); }
+  @media (min-width: 1000px) { .ab-hoja { border-radius: 24px; box-shadow: var(--elev); } }
+  @media (max-width: 999.98px) { .ab-hoja { border-radius: 28px 28px 0 0; } }
+  /* en la compu la hoja es una columna de ~360 px, como un celu: mismas reglas que el celu para lo que no entraba */
+  @media (min-width: 1000px) {
+    .ab-hoja .ab-apr-top { grid-template-columns: minmax(0, 1fr); }
+    .ab-hoja .ab-plazos { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding-bottom: 2px; }
+    .ab-hoja .ab-plazos::-webkit-scrollbar { display: none; }
+    .ab-hoja .ab-plazo { flex: 0 0 8.6rem; scroll-snap-align: start; }
+  }
