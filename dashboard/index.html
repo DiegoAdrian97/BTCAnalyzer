@@ -102,8 +102,8 @@
     color: var(--paper); transition: flex-basis 1.1s var(--cds-ease-out); }
   /* barras en tono suave con el texto en el color fuerte: se leen mejor que un bloque saturado */
   .ab-tug > div { color: var(--ink); }
-  .ab-tug-d { background: color-mix(in srgb, var(--down) 22%, transparent); border-radius: 12px 4px 4px 12px; }
-  .ab-tug-u { background: color-mix(in srgb, var(--up) 22%, transparent); justify-content: flex-end; border-radius: 4px 12px 12px 4px; }
+  .ab-tug-d { background: color-mix(in srgb, var(--down) 13%, transparent); border-radius: 12px 4px 4px 12px; }
+  .ab-tug-u { background: color-mix(in srgb, var(--up) 13%, transparent); justify-content: flex-end; border-radius: 4px 12px 12px 4px; }
   .ab-tug-d b { color: var(--down); } .ab-tug-u b { color: var(--up); }
   .ab-tug b { font-family: var(--serif); font-weight: 400; font-size: 1.4rem; font-variant-numeric: tabular-nums; }
   .ab-tug span { font-size: var(--cds-font-size-caption); font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -220,9 +220,9 @@
   .ab-needle { transition: transform 1.2s cubic-bezier(.2, 1.4, .4, 1); transform-origin: 110px 104px; }
   .ab-gauge-txt { text-align: center; display: grid; gap: 2px; }
   .ab-gauge-txt b { font-family: var(--serif); font-weight: 400; font-size: var(--cds-font-size-title); }
-  .ab-strip { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+  .ab-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
   .ab-strip button { font: inherit; display: grid; gap: 4px; justify-items: center; padding: 6px 2px; border-radius: 8px; border: 1px solid transparent;
-    background: var(--paper); color: var(--ink); cursor: pointer; font-size: 11px; }
+    background: var(--paper); color: var(--ink); cursor: pointer; font-size: 12px; }
   .ab-strip button[aria-pressed="true"] { border-color: var(--ink); }
   .ab-strip i { width: 100%; max-width: 34px; height: 6px; border-radius: 3px; }
 
@@ -428,7 +428,7 @@
   .ab-tbl td.r, .ab-tbl th.r { text-align: right; }
   .ab-tbl tr.ab-g td { background: var(--paper); font-weight: var(--cds-font-weight-medium); color: var(--ink); padding-block: 6px; }
   .ab-tbl tbody tr:not(.ab-g):hover td { background: color-mix(in srgb, var(--ink) 4%, transparent); }
-  .ab-sigchip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--paper); color: var(--mute); }
+  .ab-sigchip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--paper); color: var(--mute); }
   .ab-sigchip.ab-compra { color: var(--up); background: color-mix(in srgb, var(--up) 12%, transparent); }
   .ab-sigchip.ab-venta { color: var(--down); background: color-mix(in srgb, var(--down) 12%, transparent); }
   .ab-novote { color: var(--mute); font-size: 11px; }
@@ -462,7 +462,8 @@
     .ab-live i { animation: ab-live 2s ease-out infinite; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .ab-ghost, .ab-ring-val, .ab-needle, .ab-split div, .ab-range-iqr, .ab-range-mark, .ab-range-now, .ab-lv-bar, .ab-book-tr i, .ab-vote-bar i, .ab-seg-thumb { transition: none !important; }
+    .ab-ghost, .ab-ring-val, .ab-needle, .ab-split div, .ab-range-iqr, .ab-range-mark, .ab-range-now, .ab-lv-bar, .ab-book-tr i, .ab-vote-bar i, .ab-seg-thumb, .ab-tug > div, .ab-pat-rate i, .ab-plazo { transition: none !important; }
+    .ab-plazo:hover { transform: none; }
   }
   @media (prefers-reduced-motion: no-preference) {
     .ab-fresh .ab-card, .ab-fresh .ab-plazo, .ab-fresh .ab-more[open] { animation: ab-fresh 1.1s ease-out; }
@@ -556,14 +557,15 @@
   .ab-conclu p { grid-column: 1 / -1; margin: 2px 0 0; color: var(--mute); font-size: 13px; line-height: 1.4; }
   .ab-conclu .sube { color: var(--up); } .ab-conclu .baja { color: var(--down); }
   .ab-plegable { cursor: pointer; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; position: relative; }
-  .ab-plegable:not(.abierta)::after { content: "más"; position: absolute; right: 0; bottom: 0; padding-left: 28px; color: var(--ink); font-weight: 600;
-    background: linear-gradient(to right, transparent, var(--panel) 24px); }
+  .ab-plegable:not(.abierta)::after { content: "… ver más"; position: absolute; right: 0; bottom: 0; padding-left: 6px; color: var(--ink); font-weight: 600;
+    background: var(--panel); box-shadow: -10px 0 8px var(--panel); }
   .ab-plegable.abierta { display: block; -webkit-line-clamp: unset; }
   .ab-plegable:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 4px; }
   /* en el celu, botones de al menos 40 px de alto (plazos, velas, capas) */
   @media (pointer: coarse) {
     .ab-seg button, .ab-seg.ab-small button, .ab-chipbtn, .ab-iconbtn { min-height: 40px; }
-    .ab-iconbtn.ab-round { min-width: 40px; }
+    .ab-iconbtn.ab-round { min-width: 44px; min-height: 44px; }
+    .ab-asset select, .ab-ex-limpiar, #widget-copiar, .ab-ce-p summary, .ab-strip button { min-height: 44px; }
   }
   @media (max-width: 700px) { .ab-tm-k { display: none; } }
   /* selector de activo (version JS) */
@@ -660,7 +662,7 @@
   .ab-horas-b i { flex: 1 1 0; min-width: 0; border-radius: 3px 3px 1px 1px; background: var(--soft2); }
   .ab-horas-b i.alta { background: color-mix(in srgb, var(--ink) 55%, transparent); }
   .ab-horas-b i.ahora { outline: 1.5px solid var(--ink); outline-offset: 1px; }
-  .ab-horas-x { display: flex; justify-content: space-between; color: var(--mute); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .ab-horas-x { display: flex; justify-content: space-between; color: var(--mute); font-size: 12px; font-variant-numeric: tabular-nums; }
   .ab-mov-dato > i { font-style: normal; width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; font-size: 12px; background: var(--soft2); }
   .ab-mov-dato.ab-pronto > i { background: color-mix(in srgb, var(--color-warn) 25%, transparent); }
   .ab-mov-dato small { display: block; color: var(--mute); font-size: var(--cds-font-size-caption); }
@@ -679,7 +681,7 @@
   .ab-tbl tr.ab-sel td { background: color-mix(in srgb, var(--ink) 6%, transparent); }
   .ab-tbl td small { display: block; color: var(--mute); font-size: 11px; line-height: 1.35; margin-top: 2px; }
   #apr-tbl tbody tr { cursor: pointer; }
-  .ab-delta { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 999px; white-space: nowrap; }
+  .ab-delta { font-size: 12px; font-weight: 600; padding: 1px 6px; border-radius: 999px; white-space: nowrap; }
   .ab-delta.ab-pos { color: var(--up); background: color-mix(in srgb, var(--up) 12%, transparent); }
   .ab-delta.ab-neg { color: var(--down); background: color-mix(in srgb, var(--down) 12%, transparent); }
   @media (max-width: 600px) { .ab-apr-stat { padding: var(--cds-pad-xs) var(--cds-pad-sm); } }
@@ -764,7 +766,7 @@
   .ab-pos-rg b { color: var(--rg-col, inherit); }
   .ab-piso { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 4px 0 6px; }
   .ab-piso > div { border-radius: 8px; padding: 6px 4px; text-align: center; background: color-mix(in srgb, var(--ink) 6%, transparent); }
-  .ab-piso small { display: block; color: var(--mute); font-size: 11px; } .ab-piso b { font-size: 13px; }
+  .ab-piso small { display: block; color: var(--mute); font-size: 12px; } .ab-piso b { font-size: 13px; }
   .ab-ant { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 6px; }
   .ab-ant span { font-size: 11px; border-radius: 6px; padding: 2px 6px; background: color-mix(in srgb, var(--ink) 6%, transparent); }
   .ab-ant span.baj { background: color-mix(in srgb, var(--color-bad) 14%, transparent); font-weight: 650; }
@@ -845,7 +847,7 @@
   .ab-tm-scale { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; }
   .ab-tm-scale i { display: block; height: 10px; border-radius: 3px; opacity: .35; }
   .ab-tm-scale i.on { opacity: 1; outline: 2px solid var(--ink); outline-offset: 1px; }
-  .ab-tm-scale span { font-size: 11px; color: var(--mute); text-align: center; line-height: 1.2; }
+  .ab-tm-scale span { font-size: 12px; color: var(--mute); text-align: center; line-height: 1.2; }
   .ab-tm-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
   .ab-tm-list li { font-size: var(--cds-font-size-body); line-height: 1.45; }
   .ab-tm-list li em { font-style: normal; color: var(--mute); }
@@ -972,8 +974,9 @@
       grid-template-areas: "tfs capasb head" "capas capas capas" "help help help" "chart chart chart" "ex ex ex" "note note note"; }
     .ab-escena #grafico:not(.ab-fs) > .ab-tools { display: contents; }
     .ab-escena #grafico:not(.ab-fs) #tfs { grid-area: tfs; min-width: 0; overflow-x: auto; scrollbar-width: none; }
-    .ab-escena #grafico:not(.ab-fs) #tfs { grid-auto-columns: max-content; }
-    .ab-escena #grafico:not(.ab-fs) #tfs button { padding-inline: 10px; }
+    .ab-escena #grafico:not(.ab-fs) #tfs { grid-auto-columns: minmax(0, 1fr); }
+    .ab-escena #grafico:not(.ab-fs) #tfs button { padding-inline: 2px; }
+    #tfs.ab-desliza { -webkit-mask-image: none; mask-image: none; }
     .ab-escena #grafico:not(.ab-fs) #capas-n { display: none; }
     .ab-escena #grafico:not(.ab-fs) #scens { grid-area: tfs; }
     .ab-escena #grafico:not(.ab-fs) #capas-btn { grid-area: capasb; }
@@ -1167,7 +1170,7 @@
           <button type="button" class="ab-iconbtn" id="medir-btn" aria-pressed="false" title="Medir: arrastrá en el gráfico para ver el % y las velas entre dos puntos (con el mouse: Shift + arrastrar; tecla M)">Medir</button>
           <button type="button" class="ab-iconbtn" id="iman-btn" aria-pressed="false" title="Imán: la mira y los puntos de Medir se pegan a la apertura, máximo, mínimo o cierre de la vela más cercana (tecla I; mientras medís, Cmd o Ctrl lo invierte)">Imán</button>
           <button type="button" class="ab-iconbtn" id="foto-btn" title="Guardar o compartir una imagen del gráfico">Imagen</button>
-          <button type="button" class="ab-iconbtn" id="replay" title="Repetir la animación del escenario" style="display: none">↻</button>
+          <button type="button" class="ab-iconbtn" id="replay" title="Repetir la animación del escenario" aria-label="Repetir la animación del escenario" style="display: none">↻</button>
         </div>
       </div>
       <p class="ab-note ab-help" id="chart-help" hidden><span class="ab-only-mouse">Arrastrá el gráfico para moverte · rueda: zoom · arrastrá el eje de precios o el de horas para estirarlos · arrastrá el borde de abajo del precio o de cada indicador para hacerlo más alto o más bajo · doble clic en un eje: vuelve ese eje a como estaba (en el de horas, todos los paneles) · doble clic en el gráfico: ajusta todo · Shift + arrastrar: medir % y velas · teclas (con el mouse sobre el gráfico): ← → moverse, + − zoom, 0 ajustar, L logarítmica, M medir, I imán (Cmd/Ctrl mientras medís lo invierte), 1 a 6 temporalidad, F pantalla completa, Esc borrar la medición</span><span class="ab-only-touch">Arrastrá con un dedo para moverte · pellizcá para zoom (de costado: velas; vertical: precios) · arrastrá los ejes para estirarlos · arrastrá la manija de abajo de cada panel para cambiar su alto · doble toque en un eje lo vuelve a como estaba · tocá una vela para ver sus datos · "Medir" y arrastrá: % y velas entre dos puntos ("Imán" los pega a la apertura, máximo, mínimo o cierre)</span></p>
@@ -1325,7 +1328,7 @@
     <div class="ab-apr-chart" id="apr-chart"></div>
     <div class="ab-legend" id="apr-legend"></div>
     <div id="apr-cal"></div>
-    <div class="ab-tbl-box"><table class="ab-tbl" id="apr-tbl"><thead><tr><th>Plazo</th><th class="r">Ventaja</th><th class="r">Original</th><th class="r">Confianza</th></tr></thead><tbody></tbody></table></div>
+    <div class="ab-tbl-box"><table class="ab-tbl" id="apr-tbl"><thead><tr><th>Plazo</th><th class="r">Ventaja</th><th class="r">Original</th><th class="r" title="Cuánto estira (más de 1) o achica (menos de 1) sus probabilidades después de repasar sus predicciones">Ajuste</th></tr></thead><tbody></tbody></table></div>
     <p class="ab-note">Cada vez que cierra una vela, el analista repasa sus últimas 1.000 predicciones de cada plazo (cada una hecha solo con lo que se sabía en ese momento) y las compara con lo que pasó. Trabaja con un equipo: 8 formas de buscar situaciones parecidas, un modelo que aprende solo con cada vela (movimientos, medias, RSI, MACD, Bollinger, volatilidad, volumen y hora del día) y la tasa base, que es decir siempre "lo normal". Con cada resultado baja el peso de los que se equivocaron y sube el de los que acertaron; si las probabilidades del equipo venían exageradas, las modera. Un resultado se usa para aprender recién cuando se conoce, y cada predicción se juzga con lo que había antes, así la medición es honesta. La <b>ventaja</b> es cuánto menos se equivoca que la tasa base (0% = no sabe más que lo normal). El margen de error de los aciertos cuenta que las predicciones que se pisan comparten resultado: a 1 hora, 1.000 predicciones valen como 80 independientes. En BTC, a estos plazos, una ventaja de 1% sostenida ya es mucha.</p>
   </section>
 
@@ -1900,7 +1903,7 @@
       document.getElementById('ab-title').textContent = `Analista ${MON()}`;
       const lbl = document.getElementById('moneda-lbl'); if (lbl) lbl.textContent = MON();
       chart.replaceChildren();
-      if (res.status === 'error') { root.classList.remove('ab-cargando'); chart.classList.remove('dash-skeleton'); const f = el('div', 'ab-fail'); f.append(el('i'), 'Failed to load'); chart.append(f); }
+      if (res.status === 'error') { root.classList.remove('ab-cargando'); chart.classList.remove('dash-skeleton'); const f = el('div', 'ab-fail'); f.append(el('i'), 'No se pudo cargar el análisis. Revisá la conexión: se reintenta solo.'); chart.append(f); }
       return;
     }
     document.querySelectorAll('#analista .dash-skeleton').forEach((e) => e.classList.remove('dash-skeleton'));
@@ -1984,7 +1987,7 @@
       celda('dir', c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '', 'Dirección',
         c.direccion === 'sube' ? '▲ Sube' : c.direccion === 'baja' ? '▼ Baja' : 'Neutral'),
       celda('rng', '', 'Rango', okv(c.rango_min) ? par(num(c.rango_min), num(c.rango_max)) : '—'),
-      celda('niv', '', 'Sop. – res.', okv(c.soporte) && okv(c.resistencia) ? par(num(c.soporte), num(c.resistencia))
+      celda('niv', '', 'Soporte–resist.', okv(c.soporte) && okv(c.resistencia) ? par(num(c.soporte), num(c.resistencia))
         : okv(c.soporte) ? `S ${fk(num(c.soporte))}` : okv(c.resistencia) ? `R ${fk(num(c.resistencia))}` : '—'));
     // 1. fuerza
     bloque('ce-fuerza', c.fuerza === 'alta' ? 'fuerte' : '', '¿Movimiento fuerte?', [
@@ -3416,14 +3419,14 @@
       const tr = el('tr'); if (r.plazo === S.plazo) tr.className = 'ab-sel';
       // quien pesa mas en el equipo, en corto
       const short = String(r.lider || '').replace('el modelo que aprende solo', 'pesa más: el modelo').replace('la tasa base', 'pesa más: la tasa base')
-        .replace('casos parecidos por ', 'pesa más: ').replace(/precio vs /g, '').replace('movimiento del último día', 'mov. 24 h').replace(/ y /, ', ');
+        .replace('casos parecidos por ', 'pesa más: ').replace(/precio vs /g, '').replace('movimiento del último día', 'mov.\u00a024\u00a0h').replace(/ y /, ', ');
       const c0 = el('td'); c0.append(el('span', '', r.plazo), el('small', '', num(r.repasadas) ? short : 'junta experiencia'));
       const hb = num(r.habilidad), ho = num(r.habilidad_original);
       const sg = (x) => (x === null ? '—' : `${x > 0 ? '+' : ''}${f1(x)}%`);
       const c1 = el('td', 'r', sg(hb));
       if (hb !== null) { c1.style.color = hb >= 0.5 ? 'var(--color-ok)' : hb <= -0.5 ? 'var(--color-bad)' : null; c1.style.fontWeight = '600'; }
       const f = num(r.factor);
-      tr.append(c0, c1, el('td', 'r', sg(ho)), el('td', 'r', f === 0 ? 'moneda' : `${f0(f * 100)}%`));
+      tr.append(c0, c1, el('td', 'r', sg(ho)), el('td', 'r', f === 0 ? 'moneda' : `×${ar.format(',.2f')(f)}`));
       tr.addEventListener('click', () => setPlazo(r.plazo));
       tb.append(tr);
     });

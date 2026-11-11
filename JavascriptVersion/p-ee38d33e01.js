@@ -483,7 +483,7 @@
       document.getElementById('ab-title').textContent = `Analista ${MON()}`;
       const lbl = document.getElementById('moneda-lbl'); if (lbl) lbl.textContent = MON();
       chart.replaceChildren();
-      if (res.status === 'error') { root.classList.remove('ab-cargando'); chart.classList.remove('dash-skeleton'); const f = el('div', 'ab-fail'); f.append(el('i'), 'Failed to load'); chart.append(f); }
+      if (res.status === 'error') { root.classList.remove('ab-cargando'); chart.classList.remove('dash-skeleton'); const f = el('div', 'ab-fail'); f.append(el('i'), 'No se pudo cargar el análisis. Revisá la conexión: se reintenta solo.'); chart.append(f); }
       return;
     }
     document.querySelectorAll('#analista .dash-skeleton').forEach((e) => e.classList.remove('dash-skeleton'));
@@ -567,7 +567,7 @@
       celda('dir', c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '', 'Dirección',
         c.direccion === 'sube' ? '▲ Sube' : c.direccion === 'baja' ? '▼ Baja' : 'Neutral'),
       celda('rng', '', 'Rango', okv(c.rango_min) ? par(num(c.rango_min), num(c.rango_max)) : '—'),
-      celda('niv', '', 'Sop. – res.', okv(c.soporte) && okv(c.resistencia) ? par(num(c.soporte), num(c.resistencia))
+      celda('niv', '', 'Soporte–resist.', okv(c.soporte) && okv(c.resistencia) ? par(num(c.soporte), num(c.resistencia))
         : okv(c.soporte) ? `S ${fk(num(c.soporte))}` : okv(c.resistencia) ? `R ${fk(num(c.resistencia))}` : '—'));
     // 1. fuerza
     bloque('ce-fuerza', c.fuerza === 'alta' ? 'fuerte' : '', '¿Movimiento fuerte?', [
@@ -1999,14 +1999,14 @@
       const tr = el('tr'); if (r.plazo === S.plazo) tr.className = 'ab-sel';
       // quien pesa mas en el equipo, en corto
       const short = String(r.lider || '').replace('el modelo que aprende solo', 'pesa más: el modelo').replace('la tasa base', 'pesa más: la tasa base')
-        .replace('casos parecidos por ', 'pesa más: ').replace(/precio vs /g, '').replace('movimiento del último día', 'mov. 24 h').replace(/ y /, ', ');
+        .replace('casos parecidos por ', 'pesa más: ').replace(/precio vs /g, '').replace('movimiento del último día', 'mov.\u00a024\u00a0h').replace(/ y /, ', ');
       const c0 = el('td'); c0.append(el('span', '', r.plazo), el('small', '', num(r.repasadas) ? short : 'junta experiencia'));
       const hb = num(r.habilidad), ho = num(r.habilidad_original);
       const sg = (x) => (x === null ? '—' : `${x > 0 ? '+' : ''}${f1(x)}%`);
       const c1 = el('td', 'r', sg(hb));
       if (hb !== null) { c1.style.color = hb >= 0.5 ? 'var(--color-ok)' : hb <= -0.5 ? 'var(--color-bad)' : null; c1.style.fontWeight = '600'; }
       const f = num(r.factor);
-      tr.append(c0, c1, el('td', 'r', sg(ho)), el('td', 'r', f === 0 ? 'moneda' : `${f0(f * 100)}%`));
+      tr.append(c0, c1, el('td', 'r', sg(ho)), el('td', 'r', f === 0 ? 'moneda' : `×${ar.format(',.2f')(f)}`));
       tr.addEventListener('click', () => setPlazo(r.plazo));
       tb.append(tr);
     });
