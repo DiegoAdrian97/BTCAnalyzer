@@ -973,7 +973,8 @@
     .ab-escena #grafico:not(.ab-fs) { background: transparent; border: 0; border-radius: 0; padding: 0; gap: 0 8px; }
     /* una sola fila: plazos (se desliza si no entran), capas y pantalla completa */
     .ab-escena #grafico:not(.ab-fs) { grid-template-columns: minmax(0, 1fr) auto auto auto;
-      grid-template-areas: "tfs tfs capasb head" "capas capas capas capas" "help help help help" "chart chart chart chart" "ex ex ex tipo" "note note note note"; }
+      grid-template-areas: "tfs tfs capasb head" "capas capas capas capas" "help help help help" "chart chart chart chart" "ex ex repro tipo" "note note note note"; }
+    .ab-escena #grafico:not(.ab-fs) #repro-btn { grid-area: repro; align-self: start; }
     .ab-escena #grafico:not(.ab-fs) #tipo-btn { grid-area: tipo; align-self: start; }   /* abajo a la derecha, junto a "Que estas viendo": arriba no entraba sin apretar los plazos */
     .ab-escena #grafico:not(.ab-fs) > .ab-tools { display: contents; }
     .ab-escena #grafico:not(.ab-fs) #tfs { grid-area: tfs; min-width: 0; overflow-x: auto; scrollbar-width: none; }
@@ -1279,3 +1280,52 @@
     :root { --vidrio: color-mix(in srgb, var(--color-panel) 90%, transparent) !important; }
   }
   #grafico.ab-fs { background: var(--color-bg); }
+
+  /* ---------- reproducir el dia ---------- */
+  .ab-repro-fondo { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, .28); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+  .ab-repro { position: fixed; z-index: 71; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(960px, calc(100vw - 32px));
+    max-height: calc(100svh - 32px); overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 16px 18px 18px;
+    border-radius: 26px; background: var(--vidrio); -webkit-backdrop-filter: var(--vidrio-fx); backdrop-filter: var(--vidrio-fx);
+    border: 1px solid var(--vidrio-borde); box-shadow: var(--cds-shadow-popover); color: var(--ink); font-family: var(--font-anthropic-sans); }
+  .ab-repro[hidden], .ab-repro-fondo[hidden], .ab-vigilia-bar[hidden] { display: none; }
+  .ab-repro-h { display: flex; align-items: center; gap: 10px; }
+  .ab-repro-h h2 { margin: 0; font-size: 1.2rem; letter-spacing: -.015em; }
+  .ab-repro-h .ab-kicker { margin-right: auto; }
+  .ab-repro-lapsos, .ab-repro-vel { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ab-repro-lapsos .ab-chipbtn, .ab-repro-vel .ab-chipbtn { min-height: 36px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); font-size: 13.5px; font-weight: 600; color: var(--mute); background: transparent; }
+  .ab-repro-lapsos .ab-chipbtn[aria-pressed="true"], .ab-repro-vel .ab-chipbtn[aria-pressed="true"] { color: var(--senal); border-color: var(--senal); background: var(--sel); }
+  .ab-repro-elegir { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+  .ab-repro-elegir label { display: grid; gap: 2px; font-size: 12.5px; color: var(--mute); }
+  .ab-repro-elegir input { font: inherit; font-size: 15px; min-height: 40px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--cds-border); background: var(--panel); color: var(--ink); }
+  .ab-repro-chart { height: min(52svh, 440px); min-height: 240px; }
+  .ab-repro-info { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; min-height: 2.8em; font-size: 14px; line-height: 1.4; }
+  .ab-repro-info b { font-stretch: 85%; font-variant-numeric: tabular-nums; font-size: 1.05rem; }
+  .ab-repro-info .si { color: var(--up); font-weight: 600; } .ab-repro-info .no { color: var(--down); font-weight: 600; }
+  .ab-repro-ctl { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .ab-repro-play { min-width: 52px; font-size: 15px; }
+  .ab-repro-ctl input[type="range"] { flex: 1 1 180px; accent-color: var(--senal); min-height: 32px; }
+  .ab-repro-res { margin: 0; font-size: 13.5px; color: var(--mute); }
+  .ab-repro-res b { color: var(--ink); }
+  @media (max-width: 599.98px) {
+    .ab-repro { left: 0; right: 0; top: auto; bottom: 0; transform: none; width: auto; max-height: 92svh; border-radius: 26px 26px 0 0;
+      padding: 14px 16px max(16px, env(safe-area-inset-bottom)); }
+    .ab-repro-chart { height: 42svh; }
+  }
+  /* ---------- pantalla siempre prendida: precio grande, grafico y fondo vivo; lo demas se va ---------- */
+  html.ab-vigilia .ab-hoja, html.ab-vigilia .ab-act-borde, html.ab-vigilia .ab-mini, html.ab-vigilia .ab-live,
+  html.ab-vigilia .ab-title-row > button, html.ab-vigilia .ab-act-chip, html.ab-vigilia #ex-box, html.ab-vigilia #tipo-btn,
+  html.ab-vigilia #repro-btn, html.ab-vigilia #capas-btn, html.ab-vigilia .ab-capas, html.ab-vigilia #help-btn,
+  html.ab-vigilia .ab-chart-note, html.ab-vigilia.ab-panel-fijo .ab-act-panel, html.ab-vigilia .ab-act-panel, html.ab-vigilia .ab-fs-btn { display: none !important; }
+  html.ab-vigilia { --asoma: 0px; }
+  html.ab-vigilia .ab-escena { height: 100svh !important; padding-bottom: max(70px, env(safe-area-inset-bottom)); }
+  html.ab-vigilia .ab-price { font-size: clamp(4rem, 22vw, 9rem) !important; }
+  html.ab-vigilia .ab-amb i { opacity: calc(var(--amb-a) * var(--amb-k) * 1.25); }
+  html.ab-vigilia.ab-panel-fijo #dash-root { padding-right: max(16px, var(--dash-gutter, 24px)); }
+  @media (min-width: 1000px) { html.ab-vigilia .ab-escena { grid-column: 1 / -1; } html.ab-vigilia .ab-price { font-size: clamp(4rem, 8vw, 7rem) !important; } }
+  .ab-vigilia-bar { position: fixed; z-index: 72; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 10px;
+    padding: 6px 6px 6px 14px; border-radius: 999px; background: var(--vidrio); -webkit-backdrop-filter: var(--vidrio-fx); backdrop-filter: var(--vidrio-fx);
+    border: 1px solid var(--vidrio-borde); font-size: 13px; color: var(--mute); font-family: var(--font-anthropic-sans); }
+  /* el atajo de Siri */
+  .ab-siri ol { padding-left: 1.2em; display: grid; gap: 8px; margin: 8px 0; }
+  .ab-siri code { display: block; margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: var(--soft); font-size: 12.5px; word-break: break-all; }
+  .ab-siri .ab-foot code { display: inline; padding: 1px 4px; }

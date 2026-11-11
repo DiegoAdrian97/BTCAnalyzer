@@ -106,8 +106,16 @@
   });
   // el elegido primero; los demas se van analizando en segundo plano (worker.js)
   aWorker({ tipo: 'seguir', sym: sym(), todos: MONEDAS });
+  // "Reproducir" pide al worker las predicciones guardadas (window.abRegistro(tf, desde, hasta) -> promesa)
+  const registros = new Map(); let regId = 0;
+  window.abRegistro = (tf, desde, hasta) => new Promise((ok) => {
+    const id = ++regId; registros.set(id, ok);
+    aWorker({ tipo: 'registro', id, sym: sym(), tf, desde, hasta });
+    setTimeout(() => { if (registros.has(id)) { registros.delete(id); ok([]); } }, 8000);
+  });
   function alMensaje(ev) {
     const m = ev.data;
+    if (m.tipo === 'registro') { const ok = registros.get(m.id); if (ok) { registros.delete(m.id); ok(m.log || []); } return; }
     if (m.sym && m.sym !== sym() && m.tipo !== 'analisis') return;
     if (m.tipo === 'analisis') {
       const mon = (m.sym || 'BTCUSDT').replace('USDT', '');

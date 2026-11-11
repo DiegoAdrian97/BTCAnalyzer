@@ -407,6 +407,11 @@
     mem.set('logFirma', f);
     return dbSet(`${prefijo(sym)}predicciones`, log);
   }
-  const Datos = { recolectar, ultimo, guardarUltimo, guardarLog, isBanned };
+  /** El registro de predicciones del activo (para "Reproducir": que decia la app en cada momento). */
+  async function leerLog(sym = 'BTCUSDT') {
+    const mem = memDe(sym);
+    return mem.get('log') || (await dbGet(`${prefijo(sym)}predicciones`)) || [];
+  }
+  const Datos = { recolectar, ultimo, guardarUltimo, guardarLog, leerLog, isBanned };
   root.Datos = Datos;
 })(typeof self !== 'undefined' ? self : globalThis);

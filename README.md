@@ -246,6 +246,17 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
 - **Librerías propias** (`JavascriptVersion/lib/`: d3 7.9.0 y Lightweight Charts 5.1.0, sin tocar): sin dos conexiones
   nuevas a CDN al abrir. Una sola fuente, Instrument Sans (variable en peso y ancho, 57 KB, licencia OFL,
   alojada en `lib/`): el texto a ancho normal y las cifras angostas con la misma fuente, en vez de dos archivos.
+- **Reproducir** (el botón ⏪ del gráfico): elegís el lapso (hoy, 6 h, 12 h, 24 h, 3 días, 7 días, 30 días o desde/hasta
+  a mano) y pasa las velas en cámara rápida con lo que decía la app en cada momento: la chance de que suba y el rango
+  del 80% de las predicciones guardadas en el teléfono, y si acertó cuando pasó su plazo. Elige sola la temporalidad
+  (hasta ~200 velas). Sin predicciones guardadas en ese lapso (la app cerrada), muestra solo las velas.
+- **Pantalla siempre prendida** (el ícono de pantalla de arriba): Wake Lock para que no se apague sola, y solo el precio
+  grande, el gráfico y el fondo vivo. Bloquear el teléfono con el botón la apaga igual (eso ninguna app lo evita); al
+  volver se pide de nuevo. Sin Wake Lock (iOS viejo), un video mudo de 1 s en bucle.
+- **Atajo de Siri** ("¿Cómo está Bitcoin?"): `api/siri` devuelve en texto el precio, el cambio de 24 h, la dirección de la
+  próxima hora y el nivel más cercano. Corre el mismo análisis que el teléfono (los mismos .js, en un contexto aparte),
+  liviano y en Frankfurt (`vercel.json`, `regions`: desde EE.UU. Binance no responde), con 60 s de caché. Cómo armar el
+  atajo: en la app, "Más detalle" → "Atajo de Siri". Prueba: `node pruebas/siri.js`.
 - **Estilo "color por estado"** (nov 2026): fondo liso blanco o negro, sin tarjetas, y el color del mercado (verde si
   BTC sube en 24 h, rojo si baja) como único acento. El gráfico arranca en velas; el botón de la línea (abajo a la
   derecha en el celu) la muestra con área en ese color, y la elección queda guardada en el navegador. Paneles y hoja

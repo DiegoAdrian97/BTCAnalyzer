@@ -329,7 +329,7 @@
   }
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Tab') return;
-    const p = [...document.querySelectorAll('.ab-act-panel.on, .ab-tm-panel.on, .ab-nt-modal')].find((n) => !n.hidden && getComputedStyle(n).position === 'fixed');
+    const p = [...document.querySelectorAll('.ab-act-panel.on, .ab-tm-panel.on, .ab-nt-modal, .ab-repro')].find((n) => !n.hidden && getComputedStyle(n).position === 'fixed');
     if (!p) return;
     const fs = [...p.querySelectorAll('button, [href], input, select, [tabindex]:not([tabindex="-1"])')].filter((n) => !n.disabled && n.offsetParent !== null);
     if (!fs.length) return;
@@ -675,6 +675,49 @@
     AMB.b.style.setProperty('--pulso', cssv(dir > 0 ? '--color-ok' : '--color-bad'));
     AMB.b.classList.remove('on'); void AMB.b.offsetWidth; AMB.b.classList.add('on');
   }
+
+  // ---------- pantalla siempre prendida: pide al sistema que no apague la pantalla (Wake Lock) y deja solo el precio,
+  // el grafico y el fondo vivo. Si se bloquea el telefono con el boton, iOS apaga igual (ninguna app lo puede evitar):
+  // al volver se vuelve a pedir. Sin Wake Lock (iOS viejo): un video mudo de 1 s en bucle, el truco de siempre
+  (function () {
+    const btn = document.getElementById('vigilia-btn'), bar = document.getElementById('vigilia-bar'), est = document.getElementById('vigilia-est');
+    let lock = null, on = false, video = null;
+    const VIDEO = 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAMYbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAA+gAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAkJ0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAA+gAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAPoAAAAAAABAAAAAAG6bWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAAAQABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABZW1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAASVzdGJsAAAAwXN0c2QAAAAAAAAAAQAAALFhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAAN2F2Y0MBZAAK/+EAGWdkAAqscgRewEQAAAMABAAAAwAIPEiWEYABAAdo6EOBlLIs/fj4AAAAABBwYXNwAAAAAQAAAAEAAAAUYnRydAAAAAAAABYgAAAWIAAAABhzdHRzAAAAAAAAAAEAAAABAABAAAAAABxzdHNjAAAAAAAAAAEAAAABAAAAAQAAAAEAAAAUc3RzegAAAAAAAALEAAAAAQAAABRzdGNvAAAAAAAAAAEAAANIAAAAYnVkdGEAAABabWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAbWRpcmFwcGwAAAAAAAAAAAAAAAAtaWxzdAAAACWpdG9vAAAAHWRhdGEAAAABAAAAAExhdmY2MC4xNi4xMDAAAAAIZnJlZQAAAsxtZGF0AAACrwYF//+r3EXpvebZSLeWLNgg2SPu73gyNjQgLSBjb3JlIDE2NCByMzEwOCAzMWUxOWY5IC0gSC4yNjQvTVBFRy00IEFWQyBjb2RlYyAtIENvcHlsZWZ0IDIwMDMtMjAyMyAtIGh0dHA6Ly93d3cudmlkZW9sYW4ub3JnL3gyNjQuaHRtbCAtIG9wdGlvbnM6IGNhYmFjPTEgcmVmPTE2IGRlYmxvY2s9MTowOjAgYW5hbHlzZT0weDM6MHgxMzMgbWU9dW1oIHN1Ym1lPTEwIHBzeT0xIHBzeV9yZD0xLjAwOjAuMDAgbWl4ZWRfcmVmPTEgbWVfcmFuZ2U9MjQgY2hyb21hX21lPTEgdHJlbGxpcz0yIDh4OGRjdD0xIGNxbT0wIGRlYWR6b25lPTIxLDExIGZhc3RfcHNraXA9MSBjaHJvbWFfcXBfb2Zmc2V0PS0yIHRocmVhZHM9MSBsb29rYWhlYWRfdGhyZWFkcz0xIHNsaWNlZF90aHJlYWRzPTAgbnI9MCBkZWNpbWF0ZT0xIGludGVybGFjZWQ9MCBibHVyYXlfY29tcGF0PTAgY29uc3RyYWluZWRfaW50cmE9MCBiZnJhbWVzPTggYl9weXJhbWlkPTIgYl9hZGFwdD0yIGJfYmlhcz0wIGRpcmVjdD0zIHdlaWdodGI9MSBvcGVuX2dvcD0wIHdlaWdodHA9MiBrZXlpbnQ9MjUwIGtleWludF9taW49MSBzY2VuZWN1dD00MCBpbnRyYV9yZWZyZXNoPTAgcmNfbG9va2FoZWFkPTYwIHJjPWNyZiBtYnRyZWU9MSBjcmY9NTEuMCBxY29tcD0wLjYwIHFwbWluPTAgcXBtYXg9NjkgcXBzdGVwPTQgaXBfcmF0aW89MS40MCBhcT0xOjEuMDAAgAAAAA1liIEAAr8SC1v/hIp/';
+    async function pedir() {
+      if (!on || document.hidden) return;
+      try {
+        if ('wakeLock' in navigator) { lock = await navigator.wakeLock.request('screen'); lock.addEventListener('release', () => { lock = null; }); est.textContent = 'Pantalla prendida'; return; }
+      } catch (e) { /* sin permiso o sin bateria: probamos el video */ }
+      try {
+        if (!video) { video = document.createElement('video'); video.muted = true; video.loop = true; video.playsInline = true; video.setAttribute('playsinline', '');
+          video.src = VIDEO; video.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none'; document.body.append(video); }
+        await video.play(); est.textContent = 'Pantalla prendida';
+      } catch (e) { est.textContent = 'Este navegador no deja mantener la pantalla prendida'; }
+    }
+    function soltar() { if (lock) lock.release().catch(() => {}); lock = null; if (video) video.pause(); }
+    function poner(v) {
+      on = v; document.documentElement.classList.toggle('ab-vigilia', v); bar.hidden = !v;
+      btn.setAttribute('aria-pressed', String(v));
+      if (v) { pedir(); document.getElementById('vigilia-salir').focus({ preventScroll: true }); window.scrollTo(0, 0); }
+      else { soltar(); btn.focus({ preventScroll: true }); }
+      window.dispatchEvent(new Event('resize'));
+    }
+    btn.setAttribute('aria-pressed', 'false');
+    btn.addEventListener('click', () => poner(!on));
+    document.getElementById('vigilia-salir').addEventListener('click', () => poner(false));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && on) poner(false); });
+    // al volver a la app (despues de bloquear o cambiar de app) el sistema solto el permiso: se vuelve a pedir
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) pedir(); });
+  })();
+  // ---------- atajo de Siri: la direccion para pegar en Atajos ----------
+  (function () {
+    const url = `${location.origin}${location.pathname.replace(/[^/]*$/, '')}api/siri`, code = document.getElementById('siri-url');
+    code.textContent = url;
+    document.getElementById('siri-copiar').addEventListener('click', async (e) => {
+      try { await navigator.clipboard.writeText(url); e.target.textContent = 'Copiada'; } catch (err) { e.target.textContent = 'Copiala de abajo'; }
+      setTimeout(() => { e.target.textContent = 'Copiar la dirección'; }, 2500);
+    });
+  })();
 
   // ---------- barra con el precio al bajar ----------
   function miniPintar() {
@@ -2832,6 +2875,157 @@
       S.linea = !S.linea; try { localStorage.setItem(LINEA_K, S.linea ? '1' : '0'); } catch (e) { /* sin almacenamiento */ }
       pinta(); if (S.rows) drawChart(S.rows, S.sum);
     });
+  })();
+
+  // ---------- reproducir: rebobina el lapso elegido y pasa las velas en camara rapida con lo que decia la app ----------
+  // Las predicciones salen del registro que guarda el telefono (worker.js, "registro"): la chance de que suba en h velas
+  // y el rango del 80%, hechas al cierre de cada vela mientras la app estaba abierta. Cuando pasan esas h velas se marca
+  // si acerto (termino del lado que daba mas probable). Solo se mira: no cambia nada del analisis.
+  (function () {
+    const btn = document.getElementById('repro-btn'), pan = document.getElementById('repro'), fondo = document.getElementById('repro-fondo');
+    const $ = (id) => document.getElementById(id);
+    const LAPSOS = [['hoy', 'Hoy'], ['6h', '6 h'], ['12h', '12 h'], ['24h', '24 h'], ['3d', '3 días'], ['7d', '7 días'], ['30d', '30 días'], ['elegir', 'Elegir…']];
+    const HORAS = { '6h': 6, '12h': 12, '24h': 24, '3d': 72, '7d': 168, '30d': 720 };
+    const TFS = ['5m', '15m', '30m', '1h', '4h', '1d'];
+    const R = { ch: null, serie: null, marcas: null, lineas: [], B: [], preds: [], i: 0, play: true, vel: 1, timer: 0, lapso: '24h', tf: '15m' };
+    const hhmm = (ms, conDia) => new Date(ms).toLocaleString('es-AR', conDia ? { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' } : { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+    const enLocal = (ms) => { const d = new Date(ms - new Date(ms).getTimezoneOffset() * 6e4); return d.toISOString().slice(0, 16); };
+    const plazoTxt = (min) => (min < 60 ? `${min} min` : min % 1440 === 0 ? `${min / 1440} día${min > 1440 ? 's' : ''}` : `${Math.round(min / 60)} h`);
+
+    $('repro-lapsos').append(...LAPSOS.map(([k, t]) => { const b = el('button', 'ab-chipbtn', t); b.type = 'button'; b.dataset.k = k; b.setAttribute('aria-pressed', 'false'); return b; }));
+
+    // la temporalidad mas chica que cubre el lapso con hasta ~200 velas y que tiene velas desde ahi (la app guarda 300 por temporalidad)
+    function tfPara(desde, hasta) {
+      for (const tf of TFS) {
+        const ms = TF_MIN[tf] * 6e4, v = pick(S.rows, 'vela', tf);
+        if (!v.length || (hasta - desde) / ms > 200) continue;
+        if (Math.min(...v.map((r) => num(r.t))) <= desde + ms) return tf;
+      }
+      return '1d';
+    }
+    function rango(k) {
+      const hasta = Date.now();
+      if (k === 'hoy') return [Math.min(new Date().setHours(0, 0, 0, 0), hasta - 36e5), hasta];   // a la 1 de la mañana, al menos la ultima hora
+      return [hasta - HORAS[k] * 36e5, hasta];
+    }
+
+    function armarGrafico() {
+      if (R.ch) return;
+      const P = G.P || pal();
+      R.ch = LW.createChart($('repro-chart'), { autoSize: true, layout: { background: { type: 'solid', color: 'rgba(0,0,0,0)' }, textColor: P.mute, fontFamily: cssv('--font-anthropic-sans'), attributionLogo: false },
+        grid: { vertLines: { visible: false }, horzLines: { visible: false } }, rightPriceScale: { borderVisible: false }, crosshair: { mode: 0 },
+        timeScale: { borderVisible: false, timeVisible: true, shiftVisibleRangeOnNewBar: false, rightOffset: 0 }, handleScroll: false, handleScale: false,
+        localization: { priceFormatter: (v) => fp(v), timeFormatter: (t) => hhmm(t * 1000, true) } });
+      R.serie = R.ch.addSeries(LW.CandlestickSeries, { upColor: P.up, downColor: P.dn, wickUpColor: P.up, wickDownColor: P.dn, borderVisible: false,
+        priceLineVisible: false, lastValueVisible: true, autoscaleInfoProvider: () => (R.min ? { priceRange: { minValue: R.min, maxValue: R.max } } : null) });
+      R.marcas = LW.createSeriesMarkers(R.serie, []);
+    }
+
+    async function cargar(desde, hasta) {
+      armarGrafico(); pausar();
+      R.tf = tfPara(desde, hasta);
+      const ms = TF_MIN[R.tf] * 6e4;
+      R.B = pick(S.rows, 'vela', R.tf).map((r) => ({ t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c) }))
+        .filter((b) => b.t >= desde - ms && b.t <= hasta).sort((a, b) => a.t - b.t);
+      if (!R.B.length) { $('repro-hora').textContent = 'Todavía no hay velas de ese lapso.'; $('repro-dijo').textContent = ''; return; }
+      R.min = Math.min(...R.B.map((b) => b.l)); R.max = Math.max(...R.B.map((b) => b.h));
+      const idx = new Map(R.B.map((b, i) => [b.t, i]));
+      const log = window.abRegistro ? await window.abRegistro(R.tf, R.B[0].t, R.B[R.B.length - 1].t + ms) : [];
+      const hMin = log.length ? Math.min(...log.map((r) => r[2])) : 0;
+      // [t, tf, h, precio, % sube, rango bajo, rango alto]: hecha al cierre de la vela que abre en t - ms
+      R.preds = log.filter((r) => r[2] === hMin && idx.has(r[0] - ms)).map((r) => {
+        const i = idx.get(r[0] - ms), fin = idx.get(r[0] + (r[2] - 1) * ms);
+        return { i, fin: fin === undefined ? null : fin, h: r[2], p: r[3], pr: r[4], lo: r[5], hi: r[6] };
+      }).sort((a, b) => a.i - b.i);
+      R.hMin = hMin;
+      $('repro-sub').textContent = `${R.B.length} velas de ${R.tf} · ${hhmm(R.B[0].t, true)} → ${hhmm(R.B[R.B.length - 1].t + ms, true)}`;
+      $('repro-pos').max = R.B.length - 1;
+      R.ch.timeScale().applyOptions({ timeVisible: TF_MIN[R.tf] < 1440 });
+      R.i = 0; dibujar(); R.ch.timeScale().setVisibleLogicalRange({ from: -1, to: R.B.length });
+      reproducir();
+    }
+
+    function acerto(q) { const c = R.B[q.fin].c; return q.pr === 50 ? null : (q.pr > 50) === (c > q.p); }
+    function dibujar() {
+      const i = R.i, P = G.P || pal(), ms = TF_MIN[R.tf] * 6e4;
+      R.serie.setData(R.B.slice(0, i + 1).map((b) => ({ time: b.t / 1000, open: b.o, high: b.h, low: b.l, close: b.c })));
+      R.ch.timeScale().setVisibleLogicalRange({ from: -1, to: R.B.length });
+      $('repro-pos').value = i;
+      const vistas = R.preds.filter((q) => q.i <= i);
+      // en el grafico, solo las que se jugaban (55% o mas para un lado) y a lo sumo unas 40, repartidas: si no, tapan las velas
+      const jugadas = vistas.filter((q) => q.pr >= 55 || q.pr <= 45), cada = Math.max(1, Math.ceil(R.preds.filter((q) => q.pr >= 55 || q.pr <= 45).length / 40));
+      R.marcas.setMarkers(jugadas.filter((q, n) => n % cada === 0 || q === jugadas[jugadas.length - 1]).map((q) => {
+        const listo = q.fin !== null && q.fin <= i, ok = listo ? acerto(q) : null, sube = q.pr >= 55, baja = q.pr <= 45;
+        return { time: R.B[q.i].t / 1000, position: sube ? 'belowBar' : 'aboveBar', shape: sube ? 'arrowUp' : baja ? 'arrowDown' : 'circle', size: 0.6,
+          color: ok === null ? (sube ? P.up : baja ? P.dn : P.mute) : ok ? P.up : P.dn, text: ok === null ? '' : ok ? '✓' : '✗' };
+      }));
+      // lo ultimo que dijo la app hasta este momento, con su rango del 80%
+      R.lineas.forEach((l) => R.serie.removePriceLine(l)); R.lineas = [];
+      const q = vistas[vistas.length - 1], b = R.B[i];
+      $('repro-hora').textContent = `${hhmm(b.t + ms, TF_MIN[R.tf] >= 60 || R.lapso !== 'hoy')} · ${fp(b.c)}`;
+      const dijo = $('repro-dijo');
+      if (!R.preds.length) dijo.textContent = 'En este lapso la app no estaba abierta: no hay predicciones guardadas, se ven solo las velas.';
+      else if (!q) dijo.textContent = 'Todavía sin predicción guardada en este lapso.';
+      else {
+        const listo = q.fin !== null && q.fin <= i, ok = listo ? acerto(q) : null;
+        dijo.replaceChildren(document.createTextNode(`La app decía a las ${hhmm(R.B[q.i].t + ms)}: ${ar.format('.0f')(q.pr)}% de que suba en ${plazoTxt(q.h * TF_MIN[R.tf])}`
+          + (q.lo ? ` · rango del 80%: ${fp(q.lo)}–${fp(q.hi)}` : '') + (listo ? ' → ' : '')));
+        if (listo && ok !== null) dijo.append(el('span', ok ? 'si' : 'no', ok ? 'acertó' : 'no acertó'));
+        if (q.lo) [q.lo, q.hi].forEach((v) => R.lineas.push(R.serie.createPriceLine({ price: v, color: alpha(P.mute, 0.8), lineWidth: 1, lineStyle: LW.LineStyle.Dashed, axisLabelVisible: false, title: '80%' })));
+      }
+      const res = R.preds.filter((q) => q.fin !== null && q.fin <= i && q.pr !== 50), bien = res.filter(acerto).length;
+      $('repro-res').replaceChildren();
+      if (res.length) $('repro-res').append('Hasta acá: acertó ', el('b', '', `${bien} de ${res.length}`), ` (${ar.format('.0f')((bien / res.length) * 100)}%) de las predicciones de ${plazoTxt(R.hMin * TF_MIN[R.tf])} que ya se pueden juzgar.`);
+    }
+    function paso() {
+      if (R.i >= R.B.length - 1) { pausar(); return; }
+      R.i += 1; dibujar();
+      R.timer = setTimeout(paso, Math.max(35, Math.min(400, 12000 / R.B.length)) / R.vel);
+    }
+    function reproducir() {
+      if (R.i >= R.B.length - 1) { R.i = 0; dibujar(); }
+      R.play = true; $('repro-play').textContent = '❚❚'; $('repro-play').setAttribute('aria-label', 'Pausar');
+      clearTimeout(R.timer); R.timer = setTimeout(paso, reduce ? 600 : 250);
+    }
+    function pausar() { R.play = false; clearTimeout(R.timer); $('repro-play').textContent = '▶'; $('repro-play').setAttribute('aria-label', 'Reproducir'); }
+    function elegirLapso(k) {
+      R.lapso = k;
+      [...$('repro-lapsos').children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.k === k)));
+      $('repro-elegir').hidden = k !== 'elegir';
+      if (k === 'elegir') {
+        if (!$('repro-hasta').value) { $('repro-hasta').value = enLocal(Date.now()); $('repro-desde').value = enLocal(Date.now() - 864e5); }
+        $('repro-hasta').max = $('repro-desde').max = enLocal(Date.now());
+        return;
+      }
+      cargar(...rango(k));
+    }
+    function abrir() {
+      if (!S.rows) return;
+      pan.hidden = false; fondo.hidden = false; document.documentElement.style.overflow = 'hidden'; abFoco(pan, true);
+      elegirLapso(R.lapso);
+    }
+    function cerrar() {
+      if (pan.hidden) return;
+      pausar(); abFoco(pan, false); pan.hidden = true; fondo.hidden = true; document.documentElement.style.overflow = '';
+    }
+    btn.addEventListener('click', abrir);
+    $('repro-x').addEventListener('click', cerrar); fondo.addEventListener('click', cerrar);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrar(); });
+    $('repro-lapsos').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) elegirLapso(b.dataset.k); });
+    $('repro-ver').addEventListener('click', () => {
+      const d = new Date($('repro-desde').value).getTime(), h = Math.min(Date.now(), new Date($('repro-hasta').value).getTime());
+      if (!(d < h)) { $('repro-hora').textContent = '"Desde" tiene que ser antes que "Hasta".'; return; }
+      cargar(d, h);
+    });
+    $('repro-play').addEventListener('click', () => (R.play ? pausar() : reproducir()));
+    $('repro-pos').addEventListener('input', (e) => { pausar(); R.i = +e.target.value; dibujar(); });
+    $('repro-vel').addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      R.vel = +b.dataset.v; [...$('repro-vel').children].forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      if (R.play) { clearTimeout(R.timer); R.timer = setTimeout(paso, 50); }
+    });
+    // con el tema o el color del mercado cambia la paleta: el grafico se rearma al abrir de nuevo
+    new MutationObserver(() => { if (R.ch && pan.hidden) { R.ch.remove(); R.ch = null; } }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   })();
 
   // un tick del WebSocket: mueve la ultima vela al instante, sin rehacer el grafico

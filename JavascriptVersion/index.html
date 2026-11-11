@@ -47,12 +47,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <link rel="preconnect" href="https://fapi.binance.com" crossorigin>
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
-<link rel="stylesheet" href="p-c319a8aeb6.css">
-<script>window.AB_PAGINA = "95cc816685";</script>
-<script defer src="app.js?v=c63ed61188"></script>
+<link rel="stylesheet" href="p-02bc6cc214.css">
+<script>window.AB_PAGINA = "49aeb31e25";</script>
+<script defer src="app.js?v=fd43aa3549"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-29e1d48e9d.js"></script>
+<script defer src="p-f90ee0b111.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -69,6 +69,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
           <span class="ab-nt-badge" id="nt-badge" hidden>0</span></button>
         <button type="button" class="ab-iconbtn ab-round ab-nt-btn" id="bx-llave" aria-label="Conectar BingX" title="Conectar BingX (tu plan y tus posiciones)" hidden>
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M14.5 9.5a4 4 0 1 1-1.2-2.8 4 4 0 0 1 1.2 2.8zM13.3 12.3L20 19m-3-3l2-2m-4.5-.5l1.5-1.5"/></svg></button>
+        <button type="button" class="ab-iconbtn ab-round ab-nt-btn" id="vigilia-btn" aria-label="Pantalla siempre prendida" title="Pantalla siempre prendida">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3.5" y="5" width="17" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 20h8M12 16v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="10.5" r="2" fill="currentColor"/></svg></button>
         <button type="button" class="ab-iconbtn ab-round ab-nt-btn" id="tema-btn" aria-pressed="false" aria-label="Modo oscuro" title="Modo oscuro">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path id="tema-ico" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d=""/></svg></button>
         <div class="ab-nt-pop" id="nt-pop" role="dialog" aria-label="Notificaciones" hidden>
@@ -131,7 +133,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
           <button type="button" data-scen="alcista" aria-pressed="false">Alcista</button>
           <button type="button" data-scen="bajista" aria-pressed="false">Bajista</button>
         </nav>
-        <button type="button" class="ab-iconbtn ab-tipo-btn" id="tipo-btn" aria-pressed="true" aria-label="Ver velas"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path class="ab-ico-velas" d="M7 4v16M17 4v16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/><rect class="ab-ico-velas" x="5" y="8" width="4" height="7" rx="1" fill="currentColor"/><rect class="ab-ico-velas" x="15" y="6" width="4" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/><path class="ab-ico-linea" d="M3 17l5-6 4 3 4-6 5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button><button type="button" class="ab-iconbtn ab-capas-btn" id="capas-btn" aria-expanded="false" aria-controls="capas" aria-label="Capas del gráfico"><svg class="ab-capas-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M12 3 2.5 8 12 13l9.5-5L12 3zM2.5 12.5 12 17.5l9.5-5M2.5 16.5 12 21.5l9.5-5"/></svg><span class="ab-capas-txt">Capas</span> <b id="capas-n"></b></button>
+        <button type="button" class="ab-iconbtn ab-repro-btn" id="repro-btn" aria-label="Reproducir el día" title="Reproducir el día"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path d="M11 6 4 12l7 6V6Zm9 0-7 6 7 6V6Z" fill="currentColor"/></svg></button><button type="button" class="ab-iconbtn ab-tipo-btn" id="tipo-btn" aria-pressed="true" aria-label="Ver velas"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path class="ab-ico-velas" d="M7 4v16M17 4v16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/><rect class="ab-ico-velas" x="5" y="8" width="4" height="7" rx="1" fill="currentColor"/><rect class="ab-ico-velas" x="15" y="6" width="4" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/><path class="ab-ico-linea" d="M3 17l5-6 4 3 4-6 5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button><button type="button" class="ab-iconbtn ab-capas-btn" id="capas-btn" aria-expanded="false" aria-controls="capas" aria-label="Capas del gráfico"><svg class="ab-capas-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M12 3 2.5 8 12 13l9.5-5L12 3zM2.5 12.5 12 17.5l9.5-5M2.5 16.5 12 21.5l9.5-5"/></svg><span class="ab-capas-txt">Capas</span> <b id="capas-n"></b></button>
       </div>
       <div class="ab-capas" id="capas">
         <div class="ab-chips" id="layers">
@@ -374,6 +376,20 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       <summary><span>¿Viene acertando?</span></summary>
       <div class="ab-more-body"><div id="hits"></div></div>
     </details>
+    <details class="ab-more" id="siri-atajo">
+      <summary><span>Atajo de Siri: “¿Cómo está Bitcoin?”</span></summary>
+      <div class="ab-more-body ab-siri">
+        <p>Le decís a Siri <b>“Cómo está Bitcoin”</b> y te lee el precio, cómo viene en 24 h, la dirección que ve la app para la próxima hora y el nivel más cercano. Se arma una vez en la app Atajos (viene con el iPhone):</p>
+        <ol>
+          <li>Abrí <b>Atajos</b> y tocá <b>+</b> para crear uno nuevo.</li>
+          <li>Agregá la acción <b>Obtener contenido de URL</b> y pegá esta dirección: <button type="button" class="ab-iconbtn" id="siri-copiar">Copiar la dirección</button><code id="siri-url"></code></li>
+          <li>Agregá la acción <b>Mostrar resultado</b> (toma el contenido de la URL solo). Cuando lo pedís por voz, Siri lo lee en voz alta; si lo tocás, lo muestra.</li>
+          <li>Tocá el nombre de arriba y ponele <b>Cómo está Bitcoin</b>: esa es la frase que escucha Siri.</li>
+          <li>Probalo: <b>“Oye Siri, cómo está Bitcoin”</b>.</li>
+        </ol>
+        <p class="ab-foot">Para otra cripto, agregale al final de la dirección <code>?moneda=SOL</code> (o XRP, ZEC) y ponele otro nombre al atajo. El análisis se hace en el servidor con los mismos cálculos que la app; lo que la app aprende con el uso queda en tu teléfono, así que el número puede variar un poco. Se actualiza como mucho cada minuto. No es consejo financiero.</p>
+      </div>
+    </details>
   </div>
 
   <p class="ab-foot">Datos públicos de Binance Futures, Bybit, OKX y Bitget, calculados en este teléfono. Gráfico hecho con <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView Lightweight Charts™</a>. Las probabilidades y los escenarios cuentan lo que pasó en situaciones parecidas del pasado reciente; el mercado puede hacer otra cosa. No es una recomendación de inversión.</p>
@@ -390,6 +406,27 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   </div>
   <button type="button" class="ab-act-borde" id="act-borde" aria-label="Abrir la lista de activos" title="Activos" hidden><span aria-hidden="true">‹</span></button>
   <div class="ab-act-fondo" id="act-fondo" hidden></div>
+  <div class="ab-repro-fondo" id="repro-fondo" hidden></div>
+  <div class="ab-repro" id="repro" role="dialog" aria-modal="true" aria-labelledby="repro-t" hidden>
+    <div class="ab-repro-h"><h2 id="repro-t">Reproducir</h2><span class="ab-kicker" id="repro-sub"></span>
+      <button type="button" class="ab-iconbtn ab-round" id="repro-x" aria-label="Cerrar">✕</button></div>
+    <div class="ab-repro-lapsos" role="group" aria-label="Qué lapso ver" id="repro-lapsos"></div>
+    <div class="ab-repro-elegir" id="repro-elegir" hidden>
+      <label>Desde <input type="datetime-local" id="repro-desde"></label>
+      <label>Hasta <input type="datetime-local" id="repro-hasta"></label>
+      <button type="button" class="ab-btn-pri" id="repro-ver">Ver</button>
+    </div>
+    <div class="ab-repro-chart" id="repro-chart"></div>
+    <div class="ab-repro-info" aria-live="polite"><b id="repro-hora">—</b><span id="repro-dijo"></span></div>
+    <div class="ab-repro-ctl">
+      <button type="button" class="ab-btn-pri ab-repro-play" id="repro-play" aria-label="Pausar">❚❚</button>
+      <input type="range" id="repro-pos" min="0" max="1" value="0" aria-label="Momento del lapso">
+      <div class="ab-repro-vel" role="group" aria-label="Velocidad" id="repro-vel">
+        <button type="button" class="ab-chipbtn" data-v="1" aria-pressed="true">1×</button><button type="button" class="ab-chipbtn" data-v="2" aria-pressed="false">2×</button><button type="button" class="ab-chipbtn" data-v="4" aria-pressed="false">4×</button></div>
+    </div>
+    <p class="ab-repro-res" id="repro-res"></p>
+  </div>
+  <div class="ab-vigilia-bar" id="vigilia-bar" hidden><span id="vigilia-est">Pantalla prendida</span><button type="button" class="ab-btn-pri" id="vigilia-salir">Salir</button></div>
   <dialog class="ab-dlg" id="bx-dlg" aria-labelledby="bx-dlg-t">
     <form id="bx-form" novalidate>
       <h2 id="bx-dlg-t">Conectar BingX</h2>

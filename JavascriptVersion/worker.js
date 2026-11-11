@@ -152,6 +152,12 @@ async function bucle() {
 
 onmessage = (ev) => {
   const d = ev.data;
+  if (d.tipo === 'registro') {          // "Reproducir": las predicciones guardadas de una temporalidad entre dos horas
+    Datos.leerLog(d.sym).then((log) => postMessage({ tipo: 'registro', id: d.id, sym: d.sym,
+      log: log.filter((r) => r[1] === d.tf && r[0] >= d.desde && r[0] <= d.hasta) }))
+      .catch(() => postMessage({ tipo: 'registro', id: d.id, sym: d.sym, log: [] }));
+    return;
+  }
   if (d.tipo === 'pausa') {
     pausado = true;
     guardarFilas();                  // al salir de la app: el ultimo analisis queda para la proxima vez que se abra
