@@ -1254,11 +1254,11 @@
   /* las superficies dejan ver el ambiente */
   body, .ab-escena, .ab-escena #grafico:not(.ab-fs), .ab-hoja { background: transparent !important; }
   html { background: var(--color-bg); }
-  /* vidrio: las superficies dejan pasar el color del fondo, desenfocado (el texto se sigue leyendo: el panel tapa ~60%) */
-  :root { --vidrio: color-mix(in srgb, var(--color-panel) 58%, transparent); --vidrio-borde: color-mix(in srgb, var(--color-fg) 9%, transparent);
-    --vidrio-fx: blur(26px) saturate(160%); }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --vidrio: color-mix(in srgb, #16161a 52%, transparent); --vidrio-borde: rgba(255, 255, 255, .08); } }
-  :root[data-theme="dark"] { --vidrio: color-mix(in srgb, #16161a 52%, transparent); --vidrio-borde: rgba(255, 255, 255, .08); }
+  /* vidrio: las superficies dejan ver las formas de atras, apenas desenfocadas (12 px; el panel tapa ~50%) */
+  :root { --vidrio: color-mix(in srgb, var(--color-panel) 50%, transparent); --vidrio-borde: color-mix(in srgb, var(--color-fg) 9%, transparent);
+    --vidrio-fx: blur(12px) saturate(140%); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --vidrio: color-mix(in srgb, #16161a 46%, transparent); --vidrio-borde: rgba(255, 255, 255, .08); } }
+  :root[data-theme="dark"] { --vidrio: color-mix(in srgb, #16161a 46%, transparent); --vidrio-borde: rgba(255, 255, 255, .08); }
   .ab-act-panel, .ab-tm-panel, .ab-nt-modal, .ab-mini, .ab-dlg {
     background: var(--vidrio) !important; -webkit-backdrop-filter: var(--vidrio-fx); backdrop-filter: var(--vidrio-fx); }
   .ab-act-panel, .ab-tm-panel, .ab-nt-modal, .ab-mini, .ab-dlg { border: 1px solid var(--vidrio-borde) !important; }
