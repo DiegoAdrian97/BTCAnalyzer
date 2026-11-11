@@ -40,6 +40,7 @@ import ccxt
 
 import aprendizaje as apr
 import avisos
+import historial
 import util as bg   # HOUR_MS, DATA_DIR y reintentar (antes de backtest_grid.py)
 import indicadores as ind
 import fuerte
@@ -1587,7 +1588,7 @@ def log_and_score(entries, closes_by_tf):
     seen = {(r[0], r[1], r[2]) for r in rows}
     fmt = lambda x: f"{x:.{dec_precio(x)}f}"
     rows += [[str(t), tf, str(h), fmt(p), f"{pr:.1f}"] + ([] if lo is None or hi is None else [fmt(lo), fmt(hi)])
-             for t, tf, h, p, pr, lo, hi in entries if (str(t), tf, str(h)) not in seen]
+             for t, tf, h, p, pr, lo, hi, *_ in entries if (str(t), tf, str(h)) not in seen]   # *_: lo demas (historial.py)
     rows = rows[-20000:]        # como la version JS: el registro no crece sin limite (se lee y se escribe cada analisis)
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(LOG_FILE, "w", newline="") as f:
@@ -1696,7 +1697,7 @@ def analyze():
             prob, tg = horizon_stats(tf, series[tf], h, price, tune(tf, series[tf], h))
             rows.append({"tabla": "probabilidad", **prob})
             rows += [{"tabla": "objetivo", "tf": tf, "horizonte": prob["horizonte"], "hora": prob["hora"], **t} for t in tg]
-            entries.append((bars[-1][0] + tf_ms, tf, h, closes[-1], prob["sube"], prob["min"], prob["max"]))
+            entries.append((bars[-1][0] + tf_ms, tf, h, closes[-1], prob["sube"], prob["min"], prob["max"], {k: prob.get(k) for k in ("mediana", "obj_arriba", "obj_abajo", "toca_arriba", "toca_abajo", "primero_arriba")}))
 
         sc, cone = scenarios(bars, idxs, price, tf_ms, vol_factor(series[tf], SCENARIO_STEPS),
                              calibracion(series[tf], main_fit["receta"], SCENARIO_STEPS)["k"])
@@ -1726,7 +1727,7 @@ def analyze():
         rows += [{"tabla": "objetivo_plazo", "plazo": name, **t} for t in tg]
         if not any(e[1] == tf and e[2] == h for e in entries):
             entries.append((series[tf]["bars"][-1][0] + series[tf]["tf_ms"], tf, h, series[tf]["closes"][-1], prob["sube"],
-                            prob["min"], prob["max"]))
+                            prob["min"], prob["max"], {k: prob.get(k) for k in ("mediana", "obj_arriba", "obj_abajo", "toca_arriba", "toca_abajo", "primero_arriba")}))
 
     # niveles clave
     h1, d1 = candles["1h"], candles["1d"]
@@ -1801,6 +1802,8 @@ def analyze():
         print(f"(mapa de liquidaciones no disponible: {type(e).__name__})")
 
     closes_by_tf = {tf: {c[0] + ccxt.Exchange.parse_timeframe(tf) * 1000: c[4] for c in cs} for tf, cs in candles.items()}
+    global ULTIMAS_PREDICCIONES
+    ULTIMAS_PREDICCIONES = entries   # las del modo en vivo van al historial constante (historial.py)
     for (tf, h), (n, hits, brier, nr, adentro) in sorted(log_and_score(entries, closes_by_tf).items()):
         if not n and not nr:        # sin casos medibles no hay nada que mostrar
             continue
@@ -2151,6 +2154,11 @@ def run_live(every, public=False):
                     avisos.revisar(data["rows"], getattr(live_mod, "ULTIMAS_VELAS", None))   # WhatsApp / notificacion
                 except Exception as e:
                     print(f"(avisos: {type(e).__name__}: {e})", flush=True)
+                if public:
+                    try:                 # el historial de predicciones para "Reproducir" (rama historial del repo)
+                        historial.anotar(getattr(live_mod, "ULTIMAS_PREDICCIONES", None))
+                    except Exception as e:
+                        print(f"(historial: {type(e).__name__}: {e})", flush=True)
                 save_json(OUT_FILE, data)
                 save_json(os.path.join(LIVE_DIR, "analisis_btc.json"), data)
                 if data["pagina"] != page_stamp:   # al arrancar, o si cambio el diseno: la pagina se recarga sola

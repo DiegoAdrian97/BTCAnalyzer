@@ -1300,6 +1300,22 @@
   .ab-repro-chart { height: min(52svh, 440px); min-height: 240px; }
   .ab-repro-info { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; min-height: 2.8em; font-size: 14px; line-height: 1.4; }
   .ab-repro-info b { font-stretch: 85%; font-variant-numeric: tabular-nums; font-size: 1.05rem; }
+  .ab-repro-info span { color: var(--mute); font-size: 13px; }
+  .ab-repro-elegir select { font: inherit; font-size: 15px; min-height: 40px; padding: 0 8px; border-radius: 12px; border: 1px solid var(--cds-border); background: var(--panel); color: var(--ink); }
+  .ab-rf { border-top: 1px solid var(--line); padding-top: 10px; }
+  .ab-rf-h { display: flex; align-items: center; gap: 8px; }
+  .ab-rf-tit { display: grid; flex: 1; min-width: 0; }
+  .ab-rf-tit b { font-size: 15px; } .ab-rf-tit small { color: var(--mute); font-size: 12.5px; }
+  .ab-rf-auto { border: 1px solid var(--senal) !important; color: var(--senal) !important; border-radius: 999px !important; min-height: 36px; }
+  .ab-rf-grid { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.3fr); gap: 0 12px; margin-top: 8px; font-size: 13.5px; }
+  .ab-rf-grid > span { padding: 7px 0; border-top: 1px solid var(--line); }
+  .ab-rf-grid > span:nth-child(-n+3) { border-top: 0; }
+  .ab-rf-grid .k { color: var(--mute); }
+  .ab-rf-grid .v b, .ab-rf-grid .r b { font-stretch: 85%; font-variant-numeric: tabular-nums; }
+  .ab-rf-grid .r.si { color: var(--up); } .ab-rf-grid .r.no { color: var(--down); } .ab-rf-grid .r.va { color: var(--mute); }
+  .ab-rf-vacia { grid-column: 1 / -1; color: var(--mute); }
+  @media (max-width: 599.98px) { .ab-rf-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ab-rf-grid .k { grid-column: 1 / -1; padding-bottom: 0; }
+    .ab-rf-grid .k + .v, .ab-rf-grid .k + .v + .r { border-top: 0; padding-top: 2px; } }
   .ab-repro-info .si { color: var(--up); font-weight: 600; } .ab-repro-info .no { color: var(--down); font-weight: 600; }
   .ab-repro-ctl { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .ab-repro-play { min-width: 52px; font-size: 15px; }

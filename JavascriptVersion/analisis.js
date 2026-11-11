@@ -1188,8 +1188,11 @@
    */
   function logAndScore(log, entries, closesByTf) {
     const seen = new Set(log.map((r) => `${r[0]}|${r[1]}|${r[2]}`));
-    entries.forEach(([t, tf, h, p, pr, lo, hi]) => {
-      if (!seen.has(`${t}|${tf}|${h}`)) log.push([t, tf, h, rp(p), rnd(pr, 1)].concat(lo === null || lo === undefined || hi === null || hi === undefined ? [] : [rp(lo), rp(hi)]));
+    entries.forEach(([t, tf, h, p, pr, lo, hi, x]) => {
+      // con rango, tambien lo que decia del resto (para "Reproducir": precio mas probable, objetivos y sus chances).
+      // Va en un objeto al final: el puntaje no lo usa y los registros viejos (5 o 7 columnas) siguen igual
+      const conRango = !(lo === null || lo === undefined || hi === null || hi === undefined);
+      if (!seen.has(`${t}|${tf}|${h}`)) log.push([t, tf, h, rp(p), rnd(pr, 1)].concat(conRango ? [rp(lo), rp(hi)].concat(x ? [x] : []) : []));
     });
     const score = new Map();      // tf|h -> [casos, aciertos, brier, con rango, adentro del rango]
     log.forEach(([t, tf, h, p, pr, lo, hi]) => {
@@ -1265,7 +1268,7 @@
         const [prob, tg] = horizonStats(tf, series[tf], h, price, tune(tf, series[tf], h));
         rows.push({ tabla: 'probabilidad', ...prob });
         tg.forEach((t) => rows.push({ tabla: 'objetivo', tf, horizonte: prob.horizonte, hora: prob.hora, ...t }));
-        entries.push([bars[i][0] + tfMs, tf, h, closes[i], prob.sube, prob.min, prob.max]);
+        entries.push([bars[i][0] + tfMs, tf, h, closes[i], prob.sube, prob.min, prob.max, { m: prob.mediana, a: prob.obj_arriba, b: prob.obj_abajo, ta: prob.toca_arriba, tb: prob.toca_abajo, pa: prob.primero_arriba }]);
       });
 
       // escenarios y cono del futuro: la pagina ya no los dibuja (SIN_FUTURO); la app los pide sin escenarios y se ahorra
@@ -1295,7 +1298,7 @@
       tg.forEach((t) => rows.push({ tabla: 'objetivo_plazo', plazo: name, ...t }));
       if (!entries.some((e) => e[1] === tf && e[2] === h)) {
         const s = series[tf];
-        entries.push([s.bars[s.bars.length - 1][0] + s.tfMs, tf, h, s.closes[s.closes.length - 1], prob.sube, prob.min, prob.max]);
+        entries.push([s.bars[s.bars.length - 1][0] + s.tfMs, tf, h, s.closes[s.closes.length - 1], prob.sube, prob.min, prob.max, { m: prob.mediana, a: prob.obj_arriba, b: prob.obj_abajo, ta: prob.toca_arriba, tb: prob.toca_abajo, pa: prob.primero_arriba }]);
       }
     });
 

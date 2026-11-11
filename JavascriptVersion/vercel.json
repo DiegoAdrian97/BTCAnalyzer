@@ -1,4 +1,10 @@
 {
+  "git": {
+    "deploymentEnabled": {
+      "historial": false,
+      "medicion-monedas": false
+    }
+  },
   "regions": [
     "fra1"
   ],

@@ -47,12 +47,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <link rel="preconnect" href="https://fapi.binance.com" crossorigin>
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
-<link rel="stylesheet" href="p-02bc6cc214.css">
-<script>window.AB_PAGINA = "49aeb31e25";</script>
-<script defer src="app.js?v=fd43aa3549"></script>
+<link rel="stylesheet" href="p-40458bdd9b.css">
+<script>window.AB_PAGINA = "f6c3b4387e";</script>
+<script defer src="app.js?v=e53942e6fd"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-f90ee0b111.js"></script>
+<script defer src="p-b3628158ee.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -414,10 +414,21 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     <div class="ab-repro-elegir" id="repro-elegir" hidden>
       <label>Desde <input type="datetime-local" id="repro-desde"></label>
       <label>Hasta <input type="datetime-local" id="repro-hasta"></label>
+      <label>Velas <select id="repro-tf"><option value="">Automáticas</option><option value="5m">5 min</option><option value="15m">15 min</option>
+        <option value="30m">30 min</option><option value="1h">1 hora</option><option value="4h">4 horas</option><option value="1d">1 día</option></select></label>
       <button type="button" class="ab-btn-pri" id="repro-ver">Ver</button>
     </div>
     <div class="ab-repro-chart" id="repro-chart"></div>
-    <div class="ab-repro-info" aria-live="polite"><b id="repro-hora">—</b><span id="repro-dijo"></span></div>
+    <div class="ab-repro-info"><b id="repro-hora">—</b><span id="repro-nota"></span></div>
+    <div class="ab-rf" id="repro-ficha" aria-live="polite">
+      <div class="ab-rf-h">
+        <button type="button" class="ab-iconbtn ab-round" id="rf-prev" aria-label="Predicción anterior">‹</button>
+        <div class="ab-rf-tit"><b id="rf-tit">—</b><small id="rf-est"></small></div>
+        <button type="button" class="ab-iconbtn ab-round" id="rf-next" aria-label="Predicción siguiente">›</button>
+        <button type="button" class="ab-chipbtn ab-rf-auto" id="rf-auto" hidden>Seguir la última</button>
+      </div>
+      <div class="ab-rf-grid" id="rf-grid"></div>
+    </div>
     <div class="ab-repro-ctl">
       <button type="button" class="ab-btn-pri ab-repro-play" id="repro-play" aria-label="Pausar">❚❚</button>
       <input type="range" id="repro-pos" min="0" max="1" value="0" aria-label="Momento del lapso">

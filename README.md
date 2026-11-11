@@ -247,9 +247,17 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
   nuevas a CDN al abrir. Una sola fuente, Instrument Sans (variable en peso y ancho, 57 KB, licencia OFL,
   alojada en `lib/`): el texto a ancho normal y las cifras angostas con la misma fuente, en vez de dos archivos.
 - **Reproducir** (el botón ⏪ del gráfico): elegís el lapso (hoy, 6 h, 12 h, 24 h, 3 días, 7 días, 30 días o desde/hasta
-  a mano) y pasa las velas en cámara rápida con lo que decía la app en cada momento: la chance de que suba y el rango
-  del 80% de las predicciones guardadas en el teléfono, y si acertó cuando pasó su plazo. Elige sola la temporalidad
-  (hasta ~200 velas). Sin predicciones guardadas en ese lapso (la app cerrada), muestra solo las velas.
+  a mano, y ahí también la temporalidad de las velas) y pasa las velas en cámara rápida (de Binance, hasta 1.000) con lo
+  que decía la app en cada momento. La ficha de cada predicción (la última, o la que elegís tocando el gráfico o con
+  ‹ ›) muestra lo que dijo (dirección, precio más probable, rango del 80%, objetivo ↑ y ↓ con su chance de tocarlos, qué
+  tocaba primero) y lo que va pasando: a qué objetivo llegó y a qué hora, máximo, mínimo y cierre, y si acertó.
+- **Historial constante de predicciones** (`historial.py`): Render analiza cada 20 s aunque nadie tenga la app abierta;
+  cada predicción nueva de BTC se guarda en la rama `historial` del repositorio (`historial/BTC/<tf>/<día UTC>.csv`), en
+  un commit cada 30 min. Reproducir las lee de ahí (raw.githubusercontent.com, sin claves) y las junta con las del
+  teléfono. Para subirlas, Render necesita la variable `HISTORIAL_GITHUB_TOKEN`: un token fine-grained de GitHub con
+  Contents: Read and write solo sobre este repositorio. La rama no despliega Vercel (`vercel.json`, `git`) ni Render.
+  Desde nov 2026 cada predicción guarda también los objetivos (registro del teléfono y del servidor; las de antes, solo
+  chance y rango). Prueba: `python pruebas/historial.py`.
 - **Pantalla siempre prendida** (el ícono de pantalla de arriba): Wake Lock para que no se apague sola, y solo el precio
   grande, el gráfico y el fondo vivo. Bloquear el teléfono con el botón la apaga igual (eso ninguna app lo evita); al
   volver se pide de nuevo. Sin Wake Lock (iOS viejo), un video mudo de 1 s en bucle.

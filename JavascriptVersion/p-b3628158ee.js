@@ -2878,35 +2878,64 @@
   })();
 
   // ---------- reproducir: rebobina el lapso elegido y pasa las velas en camara rapida con lo que decia la app ----------
-  // Las predicciones salen del registro que guarda el telefono (worker.js, "registro"): la chance de que suba en h velas
-  // y el rango del 80%, hechas al cierre de cada vela mientras la app estaba abierta. Cuando pasan esas h velas se marca
-  // si acerto (termino del lado que daba mas probable). Solo se mira: no cambia nada del analisis.
+  // Las predicciones: las del historial constante del servidor (Render analiza cada 20 s y las sube a la rama historial
+  // del repositorio: historial.py; solo BTC) mas las que guardo este telefono (worker.js, "registro"). Cada una: la
+  // chance de que suba en h velas, el rango del 80%, el precio mas probable y los objetivos de arriba y de abajo con
+  // su chance de tocarlos (las guardadas antes de nov 2026 traen solo chance y rango). La ficha muestra lo que dijo y
+  // lo que va pasando: a que objetivo llego y cuando, maximo, minimo y cierre. Solo se mira: no cambia el analisis.
   (function () {
     const btn = document.getElementById('repro-btn'), pan = document.getElementById('repro'), fondo = document.getElementById('repro-fondo');
     const $ = (id) => document.getElementById(id);
     const LAPSOS = [['hoy', 'Hoy'], ['6h', '6 h'], ['12h', '12 h'], ['24h', '24 h'], ['3d', '3 días'], ['7d', '7 días'], ['30d', '30 días'], ['elegir', 'Elegir…']];
     const HORAS = { '6h': 6, '12h': 12, '24h': 24, '3d': 72, '7d': 168, '30d': 720 };
-    const TFS = ['5m', '15m', '30m', '1h', '4h', '1d'];
-    const R = { ch: null, serie: null, marcas: null, lineas: [], B: [], preds: [], i: 0, play: true, vel: 1, timer: 0, lapso: '24h', tf: '15m' };
-    const hhmm = (ms, conDia) => new Date(ms).toLocaleString('es-AR', conDia ? { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' } : { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-    const enLocal = (ms) => { const d = new Date(ms - new Date(ms).getTimezoneOffset() * 6e4); return d.toISOString().slice(0, 16); };
+    const TFS = ['5m', '15m', '30m', '1h', '4h', '1d'], MAX_VELAS = 1000;
+    const HIST = 'https://raw.githubusercontent.com/DiegoAdrian97/BTCAnalyzer/historial/historial/BTC';
+    const R = { ch: null, serie: null, marcas: null, lineas: [], B: [], preds: [], i: 0, play: true, vel: 1, timer: 0, lapso: '24h', tf: '15m', fija: null, carga: 0 };
+    const opt = { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' };
+    const hhmm = (ms, conDia) => new Date(ms).toLocaleString('es-AR', conDia ? { day: '2-digit', month: '2-digit', ...opt } : opt);
+    const enLocal = (ms) => new Date(ms - new Date(ms).getTimezoneOffset() * 6e4).toISOString().slice(0, 16);
     const plazoTxt = (min) => (min < 60 ? `${min} min` : min % 1440 === 0 ? `${min / 1440} día${min > 1440 ? 's' : ''}` : `${Math.round(min / 60)} h`);
+    const pct = (a, b) => `${a >= b ? '+' : '−'}${ar.format('.2f')(Math.abs((a / b - 1) * 100))}%`;
+    const ms = () => TF_MIN[R.tf] * 6e4;
+    const conDia = () => TF_MIN[R.tf] >= 60 || R.B.length && new Date(R.B[0].t).toDateString() !== new Date().toDateString();
 
     $('repro-lapsos').append(...LAPSOS.map(([k, t]) => { const b = el('button', 'ab-chipbtn', t); b.type = 'button'; b.dataset.k = k; b.setAttribute('aria-pressed', 'false'); return b; }));
 
-    // la temporalidad mas chica que cubre el lapso con hasta ~200 velas y que tiene velas desde ahi (la app guarda 300 por temporalidad)
-    function tfPara(desde, hasta) {
-      for (const tf of TFS) {
-        const ms = TF_MIN[tf] * 6e4, v = pick(S.rows, 'vela', tf);
-        if (!v.length || (hasta - desde) / ms > 200) continue;
-        if (Math.min(...v.map((r) => num(r.t))) <= desde + ms) return tf;
-      }
-      return '1d';
-    }
+    const tfAuto = (desde, hasta) => TFS.find((tf) => (hasta - desde) / (TF_MIN[tf] * 6e4) <= 200) || '1d';
     function rango(k) {
       const hasta = Date.now();
-      if (k === 'hoy') return [Math.min(new Date().setHours(0, 0, 0, 0), hasta - 36e5), hasta];   // a la 1 de la mañana, al menos la ultima hora
+      if (k === 'hoy') return [Math.min(new Date().setHours(0, 0, 0, 0), hasta - 36e5), hasta];
       return [hasta - HORAS[k] * 36e5, hasta];
+    }
+
+    // velas del lapso: de Binance (cualquier lapso, de a 1500); si no responde, las que tiene el analisis (300 por temporalidad)
+    async function velas(tf, desde, hasta) {
+      const m = TF_MIN[tf] * 6e4, sym = `${MON()}USDT`, out = [];
+      try {
+        for (let t = Math.floor(desde / m) * m; t < hasta && out.length < MAX_VELAS + 1500;) {
+          const k = await (await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${sym}&interval=${tf === '1d' ? '1d' : tf}&startTime=${t}&endTime=${hasta}&limit=1500`, { signal: AbortSignal.timeout(10000) })).json();
+          if (!Array.isArray(k) || !k.length) break;
+          k.forEach((r) => out.push({ t: +r[0], o: +r[1], h: +r[2], l: +r[3], c: +r[4] }));
+          t = +k[k.length - 1][0] + m;
+          if (k.length < 1500) break;
+        }
+      } catch (e) { out.length = 0; }
+      if (out.length) return out;
+      return pick(S.rows, 'vela', tf).map((r) => ({ t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c) }))
+        .filter((b) => b.t >= desde - m && b.t <= hasta).sort((a, b) => a.t - b.t);
+    }
+    // historial del servidor: un archivo por temporalidad y dia (UTC). Columnas: t,h,precio,sube,min,max,mediana,obj_arriba,obj_abajo,toca_arriba,toca_abajo,primero_arriba
+    async function historial(tf, desde, hasta) {
+      if (MON() !== 'BTC') return [];
+      const dias = [];
+      for (let d = Math.floor(desde / 864e5) * 864e5; d <= hasta; d += 864e5) dias.push(new Date(d).toISOString().slice(0, 10));
+      const txt = await Promise.all(dias.slice(-62).map((d) => fetch(`${HIST}/${tf}/${d}.csv`, { signal: AbortSignal.timeout(10000) }).then((r) => (r.ok ? r.text() : '')).catch(() => '')));
+      const n = (x) => (x === '' || x === undefined ? null : +x), out = [];
+      txt.forEach((t) => t.split('\n').slice(1).forEach((l) => {
+        const c = l.split(','); if (c.length < 6) return;
+        out.push([+c[0], tf, +c[1], +c[2], +c[3], n(c[4]), n(c[5]), c.length > 6 ? { m: n(c[6]), a: n(c[7]), b: n(c[8]), ta: n(c[9]), tb: n(c[10]), pa: n(c[11]) } : undefined]);
+      }));
+      return out;
     }
 
     function armarGrafico() {
@@ -2917,65 +2946,147 @@
         timeScale: { borderVisible: false, timeVisible: true, shiftVisibleRangeOnNewBar: false, rightOffset: 0 }, handleScroll: false, handleScale: false,
         localization: { priceFormatter: (v) => fp(v), timeFormatter: (t) => hhmm(t * 1000, true) } });
       R.serie = R.ch.addSeries(LW.CandlestickSeries, { upColor: P.up, downColor: P.dn, wickUpColor: P.up, wickDownColor: P.dn, borderVisible: false,
-        priceLineVisible: false, lastValueVisible: true, autoscaleInfoProvider: () => (R.min ? { priceRange: { minValue: R.min, maxValue: R.max } } : null) });
+        priceLineVisible: false, lastValueVisible: true, autoscaleInfoProvider: () => (R.min ? { priceRange: { minValue: R.lo, maxValue: R.hi } } : null) });
       R.marcas = LW.createSeriesMarkers(R.serie, []);
+      // tocar el grafico elige la prediccion mas cercana (de las que ya se ven)
+      R.ch.subscribeClick((pr) => {
+        if (!pr || pr.time === undefined) return;
+        const t = pr.time * 1000, vis = R.preds.filter((q) => q.i <= R.i);
+        if (!vis.length) return;
+        R.fija = vis.reduce((a, q) => (Math.abs(R.B[q.i].t - t) < Math.abs(R.B[a.i].t - t) ? q : a));
+        dibujar();
+      });
     }
 
-    async function cargar(desde, hasta) {
+    async function cargar(desde, hasta, tfElegido) {
       armarGrafico(); pausar();
-      R.tf = tfPara(desde, hasta);
-      const ms = TF_MIN[R.tf] * 6e4;
-      R.B = pick(S.rows, 'vela', R.tf).map((r) => ({ t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c) }))
-        .filter((b) => b.t >= desde - ms && b.t <= hasta).sort((a, b) => a.t - b.t);
-      if (!R.B.length) { $('repro-hora').textContent = 'Todavía no hay velas de ese lapso.'; $('repro-dijo').textContent = ''; return; }
-      R.min = Math.min(...R.B.map((b) => b.l)); R.max = Math.max(...R.B.map((b) => b.h));
-      const idx = new Map(R.B.map((b, i) => [b.t, i]));
-      const log = window.abRegistro ? await window.abRegistro(R.tf, R.B[0].t, R.B[R.B.length - 1].t + ms) : [];
-      const hMin = log.length ? Math.min(...log.map((r) => r[2])) : 0;
-      // [t, tf, h, precio, % sube, rango bajo, rango alto]: hecha al cierre de la vela que abre en t - ms
-      R.preds = log.filter((r) => r[2] === hMin && idx.has(r[0] - ms)).map((r) => {
-        const i = idx.get(r[0] - ms), fin = idx.get(r[0] + (r[2] - 1) * ms);
-        return { i, fin: fin === undefined ? null : fin, h: r[2], p: r[3], pr: r[4], lo: r[5], hi: r[6] };
+      const n = ++R.carga;
+      R.tf = tfElegido || tfAuto(desde, hasta);
+      const m = ms();
+      let nota = '';
+      if ((hasta - desde) / m > MAX_VELAS) { desde = hasta - MAX_VELAS * m; nota = `Con velas de ${R.tf} se muestran las últimas ${MAX_VELAS} (desde ${hhmm(desde, true)}).`; }
+      $('repro-hora').textContent = 'Cargando…'; $('repro-nota').textContent = ''; $('rf-grid').replaceChildren(); $('rf-tit').textContent = '—'; $('rf-est').textContent = '';
+      const [B, hist, local] = await Promise.all([velas(R.tf, desde, hasta), historial(R.tf, desde - m, hasta + m),
+        window.abRegistro ? window.abRegistro(R.tf, desde - m, hasta + m) : []]);
+      if (n !== R.carga) return;                     // eligieron otro lapso mientras cargaba
+      R.B = B.filter((b) => b.t >= desde - m && b.t <= hasta);
+      if (!R.B.length) { $('repro-hora').textContent = 'No hay velas de ese lapso.'; return; }
+      if (R.B[0].t > desde + m) nota = `Con velas de ${R.tf} hay datos desde ${hhmm(R.B[0].t, true)}: se muestra desde ahí.`;
+      R.min = Math.min(...R.B.map((b) => b.l)); R.max = Math.max(...R.B.map((b) => b.h)); R.lo = R.min; R.hi = R.max;
+      // las del servidor y las del telefono juntas (la misma vela y horizonte una sola vez: gana la que trae objetivos)
+      const una = new Map();
+      hist.concat(local).forEach((r) => { const k = `${r[0]}|${r[2]}`, ya = una.get(k); if (!ya || (!ya[7] && r[7])) una.set(k, r); });
+      const log = [...una.values()], idx = new Map(R.B.map((b, i) => [b.t, i]));
+      // un solo horizonte (el que mas predicciones tiene; si empatan, el mas corto): mezclados no se entienden
+      const porH = new Map(); log.forEach((r) => porH.set(r[2], (porH.get(r[2]) || 0) + 1));
+      R.hMin = [...porH.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]).map((x) => x[0])[0] || 0;
+      // [t, tf, h, precio, % sube, rango bajo, rango alto, extras]: hecha al cierre de la vela que abre en t - ms
+      R.preds = log.filter((r) => r[2] === R.hMin && idx.has(r[0] - m)).map((r) => {
+        const i = idx.get(r[0] - m), fin = idx.get(r[0] + (r[2] - 1) * m), x = r[7] || {};
+        return { i, fin: fin === undefined ? null : fin, h: r[2], p: r[3], pr: r[4], lo: r[5], hi: r[6], m: x.m, a: x.a, b: x.b, ta: x.ta, tb: x.tb, pa: x.pa };
       }).sort((a, b) => a.i - b.i);
-      R.hMin = hMin;
-      $('repro-sub').textContent = `${R.B.length} velas de ${R.tf} · ${hhmm(R.B[0].t, true)} → ${hhmm(R.B[R.B.length - 1].t + ms, true)}`;
+      R.nota = nota + (R.preds.length ? '' : ' En este lapso no hay predicciones guardadas: se ven solo las velas.');
+      $('repro-sub').textContent = `${R.B.length} velas de ${R.tf} · ${hhmm(R.B[0].t, true)} → ${hhmm(R.B[R.B.length - 1].t + m, true)} · ${R.preds.length === 1 ? '1 predicción' : `${R.preds.length} predicciones`}`;
       $('repro-pos').max = R.B.length - 1;
       R.ch.timeScale().applyOptions({ timeVisible: TF_MIN[R.tf] < 1440 });
-      R.i = 0; dibujar(); R.ch.timeScale().setVisibleLogicalRange({ from: -1, to: R.B.length });
+      R.fija = null; R.i = 0; dibujar();
       reproducir();
     }
 
-    function acerto(q) { const c = R.B[q.fin].c; return q.pr === 50 ? null : (q.pr > 50) === (c > q.p); }
+    // lo que fue pasando con una prediccion hasta la vela i: maximo, minimo, cuando toco cada objetivo, cierre
+    function seguir(q, i) {
+      const hasta = Math.min(i, q.fin === null ? R.B.length - 1 : q.fin);
+      let hi = -Infinity, lo = Infinity, tA = null, tB = null;
+      for (let k = q.i + 1; k <= hasta; k++) {
+        const b = R.B[k]; hi = Math.max(hi, b.h); lo = Math.min(lo, b.l);
+        if (q.a && tA === null && b.h >= q.a) tA = k;
+        if (q.b && tB === null && b.l <= q.b) tB = k;
+      }
+      const listo = q.fin !== null && q.fin <= i, cierre = hasta > q.i ? R.B[hasta].c : null;
+      return { listo, hasta, hi, lo, tA, tB, cierre, velas: hasta - q.i, acerto: listo && q.pr !== 50 ? (q.pr > 50) === (cierre > q.p) : null };
+    }
+    const celda = (cls, ...hijos) => { const e = el('span', cls); hijos.forEach((h) => e.append(typeof h === 'string' ? document.createTextNode(h) : h)); return e; };
+    function ficha(q, i) {
+      const g = $('rf-grid'), m = ms();
+      g.replaceChildren();
+      if (!q) {
+        $('rf-tit').textContent = R.preds.length ? 'Todavía sin predicción en este lapso' : 'Sin predicciones guardadas';
+        $('rf-est').textContent = R.preds.length ? 'Aparece cuando la reproducción llega a la primera.' : 'Se ven solo las velas.';
+        return;
+      }
+      const f = seguir(q, i), plazo = plazoTxt(q.h * TF_MIN[R.tf]);
+      $('rf-tit').textContent = `Predicción de las ${hhmm(R.B[q.i].t + m, conDia())} · a ${plazo}`;
+      $('rf-est').textContent = f.listo ? `Terminó a las ${hhmm(R.B[q.fin].t + m, conDia())}` : f.velas > 0 ? `En curso: van ${f.velas} de ${q.h} velas` : 'Recién hecha';
+      const fila = (k, v, r, cls) => g.append(celda('k', k), celda('v', ...v), celda(`r ${cls || ''}`, ...r));
+      const B_ = (x) => el('b', '', x);
+      fila('Precio al predecir', [B_(fp(q.p))], f.cierre !== null ? [f.listo ? 'Cerró en ' : 'Ahora ', B_(fp(f.cierre)), ` (${pct(f.cierre, q.p)})`] : ['—'], 'va');
+      const lado = q.pr > 50 ? 'suba' : q.pr < 50 ? 'baje' : null;
+      fila('Dirección', [B_(`${ar.format('.0f')(lado === 'baje' ? 100 - q.pr : q.pr)}%`), lado ? ` de que ${lado}` : ' (pareja)'],
+        f.acerto === null ? [f.listo ? 'Sin dirección que juzgar' : 'Se sabe al final del plazo'] : [f.acerto ? '✓ Acertó: terminó ' : '✗ Terminó ', f.cierre > q.p ? 'arriba' : 'abajo'],
+        f.acerto === null ? 'va' : f.acerto ? 'si' : 'no');
+      if (q.m) fila('Precio más probable', [B_(fp(q.m))], f.listo ? ['Cerró a ', B_(pct(f.cierre, q.m).replace(/^[+−]/, '')), ' de ese precio'] : ['—'], 'va');
+      if (q.lo) {
+        const adentro = f.listo ? f.cierre >= q.lo && f.cierre <= q.hi : null;
+        fila('Rango del 80%', [B_(`${fp(q.lo)}–${fp(q.hi)}`)], adentro === null ? ['Se sabe al final del plazo'] : [adentro ? '✓ Cerró adentro' : '✗ Cerró afuera'], adentro === null ? 'va' : adentro ? 'si' : 'no');
+      }
+      const obj = (nombre, nivel, chance, t, extremo, arriba) => {
+        if (!nivel) return;
+        const r = t !== null ? ['✓ Llegó a las ', B_(hhmm(R.B[t].t, conDia()))]
+          : f.velas > 0 ? [f.listo ? '✗ No llegó: ' : 'Todavía no: ', `${arriba ? 'máximo' : 'mínimo'} `, B_(fp(extremo)), ` (le falta ${pct(nivel, extremo).replace(/^[+−]/, '')})`] : ['—'];
+        fila(nombre, [B_(fp(nivel)), chance !== null && chance !== undefined ? ` · chance de tocarlo ${ar.format('.0f')(chance)}%` : ''], r, t !== null ? 'si' : f.listo ? 'no' : 'va');
+      };
+      obj('Objetivo ↑', q.a, q.ta, f.tA, f.hi, true);
+      obj('Objetivo ↓', q.b, q.tb, f.tB, f.lo, false);
+      if (q.pa !== null && q.pa !== undefined && q.a && q.b) {
+        const pri = f.tA !== null && (f.tB === null || f.tA < f.tB) ? 'arriba' : f.tB !== null && (f.tA === null || f.tB < f.tA) ? 'abajo' : f.tA !== null ? 'los dos en la misma vela' : null;
+        const decia = q.pa >= 50 ? 'arriba' : 'abajo';
+        fila('Qué tocaba primero', [B_(`${decia} ${ar.format('.0f')(Math.max(q.pa, 100 - q.pa))}%`)],
+          pri ? [pri === decia ? '✓ ' : pri.startsWith('los') ? '' : '✗ ', `Tocó primero ${pri}`] : [f.listo ? 'No tocó ninguno' : 'Todavía ninguno'],
+          pri ? (pri === decia ? 'si' : pri.startsWith('los') ? 'va' : 'no') : 'va');
+      }
+      if (q.a === undefined) g.append(el('span', 'ab-rf-vacia', 'Guardada antes de que se anotaran los objetivos: solo chance y rango.'));
+    }
+
     function dibujar() {
-      const i = R.i, P = G.P || pal(), ms = TF_MIN[R.tf] * 6e4;
+      const i = R.i, P = G.P || pal(), m = ms();
+      const vistas = R.preds.filter((q) => q.i <= i);
+      const sel = R.fija && R.fija.i <= i ? R.fija : vistas[vistas.length - 1];
+      if (R.fija && R.fija.i > i) R.fija = null;
+      $('rf-auto').hidden = !R.fija;
+      // la escala: el lapso y los niveles de la prediccion elegida
+      const niv = sel ? [sel.a, sel.b, sel.lo, sel.hi].filter((x) => x) : [];
+      R.lo = Math.min(R.min, ...niv); R.hi = Math.max(R.max, ...niv);
       R.serie.setData(R.B.slice(0, i + 1).map((b) => ({ time: b.t / 1000, open: b.o, high: b.h, low: b.l, close: b.c })));
       R.ch.timeScale().setVisibleLogicalRange({ from: -1, to: R.B.length });
       $('repro-pos').value = i;
-      const vistas = R.preds.filter((q) => q.i <= i);
-      // en el grafico, solo las que se jugaban (55% o mas para un lado) y a lo sumo unas 40, repartidas: si no, tapan las velas
-      const jugadas = vistas.filter((q) => q.pr >= 55 || q.pr <= 45), cada = Math.max(1, Math.ceil(R.preds.filter((q) => q.pr >= 55 || q.pr <= 45).length / 40));
-      R.marcas.setMarkers(jugadas.filter((q, n) => n % cada === 0 || q === jugadas[jugadas.length - 1]).map((q) => {
-        const listo = q.fin !== null && q.fin <= i, ok = listo ? acerto(q) : null, sube = q.pr >= 55, baja = q.pr <= 45;
-        return { time: R.B[q.i].t / 1000, position: sube ? 'belowBar' : 'aboveBar', shape: sube ? 'arrowUp' : baja ? 'arrowDown' : 'circle', size: 0.6,
-          color: ok === null ? (sube ? P.up : baja ? P.dn : P.mute) : ok ? P.up : P.dn, text: ok === null ? '' : ok ? '✓' : '✗' };
-      }));
-      // lo ultimo que dijo la app hasta este momento, con su rango del 80%
-      R.lineas.forEach((l) => R.serie.removePriceLine(l)); R.lineas = [];
-      const q = vistas[vistas.length - 1], b = R.B[i];
-      $('repro-hora').textContent = `${hhmm(b.t + ms, TF_MIN[R.tf] >= 60 || R.lapso !== 'hoy')} · ${fp(b.c)}`;
-      const dijo = $('repro-dijo');
-      if (!R.preds.length) dijo.textContent = 'En este lapso la app no estaba abierta: no hay predicciones guardadas, se ven solo las velas.';
-      else if (!q) dijo.textContent = 'Todavía sin predicción guardada en este lapso.';
-      else {
-        const listo = q.fin !== null && q.fin <= i, ok = listo ? acerto(q) : null;
-        dijo.replaceChildren(document.createTextNode(`La app decía a las ${hhmm(R.B[q.i].t + ms)}: ${ar.format('.0f')(q.pr)}% de que suba en ${plazoTxt(q.h * TF_MIN[R.tf])}`
-          + (q.lo ? ` · rango del 80%: ${fp(q.lo)}–${fp(q.hi)}` : '') + (listo ? ' → ' : '')));
-        if (listo && ok !== null) dijo.append(el('span', ok ? 'si' : 'no', ok ? 'acertó' : 'no acertó'));
-        if (q.lo) [q.lo, q.hi].forEach((v) => R.lineas.push(R.serie.createPriceLine({ price: v, color: alpha(P.mute, 0.8), lineWidth: 1, lineStyle: LW.LineStyle.Dashed, axisLabelVisible: false, title: '80%' })));
+      // marcas: las que se jugaban (55% o mas para un lado), a lo sumo unas 40 repartidas; la elegida siempre, mas grande,
+      // y donde toco sus objetivos
+      const jug = R.preds.filter((q) => q.pr >= 55 || q.pr <= 45), cada = Math.max(1, Math.ceil(jug.length / 40));
+      const mk = vistas.filter((q) => q === sel || ((q.pr >= 55 || q.pr <= 45) && jug.indexOf(q) % cada === 0)).map((q) => {
+        const f = seguir(q, i), sube = q.pr >= 55, baja = q.pr <= 45;
+        return { time: R.B[q.i].t / 1000, position: sube ? 'belowBar' : 'aboveBar', shape: sube ? 'arrowUp' : baja ? 'arrowDown' : 'circle', size: q === sel ? 1.3 : 0.6,
+          color: f.acerto === null ? (sube ? P.up : baja ? P.dn : P.mute) : f.acerto ? P.up : P.dn, text: q === sel ? (f.acerto === null ? 'esta' : f.acerto ? '✓ esta' : '✗ esta') : f.acerto === null ? '' : f.acerto ? '✓' : '✗' };
+      });
+      if (sel) {
+        const f = seguir(sel, i);
+        if (f.tA !== null) mk.push({ time: R.B[f.tA].t / 1000, position: 'aboveBar', shape: 'circle', size: 0.7, color: P.up, text: 'obj ↑' });
+        if (f.tB !== null) mk.push({ time: R.B[f.tB].t / 1000, position: 'belowBar', shape: 'circle', size: 0.7, color: P.dn, text: 'obj ↓' });
       }
-      const res = R.preds.filter((q) => q.fin !== null && q.fin <= i && q.pr !== 50), bien = res.filter(acerto).length;
+      R.marcas.setMarkers(mk.sort((a, b) => a.time - b.time));
+      R.lineas.forEach((l) => R.serie.removePriceLine(l)); R.lineas = [];
+      if (sel) {
+        const linea = (price, color, title, st) => price && R.lineas.push(R.serie.createPriceLine({ price, color, lineWidth: 1, lineStyle: st, axisLabelVisible: true, title }));
+        linea(sel.p, alpha(P.ink || cssv('--color-fg'), 0.7), 'entrada', LW.LineStyle.Dotted);
+        linea(sel.a, P.up, 'obj ↑', LW.LineStyle.Dashed); linea(sel.b, P.dn, 'obj ↓', LW.LineStyle.Dashed);
+        linea(sel.lo, alpha(P.mute, 0.8), '80%', LW.LineStyle.SparseDotted); linea(sel.hi, alpha(P.mute, 0.8), '80%', LW.LineStyle.SparseDotted);
+      }
+      const b = R.B[i];
+      $('repro-hora').textContent = `${hhmm(b.t + m, conDia())} · ${fp(b.c)}`;
+      const res = R.preds.filter((q) => q.fin !== null && q.fin <= i && q.pr !== 50), bien = res.filter((q) => seguir(q, i).acerto).length;
+      $('repro-nota').textContent = R.nota || '';
       $('repro-res').replaceChildren();
-      if (res.length) $('repro-res').append('Hasta acá: acertó ', el('b', '', `${bien} de ${res.length}`), ` (${ar.format('.0f')((bien / res.length) * 100)}%) de las predicciones de ${plazoTxt(R.hMin * TF_MIN[R.tf])} que ya se pueden juzgar.`);
+      if (res.length) $('repro-res').append('Hasta acá: acertó la dirección en ', el('b', '', `${bien} de ${res.length}`), ` (${ar.format('.0f')((bien / res.length) * 100)}%) de las predicciones a ${plazoTxt(R.hMin * TF_MIN[R.tf])} que ya terminaron.`);
+      ficha(sel, i);
     }
     function paso() {
       if (R.i >= R.B.length - 1) { pausar(); return; }
@@ -2983,7 +3094,8 @@
       R.timer = setTimeout(paso, Math.max(35, Math.min(400, 12000 / R.B.length)) / R.vel);
     }
     function reproducir() {
-      if (R.i >= R.B.length - 1) { R.i = 0; dibujar(); }
+      if (!R.B.length) return;
+      if (R.i >= R.B.length - 1) { R.i = 0; R.fija = null; dibujar(); }
       R.play = true; $('repro-play').textContent = '❚❚'; $('repro-play').setAttribute('aria-label', 'Pausar');
       clearTimeout(R.timer); R.timer = setTimeout(paso, reduce ? 600 : 250);
     }
@@ -2999,6 +3111,13 @@
       }
       cargar(...rango(k));
     }
+    // anterior / siguiente: entre las predicciones que ya se ven (con la reproduccion terminada, todas)
+    function mover(d) {
+      const vis = R.preds.filter((q) => q.i <= R.i);
+      if (!vis.length) return;
+      const act = R.fija || vis[vis.length - 1], k = Math.max(0, Math.min(vis.length - 1, vis.indexOf(act) + d));
+      R.fija = vis[k]; dibujar();
+    }
     function abrir() {
       if (!S.rows) return;
       pan.hidden = false; fondo.hidden = false; document.documentElement.style.overflow = 'hidden'; abFoco(pan, true);
@@ -3010,21 +3129,29 @@
     }
     btn.addEventListener('click', abrir);
     $('repro-x').addEventListener('click', cerrar); fondo.addEventListener('click', cerrar);
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrar(); });
+    document.addEventListener('keydown', (e) => {
+      if (pan.hidden) return;
+      if (e.key === 'Escape') cerrar();
+      else if (e.key === 'ArrowLeft' && !e.target.closest('input, select')) mover(-1);
+      else if (e.key === 'ArrowRight' && !e.target.closest('input, select')) mover(1);
+    });
     $('repro-lapsos').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) elegirLapso(b.dataset.k); });
     $('repro-ver').addEventListener('click', () => {
       const d = new Date($('repro-desde').value).getTime(), h = Math.min(Date.now(), new Date($('repro-hasta').value).getTime());
       if (!(d < h)) { $('repro-hora').textContent = '"Desde" tiene que ser antes que "Hasta".'; return; }
-      cargar(d, h);
+      cargar(d, h, $('repro-tf').value || null);
     });
     $('repro-play').addEventListener('click', () => (R.play ? pausar() : reproducir()));
     $('repro-pos').addEventListener('input', (e) => { pausar(); R.i = +e.target.value; dibujar(); });
+    $('rf-prev').addEventListener('click', () => mover(-1));
+    $('rf-next').addEventListener('click', () => mover(1));
+    $('rf-auto').addEventListener('click', () => { R.fija = null; dibujar(); });
     $('repro-vel').addEventListener('click', (e) => {
       const b = e.target.closest('button'); if (!b) return;
       R.vel = +b.dataset.v; [...$('repro-vel').children].forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
       if (R.play) { clearTimeout(R.timer); R.timer = setTimeout(paso, 50); }
     });
-    // con el tema o el color del mercado cambia la paleta: el grafico se rearma al abrir de nuevo
+    // con el tema cambia la paleta: el grafico se rearma al abrir de nuevo
     new MutationObserver(() => { if (R.ch && pan.hidden) { R.ch.remove(); R.ch = null; } }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   })();
 
