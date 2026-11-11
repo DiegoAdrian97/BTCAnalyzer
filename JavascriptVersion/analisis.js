@@ -1146,11 +1146,15 @@
     const row = (orden, tipo, sesgo, texto, precio = null) => ({ tabla: 'explicacion', plazo: name, orden, tipo, sesgo, texto, precio });
     const out = [row(0, 'titular', bias, head), row(1, 'porque', bias, why)];
     signals.forEach(([, s, txt], k) => out.push(row(k + 2, 'senal', s, txt)));
-    // niveles que importan para este plazo: ni pegados al precio ni mas cerca de lo que se mueve en ese tiempo
-    const gap = Math.max(0.0015, (0.5 * (main.distancia || 0)) / price);
+    // niveles que importan para este plazo: la misma regla que central() (al menos a media vela tipica, ATR, de la
+    // temporalidad del plazo; si no hay tan lejos, el mas lejano), asi el resumen, el "por que" y el grafico muestran
+    // el mismo soporte y la misma resistencia
+    const mTf = get('marco', { tf: sigTfs[sigTfs.length - 1] })[0];
+    const lejos = 0.5 * ((mTf && mTf.atr_pct) || 0) / 100 * price;
     const levels = get('nivel').slice().sort((a, b) => a.precio - b.precio);
-    const res = levels.find((n) => n.precio > price * (1 + gap));
-    const sup = levels.slice().reverse().find((n) => n.precio < price * (1 - gap));
+    const arriba = levels.filter((n) => n.precio > price), abajo = levels.filter((n) => n.precio < price);
+    const res = arriba.find((n) => n.precio >= price + lejos) || arriba[arriba.length - 1];
+    const sup = abajo.slice().reverse().find((n) => n.precio <= price - lejos) || abajo[0];
     const k = out.length;
     if (res) out.push(row(k, 'vigilar', 'alcista', `Resistencia ${ap(res.precio)} (${lc1(res.nombre)})`, res.precio));
     if (sup) out.push(row(k + 1, 'vigilar', 'bajista', `Soporte ${ap(sup.precio)} (${lc1(sup.nombre)})`, sup.precio));

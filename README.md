@@ -588,7 +588,8 @@ tarjeta "Análisis" reemplaza al resumen, a Movimiento y a Predicción (siguen e
 
 Soporte y resistencia de cada temporalidad: los niveles más cercanos que estén al menos a media vela típica (ATR) de esa
 temporalidad; si no hay ninguno tan lejos, el más lejano que haya. Antes eran los más cercanos a secas y en la semanal y la
-mensual quedaba un muro del libro de órdenes a 0,1% del precio. Y el objetivo de Elliott desaparece cuando la onda en
+mensual quedaba un muro del libro de órdenes a 0,1% del precio. El "por qué" de cada plazo y las líneas del gráfico usan
+la misma regla (antes tenían otra y la misma pantalla mostraba dos soportes distintos). Y el objetivo de Elliott desaparece cuando la onda en
 curso ya lo pasó (antes una onda A bajista con el objetivo ya arriba del precio contaba como señal alcista).
 
 ### Puntaje de dirección y Fed medidos (`medir_direccion.py`, `medir_fed.py`, `medir_fuerte_dvol.py`, nov. 2026)

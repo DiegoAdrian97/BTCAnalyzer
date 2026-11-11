@@ -1534,11 +1534,15 @@ def explain(rows, price, spec):
 
     out = [row(0, "titular", bias, head), row(1, "porque", bias, why)]
     out += [row(k, "senal", s, txt) for k, (_, s, txt) in enumerate(signals, start=2)]
-    # niveles que importan para este plazo: ni pegados al precio ni mas cerca de lo que se mueve en ese tiempo
-    gap = max(0.0015, 0.5 * (main["distancia"] or 0) / price)
+    # niveles que importan para este plazo: la misma regla que central() (al menos a media vela tipica, ATR, de la
+    # temporalidad del plazo; si no hay tan lejos, el mas lejano), asi el resumen, el "por que" y el grafico muestran
+    # el mismo soporte y la misma resistencia
+    m_tf = get("marco", tf=sig_tfs[-1])
+    lejos = 0.5 * ((m_tf[0].get("atr_pct") if m_tf else 0) or 0) / 100 * price
     levels = sorted(get("nivel"), key=lambda n: n["precio"])
-    res = next((n for n in levels if n["precio"] > price * (1 + gap)), None)
-    sup = next((n for n in reversed(levels) if n["precio"] < price * (1 - gap)), None)
+    arriba, abajo = [n for n in levels if n["precio"] > price], [n for n in levels if n["precio"] < price]
+    res = next((n for n in arriba if n["precio"] >= price + lejos), arriba[-1] if arriba else None)
+    sup = next((n for n in reversed(abajo) if n["precio"] <= price - lejos), abajo[0] if abajo else None)
     k = len(out)
     if res:
         out.append(row(k, "vigilar", "alcista", f"Resistencia {ap(res['precio'])} ({lc1(res['nombre'])})", res["precio"]))

@@ -2298,7 +2298,7 @@
           ctx.beginPath(); ctx.moveTo(X(ta), Y(val(ta))); ctx.lineTo(X(te), Y(val(te))); ctx.stroke(); ctx.setLineDash([]);
           const name = p[`l${k}_nombre`] || '', now = val(d.lastT), yn = Y(now);
           const when = name === 'Cuello' && !conf ? (p.sesgo === 'alcista' ? ' · se confirma si lo supera' : ' · se confirma si lo pierde') : '';
-          if (!narrow && yn !== null && yn > 10 && yn < h - 10) pillC(ctx, X(d.lastT) - 10, yn + (name === 'Piso' ? 14 : -14), `${name} ${f0(now)}${when}`, col, false, 'end', w);
+          if (!narrow && yn !== null && yn > 10 && yn < h - 10) pillC(ctx, X(d.lastT) - 10, yn + (name === 'Piso' || yn < 56 ? 14 : -14), /* pegado arriba: debajo de la linea, sin meterse bajo la leyenda */ `${name} ${f0(now)}${when}`, col, false, 'end', w);
           if (!label) label = { x: X(ta) + 4, y: Y(val(ta)) + (name === 'Piso' ? 16 : -16) };
         });
         let first = null;

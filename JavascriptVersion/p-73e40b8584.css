@@ -918,6 +918,12 @@
     border-top: 1px solid var(--line); padding: 20px 0; }
   .ab-hoja > .ab-asa + .ab-card, .ab-hoja > .ab-card[hidden] + .ab-card:not(.ab-centro) { border-top-color: var(--line); }
   .ab-hoja > .ab-centro { border-top: 0; padding-top: 4px; }
+  /* en la hoja (columna angosta) la prediccion y el sesgo tecnico van uno debajo del otro: lado a lado, la prediccion
+     quedaba en 38 px y se pisaba con el velocimetro en la compu */
+  .ab-hoja > .ab-hero { grid-template-columns: minmax(0, 1fr); }
+  .ab-hoja .ab-range-ends { flex-wrap: wrap; gap: 2px 8px; }
+  .ab-hoja .ab-range-ends span:nth-child(2) { order: 3; width: 100%; text-align: center; }
+  .ab-hoja > .ab-hero .ab-hero-side { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: var(--cds-gap-md); }
   .ab-hoja .ab-ce-tfs { display: none; }   /* el plazo se elige en el grafico: es el mismo */
   .ab-hoja > .ab-conclu, .ab-hoja > .ab-plazos, .ab-hoja > .ab-vista-btn, .ab-hoja > .ab-more-list { margin-block: 12px; }
   .ab-hoja > .ab-foot { margin: 18px 0 0; padding-top: 16px; border-top: 1px solid var(--line); }
