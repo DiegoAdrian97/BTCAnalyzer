@@ -15,6 +15,16 @@ jobs:
       # Bybit y Binance bloquean las maquinas de GitHub (EE.UU.): las velas salen de BingX, el exchange de Diego
       - run: |
           python -u -c "import analisis_btc as a; a.candle_source = lambda: a.exchange('bingx'); a.main()" | tee analisis.txt
+      - run: |
+          python - <<'PY'
+          import json
+          R = json.load(open("data/analisis_btc.json"))
+          R = R.get("rows", R) if isinstance(R, dict) else R
+          for r in R:
+              t = r.get("tabla")
+              if t in ("nivel", "fib", "fibonacci", "termometro", "piso", "central") or (t == "marco") or (t == "giro" and r.get("tf") in ("1d", "1w")):
+                  print(json.dumps({k: v for k, v in r.items() if v not in (None, "", [])}, ensure_ascii=False)[:400])
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: analisis, path: analisis.txt }
