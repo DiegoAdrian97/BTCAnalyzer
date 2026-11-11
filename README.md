@@ -249,6 +249,9 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
 - **Estilo "color por estado"** (nov 2026): fondo liso blanco o negro, sin tarjetas, y el color del mercado (verde si
   BTC sube en 24 h, rojo si baja) como único acento. El gráfico arranca en línea con área en ese color; el botón de
   abajo a la derecha pasa a velas y la elección queda guardada en el navegador.
+  Detrás de todo hay un fondo vivo: dos manchas de color difusas que derivan lento, más intensas cuanto más se movió
+  el día, con un destello suave en cada tick (máximo uno cada 1,2 s). Solo anima transform y opacity; con "reducir
+  movimiento" queda un tinte quieto.
 - **Pedidos en paralelo**: las páginas de velas del historial van todas juntas (antes una detrás de otra) y los modelos
   se bajan a la vez que las velas. **Sin duplicados**: si dos ciclos piden las mismas velas, esperan el mismo pedido.
 - **Más livianos**: el plan de compras pide solo los días desde el plan (con `limit=1500` Binance cobraba 10 de peso

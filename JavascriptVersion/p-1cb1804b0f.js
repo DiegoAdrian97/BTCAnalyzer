@@ -655,6 +655,7 @@
     const mira = () => {
       const v = parseFloat(String(c.textContent).replace('−', '-').replace(/[^0-9,.\-+]/g, '').replace(',', '.'));
       const m = !isFinite(v) ? '' : v > 0 ? 'up' : v < 0 ? 'down' : '';
+      document.documentElement.style.setProperty('--amb-k', isFinite(v) ? (0.35 + 0.65 * Math.min(1, Math.abs(v) / 3)).toFixed(2) : '.35');
       if (document.documentElement.dataset.mkt !== m) {
         if (m) document.documentElement.dataset.mkt = m; else delete document.documentElement.dataset.mkt;
         try { if (G.ln && S.rows) drawChart(S.rows, S.sum); } catch (e) { /* el grafico todavia no existe: lo toma al dibujarse */ }
@@ -664,6 +665,17 @@
     };
     new MutationObserver(mira).observe(c, { childList: true, characterData: true, subtree: true }); mira();
   })();
+
+  // destello del ambiente con cada tick (como mucho uno cada 1,2 s, y solo si el precio cambio)
+  const AMB = { b: document.querySelector('#amb b'), ult: null, t: 0 };
+  function ambPulso(precio) {
+    const ahora = Date.now();
+    if (AMB.ult === null) { AMB.ult = precio; return; }
+    if (precio === AMB.ult || ahora - AMB.t < 1200 || document.hidden) return;
+    AMB.b.style.setProperty('--pulso', cssv(precio > AMB.ult ? '--color-ok' : '--color-bad'));
+    AMB.ult = precio; AMB.t = ahora;
+    AMB.b.classList.remove('on'); void AMB.b.offsetWidth; AMB.b.classList.add('on');
+  }
 
   // ---------- barra con el precio al bajar ----------
   function miniPintar() {
@@ -2625,7 +2637,7 @@
     const cross = { color: alpha(P.mute, 0.7), width: 1, style: LW.LineStyle.Dashed, labelBackgroundColor: P.lbl };
     const chart = LW.createChart(box, {
       autoSize: true,
-      layout: { background: { type: 'solid', color: P.panel }, textColor: P.mute, fontFamily: P.font, fontSize: 11, attributionLogo: false,   // la atribucion va en el pie
+      layout: { background: { type: 'solid', color: 'rgba(0,0,0,0)' }, textColor: P.mute, fontFamily: P.font, fontSize: 11, attributionLogo: false,   // la atribucion va en el pie
         panes: { separatorColor: P.line, separatorHoverColor: alpha(P.fg, 0.12), enableResize: true } },
       grid: { vertLines: { visible: false }, horzLines: { visible: false } },
       crosshair: { mode: S.iman ? LW.CrosshairMode.MagnetOHLC : LW.CrosshairMode.Normal, vertLine: cross, horzLine: cross },
@@ -2834,6 +2846,7 @@
       G.vol.update({ time: t, value: liveBar.v, color: alpha(liveBar.c >= liveBar.o ? G.P.up : G.P.dn, 0.3) });
     } catch (e) { return; }
     d.price = liveBar.c; d.nowCol = liveBar.c >= liveBar.o ? G.P.up : G.P.dn;
+    ambPulso(liveBar.c);
     const last = d.all[d.all.length - 1], igual = liveBar.t === last.t;
     const e = emaVivo(igual ? d.all[d.all.length - 2] : last, liveBar.c);
     if (S.layers.ema) {
