@@ -37,9 +37,9 @@
   const later = (fn) => (reduce ? fn() : requestAnimationFrame(() => requestAnimationFrame(fn)));
   // cada plazo se mira con las velas que mejor lo muestran
   const PLAZO_VIEW = { '5 min': '5m', '15 min': '15m', '1 hora': '1h', '4 horas': '4h', '1 día': '1d' };
-  // grafico de linea (por defecto) o de velas: se recuerda en este navegador
+  // grafico de velas (por defecto) o de linea: se recuerda en este navegador
   const LINEA_K = 'ab-grafico-linea';
-  const lineaGuardada = (() => { try { const v = localStorage.getItem(LINEA_K); return v === null ? true : v === '1'; } catch (e) { return true; } })();
+  const lineaGuardada = (() => { try { return localStorage.getItem(LINEA_K) === '1'; } catch (e) { return false; } })();
   const S = { linea: lineaGuardada, plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
     layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, fib: true, liq: true, osc: true, plan: true, opc: true }, log: false, medir: false, iman: false };
   const defBars = () => (window.innerWidth < 600 ? 50 : 90);  // en el telefono, menos para que se lean
@@ -655,7 +655,7 @@
     const mira = () => {
       const v = parseFloat(String(c.textContent).replace('−', '-').replace(/[^0-9,.\-+]/g, '').replace(',', '.'));
       const m = !isFinite(v) ? '' : v > 0 ? 'up' : v < 0 ? 'down' : '';
-      document.documentElement.style.setProperty('--amb-k', isFinite(v) ? (0.35 + 0.65 * Math.min(1, Math.abs(v) / 3)).toFixed(2) : '.35');
+      document.documentElement.style.setProperty('--amb-k', isFinite(v) ? (0.55 + 0.45 * Math.min(1, Math.abs(v) / 3)).toFixed(2) : '.55');
       if (document.documentElement.dataset.mkt !== m) {
         if (m) document.documentElement.dataset.mkt = m; else delete document.documentElement.dataset.mkt;
         try { if (G.ln && S.rows) drawChart(S.rows, S.sum); } catch (e) { /* el grafico todavia no existe: lo toma al dibujarse */ }

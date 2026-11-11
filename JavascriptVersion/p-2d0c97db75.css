@@ -1234,26 +1234,48 @@
      color del tick (b). El cambio de color es una transicion de 1,6 s (--amb registrada como <color>). Solo se anima
      transform y opacity (la placa de video, sin repintar). Con "reducir movimiento": tinte quieto, sin destellos. */
   @property --amb { syntax: "<color>"; inherits: true; initial-value: rgba(128, 128, 128, 0); }
-  :root { --amb: color-mix(in srgb, var(--color-fg-muted) 60%, transparent); --amb-k: .35; --amb-a: .2; transition: --amb 1.6s ease; }
+  :root { --amb: color-mix(in srgb, var(--color-fg-muted) 60%, transparent); --amb-k: .55; --amb-a: .5; transition: --amb 1.6s ease; }
   :root[data-mkt="up"] { --amb: var(--color-ok); }
   :root[data-mkt="down"] { --amb: var(--color-bad); }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --amb-a: .28; } }
-  :root[data-theme="dark"] { --amb-a: .28; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --amb-a: .62; } }
+  :root[data-theme="dark"] { --amb-a: .62; }
   .ab-amb { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; contain: strict; }
-  .ab-amb i { position: absolute; width: 120vmax; height: 120vmax; border-radius: 50%; will-change: transform;
+  .ab-amb i { position: absolute; width: 130vmax; height: 130vmax; border-radius: 50%; will-change: transform;
     background: radial-gradient(closest-side, var(--amb), transparent 72%); opacity: calc(var(--amb-a) * var(--amb-k)); transition: opacity 1.6s ease; }
-  .ab-amb i:nth-child(1) { left: -55vmax; top: -60vmax; animation: amb-a 23s ease-in-out infinite alternate; }
-  .ab-amb i:nth-child(2) { right: -60vmax; bottom: -65vmax; animation: amb-b 31s ease-in-out infinite alternate; }
+  .ab-amb i:nth-child(1) { left: -50vmax; top: -48vmax; animation: amb-a 23s ease-in-out infinite alternate; }
+  .ab-amb i:nth-child(2) { right: -55vmax; bottom: -50vmax; animation: amb-b 31s ease-in-out infinite alternate; }
   .ab-amb b { position: absolute; inset: 0; background: radial-gradient(120% 70% at 50% 0%, var(--pulso, transparent), transparent 70%); opacity: 0; }
   .ab-amb b.on { animation: amb-pulso 1.1s ease-out; }
   @keyframes amb-a { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(22vmax, 18vmax, 0) scale(1.12); } }
   @keyframes amb-b { from { transform: translate3d(0, 0, 0) scale(1.08); } to { transform: translate3d(-20vmax, -24vmax, 0) scale(.95); } }
-  @keyframes amb-pulso { from { opacity: calc(var(--amb-a) * .9); } to { opacity: 0; } }
+  @keyframes amb-pulso { from { opacity: calc(var(--amb-a) * .7); } to { opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .ab-amb i { animation: none; } .ab-amb b.on { animation: none; } :root { transition: none; } }
   /* las superficies dejan ver el ambiente */
   body, .ab-escena, .ab-escena #grafico:not(.ab-fs), .ab-hoja { background: transparent !important; }
   html { background: var(--color-bg); }
+  /* vidrio: las superficies dejan pasar el color del fondo, desenfocado (el texto se sigue leyendo: el panel tapa ~60%) */
+  :root { --vidrio: color-mix(in srgb, var(--color-panel) 58%, transparent); --vidrio-borde: color-mix(in srgb, var(--color-fg) 9%, transparent);
+    --vidrio-fx: blur(26px) saturate(160%); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --vidrio: color-mix(in srgb, #16161a 52%, transparent); --vidrio-borde: rgba(255, 255, 255, .08); } }
+  :root[data-theme="dark"] { --vidrio: color-mix(in srgb, #16161a 52%, transparent); --vidrio-borde: rgba(255, 255, 255, .08); }
+  .ab-act-panel, .ab-tm-panel, .ab-nt-modal, .ab-mini, .ab-dlg {
+    background: var(--vidrio) !important; -webkit-backdrop-filter: var(--vidrio-fx); backdrop-filter: var(--vidrio-fx); }
+  .ab-act-panel, .ab-tm-panel, .ab-nt-modal, .ab-mini, .ab-dlg { border: 1px solid var(--vidrio-borde) !important; }
+  .ab-dlg::backdrop { background: rgba(0, 0, 0, .25); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
   @media (max-width: 999.98px) {
-    .ab-hoja { background: color-mix(in srgb, var(--hoja) 84%, transparent) !important; }
+    .ab-hoja { background: var(--vidrio) !important; -webkit-backdrop-filter: var(--vidrio-fx); backdrop-filter: var(--vidrio-fx);
+      box-shadow: inset 0 1px 0 var(--vidrio-borde) !important; }
+  }
+  @media (min-width: 1000px) {
+    .ab-hoja, .ab-escena #grafico:not(.ab-fs) { background: var(--vidrio) !important; -webkit-backdrop-filter: var(--vidrio-fx); backdrop-filter: var(--vidrio-fx);
+      border: 1px solid var(--vidrio-borde) !important; border-radius: 26px !important; }
+    .ab-hoja { padding: 6px 22px 22px !important; }
+    .ab-escena #grafico:not(.ab-fs) { padding: 16px 18px 10px !important; }
+    .ab-escena #grafico:not(.ab-fs) #tfs button { padding-inline: 10px; }   /* que plazos, linea, capas y botones entren en una fila */
+    .ab-panel-fijo .ab-act-panel { top: 16px; bottom: 16px; right: 16px; border-radius: 26px; }
+    html.ab-panel-fijo #dash-root { padding-right: calc(var(--ab-panel-w) + 16px + max(16px, var(--dash-gutter, 24px))); }
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    :root { --vidrio: color-mix(in srgb, var(--color-panel) 90%, transparent) !important; }
   }
   #grafico.ab-fs { background: var(--color-bg); }

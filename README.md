@@ -247,8 +247,9 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
   nuevas a CDN al abrir. Una sola fuente, Instrument Sans (variable en peso y ancho, 57 KB, licencia OFL,
   alojada en `lib/`): el texto a ancho normal y las cifras angostas con la misma fuente, en vez de dos archivos.
 - **Estilo "color por estado"** (nov 2026): fondo liso blanco o negro, sin tarjetas, y el color del mercado (verde si
-  BTC sube en 24 h, rojo si baja) como único acento. El gráfico arranca en línea con área en ese color; el botón de
-  abajo a la derecha pasa a velas y la elección queda guardada en el navegador.
+  BTC sube en 24 h, rojo si baja) como único acento. El gráfico arranca en velas; el botón de la línea (abajo a la
+  derecha en el celu) la muestra con área en ese color, y la elección queda guardada en el navegador. Paneles y hoja
+  de análisis de vidrio: translúcidos con desenfoque (backdrop-filter), sólidos si el navegador no lo soporta.
   Detrás de todo hay un fondo vivo: dos manchas de color difusas que derivan lento, más intensas cuanto más se movió
   el día, con un destello suave en cada tick (máximo uno cada 1,2 s). Solo anima transform y opacity; con "reducir
   movimiento" queda un tinte quieto.
