@@ -615,6 +615,14 @@ def elliott(pivots, bars):
             target, what = P["B"] + (P["A"] - base), "onda C en curso: la última de la corrección, suele medir como la A"
         elif cur == "1":
             what = "la corrección terminó: puede empezar un impulso nuevo"
+        if target is not None:
+            # si la onda en curso ya paso su objetivo, no queda objetivo: antes seguia figurando (una onda A bajista con
+            # el objetivo ya arriba del precio se leia como señal alcista)
+            ini = p[-1] if started else p[-2]
+            d = 1 if target > ini else -1
+            llego = max(ext_hi, p[-1], c[-1]) if d > 0 else min(ext_lo, p[-1], c[-1])
+            if d * (llego - target) >= 0:
+                target, what = None, what + " (ya llegó a su objetivo habitual)"
         return names, f"{head}; {what}", target, cur, what
     return [], SIN_ELLIOTT, None, None, ""
 

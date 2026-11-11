@@ -586,6 +586,11 @@ Ojo: la fuerza está medida (el modelo le gana a la tasa base 9–12%); la direc
 mediciones abajo): el puntaje de dirección resume lo que dicen las señales, no promete acierto. En la vista simple, la
 tarjeta "Análisis" reemplaza al resumen, a Movimiento y a Predicción (siguen en la vista completa).
 
+Soporte y resistencia de cada temporalidad: los niveles más cercanos que estén al menos a media vela típica (ATR) de esa
+temporalidad; si no hay ninguno tan lejos, el más cercano. Antes eran los más cercanos a secas y en la semanal y la
+mensual quedaba un muro del libro de órdenes a 0,1% del precio. Y el objetivo de Elliott desaparece cuando la onda en
+curso ya lo pasó (antes una onda A bajista con el objetivo ya arriba del precio contaba como señal alcista).
+
 ### Puntaje de dirección y Fed medidos (`medir_direccion.py`, `medir_fed.py`, `medir_fuerte_dvol.py`, nov. 2026)
 
 **Dirección** (BTC 1 h 2021–2026, cada 4 h; ¿subió la hora siguiente / las 4 siguientes?):

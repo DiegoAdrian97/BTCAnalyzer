@@ -1407,8 +1407,14 @@ def central(rows, price, candles, now_ms):
         fuerza = "alta" if fz >= 4 else "media" if fz >= 2 else "baja"
         lado = "sube" if dr >= 2.5 else "baja" if dr <= -2.5 else "neutral"
         # ----- alcance y niveles -----
-        sop = max((n["precio"] for n in niveles if n["precio"] < price), default=None)
-        res = min((n["precio"] for n in niveles if n["precio"] > price), default=None)
+        # el soporte y la resistencia de cada temporalidad: los mas cercanos que esten al menos a media vela tipica
+        # (ATR) de esa temporalidad. Antes eran los mas cercanos a secas: en la semanal y la mensual quedaba un muro
+        # del libro de ordenes a 0,1% del precio. Si no hay ninguno tan lejos, el mas cercano.
+        lejos = 0.5 * (marco.get("atr_pct") or 0) / 100 * price
+        sop = max((n["precio"] for n in niveles if n["precio"] <= price - lejos and n["precio"] < price),
+                  default=max((n["precio"] for n in niveles if n["precio"] < price), default=None))
+        res = min((n["precio"] for n in niveles if n["precio"] >= price + lejos and n["precio"] > price),
+                  default=min((n["precio"] for n in niveles if n["precio"] > price), default=None))
         inval = next((e["texto"] for e in rows if e.get("tabla") == "explicacion" and e["plazo"] == nombre_plazo and e["tipo"] == "invalida"), None) if p else None
         # ----- riesgo -----
         R = []

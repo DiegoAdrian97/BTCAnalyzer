@@ -598,7 +598,7 @@
     const mb = document.getElementById('ce-mapa'); mb.className = 'ab-ce-p ab-ce-mapa';
     mb.replaceChildren(el('h3', '', '¿Hasta dónde? · niveles'), mapa,
       ...[okv(c.rango_min) ? '8 de cada 10 veces terminó entre el piso y el techo.' : 'Sin rango medido en este plazo.',
-        okv(c.esperado_usd) ? `En una hora suele moverse ~${fp(num(c.esperado_usd))} USD.` : null, c.invalida || null].filter(Boolean).map((t) => el('span', '', t)));
+        okv(c.esperado_usd) ? `En una hora suele moverse ~${num(c.esperado_usd) >= 100 ? f0(num(c.esperado_usd)) : fp(num(c.esperado_usd))} USD.` : null, c.invalida || null].filter(Boolean).map((t) => el('span', '', t)));
     // 5. riesgo
     const rz = document.getElementById('ce-riesgo');
     rz.hidden = !c.riesgo.length;

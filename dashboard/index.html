@@ -611,6 +611,9 @@
   html.ab-panel-fijo #dash-root { padding-right: calc(var(--ab-panel-w) + max(16px, var(--dash-gutter, 24px))); }
   .ab-panel-fijo .ab-act-panel { --ab-panel-w: 300px; width: var(--ab-panel-w); transform: none; transition: none; box-shadow: none; z-index: 50; padding-top: 18px; }
   html.ab-panel-fijo { --ab-panel-w: 300px; }
+  /* fijo en la compu: filas mas bajas, para que entren los 18 activos sin tener que desplazar (MSTR y MELI quedaban ocultos abajo) */
+  .ab-panel-fijo .ab-act-row { min-height: 36px; padding-top: 2px; padding-bottom: 2px; }
+  .ab-panel-fijo .ab-act-g { margin-top: 8px; }
   .ab-panel-fijo #act-x, .ab-panel-fijo #act-borde, .ab-panel-fijo #act-fondo, .ab-panel-fijo #act-btn { display: none !important; }
   .ab-panel-fijo .ab-tm-tab { right: var(--ab-panel-w); }
   .ab-panel-fijo #estado-app { left: calc(50% - var(--ab-panel-w) / 2); }
@@ -2012,7 +2015,7 @@
     const mb = document.getElementById('ce-mapa'); mb.className = 'ab-ce-p ab-ce-mapa';
     mb.replaceChildren(el('h3', '', '¿Hasta dónde? · niveles'), mapa,
       ...[okv(c.rango_min) ? '8 de cada 10 veces terminó entre el piso y el techo.' : 'Sin rango medido en este plazo.',
-        okv(c.esperado_usd) ? `En una hora suele moverse ~${fp(num(c.esperado_usd))} USD.` : null, c.invalida || null].filter(Boolean).map((t) => el('span', '', t)));
+        okv(c.esperado_usd) ? `En una hora suele moverse ~${num(c.esperado_usd) >= 100 ? f0(num(c.esperado_usd)) : fp(num(c.esperado_usd))} USD.` : null, c.invalida || null].filter(Boolean).map((t) => el('span', '', t)));
     // 5. riesgo
     const rz = document.getElementById('ce-riesgo');
     rz.hidden = !c.riesgo.length;

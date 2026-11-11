@@ -389,8 +389,18 @@
       const fuerza = fz >= 4 ? 'alta' : fz >= 2 ? 'media' : 'baja';
       const lado = dr >= 2.5 ? 'sube' : dr <= -2.5 ? 'baja' : 'neutral';
       // ----- alcance y niveles -----
-      let sop = null, res = null;
-      niveles.forEach((n) => { if (n.precio < price && (sop === null || n.precio > sop)) sop = n.precio; if (n.precio > price && (res === null || n.precio < res)) res = n.precio; });
+      // soporte y resistencia de cada temporalidad: los mas cercanos a media vela tipica (ATR) o mas; si no hay, el mas
+      // cercano (como central() de Python)
+      const lejos = 0.5 * (marco.atr_pct || 0) / 100 * price;
+      let sop = null, res = null, sop0 = null, res0 = null;
+      niveles.forEach((n) => {
+        if (n.precio < price && (sop0 === null || n.precio > sop0)) sop0 = n.precio;
+        if (n.precio > price && (res0 === null || n.precio < res0)) res0 = n.precio;
+        if (n.precio < price && n.precio <= price - lejos && (sop === null || n.precio > sop)) sop = n.precio;
+        if (n.precio > price && n.precio >= price + lejos && (res === null || n.precio < res)) res = n.precio;
+      });
+      if (sop === null) sop = sop0;
+      if (res === null) res = res0;
       const inv = p ? rows.find((e) => e.tabla === 'explicacion' && e.plazo === nombrePlazo && e.tipo === 'invalida') : null;
       // ----- riesgo -----
       const R = [], rsi = ind['RSI 14'];

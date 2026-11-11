@@ -632,6 +632,12 @@
       else if (cur === 'B') { target = P.A - 0.5 * (P.A - base); what = 'onda B en curso: rebote dentro de la corrección'; }
       else if (cur === 'C') { target = P.B + (P.A - base); what = 'onda C en curso: la última de la corrección, suele medir como la A'; }
       else if (cur === '1') what = 'la corrección terminó: puede empezar un impulso nuevo';
+      if (target !== null) {
+        // si la onda en curso ya paso su objetivo, no queda objetivo (como en indicadores.py)
+        const ini = started ? p[p.length - 1] : p[p.length - 2], d = target > ini ? 1 : -1;
+        const llego = d > 0 ? Math.max(extHi, p[p.length - 1], c[c.length - 1]) : Math.min(extLo, p[p.length - 1], c[c.length - 1]);
+        if (d * (llego - target) >= 0) { target = null; what += ' (ya llegó a su objetivo habitual)'; }
+      }
       return [names, `${head}; ${what}`, target, cur, what];
     }
     return [[], SIN_ELLIOTT, null, null, ''];
