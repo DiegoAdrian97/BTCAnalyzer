@@ -1280,7 +1280,21 @@
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     :root { --vidrio: color-mix(in srgb, var(--color-panel) 90%, transparent) !important; }
   }
-  #grafico.ab-fs { background: var(--color-bg); }
+  /* pantalla completa: el mismo fondo vivo (dos manchas del color del mercado que derivan) detras del grafico, y lo que
+     flota encima de vidrio. Va adentro del grafico porque tapa la pagina entera */
+  #grafico.ab-fs { background: var(--color-bg) !important; isolation: isolate; }
+  #grafico.ab-fs::before, #grafico.ab-fs::after { content: ""; position: absolute; z-index: -1; width: 130vmax; height: 130vmax; border-radius: 50%;
+    pointer-events: none; background: radial-gradient(closest-side, var(--amb), transparent 72%); opacity: calc(var(--amb-a) * var(--amb-k));
+    transition: opacity 1.6s ease; will-change: transform; }
+  #grafico.ab-fs::before { left: -50vmax; top: -48vmax; animation: amb-a 23s ease-in-out infinite alternate; }
+  #grafico.ab-fs::after { right: -55vmax; bottom: -50vmax; animation: amb-b 31s ease-in-out infinite alternate; }
+  @media (prefers-reduced-motion: reduce) { #grafico.ab-fs::before, #grafico.ab-fs::after { animation: none; } }
+  #grafico.ab-fs #ex-box { background: var(--vidrio) !important; -webkit-backdrop-filter: var(--vidrio-fx); backdrop-filter: var(--vidrio-fx);
+    border-left: 1px solid var(--vidrio-borde) !important; }
+  #grafico.ab-fs #fs-btn, #grafico.ab-fs #ex-fs-btn { background: var(--vidrio) !important; color: var(--ink) !important; border: 1px solid var(--vidrio-borde) !important;
+    -webkit-backdrop-filter: var(--vidrio-fx); backdrop-filter: var(--vidrio-fx); }
+  #grafico.ab-fs .ab-capas .ab-chipbtn { background: var(--vidrio); border: 1px solid var(--vidrio-borde); border-radius: 999px; }
+  @media (max-width: 599.98px) { #grafico.ab-fs #tfs button { padding-inline: 2px; } #grafico.ab-fs #tfs { min-width: 0; } }
 
   /* ---------- reproducir el dia ---------- */
   .ab-repro-fondo { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, .28); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
