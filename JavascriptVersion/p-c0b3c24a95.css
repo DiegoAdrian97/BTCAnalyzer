@@ -1,27 +1,30 @@
-  /* Tema "instrumento" (renovacion nov 2026): grafito neutro en vez de azul noche, una sola familia (Archivo, alojada
-     en lib/, con cifras tabulares) y el precio grande y fino como la lectura de un instrumento. Color solo donde dice algo:
-     verde sube, rojo baja, ambar atencion, azul la seleccion y el foco. Sin brillos ni degradados de adorno.
+  /* Tema "lamina" (nov 2026): capas de tarjetas sobre un lienzo apenas violeta. Fuente Instrument Sans (variable en peso
+     y en ancho, alojada en lib/): el texto a ancho normal y las cifras angostas y tabulares; el precio, angosto y grande,
+     es lo unico protagonista. Color solo donde dice algo: verde sube, rojo baja, ambar atencion, violeta tinta para la
+     seleccion y el foco. Sin brillos, sin degradados de adorno.
      Verde y rojo: los validados para daltonismo (deuteranopia: diferencia 11 en claro y 9 en oscuro). */
-  @font-face { font-family: "Archivo"; src: url(lib/archivo-var.woff2) format("woff2"); font-weight: 100 900; font-display: swap; }
-  :root { --color-fg: #14171b; --color-fg-muted: #5b636e; --color-bg: #eef0f3; --color-panel: #ffffff;
-    --color-border-line: #e3e6ea; --color-ok: #089981; --color-warn: #c97a12; --color-bad: #f23645; --senal: #2f56d9;
-    --cds-chart-grid: #eff1f4; --cds-surface-popover: #ffffff; --cds-border: #d8dce2; --cds-text-secondary: #5b636e;
-    --cds-shadow-popover: 0 1px 2px rgba(20, 23, 27, .06), 0 16px 40px -12px rgba(20, 23, 27, .22);
-    --font-anthropic-sans: "Archivo", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    --font-cifras: var(--font-anthropic-sans); --hoja: #ffffff; --sombra-hoja: rgba(20, 23, 27, .10);
-    --elev: 0 1px 2px rgba(20, 23, 27, .04), 0 10px 28px -16px rgba(20, 23, 27, .16);
-    --font-anthropic-serif: var(--font-anthropic-sans); --cds-radius: 12px; }
+  @font-face { font-family: "Instrument Sans"; src: url(lib/instrument-sans-var.woff2) format("woff2"); font-weight: 400 700; font-stretch: 75% 100%; font-display: swap; }
+  :root { --color-fg: #17151f; --color-fg-muted: #625e70; --color-bg: #ebe9f2; --color-panel: #ffffff;
+    --color-border-line: #e5e2ec; --color-ok: #089981; --color-warn: #c97a12; --color-bad: #f23645; --senal: #5b46e0;
+    --cds-chart-grid: #f1eff5; --cds-surface-popover: #ffffff; --cds-border: #d9d5e2; --cds-text-secondary: #625e70;
+    --cds-shadow-popover: 0 1px 2px rgba(23, 21, 31, .06), 0 18px 44px -14px rgba(23, 21, 31, .28);
+    --font-anthropic-sans: "Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-cifras: var(--font-anthropic-sans); --hoja: #f3f2f7; --sombra-hoja: rgba(23, 21, 31, .14);
+    --elev: 0 1px 2px rgba(23, 21, 31, .05), 0 6px 18px -10px rgba(23, 21, 31, .14);
+    --font-anthropic-serif: var(--font-anthropic-sans); --cds-radius: 14px; --sel: color-mix(in srgb, var(--senal) 13%, transparent); }
   /* oscuro: el del sistema, salvo que elijas claro u oscuro con el boton (data-theme en <html>) */
   @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) { --color-fg: #eceef1; --color-fg-muted: #979ea8; --color-bg: #101214; --color-panel: #17191c;
-      --color-border-line: #262a2f; --color-ok: #22ab94; --color-warn: #f0b90b; --color-bad: #f7525f; --senal: #8ea6ff;
-      --cds-chart-grid: #1d2024; --cds-surface-popover: #1f2226; --cds-border: #30353b; --cds-text-secondary: #979ea8;
-      --cds-shadow-popover: 0 16px 40px -10px rgba(0, 0, 0, .6); --hoja: #1b1e22; --sombra-hoja: rgba(0, 0, 0, .45); --elev: none; }
+    :root:not([data-theme="light"]) { --color-fg: #efedf5; --color-fg-muted: #a09cad; --color-bg: #0e0d13; --color-panel: #1a1922;
+      --color-border-line: #2a2834; --color-ok: #22ab94; --color-warn: #f0b90b; --color-bad: #f7525f; --senal: #a89bff;
+      --cds-chart-grid: #21202a; --cds-surface-popover: #23222c; --cds-border: #34323f; --cds-text-secondary: #a09cad;
+      --cds-shadow-popover: 0 18px 44px -12px rgba(0, 0, 0, .7); --hoja: #131219; --sombra-hoja: rgba(0, 0, 0, .55); --elev: none;
+      --sel: color-mix(in srgb, var(--senal) 20%, transparent); }
   }
-  :root[data-theme="dark"] { --color-fg: #eceef1; --color-fg-muted: #979ea8; --color-bg: #101214; --color-panel: #17191c;
-      --color-border-line: #262a2f; --color-ok: #22ab94; --color-warn: #f0b90b; --color-bad: #f7525f; --senal: #8ea6ff;
-      --cds-chart-grid: #1d2024; --cds-surface-popover: #1f2226; --cds-border: #30353b; --cds-text-secondary: #979ea8;
-      --cds-shadow-popover: 0 16px 40px -10px rgba(0, 0, 0, .6); --hoja: #1b1e22; --sombra-hoja: rgba(0, 0, 0, .45); --elev: none; }
+  :root[data-theme="dark"] { --color-fg: #efedf5; --color-fg-muted: #a09cad; --color-bg: #0e0d13; --color-panel: #1a1922;
+      --color-border-line: #2a2834; --color-ok: #22ab94; --color-warn: #f0b90b; --color-bad: #f7525f; --senal: #a89bff;
+      --cds-chart-grid: #21202a; --cds-surface-popover: #23222c; --cds-border: #34323f; --cds-text-secondary: #a09cad;
+      --cds-shadow-popover: 0 18px 44px -12px rgba(0, 0, 0, .7); --hoja: #131219; --sombra-hoja: rgba(0, 0, 0, .55); --elev: none;
+      --sel: color-mix(in srgb, var(--senal) 20%, transparent); }
   body { background: var(--color-bg); -webkit-font-smoothing: antialiased; }
   /* Layout: franja superior (precio · prediccion protagonista · sesgo), selector de temporalidad,
      grafico grande con panel de probabilidades al costado, y debajo senales, niveles, ondas, indicadores. */
@@ -36,7 +39,7 @@
     --soft: color-mix(in srgb, var(--color-fg) 5%, transparent); --soft2: color-mix(in srgb, var(--color-fg) 9%, transparent);
     font-family: var(--sans); color: var(--ink); max-width: 84rem; margin-inline: auto; display: grid; gap: var(--cds-gap-lg);
     font-feature-settings: "tnum" 1, "cv11" 1; }
-  /* cifras y veredictos cortos: la condensada de tablero; las frases largas (titular, ondas) siguen en Archivo */
+  /* cifras y veredictos cortos (la capa "lamina" del final los pone angostos y tabulares) */
   .ab-title, .ab-verdict-big, .ab-price, .ab-tug b, .ab-plazo b, .ab-pred-when, .ab-likely-top b,
   .ab-gauge-txt b, .ab-apr-stat b, .ab-ring text, .ab-pos-total-main b { font-family: var(--font-cifras) !important; font-weight: 800 !important; letter-spacing: .01em; }
   .ab-story-head, .ab-wave-big { font-family: var(--sans) !important; font-weight: 600 !important; letter-spacing: -.015em; }
@@ -1074,21 +1077,23 @@
   .ab-widget a { color: var(--senal); }
   #widget-copiar { min-height: 36px; margin-right: 6px; }
 
-  /* ---------- renovacion "instrumento" (nov 2026) ----------
-     Jerarquia de radios: hoja 28, secciones 20, controles 12, chips redondos. Pesos: cifras 600 (el precio 300, fino y
-     grande: lo unico protagonista), titulos 600, texto 400. Seleccion en tinta invertida; el azul queda para el foco. */
+  /* ---------- renovacion "lamina" (nov 2026) ----------
+     Radios con jerarquia: hoja 30, tarjetas 22, controles 12, chips redondos. Cifras: Instrument Sans angosta (ancho 85%)
+     y tabular, peso 600; el precio aun mas angosto (78%) y grande. Titulos 600 a ancho normal, texto 400. */
+  .ab, .ab-act-panel, .ab-tm-panel, .ab-nt-modal, .ab-dlg, .ab-mini { font-family: var(--font-anthropic-sans); }
   .ab-title, .ab-verdict-big, .ab-price, .ab-tug b, .ab-plazo b, .ab-pred-when, .ab-likely-top b,
-  .ab-gauge-txt b, .ab-apr-stat b, .ab-ring text, .ab-pos-total-main b { font-weight: 600 !important; letter-spacing: -.02em !important; }
-  #mini-p, .ab-hoja .ab-tm-tab b, .ab-ce-c b, .ab-mapa b { font-weight: 600; letter-spacing: -.02em; }
-  .ab-price { font-weight: 300 !important; letter-spacing: -.045em !important; }
-  .ab-price small { font-weight: 500; letter-spacing: 0; color: var(--mute); }
-  .ab-pd > .d { width: .58em; } .ab-pd > .p { width: .25em; }
-  .ab-title { font-weight: 650 !important; letter-spacing: -.03em !important; font-size: clamp(1.4rem, 2.4vw, 1.8rem) !important; line-height: 1.05; }
-  .ab-verdict-big { font-weight: 650 !important; letter-spacing: -.03em !important; line-height: 1.02; }
-  .ab-card h2, .ab-story-head, .ab-wave-big { letter-spacing: -.018em !important; }
-  .ab-card h2 { font-size: 1.06rem; }
-  .ab-mapa b { font-size: 1.08rem; }
-  .ab-hoja .ab-tm-tab b { font-size: 1.5rem; }
+  .ab-gauge-txt b, .ab-apr-stat b, .ab-ring text, .ab-pos-total-main b, #mini-p, .ab-tm-tab b, .ab-ce-c b, .ab-mapa b,
+  .ab-act-p, .ab-pill b, .ab-pills b {
+    font-stretch: 85%; font-variant-numeric: tabular-nums; font-weight: 600 !important; letter-spacing: -.01em !important; }
+  .ab-price { font-stretch: 78%; font-weight: 500 !important; letter-spacing: -.02em !important; line-height: .95; }
+  .ab-price small { font-stretch: 100%; font-weight: 500; letter-spacing: .01em; color: var(--mute); font-size: .28em; }
+  .ab-pd > .d { width: .5em; } .ab-pd > .p { width: .23em; }
+  .ab-title { font-weight: 600 !important; letter-spacing: -.025em !important; font-stretch: 100%; font-size: clamp(1.4rem, 2.4vw, 1.8rem) !important; line-height: 1.05; }
+  .ab-verdict-big { font-stretch: 90%; font-weight: 600 !important; letter-spacing: -.02em !important; line-height: 1.02; }
+  .ab-card h2, .ab-story-head, .ab-wave-big { letter-spacing: -.012em !important; font-weight: 600; }
+  .ab-card h2 { font-size: 1.08rem; }
+  .ab-mapa b { font-size: 1.12rem; }
+  .ab-hoja .ab-tm-tab b { font-size: 1.6rem; }
   /* superficies */
   .ab-dlg { border: 0; border-radius: 20px; padding: 20px; width: min(92vw, 360px); background: var(--hoja); color: var(--ink);
     box-shadow: var(--cds-shadow-popover); font: inherit; }
@@ -1102,26 +1107,26 @@
   .ab-dlg input:focus-visible { outline: 2px solid var(--senal); outline-offset: 1px; }
   .ab-dlg .ab-dlg-err { color: var(--down); }
   .ab-dlg-acc { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
-  .ab-btn-pri { font: inherit; font-weight: 600; min-height: 44px; padding: 0 18px; border: 0; border-radius: 12px; background: var(--ink);
-    color: var(--panel); cursor: pointer; }
+  .ab-btn-pri { font: inherit; font-weight: 600; min-height: 44px; padding: 0 18px; border: 0; border-radius: 12px; background: var(--senal);
+    color: #fff; cursor: pointer; }
   .ab-btn-pri:disabled { opacity: .6; cursor: progress; }
   .ab-btn-pri:focus-visible { outline: 2px solid var(--senal); outline-offset: 2px; }
   .ab-act-p.ab-esq { display: inline-block; min-width: 4.6em; height: .95em; border-radius: 6px; background: var(--soft2); animation: ab-esq 1.2s ease-in-out infinite alternate; }
   @keyframes ab-esq { from { opacity: .45; } to { opacity: 1; } }
   @media (prefers-reduced-motion: reduce) { .ab-act-p.ab-esq { animation: none; } }
   .ab { --paper: color-mix(in srgb, var(--color-fg) 5%, var(--color-panel)); }   /* fichas: un escalon sobre el panel (en oscuro eran pozos) */
-  .ab-card { border-radius: 20px; border-color: var(--line); box-shadow: var(--elev); }
+  .ab-card { border-radius: 22px; border-color: transparent; box-shadow: var(--elev); }
   .ab-pill { border-radius: 999px; padding: 4px 11px; background: var(--soft); }
-  .ab-iconbtn { border-radius: 12px; background: var(--soft); }
+  .ab-iconbtn { border-radius: 14px; background: var(--panel); border: 1px solid var(--line); }
   .ab-iconbtn.ab-round { border-radius: 50%; }
-  .ab-seg { border-radius: 12px; background: var(--soft); }
+  .ab-seg { border-radius: 14px; background: transparent; }
   .ab-seg button { border-radius: 9px; }
   .ab-vista-btn { border-radius: 16px; }
   /* seleccion: tinta invertida (se lee sin depender del color) */
-  .ab-seg button[aria-pressed="true"] { color: var(--panel) !important; }
-  .ab-seg-thumb { background: var(--ink) !important; box-shadow: none; }
-  .ab-ce-tfs button[aria-pressed="true"] { color: var(--ink); background: var(--soft2); box-shadow: inset 0 0 0 1.5px var(--ink); }
-  .ab-chipbtn[aria-pressed="true"] { color: var(--panel); background: var(--ink); }
+  .ab-seg button[aria-pressed="true"] { color: var(--senal) !important; font-weight: 700; }
+  .ab-seg-thumb { background: var(--sel) !important; box-shadow: none; }
+  .ab-ce-tfs button[aria-pressed="true"] { color: var(--senal); background: var(--sel); box-shadow: none; }
+  .ab-chipbtn[aria-pressed="true"] { color: var(--senal); background: var(--sel); }
   /* la tira de respuestas: sin rejilla de lineas, con aire */
   /* 2x2: con cifras de ancho normal las 4 columnas cortaban los valores */
   .ab-ce-tira { border-top: 0; border-bottom: 0; gap: 6px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
@@ -1152,3 +1157,44 @@
     .ab-hoja .ab-plazos::-webkit-scrollbar { display: none; }
     .ab-hoja .ab-plazo { flex: 0 0 8.6rem; scroll-snap-align: start; }
   }
+
+  /* ---------- lamina: estructura ----------
+     Lienzo + tarjetas. En el celu: arriba el activo y el precio grande sobre el lienzo, el grafico en su propia tarjeta
+     flotante y la hoja de analisis como una pila de tarjetas (cada respuesta en la suya), en vez de una sabana blanca. */
+  .ab-mapa li.ahora b, .ab-mapa li.ahora span { color: var(--senal); }
+  .ab-vista-btn { background: var(--panel); border: 0; box-shadow: var(--elev); border-radius: 22px; }
+  .ab-more summary { border-radius: 18px; }
+  .ab-more { border-radius: 18px; border-color: transparent; background: var(--panel); box-shadow: var(--elev); }
+  .ab-pill { background: var(--panel); border: 1px solid var(--line); }
+  .ab-act-chip { border-radius: 999px; background: var(--panel); border: 1px solid var(--line); }
+  @media (max-width: 999.98px) {
+    .ab-escena { background: var(--color-bg); gap: 10px; }
+    .ab-escena .ab-price { font-size: clamp(3.1rem, 16vw, 4.2rem); }
+    .ab-escena #grafico:not(.ab-fs) { background: var(--panel); border-radius: 24px; padding: 8px 8px 2px; box-shadow: var(--elev);
+      margin-inline: -4px; }
+    .ab-escena #grafico:not(.ab-fs) #tfs { background: transparent; }
+    .ab-hoja { background: var(--hoja); border-radius: 30px 30px 0 0; box-shadow: 0 -12px 36px -8px var(--sombra-hoja);
+      padding-inline: max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-left)); gap: 10px; }
+    .ab-asa i { width: 40px; height: 5px; border-radius: 3px; background: var(--cds-border); }
+  }
+  /* la hoja (celu y la columna de la compu): cada seccion es una tarjeta */
+  .ab-hoja > .ab-card, .ab-hoja > .ab-tm-tab, .ab-hoja > .ab-conclu { background: var(--panel); border: 0 !important; border-radius: 22px;
+    box-shadow: var(--elev); padding: 16px; margin: 0; }
+  .ab-hoja > .ab-centro { padding-top: 14px; }
+  .ab-hoja > .ab-qp { padding-block: 12px; }
+  .ab-hoja > .ab-conclu, .ab-hoja > .ab-plazos, .ab-hoja > .ab-vista-btn, .ab-hoja > .ab-more-list { margin-block: 0; }
+  .ab-hoja > .ab-foot { border-top: 0; margin-top: 6px; padding-inline: 4px; }
+  .ab-hoja .ab-more-list { gap: 8px; }
+  .ab-hoja .ab-more-list > .ab-kicker { padding: 6px 4px 0; }
+  @media (min-width: 1000px) {
+    .ab-hoja { background: var(--hoja); border: 0; box-shadow: none; padding: 12px; gap: 10px; border-radius: 26px; }
+    .ab-escena #grafico { border-radius: 26px; }
+  }
+  .ab-plazo { border-radius: 18px; }
+  .ab-plazo[aria-pressed="true"] { border-color: var(--senal); background: var(--sel); }
+  /* panel fijo de activos en la compu: una tarjeta mas sobre el lienzo, no una franja blanca */
+  .ab-panel-fijo .ab-act-panel { top: 16px; bottom: 16px; right: 16px; border-radius: 26px; border: 0; box-shadow: var(--elev); }
+  html.ab-panel-fijo #dash-root { padding-right: calc(var(--ab-panel-w) + 16px + max(16px, var(--dash-gutter, 24px))); }
+  /* la tira de respuestas: fichas con tinte segun lo que dicen */
+  .ab-ce-c { background: color-mix(in srgb, var(--color-fg) 4%, var(--panel)); }
+  .ab-ce-c b { font-size: 1.22rem; }

@@ -126,7 +126,7 @@
     temaBtn.title = on ? 'Modo claro' : 'Modo oscuro';
     document.getElementById('tema-ico').setAttribute('d', on ? SOL : LUNA);
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim() || (on ? '#101214' : '#eef0f3'));
+    if (meta) meta.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim() || (on ? '#0e0d13' : '#ebe9f2'));
   }
   temaBtn.addEventListener('click', () => {
     const t = oscuro() ? 'light' : 'dark';
@@ -2125,7 +2125,7 @@
     return { dark, up: cssv('--color-ok'), dn: cssv('--color-bad'), warn: cssv('--color-warn'), fg: cssv('--color-fg'), mute: cssv('--color-fg-muted'),
       panel: cssv('--color-panel'), line: cssv('--color-border-line'), grid: cssv('--cds-chart-grid'),
       c0: dash.colors[0], c1: dash.colors[1], c2: dash.colors[2], font: cssv('--font-anthropic-sans') || 'system-ui, sans-serif',
-      lbl: dark ? '#30353b' : '#14171b' };
+      lbl: dark ? '#34323f' : '#17151f' };
   }
   const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
   const p2 = (v) => String(v).padStart(2, '0');
@@ -2604,7 +2604,7 @@
       autoSize: true,
       layout: { background: { type: 'solid', color: P.panel }, textColor: P.mute, fontFamily: P.font, fontSize: 11, attributionLogo: false,   // la atribucion va en el pie
         panes: { separatorColor: P.line, separatorHoverColor: alpha(P.fg, 0.12), enableResize: true } },
-      grid: { vertLines: { color: P.grid }, horzLines: { color: P.grid } },
+      grid: { vertLines: { visible: false }, horzLines: { color: P.grid } },
       crosshair: { mode: S.iman ? LW.CrosshairMode.MagnetOHLC : LW.CrosshairMode.Normal, vertLine: cross, horzLine: cross },
       rightPriceScale: { borderVisible: false, scaleMargins: { top: narrow ? 0.09 : 0.11, bottom: 0.2 }, minimumWidth: narrow ? 58 : 70 },
       timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 4, barSpacing: narrow ? 6 : 8, minBarSpacing: 1,

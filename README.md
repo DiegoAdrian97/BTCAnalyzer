@@ -244,8 +244,8 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
   huella `?v=`); `termometro.json` y `modelo_fuerte.json` se piden con `no-cache` (si no cambiaron, responde 304; antes
   se bajaban enteros en cada apertura). Vercel ya comprime con brotli; el servidor de Render ahora comprime con gzip.
 - **Librerías propias** (`JavascriptVersion/lib/`: d3 7.9.0 y Lightweight Charts 5.1.0, sin tocar): sin dos conexiones
-  nuevas a CDN al abrir. Una sola fuente, Archivo (variable, 35 KB, alojada en `lib/`): con la renovación de nov 2026
-  se fue la segunda (la condensada de las cifras), un pedido menos.
+  nuevas a CDN al abrir. Una sola fuente, Instrument Sans (variable en peso y ancho, 57 KB, licencia OFL,
+  alojada en `lib/`): el texto a ancho normal y las cifras angostas con la misma fuente, en vez de dos archivos.
 - **Pedidos en paralelo**: las páginas de velas del historial van todas juntas (antes una detrás de otra) y los modelos
   se bajan a la vez que las velas. **Sin duplicados**: si dos ciclos piden las mismas velas, esperan el mismo pedido.
 - **Más livianos**: el plan de compras pide solo los días desde el plan (con `limit=1500` Binance cobraba 10 de peso
