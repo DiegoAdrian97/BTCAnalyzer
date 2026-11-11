@@ -35,14 +35,16 @@ const llamar = (url) => new Promise((ok) => { const res = { h: {}, setHeader(k, 
   const a = html.indexOf('  const LiqMapa = (function () {'), b = html.indexOf('  })();', a) + 7;
   const LiqMapa = new Function(`${html.slice(a, b)}; return LiqMapa;`)();
   r = await llamar('/api/liquidaciones?moneda=BTC&tf=1h');
-  const m = LiqMapa.simular(r.j, 'todo'), ultimo = m.V[m.V.length - 1][4];
+  if (process.argv[2]) require('fs').writeFileSync(process.argv[2], JSON.stringify(r.j));
+  const m = LiqMapa.simular(r.j), ultimo = m.V[m.V.length - 1][4];
   let arriba = 0, abajo = 0, malL = 0, malS = 0;
   for (let k = 0; k < m.NB; k++) { const p = m.precioBin(k); arriba += m.S[k]; abajo += m.L[k]; if (m.L[k] && p > ultimo) malL += m.L[k]; if (m.S[k] && p < ultimo) malS += m.S[k]; }
   assert.ok(arriba > 0 && abajo > 0, 'hay liquidez estimada a los dos lados');
   assert.ok(malL === 0 && malS === 0, 'largos solo abajo del precio y cortos solo arriba');
-  const sc = LiqMapa.simular(r.j, 'scalping'), sw = LiqMapa.simular(r.j, 'swing');
+  const sc = LiqMapa.simular(r.j, [50, 100]), sw = LiqMapa.simular(r.j, [3, 5, 10]);
   const lejos = (mm) => { let s = 0, w = 0; for (let k = 0; k < mm.NB; k++) { const v = mm.L[k] + mm.S[k]; s += v * Math.abs(mm.precioBin(k) / ultimo - 1); w += v; } return s / w; };
-  assert.ok(lejos(sc) < lejos(sw), 'scalping queda mas cerca del precio que swing');
-  if (process.argv[2]) require('fs').writeFileSync(process.argv[2], JSON.stringify(r.j));
+  assert.ok(lejos(sc) < lejos(sw), '50x y 100x quedan mas cerca del precio que 3x a 10x');
+  assert.deepStrictEqual(sc.tiers, [50, 100]);
+  { let d = 0; for (let k = 0; k < m.NB; k++) d = Math.max(d, Math.abs(m.Lt.reduce((x, a) => x + a[k], 0) - m.L[k])); assert.ok(d < 1e-6, 'L es la suma por apalancamiento'); }
   console.log(`liquidaciones: todo bien (arriba ${Math.round(arriba / 1e6)} M, abajo ${Math.round(abajo / 1e6)} M)`);
 })().catch((e) => { console.error(e); process.exit(1); });

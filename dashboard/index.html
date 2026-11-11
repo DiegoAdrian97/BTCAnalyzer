@@ -1394,7 +1394,7 @@
   .ab-lm-min, .ab-lm-perf { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--mute); }
   .ab-lm-min input { accent-color: var(--senal); width: 120px; }
   .ab-lm-box { position: relative; }
-  .ab-lm-chart { height: min(62svh, 560px); background: radial-gradient(120% 90% at 50% 40%, #111733, #090c18); border-radius: 16px; overflow: hidden; }
+  .ab-lm-chart { height: min(62svh, 560px); background: radial-gradient(120% 90% at 50% 40%, #1a0f36, #0b0718); border-radius: 16px; overflow: hidden; }
   .ab-lm-perfil { position: absolute; top: 0; right: 64px; width: 72px; height: calc(100% - 28px); pointer-events: none; }
   .ab-lm-estado { position: absolute; inset: 40% 10% auto; text-align: center; color: var(--mute); margin: 0; }
   .ab-lm-punto { margin: 0; min-height: 1.3em; font-size: 13px; color: var(--mute); font-variant-numeric: tabular-nums; }
@@ -1403,6 +1403,15 @@
   .ab-lm-fila .k { color: var(--mute); }
   .ab-lm-entrada { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 52px; font: inherit; font-weight: 600; color: var(--ink); cursor: pointer; text-align: left; padding: 0; }
   @media (max-width: 599.98px) { .ab-lm-chart { height: 56svh; } .ab-lm-perfil { right: 56px; width: 54px; } .ab-lm-fila { grid-template-columns: minmax(0, 1fr); gap: 0; } }
+
+  .ab-lm-x .ab-chipbtn { display: inline-flex; align-items: center; gap: 6px; }
+  .ab-lm-x .ab-chipbtn i { width: 9px; height: 9px; border-radius: 50%; opacity: 1; }
+  .ab-lm-x .ab-chipbtn[aria-pressed="false"] { opacity: .5; }
+  .ab-lm-x .ab-chipbtn[aria-pressed="false"] i { background: transparent !important; box-shadow: inset 0 0 0 1.5px var(--mute); }
+  .ab-lm-px { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .ab-lm-pxi { display: inline-flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; }
+  .ab-lm-pxi i { width: 9px; height: 9px; border-radius: 50%; }
+  .ab-lm-pxi small { color: var(--mute); }
 </style>
 
 <div class="ab ab-first ab-cargando" id="analista" data-source="analisis">
@@ -1766,7 +1775,7 @@
       <button type="button" class="ab-iconbtn ab-round" id="lm-x" aria-label="Cerrar">✕</button></div>
     <div class="ab-lm-ctl">
       <div class="ab-repro-vel" role="group" aria-label="Temporalidad" id="lm-tfs"><button type="button" class="ab-chipbtn" data-tf="5m">5m</button><button type="button" class="ab-chipbtn" data-tf="15m">15m</button><button type="button" class="ab-chipbtn" data-tf="1h">1h</button><button type="button" class="ab-chipbtn" data-tf="4h">4h</button><button type="button" class="ab-chipbtn" data-tf="1d">1D</button></div>
-      <div class="ab-repro-vel" role="group" aria-label="Filtro" id="lm-filtros"><button type="button" class="ab-chipbtn" data-f="todo">Todo</button><button type="button" class="ab-chipbtn" data-f="scalping" title="Apalancamiento alto: zonas cerca del precio">Scalping</button><button type="button" class="ab-chipbtn" data-f="swing" title="Apalancamiento bajo: zonas más lejos">Swing</button></div>
+      <div class="ab-repro-vel ab-lm-x" role="group" aria-label="Apalancamientos a mostrar" id="lm-x-sel"></div>
       <label class="ab-lm-min">Intensidad mínima <input type="range" id="lm-min" min="0" max="70" value="15"></label>
       <label class="ab-lm-perf"><input type="checkbox" id="lm-perf" checked> Perfil</label>
     </div>
@@ -1774,7 +1783,7 @@
       <p class="ab-lm-estado" id="lm-estado" hidden></p></div>
     <p class="ab-lm-punto" id="lm-punto" aria-live="polite"></p>
     <div class="ab-lm-res" id="lm-res"></div>
-    <p class="ab-repro-res"><span id="lm-fuentes"></span> Las franjas son una estimación de dónde se liquidarían posiciones apalancadas si el precio llegara (el color compara con el nivel más cargado de la vista: azul poco, rojo mucho; cortos arriba, largos abajo). Los círculos son liquidaciones reales. No predice el precio ni es consejo financiero.</p>
+    <p class="ab-repro-res"><span id="lm-fuentes"></span> Las franjas son una estimación de dónde se liquidarían posiciones apalancadas si el precio llegara (cuanto más brillante, más cargado comparado con el nivel más cargado de la vista; cortos arriba, largos abajo). El perfil del costado separa cada nivel por apalancamiento. Los círculos son liquidaciones reales. No predice el precio ni es consejo financiero.</p>
   </div>
   <div class="ab-repro-fondo" id="repro-fondo" hidden></div>
   <div class="ab-repro" id="repro" role="dialog" aria-modal="true" aria-labelledby="repro-t" hidden>
@@ -5181,58 +5190,72 @@
   const LiqMapa = (function () {
     const MS = { '5m': 3e5, '15m': 9e5, '1h': 36e5, '4h': 144e5, '1d': 864e5 };
     const VIDA = { '5m': 864e5, '15m': 2 * 864e5, '1h': 5 * 864e5, '4h': 20 * 864e5, '1d': 120 * 864e5 };
-    const FILTROS = {
-      todo: [[5, 0.08], [10, 0.17], [20, 0.18], [25, 0.17], [50, 0.2], [75, 0.08], [100, 0.12]],
-      scalping: [[50, 0.45], [75, 0.2], [100, 0.35]],          // apalancamiento alto: zonas cerca del precio
-      swing: [[5, 0.2], [10, 0.35], [20, 0.25], [25, 0.2]],      // bajo: zonas mas lejos
-    };
-    const NB = 320, MANT = 0.005;
+    // los apalancamientos de TradingDifferent, con cuanto del open interest nuevo se lleva cada uno (aprox.: el grueso
+    // entre 10x y 50x). Se eligen cuales mostrar; los que no, no se suman (no se reparte de nuevo)
+    const NIVELES = [[3, 0.06], [5, 0.1], [10, 0.22], [25, 0.27], [50, 0.2], [100, 0.15]];
+    const COLOR_X = { 3: '#7dd3fc', 5: '#60a5fa', 10: '#a78bfa', 25: '#f472b6', 50: '#fb923c', 100: '#facc15' };
+    const NB0 = 320, MANT = 0.005;
     function serieEn(pares, ms) {     // [[t, valor]] -> valor en cada apertura de vela (el dato de esa vela, o el de la anterior)
       const m = new Map(); pares.forEach(([t, v]) => { m.set(Math.floor(t / ms) * ms, v); });
       return m;
     }
-    function simular(d, filtro) {
+    function simular(d, elegidos) {
       const V = d.velas, n = V.length, ms = MS[d.tf], ver = Math.min(d.ver, n - 1), ini = n - ver;
       let lo = Infinity, hi = -Infinity;
       for (let j = ini; j < n; j++) { lo = Math.min(lo, V[j][3]); hi = Math.max(hi, V[j][2]); }
-      const pad = (hi - lo) * 0.45 + hi * 0.004, gLo = lo - pad, gHi = hi + pad, paso = (gHi - gLo) / NB;
+      const tiers = NIVELES.filter(([x]) => !Array.isArray(elegidos) || elegidos.includes(x)), T = tiers.length;
+      // la vista (vLo-vHi) es la de antes; la grilla se estira hasta donde caen los apalancamientos elegidos (3x queda a
+      // ~33 %: para verlo hay que arrastrar el eje de precios), con el mismo paso, asi no pierde detalle
+      const pad = (hi - lo) * 0.45 + hi * 0.004, vLo = lo - pad, vHi = hi + pad, paso = (vHi - vLo) / NB0;
+      const lejos = T ? Math.min(0.36, 1 / Math.min(...tiers.map(([x]) => x)) + 0.01) : 0;
+      const gLo = Math.min(vLo, lo * (1 - lejos)), gHi = Math.max(vHi, hi * (1 + lejos));
+      const NB = Math.min(2400, Math.ceil((gHi - gLo) / paso));
       const bin = (p) => Math.floor((p - gLo) / paso), precioBin = (k) => gLo + (k + 0.5) * paso;
       const fuentes = Object.values(d.oi).filter((s) => s.length > 1).map((s) => serieEn(s, ms));
       const lsF = Object.values(d.ls).filter((s) => s.length).map((s) => serieEn(s, ms));
+      // por apalancamiento (para el perfil apilado): Lt[i] / St[i]; L y S2 son la suma
+      const Lt = tiers.map(() => new Float64Array(NB)), St = tiers.map(() => new Float64Array(NB));
       const L = new Float64Array(NB), S2 = new Float64Array(NB), grid = new Float32Array(ver * NB), liqEst = new Float64Array(ver);
-      const dec = Math.pow(0.5, ms / VIDA[d.tf]), tiers = FILTROS[filtro] || FILTROS.todo;
+      const dec = Math.pow(0.5, ms / VIDA[d.tf]);
       let lsUlt = 0.5;
       for (let j = 1; j < n; j++) {
         const [t, , h, l, c] = V[j], tp = V[j - 1][0];
         // 1) lo que cruzo esta vela se liquida (largos con su precio arriba del minimo, cortos debajo del maximo)
         let quemado = 0;
         const kl = Math.max(0, bin(l)), ks = Math.min(NB - 1, bin(h));
-        for (let k = kl; k < NB; k++) { quemado += L[k]; L[k] = 0; }
-        for (let k = 0; k <= ks; k++) { quemado += S2[k]; S2[k] = 0; }
+        for (let i = 0; i < T; i++) {
+          for (let k = kl; k < NB; k++) { quemado += Lt[i][k]; Lt[i][k] = 0; }
+          for (let k = 0; k <= ks; k++) { quemado += St[i][k]; St[i][k] = 0; }
+        }
         // 2) cambio del open interest, sumando cada exchange (cada uno con su propio cambio)
         let delta = 0, total = 0;
         fuentes.forEach((f) => { const a = f.get(t), b = f.get(tp); if (a !== undefined && b !== undefined) { delta += a - b; total += b; } });
         const f = dec * (delta < 0 && total > 0 ? Math.max(0, 1 + delta / total) : 1);
-        for (let k = 0; k < NB; k++) { L[k] *= f; S2[k] *= f; }
+        for (let i = 0; i < T; i++) for (let k = 0; k < NB; k++) { Lt[i][k] *= f; St[i][k] *= f; }
         // 3) lo nuevo: largos y cortos segun las cuentas, en cada apalancamiento, al precio medio de la vela
         if (delta > 0) {
           const v = lsF.map((m) => m.get(t)).filter((x) => x !== undefined);
           if (v.length) lsUlt = v.reduce((a, b) => a + b, 0) / v.length;
           const e = (h + l + c) / 3;
-          tiers.forEach(([lev, w]) => {
+          tiers.forEach(([lev, w], i) => {
             const pl = e * (1 - 1 / lev + MANT), ps = e * (1 + 1 / lev - MANT), kL = bin(pl), kS = bin(ps);
-            if (pl < l && kL >= 0 && kL < NB) L[kL] += delta * lsUlt * w;
-            if (ps > h && kS >= 0 && kS < NB) S2[kS] += delta * (1 - lsUlt) * w;
+            if (pl < l && kL >= 0 && kL < NB) Lt[i][kL] += delta * lsUlt * w;
+            if (ps > h && kS >= 0 && kS < NB) St[i][kS] += delta * (1 - lsUlt) * w;
           });
         }
-        if (j >= ini) { const o = (j - ini) * NB; for (let k = 0; k < NB; k++) grid[o + k] = L[k] + S2[k]; liqEst[j - ini] = quemado; }
+        if (j >= ini) {
+          const o = (j - ini) * NB;
+          for (let k = 0; k < NB; k++) { let v = 0; for (let i = 0; i < T; i++) v += Lt[i][k] + St[i][k]; grid[o + k] = v; }
+          liqEst[j - ini] = quemado;
+        }
       }
-      return { V: V.slice(ini), grid, NB, gLo, gHi, paso, ver, L: Float64Array.from(L), S: Float64Array.from(S2), liqEst, precioBin, ms };
+      for (let k = 0; k < NB; k++) for (let i = 0; i < T; i++) { L[k] += Lt[i][k]; S2[k] += St[i][k]; }
+      return { V: V.slice(ini), grid, NB, gLo, gHi: gLo + NB * paso, vLo, vHi, paso, ver, L, S: S2, Lt, St, tiers: tiers.map(([x]) => x), liqEst, precioBin, ms };
     }
-    // azul noche -> azul -> cian -> verde -> amarillo -> naranja -> rojo (la escala de mapaliquidaciones.com, con mas
-    // pasos para que el degrade sea parejo); x de 0 a 1
-    const STOPS = [[0, [17, 28, 78]], [0.16, [37, 58, 160]], [0.34, [14, 165, 233]], [0.52, [16, 185, 129]], [0.7, [190, 220, 40]],
-      [0.82, [250, 204, 21]], [0.92, [249, 115, 22]], [1, [239, 68, 68]]];
+    // zonas brillantes sobre violeta oscuro, como TradingDifferent: violeta -> magenta -> rojo coral -> naranja ->
+    // amarillo -> casi blanco en lo mas cargado; x de 0 a 1
+    const STOPS = [[0, [40, 16, 84]], [0.18, [84, 24, 128]], [0.36, [146, 38, 146]], [0.54, [214, 64, 112]], [0.7, [246, 116, 60]],
+      [0.84, [252, 186, 52]], [0.94, [253, 230, 110]], [1, [255, 250, 205]]];
     function color(x) {
       for (let i = 1; i < STOPS.length; i++) if (x <= STOPS[i][0]) {
         const [a, ca] = STOPS[i - 1], [b, cb] = STOPS[i], u = (x - a) / (b - a);
@@ -5256,11 +5279,13 @@
     }
     function imagen(m, minimo) {
       const g = m.suave || (m.suave = suave(m));
-      let mx = 0; for (let i = 0; i < g.length; i++) if (g[i] > mx) mx = g[i];
+      // el brillo compara con lo mas cargado de la vista inicial (lo lejano de 3x-5x no apaga lo de cerca)
+      const k0 = Math.max(0, Math.floor((m.vLo - m.gLo) / m.paso)), k1 = Math.min(m.NB, Math.ceil((m.vHi - m.gLo) / m.paso));
+      let mx = 0; for (let c = 0; c < m.ver; c++) for (let k = k0; k < k1; k++) { const v = g[c * m.NB + k]; if (v > mx) mx = v; }
       const cv = document.createElement('canvas'); cv.width = m.ver; cv.height = m.NB;
       const cx = cv.getContext('2d'), img = cx.createImageData(m.ver, m.NB);
       if (mx > 0) for (let c = 0; c < m.ver; c++) for (let k = 0; k < m.NB; k++) {
-        const x = Math.pow(g[c * m.NB + k] / mx, 0.75);           // casi lineal: lo fuerte se destaca y lo mediano queda tenue
+        const x = Math.min(1, Math.pow(g[c * m.NB + k] / mx, 0.75));           // casi lineal: lo fuerte se destaca y lo mediano queda tenue
         if (x <= minimo) continue;
         // transparencia que sube suave desde el minimo elegido: sin bordes duros donde empieza a verse
         const u = Math.min(1, (x - minimo) / Math.max(0.05, 1 - minimo)), [r, gg, b] = color(x), o = ((m.NB - 1 - k) * m.ver + c) * 4;
@@ -5269,13 +5294,13 @@
       cx.putImageData(img, 0, 0);
       return { cv, mx };
     }
-    return { simular, imagen, color, MS };
+    return { simular, imagen, color, MS, NIVELES, COLOR_X };
   })();
 
   (function () {
     const $ = (id) => document.getElementById(id), pan = $('lm'), fondo = $('lm-fondo');
     const MON_LM = ['BTC', 'ETH', 'SOL', 'XRP', 'BNB', 'DOGE', 'ADA', 'AVAX', 'LINK', 'LTC', 'SUI', 'ZEC', 'TRX', 'DOT', 'NEAR', 'APT', 'ARB', 'OP', 'TON', 'HYPE'];
-    const LM = { tf: '1h', filtro: 'todo', minimo: 0.15, perfil: true, datos: null, m: null, img: null, ch: null, serie: null, carga: 0, mon: 'BTC' };
+    const LM = { tf: '1h', niveles: [3, 5, 10, 25, 50, 100], minimo: 0.15, perfil: true, datos: null, m: null, img: null, ch: null, serie: null, carga: 0, mon: 'BTC' };
     const sel = $('lm-mon'); sel.append(...MON_LM.map((m) => { const o = el('option', '', m); o.value = m; return o; }));
     const usd = (x) => (x >= 1e9 ? `${ar.format(',.2f')(x / 1e9)} mil M` : x >= 1e6 ? `${ar.format(',.1f')(x / 1e6)} M` : x >= 1e3 ? `${f0(x / 1e3)} mil` : x > 0 ? 'menos de mil' : '0');
     // la capa del mapa, detras de las velas (primitiva de Lightweight Charts)
@@ -5317,7 +5342,7 @@
         timeScale: { borderVisible: false, timeVisible: true, rightOffset: 2 }, crosshair: { mode: 0 },
         localization: { priceFormatter: (v) => fp(v), timeFormatter: (t) => new Date(t * 1000).toLocaleString('es-AR', { ...tz, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }) } });
       LM.serie = LM.ch.addSeries(LW.CandlestickSeries, { upColor: '#22ab94', downColor: '#f7525f', wickUpColor: '#22ab94', wickDownColor: '#f7525f', borderVisible: false, priceLineVisible: false,
-        autoscaleInfoProvider: (orig) => { const r = orig(); if (!r || !LM.m) return r; const pad = (LM.m.gHi - LM.m.gLo) * 0.18; return { priceRange: { minValue: Math.max(LM.m.gLo, r.priceRange.minValue - pad), maxValue: Math.min(LM.m.gHi, r.priceRange.maxValue + pad) } }; } });
+        autoscaleInfoProvider: (orig) => { const r = orig(); if (!r || !LM.m) return r; const pad = (LM.m.vHi - LM.m.vLo) * 0.18; return { priceRange: { minValue: Math.max(LM.m.vLo, r.priceRange.minValue - pad), maxValue: Math.min(LM.m.vHi, r.priceRange.maxValue + pad) } }; } });
       LM.serie.attachPrimitive(capa);
       // al pasar el dedo: cuanto hay estimado en ese precio y en ese momento
       LM.ch.subscribeCrosshairMove((p) => {
@@ -5342,11 +5367,19 @@
       const crudo = Float64Array.from({ length: m.NB }, (_, k) => m.L[k] + m.S[k]), R = 2, perf = new Float64Array(m.NB);
       for (let k = 0; k < m.NB; k++) { let v = 0, w = 0; for (let q = -R; q <= R; q++) { const kk = k + q; if (kk >= 0 && kk < m.NB) { const f = 1 - Math.abs(q) / (R + 1); v += crudo[kk] * f; w += f; } } perf[k] = v / w; }
       mx = 0; for (let k = 0; k < m.NB; k++) mx = Math.max(mx, perf[k]);
+      // lo mismo por apalancamiento (suavizado igual, asi las partes suman el total del nivel)
+      const porX = m.tiers.map((_, i) => Float64Array.from({ length: m.NB }, (_, k) => { let v = 0, w = 0; for (let q = -R; q <= R; q++) { const kk = k + q; if (kk >= 0 && kk < m.NB) { const f = 1 - Math.abs(q) / (R + 1); v += (m.Lt[i][kk] + m.St[i][kk]) * f; w += f; } } return v / w; }));
+      // "Liquidation profile": cada nivel, apilado por apalancamiento (cada uno con su color), de derecha a izquierda
       for (let k = 0; k < m.NB; k++) {
         const v = perf[k]; if (!v) continue;
         const pa = y(m.gLo + (k + 1) * m.paso), pb = y(m.gLo + k * m.paso); if (pa === null || pb === null || pb < 0 || pa > H) continue;
-        const x = Math.pow(v / mx, 0.7), [r, g, b] = LiqMapa.color(x);
-        ctx.fillStyle = `rgba(${r},${g},${b},${0.35 + 0.6 * x})`; ctx.fillRect(W - x * (W - 4), pa, x * (W - 4), Math.max(1, pb - pa));
+        const largo = Math.pow(v / mx, 0.85) * (W - 4);
+        let x = W;
+        m.tiers.forEach((lev, i) => {
+          const parte = porX[i][k] / v * largo; if (parte <= 0) return;
+          ctx.fillStyle = LiqMapa.COLOR_X[lev]; ctx.globalAlpha = 0.85; ctx.fillRect(x - parte, pa, parte, Math.max(1, pb - pa)); x -= parte;
+        });
+        ctx.globalAlpha = 1;
       }
       const ya = y(ahora); if (ya !== null) { ctx.fillStyle = P.mute; ctx.fillRect(0, ya, W, 1); }
     }
@@ -5360,9 +5393,19 @@
       }
       const dist = (p) => `${p >= ahora ? '+' : '−'}${ar.format('.1f')(Math.abs(p / ahora - 1) * 100)}%`;
       const box = $('lm-res'); box.replaceChildren();
-      const fila = (k, ...v) => { const r = el('div', 'ab-lm-fila'); r.append(el('span', 'k', k), el('span', 'v', ...v)); box.append(r); };
+      const fila = (k, ...v) => { const r = el('div', 'ab-lm-fila'), vv = el('span', 'v'); vv.append(...v.filter((x) => x !== '')); r.append(el('span', 'k', k), vv); box.append(r); };
       fila('Arriba (cortos)', `${usd(arriba)} USD estimados`, kA >= 0 ? ` · más cargado en ${fp(m.precioBin(kA))} (${dist(m.precioBin(kA))})` : '');
       fila('Abajo (largos)', `${usd(abajo)} USD estimados`, kB >= 0 ? ` · más cargado en ${fp(m.precioBin(kB))} (${dist(m.precioBin(kB))})` : '');
+      // por apalancamiento: cuanto queda y donde esta lo mas cargado de cada uno (el mas cercano al precio de los dos lados)
+      const px = el('div', 'ab-lm-px');
+      m.tiers.forEach((lev, i) => {
+        let tot = 0, kk = -1, mxv = 0;
+        for (let k = 0; k < m.NB; k++) { const v = m.Lt[i][k] + m.St[i][k]; tot += v; if (v > mxv) { mxv = v; kk = k; } }
+        const c = el('span', 'ab-lm-pxi'); const dot = el('i'); dot.style.background = LiqMapa.COLOR_X[lev];
+        c.append(dot, el('b', '', `${lev}x`), ` ${usd(tot)}`, kk >= 0 ? el('small', '', ` · ${fp(m.precioBin(kk))}`) : '');
+        px.append(c);
+      });
+      fila('Por apalancamiento', px);
       const lq = (d.liq || []), dsd = lq.length ? Math.min(...lq.map((x) => x[0])) : null;
       if (lq.length) {
         const sl = lq.filter((x) => x[1] === 'l').reduce((a, x) => a + x[3], 0), ss = lq.filter((x) => x[1] === 's').reduce((a, x) => a + x[3], 0);
@@ -5374,7 +5417,7 @@
     }
     function pintar() {
       if (!LM.datos) return;
-      LM.m = LiqMapa.simular(LM.datos, LM.filtro);
+      LM.m = LiqMapa.simular(LM.datos, LM.niveles);
       LM.img = LiqMapa.imagen(LM.m, LM.minimo);
       LM.serie.setData(LM.m.V.map((b) => ({ time: b[0] / 1000, open: b[1], high: b[2], low: b[3], close: b[4] })));
       LM.ch.timeScale().applyOptions({ timeVisible: LM.tf !== '1d' });
@@ -5400,7 +5443,7 @@
     function abrir() {
       pan.hidden = false; fondo.hidden = false; document.documentElement.style.overflow = 'hidden'; abFoco(pan, true);
       const m = MON(); if (MON_LM.includes(m) && m !== LM.mon && !LM.datos) LM.mon = m;
-      sel.value = LM.mon; marcar('lm-tfs', 'tf', LM.tf); marcar('lm-filtros', 'f', LM.filtro);
+      sel.value = LM.mon; marcar('lm-tfs', 'tf', LM.tf); pintarX();
       if (!LM.datos || LM.datos.moneda !== LM.mon || Date.now() - LM.datos.hora > 5 * 6e4) cargar(); else requestAnimationFrame(perfil);
     }
     function cerrar() { if (pan.hidden) return; abFoco(pan, false); pan.hidden = true; fondo.hidden = true; document.documentElement.style.overflow = ''; }
@@ -5410,7 +5453,18 @@
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !pan.hidden) cerrar(); });
     sel.addEventListener('change', () => { LM.mon = sel.value; cargar(); });
     $('lm-tfs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; LM.tf = b.dataset.tf; marcar('lm-tfs', 'tf', LM.tf); cargar(); });
-    $('lm-filtros').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; LM.filtro = b.dataset.f; marcar('lm-filtros', 'f', LM.filtro); pintar(); });
+    // apalancamientos: cada uno se prende y se apaga (al menos uno); "Todos" vuelve a los seis
+    const xs = $('lm-x-sel');
+    xs.append(...LiqMapa.NIVELES.map(([x]) => { const b = el('button', 'ab-chipbtn'); b.type = 'button'; b.dataset.x = x; b.append(el('i'), `${x}x`); b.querySelector('i').style.background = LiqMapa.COLOR_X[x]; return b; }),
+      Object.assign(el('button', 'ab-chipbtn ab-lm-todos', 'Todos'), { type: 'button' }));
+    function pintarX() { [...xs.children].forEach((b) => b.dataset.x && b.setAttribute('aria-pressed', String(LM.niveles.includes(+b.dataset.x)))); }
+    xs.addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (!b.dataset.x) LM.niveles = LiqMapa.NIVELES.map(([x]) => x);
+      else { const x = +b.dataset.x, ya = LM.niveles.includes(x); if (ya && LM.niveles.length === 1) return; LM.niveles = ya ? LM.niveles.filter((y) => y !== x) : LM.niveles.concat(x).sort((p, q) => p - q); }
+      pintarX(); if (LM.datos) pintar();
+    });
+    pintarX();
     $('lm-min').addEventListener('input', (e) => { LM.minimo = +e.target.value / 100; if (LM.m) { LM.img = LiqMapa.imagen(LM.m, LM.minimo); LM.ch.timeScale().applyOptions({}); LM.serie.applyOptions({}); } });
     $('lm-perf').addEventListener('change', (e) => { LM.perfil = e.target.checked; perfil(); });
     new ResizeObserver(() => requestAnimationFrame(perfil)).observe($('lm-chart'));

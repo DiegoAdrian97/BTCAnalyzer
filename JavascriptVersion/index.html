@@ -47,12 +47,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <link rel="preconnect" href="https://fapi.binance.com" crossorigin>
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
-<link rel="stylesheet" href="p-9eb7f3e118.css">
-<script>window.AB_PAGINA = "89d4f11ca5";</script>
+<link rel="stylesheet" href="p-02c8c7769c.css">
+<script>window.AB_PAGINA = "d2ce948123";</script>
 <script defer src="app.js?v=015fe70079"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-a27dbd560f.js"></script>
+<script defer src="p-2360579719.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -417,7 +417,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       <button type="button" class="ab-iconbtn ab-round" id="lm-x" aria-label="Cerrar">✕</button></div>
     <div class="ab-lm-ctl">
       <div class="ab-repro-vel" role="group" aria-label="Temporalidad" id="lm-tfs"><button type="button" class="ab-chipbtn" data-tf="5m">5m</button><button type="button" class="ab-chipbtn" data-tf="15m">15m</button><button type="button" class="ab-chipbtn" data-tf="1h">1h</button><button type="button" class="ab-chipbtn" data-tf="4h">4h</button><button type="button" class="ab-chipbtn" data-tf="1d">1D</button></div>
-      <div class="ab-repro-vel" role="group" aria-label="Filtro" id="lm-filtros"><button type="button" class="ab-chipbtn" data-f="todo">Todo</button><button type="button" class="ab-chipbtn" data-f="scalping" title="Apalancamiento alto: zonas cerca del precio">Scalping</button><button type="button" class="ab-chipbtn" data-f="swing" title="Apalancamiento bajo: zonas más lejos">Swing</button></div>
+      <div class="ab-repro-vel ab-lm-x" role="group" aria-label="Apalancamientos a mostrar" id="lm-x-sel"></div>
       <label class="ab-lm-min">Intensidad mínima <input type="range" id="lm-min" min="0" max="70" value="15"></label>
       <label class="ab-lm-perf"><input type="checkbox" id="lm-perf" checked> Perfil</label>
     </div>
@@ -425,7 +425,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       <p class="ab-lm-estado" id="lm-estado" hidden></p></div>
     <p class="ab-lm-punto" id="lm-punto" aria-live="polite"></p>
     <div class="ab-lm-res" id="lm-res"></div>
-    <p class="ab-repro-res"><span id="lm-fuentes"></span> Las franjas son una estimación de dónde se liquidarían posiciones apalancadas si el precio llegara (el color compara con el nivel más cargado de la vista: azul poco, rojo mucho; cortos arriba, largos abajo). Los círculos son liquidaciones reales. No predice el precio ni es consejo financiero.</p>
+    <p class="ab-repro-res"><span id="lm-fuentes"></span> Las franjas son una estimación de dónde se liquidarían posiciones apalancadas si el precio llegara (cuanto más brillante, más cargado comparado con el nivel más cargado de la vista; cortos arriba, largos abajo). El perfil del costado separa cada nivel por apalancamiento. Los círculos son liquidaciones reales. No predice el precio ni es consejo financiero.</p>
   </div>
   <div class="ab-repro-fondo" id="repro-fondo" hidden></div>
   <div class="ab-repro" id="repro" role="dialog" aria-modal="true" aria-labelledby="repro-t" hidden>
