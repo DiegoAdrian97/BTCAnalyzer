@@ -4,7 +4,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Analista BTC</title>
 <meta name="description" content="Análisis de BTC/USDT en vivo, calculado en el teléfono.">
-<meta name="theme-color" content="#0e0d13">
+<meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,7 +14,7 @@
 <link rel="apple-touch-icon" href="icono-180.png">
 <link rel="icon" type="image/png" href="icono-192.png">
 <style>
-:root { --color-fg: #1d2129; --color-fg-muted: #6a7180; --color-bg: #ebe9f2; --color-panel: #ffffff;
+:root { --color-fg: #1d2129; --color-fg-muted: #6a7180; --color-bg: #ffffff; --color-panel: #ffffff;
   --color-border-line: #e2e5ea; --color-ok: #138a5b; --color-warn: #b7791f; --color-bad: #c8423a;
   --font-anthropic-sans: "Instrument Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-anthropic-serif: Georgia, "Times New Roman", serif;
@@ -23,10 +23,10 @@
   --cds-pad-xs: 4px; --cds-pad-sm: 8px; --cds-pad-md: 12px; --cds-pad-lg: 18px; --cds-pad-xl: 28px; --cds-radius: 8px;
   --cds-chart-grid: #eceef2; --cds-surface-popover: #ffffff; --cds-border: #dde1e7; --cds-shadow-popover: 0 6px 24px rgba(20,24,32,.12);
   --cds-text-secondary: #6a7180; --cds-ease-out: cubic-bezier(.2,.8,.2,1); --cds-dur-slow: .4s; color-scheme: light; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --color-fg: #e8eaee; --color-fg-muted: #949bab; --color-bg: #0e0d13; --color-panel: #1a1922;
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --color-fg: #e8eaee; --color-fg-muted: #949bab; --color-bg: #000000; --color-panel: #000000;
   --color-border-line: #2b3038; --color-ok: #3cc58a; --color-warn: #e0a64a; --color-bad: #f0645a; --cds-chart-grid: #252a31;
   --cds-surface-popover: #22262d; --cds-border: #343a43; --cds-shadow-popover: 0 6px 24px rgba(0,0,0,.45); --cds-text-secondary: #949bab; color-scheme: dark; } }
-:root[data-theme="dark"] { --color-fg: #e8eaee; --color-fg-muted: #949bab; --color-bg: #0e0d13; --color-panel: #1a1922;
+:root[data-theme="dark"] { --color-fg: #e8eaee; --color-fg-muted: #949bab; --color-bg: #000000; --color-panel: #000000;
   --color-border-line: #2b3038; --color-ok: #3cc58a; --color-warn: #e0a64a; --color-bad: #f0645a; --cds-chart-grid: #252a31;
   --cds-surface-popover: #22262d; --cds-border: #343a43; --cds-shadow-popover: 0 6px 24px rgba(0,0,0,.45); --cds-text-secondary: #949bab; color-scheme: dark; }
 html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }   /* sin zoom por doble toque */
@@ -47,12 +47,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <link rel="preconnect" href="https://fapi.binance.com" crossorigin>
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
-<link rel="stylesheet" href="p-c0b3c24a95.css">
-<script>window.AB_PAGINA = "306009921d";</script>
+<link rel="stylesheet" href="p-61a8f0b8a2.css">
+<script>window.AB_PAGINA = "3fc9fe7ed0";</script>
 <script defer src="app.js?v=c63ed61188"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-781059a616.js"></script>
+<script defer src="p-3ea26143a9.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -130,7 +130,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
           <button type="button" data-scen="alcista" aria-pressed="false">Alcista</button>
           <button type="button" data-scen="bajista" aria-pressed="false">Bajista</button>
         </nav>
-        <button type="button" class="ab-iconbtn ab-capas-btn" id="capas-btn" aria-expanded="false" aria-controls="capas" aria-label="Capas del gráfico"><svg class="ab-capas-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M12 3 2.5 8 12 13l9.5-5L12 3zM2.5 12.5 12 17.5l9.5-5M2.5 16.5 12 21.5l9.5-5"/></svg><span class="ab-capas-txt">Capas</span> <b id="capas-n"></b></button>
+        <button type="button" class="ab-iconbtn ab-tipo-btn" id="tipo-btn" aria-pressed="true" aria-label="Ver velas"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path class="ab-ico-velas" d="M7 4v16M17 4v16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/><rect class="ab-ico-velas" x="5" y="8" width="4" height="7" rx="1" fill="currentColor"/><rect class="ab-ico-velas" x="15" y="6" width="4" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/><path class="ab-ico-linea" d="M3 17l5-6 4 3 4-6 5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button><button type="button" class="ab-iconbtn ab-capas-btn" id="capas-btn" aria-expanded="false" aria-controls="capas" aria-label="Capas del gráfico"><svg class="ab-capas-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M12 3 2.5 8 12 13l9.5-5L12 3zM2.5 12.5 12 17.5l9.5-5M2.5 16.5 12 21.5l9.5-5"/></svg><span class="ab-capas-txt">Capas</span> <b id="capas-n"></b></button>
       </div>
       <div class="ab-capas" id="capas">
         <div class="ab-chips" id="layers">

@@ -37,7 +37,10 @@
   const later = (fn) => (reduce ? fn() : requestAnimationFrame(() => requestAnimationFrame(fn)));
   // cada plazo se mira con las velas que mejor lo muestran
   const PLAZO_VIEW = { '5 min': '5m', '15 min': '15m', '1 hora': '1h', '4 horas': '4h', '1 día': '1d' };
-  const S = { plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
+  // grafico de linea (por defecto) o de velas: se recuerda en este navegador
+  const LINEA_K = 'ab-grafico-linea';
+  const lineaGuardada = (() => { try { const v = localStorage.getItem(LINEA_K); return v === null ? true : v === '1'; } catch (e) { return true; } })();
+  const S = { linea: lineaGuardada, plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
     layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, fib: true, liq: true, osc: true, plan: true, opc: true }, log: false, medir: false, iman: false };
   const defBars = () => (window.innerWidth < 600 ? 50 : 90);  // en el telefono, menos para que se lean
   S.nbars = defBars();
@@ -126,7 +129,7 @@
     temaBtn.title = on ? 'Modo claro' : 'Modo oscuro';
     document.getElementById('tema-ico').setAttribute('d', on ? SOL : LUNA);
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim() || (on ? '#0e0d13' : '#ebe9f2'));
+    if (meta) meta.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim() || (on ? '#000000' : '#ffffff'));
   }
   temaBtn.addEventListener('click', () => {
     const t = oscuro() ? 'light' : 'dark';
@@ -645,6 +648,22 @@
     vista(completa, true);
     if (completa) document.getElementById('que-espero').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   });
+
+  // ---------- color del mercado: verde si en 24 h sube, rojo si baja (como Robinhood). Tine el acento de toda la app
+  (function () {
+    const c = document.getElementById('c24');
+    const mira = () => {
+      const v = parseFloat(String(c.textContent).replace('−', '-').replace(/[^0-9,.\-+]/g, '').replace(',', '.'));
+      const m = !isFinite(v) ? '' : v > 0 ? 'up' : v < 0 ? 'down' : '';
+      if (document.documentElement.dataset.mkt !== m) {
+        if (m) document.documentElement.dataset.mkt = m; else delete document.documentElement.dataset.mkt;
+        try { if (G.ln && S.rows) drawChart(S.rows, S.sum); } catch (e) { /* el grafico todavia no existe: lo toma al dibujarse */ }
+        const tc = document.querySelector('meta[name="theme-color"]');
+        if (tc) tc.content = getComputedStyle(document.body).backgroundColor;
+      }
+    };
+    new MutationObserver(mira).observe(c, { childList: true, characterData: true, subtree: true }); mira();
+  })();
 
   // ---------- barra con el precio al bajar ----------
   function miniPintar() {
@@ -2120,12 +2139,16 @@
     const m = c.match(/[\d.]+/g);
     return m && m.length >= 3 ? `rgba(${m[0]},${m[1]},${m[2]},${a})` : c;
   }
+  // en modo linea la vela queda transparente (sigue ahi para la escala, los niveles y las etiquetas)
+  const TRANSP = 'rgba(0,0,0,0)';
+  const barra = (b) => (S.linea ? { ...b, color: TRANSP, wickColor: TRANSP, borderColor: TRANSP } : b);
+  const mktCol = () => cssv(document.documentElement.dataset.mkt === 'down' ? '--color-bad' : document.documentElement.dataset.mkt === 'up' ? '--color-ok' : '--color-fg-muted');
   function pal() {
     const dark = oscuro();
     return { dark, up: cssv('--color-ok'), dn: cssv('--color-bad'), warn: cssv('--color-warn'), fg: cssv('--color-fg'), mute: cssv('--color-fg-muted'),
       panel: cssv('--color-panel'), line: cssv('--color-border-line'), grid: cssv('--cds-chart-grid'),
       c0: dash.colors[0], c1: dash.colors[1], c2: dash.colors[2], font: cssv('--font-anthropic-sans') || 'system-ui, sans-serif',
-      lbl: dark ? '#34323f' : '#17151f' };
+      lbl: dark ? '#2c2c31' : '#111111' };
   }
   const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
   const p2 = (v) => String(v).padStart(2, '0');
@@ -2604,7 +2627,7 @@
       autoSize: true,
       layout: { background: { type: 'solid', color: P.panel }, textColor: P.mute, fontFamily: P.font, fontSize: 11, attributionLogo: false,   // la atribucion va en el pie
         panes: { separatorColor: P.line, separatorHoverColor: alpha(P.fg, 0.12), enableResize: true } },
-      grid: { vertLines: { visible: false }, horzLines: { color: P.grid } },
+      grid: { vertLines: { visible: false }, horzLines: { visible: false } },
       crosshair: { mode: S.iman ? LW.CrosshairMode.MagnetOHLC : LW.CrosshairMode.Normal, vertLine: cross, horzLine: cross },
       rightPriceScale: { borderVisible: false, scaleMargins: { top: narrow ? 0.09 : 0.11, bottom: 0.2 }, minimumWidth: narrow ? 58 : 70 },
       timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 4, barSpacing: narrow ? 6 : 8, minBarSpacing: 1,
@@ -2622,6 +2645,10 @@
     G.e200 = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet, color: alpha(P.fg, 0.7), lineWidth: 2 });
     G.ghost = chart.addSeries(LW.CandlestickSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet, upColor: alpha(P.up, 0.25), downColor: alpha(P.dn, 0.25), borderVisible: true,
       borderUpColor: alpha(P.up, 0.85), borderDownColor: alpha(P.dn, 0.85), wickUpColor: alpha(P.up, 0.6), wickDownColor: alpha(P.dn, 0.6) });
+    // linea con area, en el color del mercado (el cambio de 24 h): las velas siguen abajo, invisibles, asi niveles,
+    // figuras y etiquetas funcionan igual en los dos modos
+    G.ln = chart.addSeries(LW.AreaSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet, lineWidth: 2,
+      crosshairMarkerVisible: true, crosshairMarkerRadius: 4, lineType: 0 });
     G.c = chart.addSeries(LW.CandlestickSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, upColor: P.up, downColor: P.dn, borderVisible: false, wickUpColor: P.up, wickDownColor: P.dn,
       priceLineStyle: LW.LineStyle.Dotted, priceLineWidth: 1 });
     G.markers = LW.createSeriesMarkers(G.c, []);
@@ -2764,7 +2791,7 @@
     const set = new Set(); if (k && S.exCandles) k.forEach((x) => { if (S.exCandles[x]) S.exCandles[x].forEach((t) => set.add(t)); });
     const dim = (c, key) => (k && !k.has(key) ? alpha(c, 0.15) : c);
     if (k || G.wasFocus) {
-      G.c.setData(G.d.cdata.map((b) => (!k || set.has(b.ms) ? b.bar
+      G.c.setData(G.d.cdata.map((b) => barra(!k || set.has(b.ms) ? b.bar
         : { ...b.bar, color: alpha(b.bar.close >= b.bar.open ? P.up : P.dn, 0.15), wickColor: alpha(b.bar.close >= b.bar.open ? P.up : P.dn, 0.15) })));
       G.wasFocus = !!k;
     }
@@ -2785,13 +2812,25 @@
     return o;
   }
 
+  (function () {
+    const b = document.getElementById('tipo-btn');
+    const pinta = () => { b.setAttribute('aria-pressed', String(S.linea)); b.setAttribute('aria-label', S.linea ? 'Ver velas' : 'Ver línea');
+      b.title = S.linea ? 'Ver velas' : 'Ver línea'; document.getElementById('grafico').classList.toggle('ab-modo-linea', S.linea); };
+    pinta();
+    b.addEventListener('click', () => {
+      S.linea = !S.linea; try { localStorage.setItem(LINEA_K, S.linea ? '1' : '0'); } catch (e) { /* sin almacenamiento */ }
+      pinta(); if (S.rows) drawChart(S.rows, S.sum);
+    });
+  })();
+
   // un tick del WebSocket: mueve la ultima vela al instante, sin rehacer el grafico
   function liveTick() {
     if (!G.chart || !G.d || G.tf !== S.tf || !liveBar || liveBar.tf !== S.tf || liveBar.mon !== MON() || G.mon !== MON()) return;
     const t = T2(liveBar.t), d = G.d;
     if (liveBar.t < d.all[d.all.length - 1].t) return;
     try {
-      G.c.update({ time: t, open: liveBar.o, high: liveBar.h, low: liveBar.l, close: liveBar.c });
+      G.c.update(barra({ time: t, open: liveBar.o, high: liveBar.h, low: liveBar.l, close: liveBar.c }));
+      if (S.linea) G.ln.update({ time: t, value: liveBar.c });
       G.vol.update({ time: t, value: liveBar.v, color: alpha(liveBar.c >= liveBar.o ? G.P.up : G.P.dn, 0.3) });
     } catch (e) { return; }
     d.price = liveBar.c; d.nowCol = liveBar.c >= liveBar.o ? G.P.up : G.P.dn;
@@ -2866,7 +2905,12 @@
     if (G.tf !== tf || G.mon !== MON()) G.med = null;
     G.dibujando = true;
     d.cdata = all.map((b) => ({ ms: b.t, bar: { time: T2(b.t), open: b.o, high: b.h, low: b.l, close: b.c } }));
-    G.c.setData(d.cdata.map((b) => b.bar));
+    G.c.setData(d.cdata.map((b) => barra(b.bar)));
+    G.ln.applyOptions({ lineColor: mktCol(), topColor: alpha(mktCol(), P.dark ? 0.28 : 0.2), bottomColor: alpha(mktCol(), 0) });
+    G.ln.setData(S.linea ? all.map((b) => ({ time: T2(b.t), value: b.c })) : []);
+    // la etiqueta del precio en el eje: la de la linea (en el color del mercado) o la de la vela
+    G.c.applyOptions({ lastValueVisible: !S.linea, priceLineVisible: !S.linea });
+    G.ln.applyOptions({ lastValueVisible: S.linea, priceLineVisible: S.linea, priceLineColor: mktCol(), priceLineStyle: LW.LineStyle.Dotted, priceLineWidth: 1 });
     G.vol.setData(all.map((b) => ({ time: T2(b.t), value: b.v, color: alpha(b.c >= b.o ? P.up : P.dn, 0.3) })));
     const line = (k) => all.filter((b) => b[k] !== null).map((b) => ({ time: T2(b.t), value: b[k] }));
     G.e20.setData(L.ema ? line('e20') : []); G.e50.setData(L.ema ? line('e50') : []); G.e200.setData(L.ema ? line('e200') : []);

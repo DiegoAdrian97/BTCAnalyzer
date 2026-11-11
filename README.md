@@ -246,6 +246,9 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
 - **Librerías propias** (`JavascriptVersion/lib/`: d3 7.9.0 y Lightweight Charts 5.1.0, sin tocar): sin dos conexiones
   nuevas a CDN al abrir. Una sola fuente, Instrument Sans (variable en peso y ancho, 57 KB, licencia OFL,
   alojada en `lib/`): el texto a ancho normal y las cifras angostas con la misma fuente, en vez de dos archivos.
+- **Estilo "color por estado"** (nov 2026): fondo liso blanco o negro, sin tarjetas, y el color del mercado (verde si
+  BTC sube en 24 h, rojo si baja) como único acento. El gráfico arranca en línea con área en ese color; el botón de
+  abajo a la derecha pasa a velas y la elección queda guardada en el navegador.
 - **Pedidos en paralelo**: las páginas de velas del historial van todas juntas (antes una detrás de otra) y los modelos
   se bajan a la vez que las velas. **Sin duplicados**: si dos ciclos piden las mismas velas, esperan el mismo pedido.
 - **Más livianos**: el plan de compras pide solo los días desde el plan (con `limit=1500` Binance cobraba 10 de peso
