@@ -1108,7 +1108,8 @@
       <div class="ab-pills">
         <span class="ab-pill">24 h <b id="c24" data-source="analisis" data-field="cambio_24h" data-where="tabla=resumen">—</b></span>
         <span class="ab-pill">7 días <b id="c7" data-source="analisis" data-field="cambio_7d" data-where="tabla=resumen">—</b></span>
-        <span class="ab-pill">vs media 200 d <b id="c200" data-source="analisis" data-field="sma200d_dist" data-where="tabla=resumen">—</b></span>
+        <span class="ab-pill" title="Contra la EMA 200 diaria (la línea gris del gráfico diario)">vs EMA 200 d <b id="e200d" data-source="analisis" data-field="ema200d_dist" data-where="tabla=resumen">—</b></span>
+        <span class="ab-pill" title="Contra el promedio simple de los últimos 200 cierres diarios (no es la EMA del gráfico)">vs media simple 200 d <b id="c200" data-source="analisis" data-field="sma200d_dist" data-where="tabla=resumen">—</b></span>
         <span class="ab-pill">Funding <b id="fund" data-source="analisis" data-field="funding" data-where="tabla=resumen">—</b></span>
       </div>
     </div>
@@ -3159,7 +3160,7 @@
     document.getElementById('graf-t').textContent = `Dónde está ${MON()}`;
     const put = (id, v, d) => { const e = document.getElementById(id); e.textContent = v === null ? '—' : sg(v, d);
       e.classList.toggle('ab-up-t', v > 0); e.classList.toggle('ab-down-t', v < 0); };
-    put('c24', num(s.cambio_24h), 2); put('c7', num(s.cambio_7d), 2); put('c200', num(s.sma200d_dist), 1);
+    put('c24', num(s.cambio_24h), 2); put('c7', num(s.cambio_7d), 2); put('c200', num(s.sma200d_dist), 1); put('e200d', num(s.ema200d_dist), 1);
     const fu = num(s.funding); document.getElementById('fund').textContent = fu === null ? '—' : (fu > 0 ? '+' : '') + ar.format(',.4f')(fu) + '%';
 
     const bars = pick(rows, 'vela', '1h').map((r) => ({ t: num(r.t), c: num(r.c) })).sort((a, b) => a.t - b.t).slice(-48);

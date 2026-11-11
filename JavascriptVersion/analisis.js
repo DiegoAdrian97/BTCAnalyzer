@@ -1102,9 +1102,9 @@
       }
     }
     if (main.coinciden) signals.push([2, main.coinciden, `15 min, 1 hora y 4 horas van para el mismo lado: así acertó ${ar(COINCIDEN.si, 1)}% (2023-26; ${ar(COINCIDEN.no, 1)}% cuando no)`]);
-    const sma = get('nivel').find((n) => n.nombre === 'Media 200 días');
+    const sma = get('nivel').find((n) => n.nombre === 'Media simple 200 días');
     if (sma && name === '1 día') {
-      signals.push([6, price > sma.precio ? 'alcista' : 'bajista', price > sma.precio ? 'Arriba de la media de 200 días' : 'Debajo de la media de 200 días']);
+      signals.push([6, price > sma.precio ? 'alcista' : 'bajista', price > sma.precio ? 'Arriba de la media simple de 200 días' : 'Debajo de la media simple de 200 días']);
     }
     signals.sort((a, b) => a[0] - b[0]);
 
@@ -1296,7 +1296,7 @@
     const closesD = d1.map((b) => b[4]);
     const sma200d = closesD.slice(-200).reduce((s, x) => s + x, 0) / 200;
     const ema200d = Ind.ema(closesD, 200);
-    levels.push(['Media 200 días', sma200d], ['EMA 200 diaria', ema200d[ema200d.length - 1]]);
+    levels.push(['Media simple 200 días', sma200d], ['EMA 200 diaria', ema200d[ema200d.length - 1]]);
     levels.forEach(([name, v]) => rows.push({ tabla: 'nivel', nombre: name, precio: rp(v), tipo: v > price ? 'resistencia' : 'soporte', distancia: rnd(pct(v, price), 2) }));
     fibonacci(candles['4h']).forEach(([f, v]) => rows.push({ tabla: 'nivel', nombre: `Fibonacci ${ar(f * 100, 1)}% (90 d) · rebotó ${FIB_REBOTE[f]}%`, precio: rp(v),
       tipo: v > price ? 'resistencia' : 'soporte', distancia: rnd(pct(v, price), 2), fib: f, rebote: FIB_REBOTE[f] }));
@@ -1390,7 +1390,8 @@
     const takeaway = explanation.find((e) => e.plazo === '1 hora' && e.tipo === 'titular').texto;
     rows.unshift({ tabla: 'resumen', fecha: isoLocal(now), hora_local: fmtLocal(now), precio: rp(price),
       cambio_24h: rnd(changeSince(candles['5m'], now, price, 24), 2), cambio_7d: rnd(changeSince(candles['5m'], now, price, 168), 2),
-      sma200d: rp(sma200d), sma200d_dist: rnd(pct(price, sma200d), 2), funding: funding === null ? null : rnd(funding * 100, 4),
+      sma200d: rp(sma200d), sma200d_dist: rnd(pct(price, sma200d), 2),
+      ema200d: rp(ema200d[ema200d.length - 1]), ema200d_dist: rnd(pct(price, ema200d[ema200d.length - 1]), 2), funding: funding === null ? null : rnd(funding * 100, 4),
       rating_1h: byTf['1h'].summary.rating, rating_1d: byTf['1d'].summary.rating, lectura: takeaway, nota_claude: '' });
     return { rows, log };
   }

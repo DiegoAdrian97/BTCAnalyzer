@@ -49,11 +49,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 <link rel="preconnect" href="https://fapi.binance.com" crossorigin>
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
 <link rel="stylesheet" href="p-09840353db.css">
-<script>window.AB_PAGINA = "bd372fb1df";</script>
-<script defer src="app.js?v=4a15ef4135"></script>
+<script>window.AB_PAGINA = "99b8074fba";</script>
+<script defer src="app.js?v=011c5a9332"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-4885bed642.js"></script>
+<script defer src="p-bbe21c3670.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -99,7 +99,8 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       <div class="ab-pills">
         <span class="ab-pill">24 h <b id="c24" data-source="analisis" data-field="cambio_24h" data-where="tabla=resumen">—</b></span>
         <span class="ab-pill">7 días <b id="c7" data-source="analisis" data-field="cambio_7d" data-where="tabla=resumen">—</b></span>
-        <span class="ab-pill">vs media 200 d <b id="c200" data-source="analisis" data-field="sma200d_dist" data-where="tabla=resumen">—</b></span>
+        <span class="ab-pill" title="Contra la EMA 200 diaria (la línea gris del gráfico diario)">vs EMA 200 d <b id="e200d" data-source="analisis" data-field="ema200d_dist" data-where="tabla=resumen">—</b></span>
+        <span class="ab-pill" title="Contra el promedio simple de los últimos 200 cierres diarios (no es la EMA del gráfico)">vs media simple 200 d <b id="c200" data-source="analisis" data-field="sma200d_dist" data-where="tabla=resumen">—</b></span>
         <span class="ab-pill">Funding <b id="fund" data-source="analisis" data-field="funding" data-where="tabla=resumen">—</b></span>
       </div>
     </div>

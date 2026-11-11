@@ -1488,10 +1488,10 @@ def explain(rows, price, spec):
     if main.get("coinciden"):
         signals.append((2, main["coinciden"], f"15 min, 1 hora y 4 horas van para el mismo lado: así acertó {ar(COINCIDEN['si'], 1)}% "
                                               f"(2023-26; {ar(COINCIDEN['no'], 1)}% cuando no)"))
-    sma = next((n for n in get("nivel") if n["nombre"] == "Media 200 días"), None)
+    sma = next((n for n in get("nivel") if n["nombre"] == "Media simple 200 días"), None)
     if sma and name == "1 día":
         signals.append((6, "alcista" if price > sma["precio"] else "bajista",
-                        "Arriba de la media de 200 días" if price > sma["precio"] else "Debajo de la media de 200 días"))
+                        "Arriba de la media simple de 200 días" if price > sma["precio"] else "Debajo de la media simple de 200 días"))
     signals.sort(key=lambda x: x[0])
 
     up, dn, pu, mg = main["obj_arriba"], main["obj_abajo"], main["primero_arriba"], main["margen_primero"] or 0
@@ -1727,7 +1727,8 @@ def analyze():
     fib = fibonacci(candles["4h"])
     closes_d = [b[4] for b in d1]
     sma200d = sum(closes_d[-200:]) / 200
-    levels += [("Media 200 días", sma200d), ("EMA 200 diaria", ind.ema(closes_d, 200)[-1])]
+    ema200d = ind.ema(closes_d, 200)[-1]
+    levels += [("Media simple 200 días", sma200d), ("EMA 200 diaria", ema200d)]
     for name, v in levels:
         rows.append({"tabla": "nivel", "nombre": name, "precio": rp(v),
                      "tipo": "resistencia" if v > price else "soporte", "distancia": round(pct(v, price), 2)})
@@ -1843,6 +1844,7 @@ def analyze():
                     "cambio_24h": round2(change_since(candles["5m"], now_ms, price, 24)),
                     "cambio_7d": round2(change_since(candles["5m"], now_ms, price, 168)),
                     "sma200d": rp(sma200d), "sma200d_dist": round(pct(price, sma200d), 2),
+                    "ema200d": rp(ema200d), "ema200d_dist": round(pct(price, ema200d), 2),
                     "funding": None if funding is None else round(funding * 100, 4),
                     "rating_1h": by_tf["1h"]["summary"]["rating"], "rating_1d": by_tf["1d"]["summary"]["rating"],
                     "lectura": takeaway, "nota_claude": ""})
