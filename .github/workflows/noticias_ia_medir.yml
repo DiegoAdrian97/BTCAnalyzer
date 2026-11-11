@@ -1,0 +1,38 @@
+name: Medir noticias con IA (solo medir)
+# Vuelve a hacer solo la medicion con los titulares ya bajados y leidos por la IA en una corrida anterior de
+# "Medir noticias con IA" (sus artefactos titulares-parte-*), sin volver a bajar ni a leer (eso tarda ~6 h).
+on:
+  workflow_dispatch:
+    inputs:
+      corrida: { description: "Numero de la corrida de Medir noticias con IA", default: "42893655992" }
+  push:
+    branches: [main]
+    paths: [".github/workflows/noticias_ia_medir.yml"]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install numpy lightgbm scikit-learn sentence-transformers
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: titulares-parte-*
+          merge-multiple: true
+          run-id: ${{ inputs.corrida || '42893655992' }}
+          github-token: ${{ github.token }}
+      - run: python datos_entrenamiento.py
+      - run: python -u -W ignore medir_noticias_ia.py velas_1h.json eventos.json --dias 88 | tee noticias_ia.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: noticias-ia
+          path: |
+            noticias_ia.txt
+            resultado_noticias_ia.json

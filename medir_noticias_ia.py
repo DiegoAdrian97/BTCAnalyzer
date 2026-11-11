@@ -182,21 +182,26 @@ def senal(T, t_hecho, v_hecho, ventana=4 * H):
 
 
 def logit_dia(t, F, y, hz, minimo=240):
-    """Logistica que se reentrena cada dia con lo ya terminado (t + hz <= el dia que predice)."""
-    n, k = F.shape; Z = np.column_stack([np.ones(n), F]); p = np.full(n, np.nan)
+    """Logistica que se reentrena cada dia con lo ya terminado (t + hz <= el dia que predice). Las señales se
+    estandarizan con lo de entrenamiento (sumas de cientos de titulares sin escalar hacian diverger a Newton)."""
+    n, k = F.shape; p = np.full(n, np.nan)
     dias = (t // D).astype(np.int64)
     for d in np.unique(dias):
         hoy = dias == d; tr = (t + (hz + 1) * H) <= d * D
         if tr.sum() < minimo:
             continue
-        w = np.zeros(k + 1); w[0] = math.log((y[tr].mean() + 1e-3) / (1 - y[tr].mean() + 1e-3))
-        Zt, yt = Z[tr], y[tr]
-        for _ in range(25):
+        mu, sd = F[tr].mean(0), F[tr].std(0) + 1e-9
+        Zt = np.column_stack([np.ones(tr.sum()), (F[tr] - mu) / sd]); yt = y[tr]
+        w = np.zeros(k + 1); w[0] = math.log((yt.mean() + 1e-3) / (1 - yt.mean() + 1e-3))
+        for _ in range(30):
             f = 1 / (1 + np.exp(-np.clip(Zt @ w, -30, 30)))
-            g = Zt.T @ (f - yt) + 1e-2 * np.r_[0, w[1:]]
-            Hm = (Zt * (f * (1 - f))[:, None]).T @ Zt + 1e-2 * np.eye(k + 1)
-            w -= np.clip(np.linalg.solve(Hm, g), -2, 2)
-        p[hoy] = 1 / (1 + np.exp(-np.clip(Z[hoy] @ w, -30, 30)))
+            g = Zt.T @ (f - yt) + 1.0 * np.r_[0, w[1:]]
+            Hm = (Zt * (f * (1 - f))[:, None]).T @ Zt + 1.0 * np.diag(np.r_[1e-6, np.ones(k)])
+            paso = np.linalg.solve(Hm, g); w -= paso
+            if np.abs(paso).max() < 1e-7:
+                break
+        Zh = np.column_stack([np.ones(hoy.sum()), (F[hoy] - mu) / sd])
+        p[hoy] = 1 / (1 + np.exp(-np.clip(Zh @ w, -30, 30)))
     return p
 
 
@@ -306,7 +311,8 @@ def main():
             nombre0 = "tasa base" if que == "para donde" else "modelo de la app"
             print(f"\nBTC {hz} h · {que}: {nombre0} contra {nombre0} + noticias (error de la probabilidad, z por dia)")
             for nom, (S, N) in variantes.items():
-                F = np.column_stack([base[m], S[m]] if que == "para donde" else [base[m], np.abs(S[m]), np.log1p(N[m])])
+                Sc = np.sign(S[m]) * np.log1p(np.abs(S[m]))       # cientos de titulares en 4 h: se comprime
+                F = np.column_stack([base[m], Sc] if que == "para donde" else [base[m], np.abs(Sc), np.log1p(N[m])])
                 p1 = logit_dia(tv[m], F, y[m], hz)
                 zs, txt = [], []
                 for tramo, c in (("1ra mitad", tv[m] < mitad), ("2da mitad", tv[m] >= mitad)):
