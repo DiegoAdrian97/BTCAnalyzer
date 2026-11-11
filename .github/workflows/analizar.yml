@@ -17,13 +17,19 @@ jobs:
           python -u -c "import analisis_btc as a; a.candle_source = lambda: a.exchange('bingx'); a.main()" | tee analisis.txt
       - run: |
           python - <<'PY'
-          import json
+          import json, collections
           R = json.load(open("data/analisis_btc.json"))
           R = R.get("rows", R) if isinstance(R, dict) else R
+          n = collections.Counter(r.get("tabla") for r in R)
+          print("TABLAS", dict(n))
+          visto = collections.Counter()
           for r in R:
-              t = r.get("tabla")
-              if t in ("nivel", "fib", "fibonacci", "termometro", "piso", "central") or (t == "marco") or (t == "giro" and r.get("tf") in ("1d", "1w")):
-                  print(json.dumps({k: v for k, v in r.items() if v not in (None, "", [])}, ensure_ascii=False)[:400])
+              t = r.get("tabla"); visto[t] += 1
+              if t in ("vela", "serie", "liquidacion", "calibracion") and visto[t] > 2:
+                  continue
+              if n[t] > 40 and visto[t] > 12:
+                  continue
+              print(json.dumps({k: v for k, v in r.items() if v not in (None, "", [])}, ensure_ascii=False)[:900])
           PY
       - uses: actions/upload-artifact@v4
         if: always()
