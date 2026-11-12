@@ -265,8 +265,18 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
   **En vivo** (mientras el panel está abierto y a la vista): liquidaciones de Binance (`forceOrder`, la mayor de cada
   segundo), Bybit (`allLiquidation`, todas) y OKX (`liquidation-orders`, con el tamaño de contrato que da la API)
   directo por WebSocket desde el teléfono; aparecen como burbujas en su precio (crecen con un anillo al llegar) y en una
-  lista con los totales de largos y cortos de los últimos 5 min. La vela en curso se actualiza con Binance. Al cerrar el
-  panel o salir de la app se desconecta. Coinglass, Hyblock, Kingfisher y TradingDifferent no publican sus datos (API paga);
+  lista con los totales de largos y cortos de los últimos 5 min. El mapa también va en vivo: la vela en curso (Binance;
+  Bybit si Binance no llega) y el open interest de Binance cada minuto entran a la simulación, que se rehace cada 2 s o
+  más (se espacia sola si el teléfono tarda: nunca más del 5 % del tiempo), sin perder el zoom; lo que el precio cruza se
+  borra y lo que entra suma zonas. Al cerrar el panel o salir de la app se desconecta.
+- **Dibujar** (botón del lápiz, tecla D): línea horizontal, de tendencia, rayo y zona, como en TradingView. Se dibuja
+  arrastrando o con dos toques (con el imán, las puntas se pegan a la vela); tocando un dibujo se selecciona: se mueve,
+  se estira de las puntas, cambia de color, se borra (o Suprimir) y las líneas pueden **avisar** cuando el precio las
+  cruza (una vez: aviso en la app, vibración, sonido, notificación si diste permiso y voz con el modo radio). Se guardan
+  en el teléfono por activo, con la hora real, así se ven en cualquier temporalidad.
+- **Modo radio** (solo en "pantalla siempre prendida", botón Voz): la app dice el precio, el cambio de 24 h, la
+  dirección del plazo elegido y el nivel más cercano cada 5, 15, 30 o 60 min, y además cuando cambia la dirección o el
+  precio se mueve más de 1 %. Usa la voz del sistema (sin red ni costo); se apaga al salir de ese modo. Coinglass, Hyblock, Kingfisher y TradingDifferent no publican sus datos (API paga);
   Coinalyze tiene una API gratis con clave (se puede sumar). Prueba: `node pruebas/liquidaciones.js`.
 - **Calendario: lo que viene** ("Más detalle"): solo lo futuro, en hora de Argentina: datos de EE.UU. de importancia alta
   (TradingView, por `api/contexto`) y lo propio de las criptos (vencimientos de opciones de Deribit, semanal, mensual y

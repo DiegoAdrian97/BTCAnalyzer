@@ -972,8 +972,9 @@
       padding: max(10px, calc(env(safe-area-inset-top) + 4px)) max(12px, env(safe-area-inset-right)) 10px max(12px, env(safe-area-inset-left)); }
     .ab-escena #grafico:not(.ab-fs) { background: transparent; border: 0; border-radius: 0; padding: 0; gap: 0 8px; }
     /* una sola fila: plazos (se desliza si no entran), capas y pantalla completa */
-    .ab-escena #grafico:not(.ab-fs) { grid-template-columns: minmax(0, 1fr) auto auto auto;
-      grid-template-areas: "tfs tfs capasb head" "capas capas capas capas" "help help help help" "chart chart chart chart" "ex lmb repro tipo" "note note note note"; }
+    .ab-escena #grafico:not(.ab-fs) { grid-template-columns: minmax(0, 1fr) auto auto auto auto;
+      grid-template-areas: "tfs tfs tfs capasb head" "capas capas capas capas capas" "help help help help help" "chart chart chart chart chart" "ex dibb lmb repro tipo" "note note note note note"; }
+    .ab-escena #grafico:not(.ab-fs) #dib-btn { grid-area: dibb; align-self: start; }
     .ab-escena #grafico:not(.ab-fs) #lm-btn { grid-area: lmb; align-self: start; }
     .ab-escena #grafico:not(.ab-fs) #repro-btn { grid-area: repro; align-self: start; }
     .ab-escena #grafico:not(.ab-fs) #tipo-btn { grid-area: tipo; align-self: start; }   /* abajo a la derecha, junto a "Que estas viendo": arriba no entraba sin apretar los plazos */
@@ -1345,7 +1346,7 @@
   /* ---------- pantalla siempre prendida: precio grande, grafico y fondo vivo; lo demas se va ---------- */
   html.ab-vigilia .ab-hoja, html.ab-vigilia .ab-act-borde, html.ab-vigilia .ab-mini, html.ab-vigilia .ab-live,
   html.ab-vigilia .ab-title-row > button, html.ab-vigilia .ab-act-chip, html.ab-vigilia #ex-box, html.ab-vigilia #tipo-btn,
-  html.ab-vigilia #repro-btn, html.ab-vigilia #capas-btn, html.ab-vigilia .ab-capas, html.ab-vigilia #help-btn,
+  html.ab-vigilia #repro-btn, html.ab-vigilia #dib-btn, html.ab-vigilia #capas-btn, html.ab-vigilia .ab-capas, html.ab-vigilia #help-btn,
   html.ab-vigilia .ab-chart-note, html.ab-vigilia.ab-panel-fijo .ab-act-panel, html.ab-vigilia .ab-act-panel, html.ab-vigilia .ab-fs-btn { display: none !important; }
   html.ab-vigilia { --asoma: 0px; }
   html.ab-vigilia .ab-escena { height: 100svh !important; padding-bottom: max(70px, env(safe-area-inset-bottom)); }
@@ -1432,3 +1433,31 @@
   .ab-lm-feed li.vacio { display: block; color: var(--mute); }
   @media (prefers-reduced-motion: no-preference) { .ab-lm-feed li.nuevo { animation: lmEntra .5s ease-out; } }
   @keyframes lmEntra { from { opacity: 0; transform: translateY(-4px); } }
+
+  /* dibujar */
+  .ab-dib-bar { position: absolute; z-index: 6; top: 8px; left: 8px; right: 8px; width: max-content; margin: 0 auto; display: flex; align-items: center; gap: 2px; padding: 4px;
+    border-radius: 12px; background: var(--vidrio); -webkit-backdrop-filter: var(--vidrio-fx); backdrop-filter: var(--vidrio-fx); border: 1px solid var(--vidrio-borde, var(--line));
+    box-shadow: 0 4px 18px rgba(0,0,0,.12); max-width: calc(100% - 16px); overflow-x: auto; scrollbar-width: none; cursor: default; }
+  .ab-dib-bar[hidden] { display: none; }
+  .ab-dib-sel { top: 56px; } .ab-dib-sel.ab-dib-sola { top: 8px; }
+  .ab-dib-b { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 34px; padding: 0 8px; border: 0; border-radius: 9px;
+    background: transparent; color: var(--fg); font: inherit; font-size: 12.5px; font-weight: 550; cursor: pointer; }
+  .ab-dib-b:hover { background: var(--soft2); }
+  .ab-dib-b[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+  .ab-dib-listo { color: var(--senal); }
+  .ab-dib-sep { flex: none; width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
+  .ab-dib-col { flex: none; width: 24px; height: 24px; margin: 5px; border-radius: 50%; border: 0; cursor: pointer; box-shadow: inset 0 0 0 2px rgba(255,255,255,.35); }
+  .ab-dib-col[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--fg); }
+  .ab-dib-b[hidden] { display: none; }
+  .ab-chart.is-dibujando { cursor: crosshair; }
+  .ab-dib-btn[aria-pressed="true"] { background: var(--ink) !important; color: var(--panel) !important; }
+  html.ab-vigilia .ab-dib-bar { display: none; }
+  .ab-toast { position: fixed; z-index: 90; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translate(-50%, 140%); max-width: calc(100vw - 32px);
+    padding: 12px 16px 12px 14px; border-radius: 14px; background: var(--vidrio); -webkit-backdrop-filter: var(--vidrio-fx); backdrop-filter: var(--vidrio-fx);
+    border: 1px solid var(--vidrio-borde, var(--line)); border-left: 4px solid var(--toast-col); color: var(--fg); font-size: 14px; font-weight: 550;
+    box-shadow: 0 8px 30px rgba(0,0,0,.18); transition: transform .35s cubic-bezier(.2,.9,.3,1.2); }
+  .ab-toast.on { transform: translate(-50%, 0); }
+  @media (prefers-reduced-motion: reduce) { .ab-toast { transition: none; } }
+  .ab-radio-btn { display: inline-flex; align-items: center; gap: 5px; }
+  #radio-cada { font: inherit; font-size: 12.5px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--fg); padding: 4px 6px; }
+  #radio-cada[hidden] { display: none; }

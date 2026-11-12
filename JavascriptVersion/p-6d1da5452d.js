@@ -677,6 +677,68 @@
     AMB.b.classList.remove('on'); void AMB.b.offsetWidth; AMB.b.classList.add('on');
   }
 
+  // ---------- modo radio (solo con la pantalla prendida): la app dice el precio y lo que ve, cada tanto y cuando
+  // cambia algo (la direccion, un movimiento de mas de 1 % o una linea tuya que se toco). Voz del sistema (gratis, sin red)
+  const RADIO = (function () {
+    const R = { on: false, cada: 15, ult: 0, dir: null, precio: null, t: null, voz: null };
+    const ok = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+    const NOM = { BTC: 'Bitcoin', ETH: 'Ethereum', SOL: 'Solana', XRP: 'XRP', ZEC: 'Zcash', DOGE: 'Doge', BNB: 'BNB' };
+    // numeros como se dicen: sin puntos de miles (la voz los lee mejor) y con coma decimal
+    const num = (x) => (x >= 100 ? String(Math.round(x)) : String(Number(x.toFixed(x >= 1 ? 2 : 4))).replace('.', ','));
+    const dec = (x) => String(Math.abs(x).toFixed(1)).replace('.', ',');
+    function elegirVoz() {
+      const vs = speechSynthesis.getVoices().filter((v) => /^es/i.test(v.lang));
+      R.voz = vs.find((v) => /AR/i.test(v.lang)) || vs.find((v) => /419|US|MX/i.test(v.lang)) || vs[0] || null;
+    }
+    function texto(motivo) {
+      const rows = S.rows || [], r = rows.find((x) => x.tabla === 'resumen');
+      const c = rows.find((x) => x.tabla === 'central' && x.plazo === S.plazo) || rows.find((x) => x.tabla === 'central') || {};
+      const precio = (G.d && G.d.price) || (r && r.precio); if (!precio) return null;
+      let t = `${motivo ? `${motivo}. ` : ''}${NOM[MON()] || MON()}, ${num(precio)} dólares.`;
+      const ch = r ? Number(r.cambio_24h) : NaN;
+      if (isFinite(ch)) t += Math.abs(ch) < 0.05 ? ' Igual que hace 24 horas.' : ` ${ch > 0 ? 'Sube' : 'Baja'} ${dec(ch)} por ciento en 24 horas.`;
+      if (c.direccion) t += ` Para ${String(c.plazo || S.plazo).replace(/^1 /, 'la próxima ')}, ${c.direccion === 'sube' ? 'más probable que suba' : c.direccion === 'baja' ? 'más probable que baje' : 'sin dirección clara'}.`;
+      const lv = [[c.soporte, 'Soporte'], [c.resistencia, 'Resistencia']].filter(([p]) => p).map(([p, n]) => [Number(p), n]).sort((a, b) => Math.abs(a[0] - precio) - Math.abs(b[0] - precio));
+      if (lv.length) t += ` ${lv[0][1]} más cerca en ${num(lv[0][0])}.`;
+      return t;
+    }
+    function decir(t) {
+      if (!ok || !t) return;
+      if (!R.voz) elegirVoz();
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(t); u.lang = R.voz ? R.voz.lang : 'es-AR'; if (R.voz) u.voice = R.voz; u.rate = 1.03;
+      speechSynthesis.speak(u); R.ult = Date.now();
+    }
+    function anotar() {
+      const rows = S.rows || [], c = rows.find((x) => x.tabla === 'central' && x.plazo === S.plazo) || {};
+      R.dir = c.direccion || null; R.precio = (G.d && G.d.price) || null;
+    }
+    // cada 15 s: si toca por tiempo, o cambio la direccion, o se movio 1 % desde lo ultimo que dijo
+    function mirar() {
+      if (!R.on || document.hidden) return;
+      const rows = S.rows || [], c = rows.find((x) => x.tabla === 'central' && x.plazo === S.plazo) || {};
+      const p = G.d && G.d.price;
+      let motivo = null;
+      if (R.dir && c.direccion && c.direccion !== R.dir) motivo = 'Cambió la dirección';
+      else if (R.precio && p && Math.abs(p / R.precio - 1) >= 0.01) motivo = p > R.precio ? 'Subió más de uno por ciento' : 'Bajó más de uno por ciento';
+      else if (Date.now() - R.ult >= R.cada * 6e4) motivo = '';
+      if (motivo === null || speechSynthesis.speaking) return;
+      decir(texto(motivo)); anotar();
+    }
+    const btn = document.getElementById('radio-btn'), sel = document.getElementById('radio-cada');
+    if (!ok) { btn.hidden = true; sel.hidden = true; }
+    function poner(v) {
+      R.on = v && ok; btn.setAttribute('aria-pressed', String(R.on)); sel.hidden = !R.on;
+      clearInterval(R.t);
+      if (R.on) { decir(texto('Modo radio')); anotar(); R.t = setInterval(mirar, 15000); }   // la primera, dentro del toque: iOS lo exige
+      else if (ok) speechSynthesis.cancel();
+    }
+    btn.addEventListener('click', () => poner(!R.on));
+    sel.addEventListener('change', () => { R.cada = +sel.value; });
+    if (ok) { elegirVoz(); speechSynthesis.addEventListener && speechSynthesis.addEventListener('voiceschanged', elegirVoz); }
+    window.abVoz = (t) => { if (R.on) decir(t); };
+    return { apagar: () => poner(false) };
+  })();
   // ---------- pantalla siempre prendida: pide al sistema que no apague la pantalla (Wake Lock) y deja solo el precio,
   // el grafico y el fondo vivo. Si se bloquea el telefono con el boton, iOS apaga igual (ninguna app lo puede evitar):
   // al volver se vuelve a pedir. Sin Wake Lock (iOS viejo): un video mudo de 1 s en bucle, el truco de siempre
@@ -700,7 +762,7 @@
       on = v; document.documentElement.classList.toggle('ab-vigilia', v); bar.hidden = !v;
       btn.setAttribute('aria-pressed', String(v));
       if (v) { pedir(); document.getElementById('vigilia-salir').focus({ preventScroll: true }); window.scrollTo(0, 0); }
-      else { soltar(); btn.focus({ preventScroll: true }); }
+      else { soltar(); RADIO.apagar(); btn.focus({ preventScroll: true }); }
       window.dispatchEvent(new Event('resize'));
     }
     btn.setAttribute('aria-pressed', 'false');
@@ -2403,7 +2465,7 @@
       return { t: d.t0 + k * d.tfMs, p: pp };
     };
     box.addEventListener('pointerdown', (e) => {
-      if (!G.chart || !G.d || !G.d.fib || e.button !== 0 || S.medir || (e.shiftKey && e.pointerType === 'mouse')) return;
+      if (!G.chart || !G.d || !G.d.fib || e.button !== 0 || S.medir || (e.shiftKey && e.pointerType === 'mouse') || (e.target.closest && e.target.closest('.ab-dib-bar'))) return;
       const [x, y] = local(e); if (!enPanel(x, y)) return;
       const k = fibHit(x, y, tol(e)); if (!k) return;
       const fb = G.d.fib;
@@ -2746,7 +2808,7 @@
     const bloquear = (e) => { if (tapada) { e.preventDefault(); e.stopPropagation(); } };
     box.addEventListener('pointerdown', (e) => {
       tapada = false;
-      if (!G.chart || e.button !== 0) return;
+      if (!G.chart || e.button !== 0 || (e.target.closest && e.target.closest('.ab-dib-bar'))) return;
       const quiere = S.medir || (e.shiftKey && e.pointerType === 'mouse');
       if (!quiere) { if (G.med) { G.med = null; G.over.update(); } return; }   // un clic normal borra la medicion
       const pt = punto(e); if (!pt) return;
@@ -2766,6 +2828,293 @@
     };
     window.addEventListener('pointerup', fin);
     window.addEventListener('pointercancel', fin);
+  }
+
+  // ---------- dibujar en el grafico: lineas horizontales, de tendencia, rayos y zonas, como en TradingView ----------
+  // Se guardan por activo (en este telefono) con la hora en ms, asi se ven igual en cualquier temporalidad. Se
+  // seleccionan tocandolas (o con clic): se mueven, se estiran de las puntas, cambian de color, se borran y las lineas
+  // pueden avisar cuando el precio las toca (una vez; con voz si esta el modo radio).
+  const DIB = { modo: false, herr: null, sel: null, nuevo: null, espera: false, lado: {}, todos: {} };
+  try { DIB.todos = JSON.parse(localStorage.getItem('ab-dibujos')) || {}; } catch (e) { DIB.todos = {}; }
+  const DIB_COL = ['#2962ff', '#f23645', '#089981', '#ff9800', '#9c27b0'];
+  const DIB_NOM = { h: 'Línea horizontal', t: 'Línea de tendencia', r: 'Rayo', z: 'Zona' };
+  const dibLista = () => DIB.todos[MON()] || (DIB.todos[MON()] = []);
+  window.abDib = DIB;                                     // para las pruebas
+  const dibGuardar = () => { try { localStorage.setItem('ab-dibujos', JSON.stringify(DIB.todos)); } catch (e) { /* sin almacenamiento */ } };
+  const dibSel = () => dibLista().find((x) => x.id === DIB.sel) || null;
+  const dibPint = () => { if (G.dib) G.dib.update(); dibBarra(); };
+  // el precio de una linea en un momento (en escala log, la recta va en log, como se ve)
+  function dibValor(d, t) {
+    if (d.tipo === 'h') return d.a.p;
+    if (d.b.t === d.a.t) return null;
+    const f = (t - d.a.t) / (d.b.t - d.a.t);
+    return S.log && d.a.p > 0 && d.b.p > 0 ? Math.exp(Math.log(d.a.p) + (Math.log(d.b.p) - Math.log(d.a.p)) * f) : d.a.p + (d.b.p - d.a.p) * f;
+  }
+  // puntas de la recta hasta el borde (rayo: desde a, pasando por b)
+  function dibRayo(xa, ya, xb, yb, w, h) {
+    const dx = xb - xa, dy = yb - ya; if (!dx && !dy) return [xb, yb];
+    let k = 1e9;
+    if (dx > 0) k = Math.min(k, (w - xa) / dx); else if (dx < 0) k = Math.min(k, -xa / dx);
+    if (dy > 0) k = Math.min(k, (h - ya) / dy); else if (dy < 0) k = Math.min(k, -ya / dy);
+    k = Math.max(1, k); return [xa + dx * k, ya + dy * k];
+  }
+  function drawDib(ctx, w, h) {
+    if (!G.d) return;
+    const lista = dibLista().slice(); if (DIB.nuevo) lista.push(DIB.nuevo);
+    if (!lista.length) return;
+    const fino = matchMedia('(pointer: coarse)').matches ? 6.5 : 4.5;
+    ctx.save(); ctx.lineCap = 'round';
+    lista.forEach((d) => {
+      const sel = d.id === DIB.sel || d === DIB.nuevo, ya = Y(d.a.p), xa = X(d.a.t);
+      if (ya === null) return;
+      ctx.strokeStyle = d.col; ctx.lineWidth = sel ? 2.2 : 1.5; ctx.setLineDash(d === DIB.nuevo && DIB.espera ? [5, 4] : []);
+      const pts = [];
+      if (d.tipo === 'h') {
+        ctx.beginPath(); ctx.moveTo(0, Math.round(ya) + 0.5); ctx.lineTo(w, Math.round(ya) + 0.5); ctx.stroke();
+        const txt = `${d.aviso ? '🔔 ' : ''}${fp(d.a.p)}`;
+        ctx.font = `600 11px ${G.P.font}`; const tw = ctx.measureText(txt).width + 12;
+        ctx.setLineDash([]); ctx.fillStyle = d.col; ctx.beginPath(); ctx.roundRect(w - tw - 4, ya - 9, tw, 18, 5); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.fillText(txt, w - tw + 2, ya + 0.5);
+        if (sel) pts.push([Math.min(w - tw - 16, Math.max(16, w * 0.5)), ya]);
+      } else {
+        const yb = Y(d.b.p), xb = X(d.b.t); if (yb === null || xa === null || xb === null) return;
+        if (d.tipo === 'z') {
+          const x0 = Math.min(xa, xb), y0 = Math.min(ya, yb), ww = Math.abs(xb - xa), hh = Math.abs(yb - ya);
+          ctx.fillStyle = alpha(d.col, sel ? 0.2 : 0.13); ctx.fillRect(x0, y0, ww, hh); ctx.strokeRect(x0 + 0.5, y0 + 0.5, ww, hh);
+          const pc = (Math.max(d.a.p, d.b.p) / Math.min(d.a.p, d.b.p) - 1) * 100;
+          if (ww > 46 && hh > 16) { ctx.font = `600 10.5px ${G.P.font}`; ctx.fillStyle = d.col; ctx.textBaseline = 'top'; ctx.textAlign = 'left'; ctx.fillText(`${f1(pc)}%`, x0 + 5, y0 + 4); }
+          if (sel) pts.push([xa, ya], [xb, yb], [xa, yb], [xb, ya]);
+        } else {
+          const [xe, ye] = d.tipo === 'r' ? dibRayo(xa, ya, xb, yb, w, h) : [xb, yb];
+          ctx.beginPath(); ctx.moveTo(xa, ya); ctx.lineTo(xe, ye); ctx.stroke();
+          if (d.aviso) { ctx.font = '11px sans-serif'; ctx.textBaseline = 'bottom'; ctx.textAlign = 'center'; ctx.fillText('🔔', xb, yb - 6); }
+          if (sel) pts.push([xa, ya], [xb, yb]);
+        }
+      }
+      ctx.setLineDash([]);
+      pts.forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, fino, 0, 2 * Math.PI); ctx.fillStyle = G.P.panel || '#fff'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = d.col; ctx.stroke(); });
+    });
+    ctx.restore();
+  }
+  // que se toco: una punta de la seleccionada, o el cuerpo de alguna (la de arriba primero)
+  function dibHit(x, y, tol) {
+    const ps = G.chart.paneSize(0), w = ps.width, h = ps.height, lista = dibLista();
+    const s = dibSel();
+    if (s && s.tipo !== 'h') {
+      const xa = X(s.a.t), ya = Y(s.a.p), xb = X(s.b.t), yb = Y(s.b.p);
+      const pts = [['a', xa, ya], ['b', xb, yb]];
+      if (s.tipo === 'z') pts.push(['ab', xa, yb], ['ba', xb, ya]);
+      for (const [k, px, py] of pts) if (px !== null && py !== null && Math.hypot(px - x, py - y) <= tol + 3) return { d: s, k };
+    }
+    const dSeg = (x1, y1, x2, y2) => { const dx = x2 - x1, dy = y2 - y1, L = dx * dx + dy * dy; const u = L ? Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy) / L)) : 0; return Math.hypot(x - x1 - u * dx, y - y1 - u * dy); };
+    for (let i = lista.length - 1; i >= 0; i--) {
+      const d = lista[i], ya = Y(d.a.p); if (ya === null) continue;
+      if (d.tipo === 'h') { if (Math.abs(y - ya) <= tol) return { d, k: 'cuerpo' }; continue; }
+      const xa = X(d.a.t), xb = X(d.b.t), yb = Y(d.b.p); if (xa === null || xb === null || yb === null) continue;
+      if (d.tipo === 'z') {
+        const x0 = Math.min(xa, xb) - tol, x1 = Math.max(xa, xb) + tol, y0 = Math.min(ya, yb) - tol, y1 = Math.max(ya, yb) + tol;
+        if (x >= x0 && x <= x1 && y >= y0 && y <= y1) return { d, k: 'cuerpo' }; continue;
+      }
+      const [xe, ye] = d.tipo === 'r' ? dibRayo(xa, ya, xb, yb, w, h) : [xb, yb];
+      if (dSeg(xa, ya, xe, ye) <= tol) return { d, k: 'cuerpo' };
+    }
+    return null;
+  }
+  // barras flotantes: herramientas (con "Dibujar" prendido) y lo de la seleccionada (color, aviso, borrar)
+  function dibArmarBarras() {
+    if (DIB.bar) return;
+    const ico = {
+      h: '<path d="M3 12h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+      t: '<path d="M4 19 20 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="4" cy="19" r="2.2" fill="currentColor"/><circle cx="20" cy="5" r="2.2" fill="currentColor"/>',
+      r: '<path d="M4 19 21 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="4" cy="19" r="2.2" fill="currentColor"/><path d="m15 4 6 0 0 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+      z: '<rect x="4" y="7" width="16" height="10" rx="1.5" stroke="currentColor" stroke-width="2" fill="currentColor" fill-opacity=".18"/>',
+    };
+    const svg = (p) => `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">${p}</svg>`;
+    DIB.bar = el('div', 'ab-dib-bar'); DIB.bar.setAttribute('role', 'toolbar'); DIB.bar.setAttribute('aria-label', 'Herramientas de dibujo'); DIB.bar.hidden = true;
+    Object.keys(ico).forEach((k) => { const b = el('button', 'ab-dib-b'); b.type = 'button'; b.dataset.h = k; b.innerHTML = svg(ico[k]); b.title = DIB_NOM[k]; b.setAttribute('aria-label', DIB_NOM[k]); b.setAttribute('aria-pressed', 'false'); DIB.bar.append(b); });
+    const borrarT = el('button', 'ab-dib-b ab-dib-txt', 'Borrar todo'); borrarT.type = 'button'; borrarT.dataset.acc = 'todo';
+    const listo = el('button', 'ab-dib-b ab-dib-txt ab-dib-listo', 'Listo'); listo.type = 'button'; listo.dataset.acc = 'listo';
+    DIB.bar.append(el('span', 'ab-dib-sep'), borrarT, listo);
+    DIB.bar.addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.h) { DIB.herr = DIB.herr === b.dataset.h ? null : b.dataset.h; DIB.nuevo = null; DIB.espera = false; DIB.sel = null; dibPint(); return; }
+      if (b.dataset.acc === 'listo') { setDib(false); return; }
+      if (b.dataset.acc === 'todo') {
+        if (!dibLista().length) return;
+        if (b.dataset.seguro !== '1') { b.dataset.seguro = '1'; b.textContent = '¿Borrar todas?'; setTimeout(() => { b.dataset.seguro = ''; b.textContent = 'Borrar todo'; }, 2500); return; }
+        DIB.todos[MON()] = []; DIB.sel = null; dibGuardar(); b.dataset.seguro = ''; b.textContent = 'Borrar todo'; dibPint();
+      }
+    });
+    DIB.selBar = el('div', 'ab-dib-bar ab-dib-sel'); DIB.selBar.hidden = true; DIB.selBar.setAttribute('role', 'toolbar'); DIB.selBar.setAttribute('aria-label', 'Dibujo seleccionado');
+    DIB_COL.forEach((c) => { const b = el('button', 'ab-dib-col'); b.type = 'button'; b.dataset.col = c; b.style.background = c; b.setAttribute('aria-label', `Color ${c}`); DIB.selBar.append(b); });
+    const av = el('button', 'ab-dib-b ab-dib-txt', 'Avisar'); av.type = 'button'; av.dataset.acc = 'aviso'; av.title = 'Avisar cuando el precio toque la línea (una vez)';
+    const del = el('button', 'ab-dib-b ab-dib-txt', 'Borrar'); del.type = 'button'; del.dataset.acc = 'borrar';
+    DIB.selBar.append(el('span', 'ab-dib-sep'), av, del);
+    DIB.selBar.addEventListener('click', (e) => {
+      const b = e.target.closest('button'), d = dibSel(); if (!b || !d) return;
+      if (b.dataset.col) { d.col = b.dataset.col; DIB.ultCol = d.col; }
+      else if (b.dataset.acc === 'borrar') { DIB.todos[MON()] = dibLista().filter((x) => x !== d); DIB.sel = null; }
+      else if (b.dataset.acc === 'aviso') {
+        d.aviso = !d.aviso; delete DIB.lado[d.id];
+        if (d.aviso && 'Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
+      }
+      dibGuardar(); dibPint();
+    });
+  }
+  function dibBarra() {
+    if (!DIB.bar) return;
+    DIB.bar.hidden = !DIB.modo;
+    [...DIB.bar.querySelectorAll('[data-h]')].forEach((b) => b.setAttribute('aria-pressed', String(DIB.herr === b.dataset.h)));
+    const d = dibSel(); DIB.selBar.hidden = !d;
+    DIB.selBar.classList.toggle('ab-dib-sola', !DIB.modo);
+    if (d) {
+      [...DIB.selBar.querySelectorAll('[data-col]')].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.col === d.col)));
+      const av = DIB.selBar.querySelector('[data-acc="aviso"]'); av.hidden = d.tipo === 'z'; av.setAttribute('aria-pressed', String(!!d.aviso)); av.textContent = d.aviso ? 'Avisa' : 'Avisar';
+    }
+    if (DIB.box) { DIB.box.classList.toggle('is-dibujando', !!DIB.herr); DIB.box.style.touchAction = DIB.herr ? 'none' : ''; }
+  }
+  const dibBtn = document.getElementById('dib-btn');
+  function setDib(on) {
+    DIB.modo = on; if (!on) { DIB.herr = null; DIB.nuevo = null; DIB.espera = false; }
+    dibBtn.setAttribute('aria-pressed', String(on)); dibPint();
+  }
+  dibBtn.addEventListener('click', () => setDib(!DIB.modo));
+  // teclado: Escape cancela/suelta, Suprimir borra la seleccionada, D prende y apaga (antes que los otros atajos)
+  window.addEventListener('keydown', (e) => {
+    const tg = e.target || {}; if (/^(INPUT|TEXTAREA|SELECT)$/.test(tg.tagName || '') || tg.isContentEditable || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === 'Escape' && (DIB.herr || DIB.sel || DIB.modo)) {
+      if (DIB.nuevo || DIB.herr) { DIB.nuevo = null; DIB.espera = false; DIB.herr = null; } else if (DIB.sel) DIB.sel = null; else setDib(false);
+      dibPint(); e.stopImmediatePropagation(); e.preventDefault();
+    } else if ((e.key === 'Delete' || e.key === 'Backspace') && DIB.sel) {
+      DIB.todos[MON()] = dibLista().filter((x) => x.id !== DIB.sel); DIB.sel = null; dibGuardar(); dibPint(); e.preventDefault(); e.stopImmediatePropagation();
+    } else if (e.key.toLowerCase() === 'd' && (G.hoverBox || S.fs)) { setDib(!DIB.modo); e.preventDefault(); e.stopImmediatePropagation(); }
+  }, true);
+  function dibInput(box) {
+    dibArmarBarras(); DIB.box = box;
+    box.append(DIB.bar, DIB.selBar); dibBarra();
+    if (box.abDib) return;
+    box.abDib = true;
+    let drag = null;
+    const local = (e) => { const r = box.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+    const enPanel = (x, y) => { try { const ps = G.chart.paneSize(0); return x >= 0 && x <= ps.width && y >= 0 && y <= ps.height; } catch (err) { return false; } };
+    const tol = (e) => (e.pointerType === 'mouse' ? 7 : 16);
+    // un punto del grafico: hora de la vela mas cercana (tambien en el futuro) y el precio; con el iman, pegado a la vela
+    const punto = (x, y, e, libre) => {
+      const d = G.d, l = G.chart.timeScale().coordinateToLogical(x), p = G.c.coordinateToPrice(y);
+      if (l === null || p === null) return null;
+      const k = Math.round(l), b = k >= 0 && k < d.all.length ? d.all[k] : null;
+      const pp = !libre && b && S.iman !== !!(e.ctrlKey || e.metaKey) ? [b.o, b.h, b.l, b.c].reduce((m, v) => (Math.abs(Y(v) - y) < Math.abs(Y(m) - y) ? v : m)) : p;
+      return { t: d.t0 + k * d.tfMs, p: pp };
+    };
+    const terminar = () => {
+      const n = DIB.nuevo; DIB.nuevo = null; DIB.espera = false; DIB.herr = null;
+      if (n && (n.tipo === 'h' || n.a.t !== n.b.t || n.a.p !== n.b.p)) { dibLista().push(n); DIB.sel = n.id; dibGuardar(); }
+      dibPint();
+    };
+    box.addEventListener('pointerdown', (e) => {
+      if (!G.chart || !G.d || e.button !== 0 || S.medir || (e.target.closest && e.target.closest('.ab-dib-bar'))) return;
+      const [x, y] = local(e); if (!enPanel(x, y)) return;
+      const tomar = () => { e.preventDefault(); e.stopImmediatePropagation(); try { box.setPointerCapture(e.pointerId); } catch (err) { /* ya no esta */ } };
+      if (DIB.herr) {                                       // dibujando: el primer toque fija la punta (o el segundo, si fue un toque)
+        const pt = punto(x, y, e); if (!pt) return;
+        if (DIB.nuevo && DIB.espera) { DIB.nuevo.b = pt; drag = { k: 'crear', x, y }; tomar(); G.dib.update(); return; }
+        DIB.nuevo = { id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, tipo: DIB.herr, a: pt, b: { ...pt }, col: DIB.ultCol || DIB_COL[0], aviso: false };
+        drag = { k: 'crear', x, y }; tomar(); G.dib.update(); return;
+      }
+      const hit = dibHit(x, y, tol(e));
+      if (!hit) { if (DIB.sel) { DIB.sel = null; dibPint(); } return; }
+      DIB.sel = hit.d.id;
+      const d = hit.d;
+      drag = { k: hit.k, d, a0: { ...d.a }, b0: { ...d.b }, l0: G.chart.timeScale().coordinateToLogical(x), p0: G.c.coordinateToPrice(y), y0: Y(d.a.p) - y, movio: false };
+      tomar(); dibPint();
+    }, { capture: true });
+    const bloquear = (e) => { if (drag) { e.preventDefault(); e.stopImmediatePropagation(); } };
+    ['mousedown', 'touchstart', 'touchmove'].forEach((ev) => box.addEventListener(ev, bloquear, { capture: true, passive: false }));
+    window.addEventListener('pointermove', (e) => {
+      if (!G.chart || !G.d) return;
+      const [x, y] = local(e);
+      if (!drag) {
+        if (e.pointerType !== 'mouse') return;
+        if (DIB.nuevo && DIB.espera) { const pt = punto(x, y, e); if (pt) { DIB.nuevo.b = pt; G.dib.update(); } return; }
+        const h = !DIB.herr && enPanel(x, y) ? dibHit(x, y, 7) : null;
+        const c = DIB.herr ? 'crosshair' : h ? (h.k === 'cuerpo' ? 'move' : 'grab') : '';
+        if (box.style.cursor !== c && (c || box.dataset.dibCursor)) { box.style.cursor = c; box.dataset.dibCursor = c ? '1' : ''; }
+        return;
+      }
+      e.preventDefault();
+      if (drag.k === 'crear') {
+        const pt = punto(x, y, e); if (!pt) return;
+        if (DIB.nuevo.tipo === 'h') DIB.nuevo.a = pt; else DIB.nuevo.b = pt;
+        G.dib.update(); return;
+      }
+      const d = drag.d; drag.movio = true;
+      if (drag.k === 'cuerpo') {
+        const l = G.chart.timeScale().coordinateToLogical(x), p = G.c.coordinateToPrice(y);
+        if (l === null || p === null || drag.l0 === null || drag.p0 === null) return;
+        if (d.tipo === 'h') {                               // la horizontal se pega a la vela con el iman
+          const pt = punto(x, y + drag.y0, e); if (pt) d.a = { t: drag.a0.t, p: pt.p };
+        } else {
+          const dt = Math.round(l - drag.l0) * G.d.tfMs, dp = p - drag.p0;
+          d.a = { t: drag.a0.t + dt, p: drag.a0.p + dp }; d.b = { t: drag.b0.t + dt, p: drag.b0.p + dp };
+        }
+      } else {
+        const pt = punto(x, y, e); if (!pt) return;
+        if (drag.k === 'ab') { d.a = { t: pt.t, p: d.a.p }; d.b = { t: d.b.t, p: pt.p }; }
+        else if (drag.k === 'ba') { d.b = { t: pt.t, p: d.b.p }; d.a = { t: d.a.t, p: pt.p }; }
+        else d[drag.k] = pt;
+      }
+      delete DIB.lado[d.id];
+      G.dib.update();
+    }, { passive: false });
+    const soltar = () => {
+      if (!drag) return;
+      const k = drag.k; drag = null;
+      if (k === 'crear') {
+        const n = DIB.nuevo; if (!n) return;
+        // toque sin arrastrar en una de dos puntas: queda esperando la segunda (con el mouse se ve venir; en el celu, al tocar)
+        const sinMover = n.tipo !== 'h' && Math.abs(X(n.b.t) - X(n.a.t)) < 6 && Math.abs(Y(n.b.p) - Y(n.a.p)) < 6;
+        if (sinMover && !DIB.espera) { DIB.espera = true; G.dib.update(); return; }
+        terminar(); return;
+      }
+      dibGuardar(); dibPint();
+    };
+    window.addEventListener('pointerup', soltar);
+    window.addEventListener('pointercancel', soltar);
+  }
+  // aviso cuando el precio cruza una linea con la campanita (una vez; despues se apaga sola)
+  function dibAvisos(precio) {
+    if (!(precio > 0)) return;
+    const ahora = Date.now(); let cambio = false;
+    dibLista().forEach((d) => {
+      if (!d.aviso || d.tipo === 'z') return;
+      if (d.tipo !== 'h' && ahora < Math.min(d.a.t, d.b.t)) return;
+      const v = dibValor(d, ahora); if (!(v > 0)) return;
+      const lado = Math.sign(precio - v), antes = DIB.lado[d.id];
+      DIB.lado[d.id] = lado || antes;
+      if (antes === undefined || !lado || lado === antes) return;
+      d.aviso = false; cambio = true;
+      const txt = `${MON()} tocó tu ${DIB_NOM[d.tipo].toLowerCase()} en ${fp(v)}`;
+      avisoApp(txt, d.col);
+    });
+    if (cambio) { dibGuardar(); dibPint(); }
+  }
+  // un aviso en la app (y en el sistema si diste permiso; con voz si esta el modo radio)
+  function avisoApp(txt, col) {
+    let t = document.getElementById('ab-toast');
+    if (!t) { t = el('div', 'ab-toast'); t.id = 'ab-toast'; t.setAttribute('role', 'status'); document.body.append(t); }
+    t.textContent = txt; t.style.setProperty('--toast-col', col || 'var(--senal)'); t.classList.add('on');
+    clearTimeout(t.abT); t.abT = setTimeout(() => t.classList.remove('on'), 7000);
+    try { navigator.vibrate && navigator.vibrate([120, 60, 120]); } catch (e) { /* sin vibracion */ }
+    try {
+      const ac = new (window.AudioContext || window.webkitAudioContext)(), o = ac.createOscillator(), g = ac.createGain();
+      o.frequency.value = 880; g.gain.setValueAtTime(0.0001, ac.currentTime); g.gain.exponentialRampToValueAtTime(0.18, ac.currentTime + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.5);
+      o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime + 0.55); setTimeout(() => ac.close(), 800);
+    } catch (e) { /* sin sonido */ }
+    if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+      const n = { body: txt, icon: 'icono-192.png', tag: 'ab-dibujo' };
+      (navigator.serviceWorker && navigator.serviceWorker.controller ? navigator.serviceWorker.ready.then((r) => r.showNotification('Analista BTC', n)) : Promise.resolve(new Notification('Analista BTC', n))).catch(() => {});
+    }
+    if (window.abVoz) window.abVoz(txt);
   }
 
   // imagen del grafico (con las marcas, sin la mira) y una linea de encabezado; en el iPhone se comparte, en la compu se baja.
@@ -2847,6 +3196,7 @@
       tickVisible: () => false,
     });
     G.c.attachPrimitive(G.under); G.c.attachPrimitive(G.over);
+    G.dib = new Capa(drawDib, 'top'); G.c.attachPrimitive(G.dib);
     G.rsi = G.hist = G.macd = G.sig = null;
     if (S.layers.osc) {
       G.rsi = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => f1(v), minMove: 0.1 }, color: P.c2, lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false,
@@ -2881,6 +3231,7 @@
       if (!G.dibujando) botonPresente();               // mientras se redibuja, el rango pasa por estados intermedios
     });
     axisTouch(box);
+    dibInput(box);
     fibInput(box);
     medirInput(box);
     G.cdTimer = setInterval(() => {
@@ -3630,7 +3981,7 @@
       }
     }
     // ---- en vivo: solo mientras el panel esta abierto y a la vista (no gasta bateria ni datos con el panel cerrado)
-    function vivoCerrar() { VIVO.gen++; VIVO.socks.forEach((w) => { try { w.close(); } catch (e) { /* ya cerrado */ } }); VIVO.socks = []; clearInterval(VIVO.ping); $('lm-vivo-dot').classList.remove('on'); }
+    function vivoCerrar() { VIVO.gen++; clearInterval(VIVO.oiT); clearTimeout(VIVO.rec); VIVO.rec = 0; VIVO.socks.forEach((w) => { try { w.close(); } catch (e) { /* ya cerrado */ } }); VIVO.socks = []; clearInterval(VIVO.ping); $('lm-vivo-dot').classList.remove('on'); }
     function vivoAbrir() {
       vivoCerrar();
       const gen = VIVO.gen, mon = LM.mon, tf = LM.tf, sym = `${mon}USDT`, on = new Set();
@@ -3650,11 +4001,15 @@
       con('Binance', `wss://fstream.binance.com/stream?streams=${sym.toLowerCase()}@forceOrder/${sym.toLowerCase()}@kline_${tf}`, null, (j) => {
         const d = j.data || {};
         if (d.e === 'forceOrder') { const o = d.o; nueva(+o.T, o.S === 'SELL' ? 'l' : 's', +o.ap, +o.z * +o.ap, 'Binance'); }
-        else if (d.e === 'kline') vela(d.k);
+        else if (d.e === 'kline') { VIVO.kBin = Date.now(); vela(+d.k.t, +d.k.o, +d.k.h, +d.k.l, +d.k.c); }
       });
       // Bybit: todas las liquidaciones (cada 500 ms); "Buy" = se liquido un largo
-      con('Bybit', 'wss://stream.bybit.com/v5/public/linear', (w) => w.send(JSON.stringify({ op: 'subscribe', args: [`allLiquidation.${sym}`] })), (j) => {
-        (Array.isArray(j.data) ? j.data : []).forEach((x) => nueva(+x.T, x.S === 'Buy' ? 'l' : 's', +x.p, +x.v * +x.p, 'Bybit'));
+      // (y la vela en curso, por si Binance no llega desde donde estas)
+      const KB = { '5m': '5', '15m': '15', '1h': '60', '4h': '240', '1d': 'D' }[tf];
+      con('Bybit', 'wss://stream.bybit.com/v5/public/linear', (w) => w.send(JSON.stringify({ op: 'subscribe', args: [`allLiquidation.${sym}`, `kline.${KB}.${sym}`] })), (j) => {
+        if (!Array.isArray(j.data)) return;
+        if (/^kline/.test(j.topic || '')) { if (Date.now() - (VIVO.kBin || 0) > 5000) j.data.forEach((k) => vela(+k.start, +k.open, +k.high, +k.low, +k.close)); return; }
+        j.data.forEach((x) => nueva(+x.T, x.S === 'Buy' ? 'l' : 's', +x.p, +x.v * +x.p, 'Bybit'));
       });
       // OKX: todas las de los contratos perpetuos; se queda con las de esta moneda (contratos a USD con el tamano de contrato)
       const ct = LM.datos && LM.datos.moneda === mon ? LM.datos.okxCt : 0;
@@ -3662,12 +4017,37 @@
         (j.data || []).forEach((x) => { if (x.instId === `${mon}-USDT-SWAP`) (x.details || []).forEach((dd) => nueva(+dd.ts, dd.posSide === 'long' || (dd.posSide === 'net' && dd.side === 'sell') ? 'l' : 's', +dd.bkPx, +dd.sz * ct * +dd.bkPx, 'OKX')); });
       });
       // que no se corten por inactividad (Bybit y OKX piden ping)
+      // el open interest de ahora (Binance), cada minuto: lo que entra mientras miras tambien suma zonas nuevas
+      const oiAhora = async () => {
+        try {
+          const r = await fetch(`https://fapi.binance.com/fapi/v1/openInterest?symbol=${sym}`, { signal: AbortSignal.timeout(8000) }), j = await r.json();
+          const d = LM.datos; if (gen !== VIVO.gen || !d || d.moneda !== mon || !(+j.openInterest > 0)) return;
+          const pr = d.velas[d.velas.length - 1][4], serie = d.oi.binance || (d.oi.binance = []);
+          if (serie.length > 1) { serie.push([+j.time || Date.now(), +j.openInterest * pr]); programar(); }
+        } catch (e) { /* sin open interest en vivo: el mapa sigue con las velas */ }
+      };
+      clearInterval(VIVO.oiT); VIVO.oiT = setInterval(oiAhora, 60000); oiAhora();
       VIVO.ping = setInterval(() => VIVO.socks.forEach((w) => { if (w.readyState !== 1) return; if (/bybit/.test(w.url)) w.send('{"op":"ping"}'); else if (/okx/.test(w.url)) w.send('ping'); }), 20000);
     }
-    function vela(k) {
-      if (!LM.m || !LM.datos || LM.datos.tf !== LM.tf || LM.datos.moneda !== LM.mon) return;
-      const t = +k.t; if (t < LM.m.V[LM.m.V.length - 1][0]) return;
-      try { LM.serie.update({ time: t / 1000, open: +k.o, high: +k.h, low: +k.l, close: +k.c }); VIVO.t = t; } catch (e) { /* vela vieja */ }
+    // la vela en curso: se mueve al instante y el mapa se rehace cada pocos segundos con ella (lo que cruza se borra)
+    function vela(t, o, h, l, c) {
+      const d = LM.datos;
+      if (!LM.m || !d || d.tf !== LM.tf || d.moneda !== LM.mon || ![t, o, h, l, c].every(isFinite)) return;
+      const V = d.velas, ult = V[V.length - 1];
+      if (t < ult[0]) return;
+      if (t === ult[0]) V[V.length - 1] = [t, o, h, l, c]; else V.push([t, o, h, l, c]);
+      try { LM.serie.update({ time: t / 1000, open: o, high: h, low: l, close: c }); VIVO.t = t; } catch (e) { /* vela vieja */ }
+      programar();
+    }
+    function programar() { if (!VIVO.rec) VIVO.rec = setTimeout(refrescar, VIVO.cada || 2000); }
+    function refrescar() {
+      VIVO.rec = 0;
+      if (!LM.datos || !LM.serie || pan.hidden) return;
+      const t0 = performance.now();
+      LM.m = LiqMapa.simular(LM.datos, LM.niveles); LM.img = LiqMapa.imagen(LM.m, LM.minimo);
+      resumen(); perfil(); LM.serie.applyOptions({});
+      // en un telefono lento (o con 3x, que estira la grilla) se espacia: nunca mas del 5 % del tiempo rehaciendo
+      VIVO.cada = Math.min(10000, Math.max(2000, (performance.now() - t0) * 20));
     }
     function nueva(t, lado, p, u, ex) {
       if (!(p > 0) || !(u > 0) || !isFinite(t)) return;
@@ -3740,6 +4120,7 @@
 
   // un tick del WebSocket: mueve la ultima vela al instante, sin rehacer el grafico
   function liveTick() {
+    if (liveBar && liveBar.mon === MON()) dibAvisos(liveBar.c);
     if (!G.chart || !G.d || G.tf !== S.tf || !liveBar || liveBar.tf !== S.tf || liveBar.mon !== MON() || G.mon !== MON()) return;
     const t = T2(liveBar.t), d = G.d;
     if (liveBar.t < d.all[d.all.length - 1].t) return;
