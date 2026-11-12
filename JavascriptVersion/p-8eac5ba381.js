@@ -5024,7 +5024,33 @@
       item('osc', { background: `linear-gradient(90deg, ${P.c2} 50%, ${P.c0} 50%)` }, 'Paneles de abajo:',
         `RSI ${rTxt}; ${mTxt}. Las barras son la diferencia entre las dos líneas. Si hay divergencias, se marcan con la misma línea en el precio y en el indicador.`);
     }
-    document.getElementById('ex-n').textContent = leg.children.length || '';
+    const nAca = leg.children.length;
+    // en las otras temporalidades: todas las figuras, divergencias y patrones de velas que encontro el analisis.
+    // Tocar uno lleva el grafico a esa temporalidad (ahi se dibuja)
+    const otros = [];
+    if (L.patrones) ['5m', '15m', '30m', '1h', '4h', '1d', '1w', '1M'].filter((t2) => t2 !== tf).forEach((t2) => {
+      const ps = pick(rows, 'patron', t2);
+      ps.filter((p) => p.clase === 'grafico').forEach((p) => otros.push([t2, p.estado === 'confirmado' ? CC(colOf(p.sesgo)) : DD(colOf(p.sesgo)),
+        `${p.estado === 'confirmado' ? '✓' : 'Posible'} ${p.nombre.toLowerCase()}:`, p.descripcion]));
+      const dv = {};
+      pick(rows, 'divergencia', t2).forEach((v) => { const k = `${v.t1}-${v.t2}-${v.tipo}`; (dv[k] = dv[k] || { tipo: v.tipo, names: [], p1: num(v.p1), p2: num(v.p2) }).names.push(v.indicador); });
+      Object.values(dv).forEach((v) => otros.push([t2, CC(v.tipo === 'alcista' ? P.up : P.dn), `Divergencia ${v.tipo} (${v.names.join(' + ')}):`,
+        v.tipo === 'bajista' ? `el precio hizo un máximo más alto (${fp(v.p1)} → ${fp(v.p2)}) pero ${v.names.join(' y ')} no acompañó: la suba pierde fuerza.`
+          : `el precio hizo un mínimo más bajo (${fp(v.p1)} → ${fp(v.p2)}) pero ${v.names.join(' y ')} no acompañó: la baja pierde fuerza.`]));
+      ps.filter((p) => p.clase === 'vela').forEach((p) => otros.push([t2, CC(colOf(p.sesgo)), `Flechita · ${p.nombre}:`, p.descripcion]));
+    });
+    if (otros.length) {
+      leg.append(el('p', 'ab-ex-sub', 'En otras temporalidades (tocá para verlo en el gráfico)'));
+      otros.forEach(([t2, sw, title, text]) => {
+        const r = el('div', 'ab-ex-item ab-ex-link ab-ex-otro'), i = el('i'); Object.assign(i.style, sw);
+        const t = el('span'); t.append(el('em', 'ab-ex-tf', TF_TXT[t2] || t2), el('b', '', title), ' ', text); r.append(i, t);
+        r.setAttribute('role', 'button'); r.tabIndex = 0; r.title = `Ver en ${TF_TXT[t2] || t2}`;
+        const ir = () => setTf(t2);
+        r.addEventListener('click', ir); r.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
+        leg.append(r);
+      });
+    }
+    document.getElementById('ex-n').textContent = (nAca + otros.length) || '';
     document.getElementById('scen-note').textContent = ghosts.length || SIN_FUTURO ? '' : 'No hay suficientes situaciones parecidas para armar escenarios en esta temporalidad.';
 
     // que velas forman cada marca: se encienden al resaltarla
