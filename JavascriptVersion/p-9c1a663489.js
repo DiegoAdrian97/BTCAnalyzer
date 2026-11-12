@@ -146,6 +146,20 @@
   const card = document.getElementById('grafico'), fsBtn = document.getElementById('fs-btn');
   const exBox = document.getElementById('ex-box'), exFsBtn = document.getElementById('ex-fs-btn');
   let exAbierto = exBox.open;                     // como estaba "Que estas viendo" antes de la pantalla completa
+  // abierto fuera de pantalla completa: se extiende hacia abajo y el grafico conserva su alto (la escena deja de estar
+  // fija y la pagina se alarga, en vez de achicar el grafico)
+  // el alto del grafico con "Que estas viendo" cerrado (se va midiendo; al abrirlo ya se achico)
+  let altoGraf = 0;
+  if ('ResizeObserver' in window) new ResizeObserver(() => {
+    if (exBox.open || S.fs) return;
+    const c = document.getElementById('chart'), ch = c.getBoundingClientRect().height; if (ch > 120) altoGraf = ch + (parseFloat(getComputedStyle(c).marginTop) || 0);   // la fila incluye el margen
+  }).observe(document.getElementById('chart'));
+  function exLargo() {
+    const on = exBox.open && !S.fs, h = document.documentElement;
+    if (on && altoGraf) h.style.setProperty('--graf-fijo', `${Math.round(altoGraf)}px`);
+    h.classList.toggle('ab-ex-largo', on);
+  }
+  exBox.addEventListener('toggle', exLargo);
   const exPanel = (on) => { card.classList.toggle('ab-fs-ex', on); exFsBtn.setAttribute('aria-expanded', String(on)); };
   exFsBtn.addEventListener('click', () => exPanel(!card.classList.contains('ab-fs-ex')));
   // en pantalla completa el titulo no pliega el panel: en el celular lo cierra
@@ -163,6 +177,7 @@
     if (!on) exPanel(false);
     card.classList.toggle('ab-fs', on);
     document.documentElement.classList.toggle('ab-fs-on', on);
+    exLargo();
     fsBtn.setAttribute('aria-pressed', String(on));
     fsBtn.textContent = on ? '✕' : '⤢';
     fsBtn.setAttribute('aria-label', on ? 'Salir de pantalla completa' : 'Ver el gráfico en pantalla completa');
@@ -702,12 +717,28 @@
       if (lv.length) t += ` ${lv[0][1]} más cerca en ${num(lv[0][0])}.`;
       return t;
     }
-    function decir(t) {
+    // en un toque (activar o "Decir ahora") se habla en el momento: iOS solo habilita la voz asi. Despues, desde el
+    // reloj: se limpia la cola, se "despierta" el motor (Safari y Chrome lo dejan en pausa) y se habla un instante despues
+    // (cancelar y hablar seguido a veces se come la frase)
+    function decir(t, enToque) {
       if (!ok || !t) return;
       if (!R.voz) elegirVoz();
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(t); u.lang = R.voz ? R.voz.lang : 'es-AR'; if (R.voz) u.voice = R.voz; u.rate = 1.03;
-      speechSynthesis.speak(u); R.ult = Date.now();
+      const ss = speechSynthesis;
+      const hablar = () => {
+        const u = new SpeechSynthesisUtterance(t); u.lang = R.voz ? R.voz.lang : 'es-AR'; if (R.voz) u.voice = R.voz; u.rate = 1.03; u.volume = 1;
+        u.onstart = () => { R.empezo = Date.now(); estado(); };
+        u.onend = () => { R.empezo = 0; estado(); };
+        u.onerror = (e) => { R.empezo = 0; R.error = e.error || 'error'; estado(); };
+        R.error = null; ss.resume(); ss.speak(u); R.ult = Date.now(); estado();
+      };
+      if (ss.speaking || ss.pending) ss.cancel();
+      if (enToque) hablar(); else setTimeout(hablar, 120);
+    }
+    const hora = (ms) => new Date(ms).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'America/Argentina/Buenos_Aires' });
+    function estado() {
+      const e = document.getElementById('vigilia-est'); if (!e) return;
+      if (!R.on) { e.textContent = 'Pantalla prendida'; return; }
+      e.textContent = R.error ? `La voz no salió (${R.error})` : R.empezo ? 'Hablando…' : `Próxima: ${hora(R.ult + R.cada * 6e4)}`;
     }
     function anotar() {
       const rows = S.rows || [], c = rows.find((x) => x.tabla === 'central' && x.plazo === S.plazo) || {};
@@ -716,25 +747,31 @@
     // cada 15 s: si toca por tiempo, o cambio la direccion, o se movio 1 % desde lo ultimo que dijo
     function mirar() {
       if (!R.on || document.hidden) return;
+      estado();
       const rows = S.rows || [], c = rows.find((x) => x.tabla === 'central' && x.plazo === S.plazo) || {};
       const p = G.d && G.d.price;
       let motivo = null;
       if (R.dir && c.direccion && c.direccion !== R.dir) motivo = 'Cambió la dirección';
       else if (R.precio && p && Math.abs(p / R.precio - 1) >= 0.01) motivo = p > R.precio ? 'Subió más de uno por ciento' : 'Bajó más de uno por ciento';
       else if (Date.now() - R.ult >= R.cada * 6e4) motivo = '';
-      if (motivo === null || speechSynthesis.speaking) return;
+      if (motivo === null) return;
+      if (R.empezo && Date.now() - R.empezo < 30000) return;     // sigue hablando (si quedo trabada mas de 30 s, se corta)
       decir(texto(motivo)); anotar();
     }
-    const btn = document.getElementById('radio-btn'), sel = document.getElementById('radio-cada');
+    const btn = document.getElementById('radio-btn'), sel = document.getElementById('radio-cada'), ya = document.getElementById('radio-ya');
     if (!ok) { btn.hidden = true; sel.hidden = true; }
     function poner(v) {
-      R.on = v && ok; btn.setAttribute('aria-pressed', String(R.on)); sel.hidden = !R.on;
-      clearInterval(R.t);
-      if (R.on) { decir(texto('Modo radio')); anotar(); R.t = setInterval(mirar, 15000); }   // la primera, dentro del toque: iOS lo exige
+      R.on = v && ok; btn.setAttribute('aria-pressed', String(R.on)); sel.hidden = !R.on; ya.hidden = !R.on;
+      clearInterval(R.t); R.error = null; R.empezo = 0;
+      if (R.on) { decir(texto('Modo radio'), true); anotar(); R.t = setInterval(mirar, 5000); }   // la primera, dentro del toque: iOS lo exige
       else if (ok) speechSynthesis.cancel();
+      estado();
     }
     btn.addEventListener('click', () => poner(!R.on));
-    sel.addEventListener('change', () => { R.cada = +sel.value; });
+    ya.addEventListener('click', () => { decir(texto(''), true); anotar(); });
+    sel.addEventListener('change', () => { R.cada = +sel.value; estado(); });
+    // al volver a la app se reanuda el reloj (con la pantalla prendida no deberia pasar, pero si se bloqueo con el boton)
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && R.on) estado(); });
     if (ok) { elegirVoz(); speechSynthesis.addEventListener && speechSynthesis.addEventListener('voiceschanged', elegirVoz); }
     window.abVoz = (t) => { if (R.on) decir(t); };
     return { apagar: () => poner(false) };

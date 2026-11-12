@@ -909,6 +909,13 @@
   .ab-escena #grafico:not(.ab-fs) > #ex-box { grid-area: ex; margin-top: 6px; }
   .ab-escena #grafico:not(.ab-fs) > #scen-note:empty { display: none; }
   .ab-escena #grafico:not(.ab-fs) > #ex-box[open] { max-height: 38vh; overflow-y: auto; overscroll-behavior: contain; }
+  /* "Que estas viendo" abierto: crece hacia abajo; el grafico queda del alto que tenia y la pagina se alarga */
+  html.ab-ex-largo .ab-escena { position: relative; top: auto !important; height: auto !important; }
+  html.ab-ex-largo .ab-escena #grafico:not(.ab-fs) { flex: none; grid-template-rows: auto auto auto var(--graf-fijo, 420px) auto auto; }
+  html.ab-ex-largo .ab-escena #grafico:not(.ab-fs) > #ex-box[open] { max-height: none; overflow: visible; }
+  /* en el celu "Que estas viendo" comparte fila con los botones: abierto, el texto usa todo el ancho (debajo de ellos) */
+  @media (max-width: 599.98px) { html.ab-ex-largo .ab-escena #grafico:not(.ab-fs) > #ex-box[open] > :not(summary) {
+    width: calc(100vw - max(12px, env(safe-area-inset-left)) - max(12px, env(safe-area-inset-right))); max-width: none; } }
   .ab-escena #grafico:not(.ab-fs) > #scen-note { grid-area: note; }
   .ab-hoja { position: relative; background: var(--panel); display: grid; align-content: start; min-width: 0; }
   .ab-hoja > .ab-card { background: transparent; border: 0; border-radius: 0; box-shadow: none;
@@ -1463,4 +1470,5 @@
   @media (prefers-reduced-motion: reduce) { .ab-toast { transition: none; } }
   .ab-radio-btn { display: inline-flex; align-items: center; gap: 5px; }
   #radio-cada { font: inherit; font-size: 12.5px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--fg); padding: 4px 6px; }
-  #radio-cada[hidden] { display: none; }
+  #radio-cada[hidden], #radio-ya[hidden] { display: none; }
+  @media (max-width: 599.98px) { .ab-vigilia-bar { left: 12px; right: 12px; flex-wrap: wrap; justify-content: flex-end; border-radius: 18px; } .ab-vigilia-bar #vigilia-est { flex: 1 1 100%; } }

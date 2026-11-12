@@ -910,6 +910,13 @@
   .ab-escena #grafico:not(.ab-fs) > #ex-box { grid-area: ex; margin-top: 6px; }
   .ab-escena #grafico:not(.ab-fs) > #scen-note:empty { display: none; }
   .ab-escena #grafico:not(.ab-fs) > #ex-box[open] { max-height: 38vh; overflow-y: auto; overscroll-behavior: contain; }
+  /* "Que estas viendo" abierto: crece hacia abajo; el grafico queda del alto que tenia y la pagina se alarga */
+  html.ab-ex-largo .ab-escena { position: relative; top: auto !important; height: auto !important; }
+  html.ab-ex-largo .ab-escena #grafico:not(.ab-fs) { flex: none; grid-template-rows: auto auto auto var(--graf-fijo, 420px) auto auto; }
+  html.ab-ex-largo .ab-escena #grafico:not(.ab-fs) > #ex-box[open] { max-height: none; overflow: visible; }
+  /* en el celu "Que estas viendo" comparte fila con los botones: abierto, el texto usa todo el ancho (debajo de ellos) */
+  @media (max-width: 599.98px) { html.ab-ex-largo .ab-escena #grafico:not(.ab-fs) > #ex-box[open] > :not(summary) {
+    width: calc(100vw - max(12px, env(safe-area-inset-left)) - max(12px, env(safe-area-inset-right))); max-width: none; } }
   .ab-escena #grafico:not(.ab-fs) > #scen-note { grid-area: note; }
   .ab-hoja { position: relative; background: var(--panel); display: grid; align-content: start; min-width: 0; }
   .ab-hoja > .ab-card { background: transparent; border: 0; border-radius: 0; box-shadow: none;
@@ -1464,7 +1471,8 @@
   @media (prefers-reduced-motion: reduce) { .ab-toast { transition: none; } }
   .ab-radio-btn { display: inline-flex; align-items: center; gap: 5px; }
   #radio-cada { font: inherit; font-size: 12.5px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--fg); padding: 4px 6px; }
-  #radio-cada[hidden] { display: none; }
+  #radio-cada[hidden], #radio-ya[hidden] { display: none; }
+  @media (max-width: 599.98px) { .ab-vigilia-bar { left: 12px; right: 12px; flex-wrap: wrap; justify-content: flex-end; border-radius: 18px; } .ab-vigilia-bar #vigilia-est { flex: 1 1 100%; } }
 </style>
 
 <div class="ab ab-first ab-cargando" id="analista" data-source="analisis">
@@ -1877,6 +1885,7 @@
   <button type="button" class="ab-arriba" id="arriba-btn" aria-label="Volver arriba" title="Volver arriba"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   <div class="ab-vigilia-bar" id="vigilia-bar" hidden><span id="vigilia-est">Pantalla prendida</span>
     <button type="button" class="ab-chipbtn ab-radio-btn" id="radio-btn" aria-pressed="false" title="Modo radio: la app dice el precio y lo que ve cada tanto, y cuando cambia algo"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>Voz</button>
+    <button type="button" class="ab-chipbtn" id="radio-ya" hidden title="Decir ahora (también sirve para probar el volumen)">Decir ahora</button>
     <select id="radio-cada" aria-label="Cada cuánto habla" hidden><option value="5">cada 5 min</option><option value="15" selected>cada 15 min</option><option value="30">cada 30 min</option><option value="60">cada hora</option></select>
     <button type="button" class="ab-btn-pri" id="vigilia-salir">Salir</button></div>
   <dialog class="ab-dlg" id="bx-dlg" aria-labelledby="bx-dlg-t">
@@ -2050,6 +2059,20 @@
   const card = document.getElementById('grafico'), fsBtn = document.getElementById('fs-btn');
   const exBox = document.getElementById('ex-box'), exFsBtn = document.getElementById('ex-fs-btn');
   let exAbierto = exBox.open;                     // como estaba "Que estas viendo" antes de la pantalla completa
+  // abierto fuera de pantalla completa: se extiende hacia abajo y el grafico conserva su alto (la escena deja de estar
+  // fija y la pagina se alarga, en vez de achicar el grafico)
+  // el alto del grafico con "Que estas viendo" cerrado (se va midiendo; al abrirlo ya se achico)
+  let altoGraf = 0;
+  if ('ResizeObserver' in window) new ResizeObserver(() => {
+    if (exBox.open || S.fs) return;
+    const c = document.getElementById('chart'), ch = c.getBoundingClientRect().height; if (ch > 120) altoGraf = ch + (parseFloat(getComputedStyle(c).marginTop) || 0);   // la fila incluye el margen
+  }).observe(document.getElementById('chart'));
+  function exLargo() {
+    const on = exBox.open && !S.fs, h = document.documentElement;
+    if (on && altoGraf) h.style.setProperty('--graf-fijo', `${Math.round(altoGraf)}px`);
+    h.classList.toggle('ab-ex-largo', on);
+  }
+  exBox.addEventListener('toggle', exLargo);
   const exPanel = (on) => { card.classList.toggle('ab-fs-ex', on); exFsBtn.setAttribute('aria-expanded', String(on)); };
   exFsBtn.addEventListener('click', () => exPanel(!card.classList.contains('ab-fs-ex')));
   // en pantalla completa el titulo no pliega el panel: en el celular lo cierra
@@ -2067,6 +2090,7 @@
     if (!on) exPanel(false);
     card.classList.toggle('ab-fs', on);
     document.documentElement.classList.toggle('ab-fs-on', on);
+    exLargo();
     fsBtn.setAttribute('aria-pressed', String(on));
     fsBtn.textContent = on ? '✕' : '⤢';
     fsBtn.setAttribute('aria-label', on ? 'Salir de pantalla completa' : 'Ver el gráfico en pantalla completa');
@@ -2606,12 +2630,28 @@
       if (lv.length) t += ` ${lv[0][1]} más cerca en ${num(lv[0][0])}.`;
       return t;
     }
-    function decir(t) {
+    // en un toque (activar o "Decir ahora") se habla en el momento: iOS solo habilita la voz asi. Despues, desde el
+    // reloj: se limpia la cola, se "despierta" el motor (Safari y Chrome lo dejan en pausa) y se habla un instante despues
+    // (cancelar y hablar seguido a veces se come la frase)
+    function decir(t, enToque) {
       if (!ok || !t) return;
       if (!R.voz) elegirVoz();
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(t); u.lang = R.voz ? R.voz.lang : 'es-AR'; if (R.voz) u.voice = R.voz; u.rate = 1.03;
-      speechSynthesis.speak(u); R.ult = Date.now();
+      const ss = speechSynthesis;
+      const hablar = () => {
+        const u = new SpeechSynthesisUtterance(t); u.lang = R.voz ? R.voz.lang : 'es-AR'; if (R.voz) u.voice = R.voz; u.rate = 1.03; u.volume = 1;
+        u.onstart = () => { R.empezo = Date.now(); estado(); };
+        u.onend = () => { R.empezo = 0; estado(); };
+        u.onerror = (e) => { R.empezo = 0; R.error = e.error || 'error'; estado(); };
+        R.error = null; ss.resume(); ss.speak(u); R.ult = Date.now(); estado();
+      };
+      if (ss.speaking || ss.pending) ss.cancel();
+      if (enToque) hablar(); else setTimeout(hablar, 120);
+    }
+    const hora = (ms) => new Date(ms).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'America/Argentina/Buenos_Aires' });
+    function estado() {
+      const e = document.getElementById('vigilia-est'); if (!e) return;
+      if (!R.on) { e.textContent = 'Pantalla prendida'; return; }
+      e.textContent = R.error ? `La voz no salió (${R.error})` : R.empezo ? 'Hablando…' : `Próxima: ${hora(R.ult + R.cada * 6e4)}`;
     }
     function anotar() {
       const rows = S.rows || [], c = rows.find((x) => x.tabla === 'central' && x.plazo === S.plazo) || {};
@@ -2620,25 +2660,31 @@
     // cada 15 s: si toca por tiempo, o cambio la direccion, o se movio 1 % desde lo ultimo que dijo
     function mirar() {
       if (!R.on || document.hidden) return;
+      estado();
       const rows = S.rows || [], c = rows.find((x) => x.tabla === 'central' && x.plazo === S.plazo) || {};
       const p = G.d && G.d.price;
       let motivo = null;
       if (R.dir && c.direccion && c.direccion !== R.dir) motivo = 'Cambió la dirección';
       else if (R.precio && p && Math.abs(p / R.precio - 1) >= 0.01) motivo = p > R.precio ? 'Subió más de uno por ciento' : 'Bajó más de uno por ciento';
       else if (Date.now() - R.ult >= R.cada * 6e4) motivo = '';
-      if (motivo === null || speechSynthesis.speaking) return;
+      if (motivo === null) return;
+      if (R.empezo && Date.now() - R.empezo < 30000) return;     // sigue hablando (si quedo trabada mas de 30 s, se corta)
       decir(texto(motivo)); anotar();
     }
-    const btn = document.getElementById('radio-btn'), sel = document.getElementById('radio-cada');
+    const btn = document.getElementById('radio-btn'), sel = document.getElementById('radio-cada'), ya = document.getElementById('radio-ya');
     if (!ok) { btn.hidden = true; sel.hidden = true; }
     function poner(v) {
-      R.on = v && ok; btn.setAttribute('aria-pressed', String(R.on)); sel.hidden = !R.on;
-      clearInterval(R.t);
-      if (R.on) { decir(texto('Modo radio')); anotar(); R.t = setInterval(mirar, 15000); }   // la primera, dentro del toque: iOS lo exige
+      R.on = v && ok; btn.setAttribute('aria-pressed', String(R.on)); sel.hidden = !R.on; ya.hidden = !R.on;
+      clearInterval(R.t); R.error = null; R.empezo = 0;
+      if (R.on) { decir(texto('Modo radio'), true); anotar(); R.t = setInterval(mirar, 5000); }   // la primera, dentro del toque: iOS lo exige
       else if (ok) speechSynthesis.cancel();
+      estado();
     }
     btn.addEventListener('click', () => poner(!R.on));
-    sel.addEventListener('change', () => { R.cada = +sel.value; });
+    ya.addEventListener('click', () => { decir(texto(''), true); anotar(); });
+    sel.addEventListener('change', () => { R.cada = +sel.value; estado(); });
+    // al volver a la app se reanuda el reloj (con la pantalla prendida no deberia pasar, pero si se bloqueo con el boton)
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && R.on) estado(); });
     if (ok) { elegirVoz(); speechSynthesis.addEventListener && speechSynthesis.addEventListener('voiceschanged', elegirVoz); }
     window.abVoz = (t) => { if (R.on) decir(t); };
     return { apagar: () => poner(false) };
