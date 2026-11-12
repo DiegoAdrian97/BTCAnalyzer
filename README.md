@@ -269,6 +269,13 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
   Bybit si Binance no llega) y el open interest de Binance cada minuto entran a la simulación, que se rehace cada 2 s o
   más (se espacia sola si el teléfono tarda: nunca más del 5 % del tiempo), sin perder el zoom; lo que el precio cruza se
   borra y lo que entra suma zonas. Al cerrar el panel o salir de la app se desconecta.
+- **Abanico de caminos** (capa "Abanico"): lo que pasó después en los casos realmente parecidos al de ahora, con las
+  velas que la app ya guarda en el teléfono (sin red). Un caso entra solo si cumple todo: forma de las últimas 36 velas
+  medida en volatilidad (correlación ≥ 0,94 y error ≤ 0,25), las últimas 8 velas con error ≤ 0,2, volatilidad relativa
+  ±35 % y mismo lado de la EMA 200; sin solaparse. Con menos de 8 no se dibuja (y no se aflojan los criterios). Cada
+  camino se lleva a la volatilidad de hoy; verde/rojo si subió/bajó más que la mitad de los movimientos de ese horizonte,
+  y se compara con lo que pasa en cualquier momento (solo dice que se aparta si z ≥ 2). Prueba: `node pruebas/abanico.js`
+  (al azar no encuentra casos; una forma plantada 12 veces sí, y detecta que se aparta).
 - **Dibujar** (botón del lápiz, tecla D): línea horizontal, de tendencia, rayo y zona, como en TradingView. Se dibuja
   arrastrando o con dos toques (con el imán, las puntas se pegan a la vela); tocando un dibujo se selecciona: se mueve,
   se estira de las puntas, cambia de color, se borra (o Suprimir) y las líneas pueden **avisar** cuando el precio las

@@ -1566,6 +1566,7 @@
           <button type="button" class="ab-chipbtn" data-layer="osc" aria-pressed="true"><i style="background: var(--ab-c2)"></i>RSI · MACD</button>
           <button type="button" class="ab-chipbtn" data-layer="plan" aria-pressed="true" hidden><i style="background: var(--color-fg)"></i>Mi plan</button>
           <button type="button" class="ab-chipbtn" data-layer="opc" aria-pressed="true"><i style="background: var(--ab-c2)"></i>Opciones</button>
+          <button type="button" class="ab-chipbtn" data-layer="abanico" aria-pressed="true" title="Lo que pasó después en los casos realmente parecidos al de ahora"><i style="background: linear-gradient(90deg, var(--color-ok), var(--color-bad))"></i>Abanico</button>
         </div>
         <div class="ab-zoom" role="group" aria-label="Zoom del gráfico">
           <span class="ab-zoom-g"><button type="button" class="ab-iconbtn ab-round" data-zoom="out" aria-label="Ver más velas">−</button>
@@ -1955,7 +1956,7 @@
   const LINEA_K = 'ab-grafico-linea';
   const lineaGuardada = (() => { try { return localStorage.getItem(LINEA_K) === '1'; } catch (e) { return false; } })();
   const S = { linea: lineaGuardada, plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
-    layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, fib: true, liq: true, osc: true, plan: true, opc: true }, log: false, medir: false, iman: false };
+    layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, fib: true, liq: true, osc: true, plan: true, opc: true, abanico: true }, log: false, medir: false, iman: false };
   const defBars = () => (window.innerWidth < 600 ? 50 : 90);  // en el telefono, menos para que se lean
   S.nbars = defBars();
   // en el celu arranca con lo esencial (velas, medias, patrones y liquidaciones); el resto se prende en "Capas"
@@ -4466,6 +4467,129 @@
   }
   const colOf = (s) => (s === 'alcista' ? G.P.up : s === 'bajista' ? G.P.dn : G.P.warn);
 
+  // ---------- abanico de caminos: lo que paso despues en los casos REALMENTE parecidos al de ahora ----------
+  // Usa las velas que la app ya guarda en el telefono (las del analisis: 30 dias en 5m ... 4 años en el diario; sin
+  // pedir nada a la red). Un caso entra solo si cumple TODO a la vez (sin aflojar si son pocos):
+  //   forma de las ultimas W velas (medida en volatilidad): correlacion >= 0,94 y error <= 0,25; las ultimas 8 velas
+  //   (el impulso de ahora) con error <= 0,2; volatilidad relativa parecida (±35 %) y del mismo lado de la EMA 200.
+  // Casos sin solaparse (separados al menos el horizonte). Con menos de 8, no se dibuja nada.
+  // Los caminos se llevan a la volatilidad de hoy. "Subio/bajo fuerte" = mas que la mitad de los movimientos de ese
+  // horizonte en toda la historia; se compara con lo que pasa en cualquier momento y solo se marca si se aparta (z >= 2).
+  const ABA = { key: null, res: null, corre: null };
+  const ABA_W = 36, ABA_MIN = 8, ABA_MAX = 30;
+  function abaLeerVelas(mon, tf) {
+    const pre = mon === 'BTC' ? '' : `${mon}USDT:`;
+    const claves = ['binance', 'bybit', 'bitget'].flatMap((s) => [`${pre}velas:${s}:${tf}`].concat(tf === '1d' ? [`${pre}velas:${s}:${tf}:largo`] : []));
+    return new Promise((ok) => {
+      let req; try { req = indexedDB.open('analista-btc', 1); } catch (e) { ok([]); return; }
+      req.onupgradeneeded = () => { try { req.result.createObjectStore('kv'); } catch (e) { /* ya estaba */ } };
+      req.onerror = () => ok([]);
+      req.onsuccess = () => {
+        const db = req.result, out = [];
+        let tx; try { tx = db.transaction('kv'); } catch (e) { ok([]); return; }
+        claves.forEach((k) => { const q = tx.objectStore('kv').get(k); q.onsuccess = () => { if (Array.isArray(q.result)) out.push(q.result); }; });
+        tx.oncomplete = () => { db.close(); ok(out.sort((a, b) => b.length - a.length)[0] || []); };
+        tx.onerror = () => ok([]);
+      };
+    });
+  }
+  function abaCalcular(V, H) {
+    const n = V.length, W = ABA_W, R8 = 8;
+    if (n < W + H + 300) return { n, casos: [], falta: true };
+    const lc = V.map((b) => Math.log(b[4])), r = new Float64Array(n);
+    for (let i = 1; i < n; i++) r[i] = lc[i] - lc[i - 1];
+    const s1 = new Float64Array(n + 1), s2 = new Float64Array(n + 1);
+    for (let i = 0; i < n; i++) { s1[i + 1] = s1[i] + r[i]; s2[i + 1] = s2[i] + r[i] * r[i]; }
+    const sig = new Float64Array(n);
+    for (let i = W; i < n; i++) { const m = (s1[i + 1] - s1[i + 1 - W]) / W; sig[i] = Math.sqrt(Math.max(1e-12, (s2[i + 1] - s2[i + 1 - W]) / W - m * m)); }
+    // volatilidad relativa: la de la ventana contra el promedio de las 300 velas anteriores
+    const sg = new Float64Array(n + 1); for (let i = 0; i < n; i++) sg[i + 1] = sg[i] + sig[i];
+    const vrel = (i) => sig[i] / Math.max(1e-12, (sg[i + 1] - sg[i + 1 - 300]) / 300);
+    const ema = new Float64Array(n); const a = 2 / 201; ema[0] = V[0][4]; for (let i = 1; i < n; i++) ema[i] = ema[i - 1] + a * (V[i][4] - ema[i - 1]);
+    const camino = (i) => { const d = sig[i] * Math.sqrt(W), o = new Float64Array(W); for (let k = 0; k < W; k++) o[k] = (lc[i - W + 1 + k] - lc[i]) / d; return o; };
+    const cur = n - 1, pc = camino(cur), vc = vrel(cur), ladoC = Math.sign(V[cur][4] - ema[cur]);
+    let mC = 0; for (let k = 0; k < W; k++) mC += pc[k]; mC /= W;
+    let vC = 0; for (let k = 0; k < W; k++) vC += (pc[k] - mC) ** 2;
+    const cand = [];
+    for (let i = W + 300; i <= n - 1 - H; i++) {
+      if (Math.sign(V[i][4] - ema[i]) !== ladoC) continue;
+      if (Math.abs(Math.log(vrel(i) / vc)) > Math.log(1.35)) continue;
+      const p = camino(i);
+      let e2 = 0, e8 = 0, m = 0; for (let k = 0; k < W; k++) { const d = p[k] - pc[k]; e2 += d * d; if (k >= W - R8) e8 += d * d; m += p[k]; }
+      const rm = Math.sqrt(e2 / W); if (rm > 0.25 || Math.sqrt(e8 / R8) > 0.2) continue;
+      m /= W; let cv = 0, vp = 0; for (let k = 0; k < W; k++) { cv += (p[k] - m) * (pc[k] - mC); vp += (p[k] - m) ** 2; }
+      const corr = cv / Math.sqrt(vp * vC || 1e-12); if (corr < 0.94) continue;
+      cand.push({ i, rm, corr });
+    }
+    cand.sort((x, y) => x.rm - y.rm);
+    const casos = [];
+    for (const c of cand) { if (casos.length >= ABA_MAX) break; if (casos.every((o) => Math.abs(o.i - c.i) >= H)) casos.push(c); }
+    // lo que paso despues, llevado a la volatilidad de hoy; y lo normal en cualquier momento (toda la historia)
+    const esc = (i) => sig[cur] / sig[i];
+    casos.forEach((c) => { const f = esc(c.i); c.t = V[c.i][0]; c.camino = Array.from({ length: H }, (_, k) => (lc[c.i + k + 1] - lc[c.i]) * f); c.fin = c.camino[H - 1]; });
+    const finales = []; for (let i = W + 300; i <= n - 1 - H; i += 2) finales.push((lc[i + H] - lc[i]) * esc(i));
+    const abs = finales.map(Math.abs).sort((x, y) => x - y), M = abs[Math.floor(abs.length / 2)] || 0;
+    const base = { sube: finales.filter((x) => x > M).length / finales.length, baja: finales.filter((x) => x < -M).length / finales.length };
+    const k = casos.length, sube = casos.filter((c) => c.fin > M).length / (k || 1), baja = casos.filter((c) => c.fin < -M).length / (k || 1);
+    const z = (p, p0) => (p - p0) / Math.sqrt(Math.max(1e-9, p0 * (1 - p0) / Math.max(1, k)));
+    const mediana = Array.from({ length: H }, (_, j) => { const v = casos.map((c) => c.camino[j]).sort((x, y) => x - y); return v.length ? v[Math.floor(v.length / 2)] : 0; });
+    return { n, desde: V[0][0], casos, M, base, sube, baja, zSube: z(sube, base.sube), zBaja: z(baja, base.baja), mediana, base0: V[cur][4], t0: V[cur][0],
+      parecido: k ? casos.reduce((s, c) => s + c.corr, 0) / k : 0 };
+  }
+  // se pide al dibujar: si cambio el activo, la temporalidad o cerro una vela, se recalcula (sin trabar: despues del dibujo)
+  function abaPedir(tf) {
+    if (!S.layers.abanico || !G.d || ['1w', '1M'].includes(tf)) return;
+    const H = Math.max(4, Math.min(48, G.d.futN || 12)), lastT = G.d.all[G.d.all.length - 1].t, key = `${MON()}|${tf}|${H}|${lastT}`;
+    if (ABA.key === key || ABA.corre === key) return;
+    ABA.corre = key;
+    const mon = MON();
+    abaLeerVelas(mon, tf).then((V) => new Promise((ok) => setTimeout(() => ok(V), 30))).then((V) => {
+      if (ABA.corre !== key) return;
+      const res = V.length ? abaCalcular(V, H) : { n: 0, casos: [], falta: true };
+      res.tf = tf; res.mon = mon; res.H = H; res.tfMs = G.d.tfMs;
+      ABA.res = res; ABA.key = key; ABA.corre = null;
+      if (S.rows && S.layers.abanico) drawChart(S.rows, S.sum);
+    }).catch(() => { ABA.corre = null; });
+  }
+  const abaVigente = (tf) => S.layers.abanico && ABA.res && ABA.res.mon === MON() && ABA.res.tf === tf && ABA.res.casos.length >= ABA_MIN;
+  function dibAbanico(ctx, w, h, tf) {
+    if (!abaVigente(tf)) return;
+    const a = ABA.res, P = G.P, x0 = X(a.t0), y0 = Y(a.base0); if (x0 === null || y0 === null) return;
+    const xk = (k) => X(a.t0 + (k + 1) * a.tfMs);
+    ctx.save(); ctx.lineJoin = 'round'; ctx.globalAlpha = dimA('abanico');
+    a.casos.forEach((c) => {
+      const col = c.fin > a.M ? P.up : c.fin < -a.M ? P.dn : P.mute;
+      ctx.beginPath(); ctx.moveTo(x0, y0);
+      c.camino.forEach((v, k) => { const x = xk(k), y = Y(a.base0 * Math.exp(v)); if (x !== null && y !== null) ctx.lineTo(x, y); });
+      ctx.strokeStyle = alpha(col, 0.42); ctx.lineWidth = 1.1; ctx.stroke();
+    });
+    ctx.beginPath(); ctx.moveTo(x0, y0);
+    a.mediana.forEach((v, k) => { const x = xk(k), y = Y(a.base0 * Math.exp(v)); if (x !== null && y !== null) ctx.lineTo(x, y); });
+    ctx.setLineDash([5, 4]); ctx.strokeStyle = alpha(P.fg, 0.85); ctx.lineWidth = 1.8; ctx.stroke(); ctx.setLineDash([]);
+    // la etiqueta, arriba del abanico donde termina lo que se ve (con poco futuro a la vista, igual queda legible)
+    let kv = -1; for (let k = 0; k < a.H; k++) { const x = xk(k); if (x !== null && x <= w - 2) kv = k; }
+    if (kv >= 0) {
+      let yTop = Infinity; a.casos.forEach((c) => { const y = Y(a.base0 * Math.exp(c.camino[kv])); if (y !== null) yTop = Math.min(yTop, y); });
+      const pc = (x) => `${Math.round(x * 100)}%`;
+      if (isFinite(yTop)) pillC(ctx, xk(kv), Math.max(14, Math.min(h - 14, yTop - 14)), `${a.casos.length} casos · ↑${pc(a.sube)} ↓${pc(a.baja)}`, P.fg, true, 'end', w);
+    }
+    ctx.restore();
+  }
+  function abaLeyenda(tf) {
+    if (!S.layers.abanico || ['1w', '1M'].includes(tf)) return null;
+    const a = ABA.res;
+    if (!a || a.mon !== MON() || a.tf !== tf) return ['Abanico de caminos:', 'buscando casos realmente parecidos en las velas guardadas…'];
+    const dias = a.n ? Math.round((a.t0 - a.desde) / 864e5) : 0;
+    if (a.falta) return ['Abanico de caminos:', 'todavía no hay suficientes velas guardadas de esta temporalidad para buscar casos parecidos.'];
+    if (a.casos.length < ABA_MIN) return ['Abanico de caminos:', `en ${dias} días de historia hay ${a.casos.length === 0 ? 'ningún caso' : a.casos.length === 1 ? 'un solo caso' : `solo ${a.casos.length} casos`} realmente parecido${a.casos.length === 1 ? '' : 's'} al de ahora (hacen falta ${ABA_MIN}): no se dibuja, y no se aflojan los criterios para llegar.`];
+    const pc = (x) => `${Math.round(x * 100)}%`, mv = `${f1(a.M * 100)}%`;
+    const dif = a.zSube >= 2 ? `subieron fuerte más que lo normal (${pc(a.sube)} contra ${pc(a.base.sube)} en cualquier momento)`
+      : a.zBaja >= 2 ? `bajaron fuerte más que lo normal (${pc(a.baja)} contra ${pc(a.base.baja)} en cualquier momento)`
+        : `no se apartan de lo normal: ${pc(a.sube)} subió fuerte y ${pc(a.baja)} bajó fuerte (en cualquier momento: ${pc(a.base.sube)} y ${pc(a.base.baja)})`;
+    const fechas = a.casos.slice().sort((x, y) => y.t - x.t).slice(0, 4).map((c) => new Date(c.t).toLocaleDateString('es-AR', { ...tz, day: 'numeric', month: 'short', year: '2-digit' }));
+    return ['Abanico de caminos:', `lo que pasó en las ${a.H} velas siguientes en los ${a.casos.length} casos realmente parecidos de ${dias} días (forma de las últimas ${ABA_W} velas, impulso reciente, volatilidad y lado de la EMA 200; parecido promedio ${Math.round(a.parecido * 100)}%), llevados a la volatilidad de hoy. Verde: subió más de ${mv}; rojo: bajó más de ${mv}; gris: en el medio; la línea a rayas es la mediana. Esos casos ${dif}. Los más recientes: ${fechas.join(', ')}.`];
+  }
+
   // debajo de las velas: zona del futuro, hora del plazo, Bollinger, FVG y el cono de lo que suele pasar
   function drawUnder(ctx, w, h) {
     const d = G.d, P = G.P, L = S.layers;
@@ -4536,6 +4660,7 @@
         ctx.globalAlpha = 1;
       }
     }
+    dibAbanico(ctx, w, h, S.tf);
   }
 
   // encima de las velas: figuras, divergencias, ondas de Elliott y el mapa de liquidaciones al costado
@@ -6242,6 +6367,7 @@
     requestAnimationFrame(botonPresente);
     legend(null);
     G.under.update(); G.over.update();
+    abaPedir(tf);
 
     // que estas viendo: una linea por cada cosa dibujada, solo de las capas activas
     const leg = document.getElementById('legend'); leg.replaceChildren();
@@ -6282,6 +6408,7 @@
       'el "dolor máximo" de las opciones del viernes: el precio donde más opciones vencen sin valor. Cerca del vencimiento a veces atrae al precio; es contexto, no una predicción.');
     if (d.plan) item('plan', DD(P.fg), 'Tu plan (líneas grises con nombre):',
       'compras que faltan (rayada: orden puesta; punteada: falta cargarla), tu precio promedio, la próxima toma de ganancias y la liquidación aproximada.');
+    { const ab = abaLeyenda(tf); if (ab) item('abanico', DD(P.fg), ab[0], ab[1]); }
     if (ghosts.length) item('futuro', DD(P.mute), 'Velas transparentes a la derecha:',
       `un camino real del ${ghosts[0].desde.split('-').reverse().join('/')}, cuando ${MON()} estaba en una situación parecida, llevado al precio de hoy. La zona gris es donde terminó el 80% de esos casos y la línea vertical, la hora del plazo elegido.`);
     if (L.ondas && giros.some((g) => g.w)) item('ondas', { background: 'transparent', border: `1.5px solid ${P.fg}`, borderRadius: '50%', width: '10px', height: '10px' },
