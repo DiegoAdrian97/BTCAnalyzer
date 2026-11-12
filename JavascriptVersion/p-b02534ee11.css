@@ -1563,3 +1563,5 @@
   .ab-ord-ojo[aria-pressed="false"] { color: var(--mute); }
   .ab-ord-pie { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 8px; }
   @media (max-width: 599.98px) { .ab-orden { width: auto; max-height: 88svh; } }
+  .ab-credito { font-size: 11px; opacity: .7; }
+  #cmp-foot-bx:empty, #pos-bx-nota:empty, #qp-note:empty { display: none !important; }

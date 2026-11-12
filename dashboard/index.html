@@ -1564,6 +1564,8 @@
   .ab-ord-ojo[aria-pressed="false"] { color: var(--mute); }
   .ab-ord-pie { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 8px; }
   @media (max-width: 599.98px) { .ab-orden { width: auto; max-height: 88svh; } }
+  .ab-credito { font-size: 11px; opacity: .7; }
+  #cmp-foot-bx:empty, #pos-bx-nota:empty, #qp-note:empty { display: none !important; }
 </style>
 
 <div class="ab ab-first ab-cargando" id="analista" data-source="analisis">
@@ -1726,8 +1728,8 @@
     <div class="ab-card-head"><div><span class="ab-kicker">Tu plan · longs a 5x en BingX</span><h2 id="cmp-t">Próximas compras</h2></div>
       <span class="ab-kicker" id="cmp-hora">—</span></div>
     <div class="ab-cmp-grid" id="cmp-body"></div>
-    <p class="ab-foot" id="cmp-foot-bx" hidden>Tus órdenes límite de compra abiertas en BingX (solo lectura, cada minuto): precio, valor y cantidad son los de BingX. Cuando una se ejecuta, desaparece de acá y tu posición crece en Mis posiciones.</p>
-    <p class="ab-foot" id="cmp-foot-plan">Valor de la orden: lo que escribís en BingX a 5x (descuenta un quinto). Margen extra: lo que agregás con el ⊕ después. Con BingX conectado, las pendientes son tus órdenes límite de compra en BingX (precio y valor reales) y "Se ejecutó" sale de que tu posición creció; sin conectar, de los precios desde que armaste el plan.</p>
+    <p class="ab-foot" id="cmp-foot-bx" hidden></p>
+    <p class="ab-foot" id="cmp-foot-plan">Valor de la orden: lo que escribís en BingX a 5x (descuenta un quinto). Margen extra: lo que agregás con el ⊕ después.</p>
   </section>
 
   <section class="ab-card" id="posiciones" aria-labelledby="pos-t" hidden>
@@ -1740,8 +1742,8 @@
       <div class="ab-pos-total-por" id="pnl-por"></div>
     </div>
     <div class="ab-cmp-grid" id="pos-body"></div>
-    <p class="ab-foot" id="pos-bx-nota" hidden>Tus posiciones abiertas en BingX (solo lectura, cada minuto): cantidad, entrada, margen, liquidación y resultado son los de BingX; el equilibrio cuenta sus comisiones. "Órdenes pendientes" son tus órdenes límite de compra: la liquidación con todo ejecutado las suma. La toma de ganancias y el piramidado siguen las reglas de tu plan.</p>
-    <p class="ab-foot" id="pos-foot-plan">Se recalcula cada 15 segundos con el precio de ahora. Parte de lo que ya tenías abierto en BingX (cargado del 01/11: cantidad, entrada y margen) y le suma las compras del plan que se ejecuten desde ahí. La liquidación es aproximada (mantenimiento 0,4% BTC, 1% el resto): la exacta la muestra BingX. Precio de equilibrio: la entrada con las comisiones de BingX (y el funding pagado), como el de BingX. Toma de ganancias: cada +40% sobre tu equilibrio, pasar 25% de la posición a spot. Piramidar: cuando sube 15% sobre tu equilibrio, cuánto podés sumar sin plata nueva con la liquidación como mucho en 75% de tu compra más baja.</p>
+    <p class="ab-foot" id="pos-bx-nota" hidden></p>
+    <p class="ab-foot" id="pos-foot-plan">Precio de equilibrio: la entrada con las comisiones de BingX (y el funding pagado), como el de BingX. Toma de ganancias: cada +40% sobre tu equilibrio, pasar 25% de la posición a spot. Piramidar: cuando sube 15% sobre tu equilibrio, cuánto podés sumar sin plata nueva con la liquidación como mucho en 75% de tu compra más baja.</p>
     <details class="ab-widget" id="widget-ios">
       <summary>Widget de iPhone: capital y PnL en la pantalla de inicio o de bloqueo</summary>
       <ol>
@@ -1836,7 +1838,7 @@
     <button type="button" class="ab-more ab-lm-entrada" id="lm-abrir"><span>Mapa de liquidaciones</span><span class="ab-kicker">20 criptos · 5m a 1D</span></button>
     <details class="ab-more" id="calendario" data-source="analisis">
       <summary><span>Calendario: lo que viene</span><span class="ab-kicker" id="cal-prox"></span></summary>
-      <div class="ab-more-body"><p class="ab-note">Horario de Argentina (GMT-3). Datos de EE.UU. de importancia alta y lo propio de las criptos (vencimientos de opciones y cierres de vela).</p><div class="ab-cal-list" id="cal-list"></div></div>
+      <div class="ab-more-body"><p class="ab-note">Horario de Argentina (GMT-3).</p><div class="ab-cal-list" id="cal-list"></div></div>
     </details>
     <details class="ab-more" id="probabilidades" data-source="analisis">
       <summary><span>Probabilidad de tocar cada precio</span><span class="ab-kicker" id="prob-tf"></span></summary>
@@ -1854,7 +1856,6 @@
         <div class="ab-tiles" id="tiles"></div>
         <div class="ab-card-head"><span class="ab-kicker">Libros de órdenes ±0,1%</span><span class="ab-kicker">← ventas · compras →</span></div>
         <div class="ab-books" id="books"></div>
-        <p class="ab-note">Son órdenes esperando, no posiciones: pueden retirarse. BingX no entra en el total porque publica mucho más volumen que el resto.</p>
       </div>
     </details>
     <details class="ab-more" id="niveles" data-source="analisis">
@@ -1873,13 +1874,13 @@
         <span class="ab-target" id="wave-target"></span>
         <span class="ab-kicker">Zonas FVG sin llenar</span>
         <div class="ab-fvgs" id="fvgs"></div>
-        <p class="ab-note">Las figuras y el conteo de Elliott se detectan solos sobre los giros del precio: son lecturas posibles, no las únicas. Un FVG es un hueco que el precio dejó sin operar y al que suele volver.</p>
+        <p class="ab-note">Las figuras y el conteo de Elliott se detectan solos sobre los giros del precio. Un FVG es un hueco que el precio dejó sin operar y al que suele volver.</p>
       </div>
     </details>
     <details class="ab-more" id="indicadores" data-source="analisis">
       <summary><span>Todos los indicadores</span><span class="ab-kicker" id="ind-tf"></span></summary>
       <div class="ab-more-body">
-        <p class="ab-note">Cada indicador dice hacia dónde apunta según su propia regla: <b>alcista</b> si favorece una suba, <b>bajista</b> si favorece una baja. No son órdenes de comprar o vender; son votos que se suman en el sesgo técnico.</p>
+        <p class="ab-note">Cada indicador dice hacia dónde apunta según su propia regla: <b>alcista</b> si favorece una suba, <b>bajista</b> si favorece una baja. Son votos que se suman en el sesgo técnico.</p>
         <div class="ab-votes" id="votes"></div>
         <div class="ab-tbl-box">
           <table class="ab-tbl" id="ind-table" data-source="analisis" data-row-key="tf,indicador">
@@ -1904,13 +1905,13 @@
           <li>Tocá el nombre de arriba y ponele <b>Cómo está Bitcoin</b>: esa es la frase que escucha Siri.</li>
           <li>Probalo: <b>“Oye Siri, cómo está Bitcoin”</b>.</li>
         </ol>
-        <p class="ab-foot">Para otra cripto, agregale al final de la dirección <code>?moneda=SOL</code> (o XRP, ZEC) y ponele otro nombre al atajo. El análisis se hace en el servidor con los mismos cálculos que la app; lo que la app aprende con el uso queda en tu teléfono, así que el número puede variar un poco. Se actualiza como mucho cada minuto. No es consejo financiero.</p>
+        <p class="ab-foot">Para otra cripto, agregale al final de la dirección <code>?moneda=SOL</code> (o XRP, ZEC) y ponele otro nombre al atajo.</p>
       </div>
     </details>
   </div>
   <button type="button" class="ab-orden-btn" id="orden-btn"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M4 7h11M4 12h16M4 17h8M18 4v6m0 0-2.5-2.5M18 10l2.5-2.5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Ordenar secciones</button>
 
-  <p class="ab-foot">Datos públicos de Binance Futures, Bybit, OKX, Bitget y BingX. Gráfico hecho con <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView Lightweight Charts™</a>. Las probabilidades y los escenarios cuentan lo que pasó en situaciones parecidas del pasado reciente; el mercado puede hacer otra cosa. No es una recomendación de inversión.</p>
+  <p class="ab-foot ab-credito"><a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView Lightweight Charts™</a></p>
   </div>
   <button type="button" class="ab-mini" id="mini" tabindex="-1" aria-hidden="true" title="Volver arriba">
     <b id="mini-mon">BTC</b><span class="ab-mini-p" id="mini-p">—</span><span id="mini-c"></span><span class="ab-mini-h" id="mini-h"></span><i aria-hidden="true">↑</i>
@@ -1943,7 +1944,7 @@
       <ol class="ab-lm-feed" id="lm-feed"></ol>
     </section>
     <div class="ab-lm-res" id="lm-res"></div>
-    <p class="ab-repro-res"><span id="lm-fuentes"></span> Las franjas son una estimación de dónde se liquidarían posiciones apalancadas si el precio llegara (cuanto más brillante, más cargado comparado con el nivel más cargado de la vista; cortos arriba, largos abajo). El perfil del costado separa cada nivel por apalancamiento. Los círculos son liquidaciones reales. No predice el precio ni es consejo financiero.</p>
+    <p class="ab-repro-res">Cuanto más brillante, más liquidaciones. Cortos arriba del precio, largos abajo; el perfil del costado las separa por apalancamiento y los círculos son liquidaciones reales.</p>
   </div>
   <div class="ab-repro-fondo" id="orden-fondo" hidden></div>
   <div class="ab-repro ab-orden" id="orden" role="dialog" aria-modal="true" aria-labelledby="orden-t" hidden>
@@ -3876,7 +3877,7 @@
       ...reglaFng(t),
       ...(fg ? [el('p', 'ab-tm-sec', 'Fear & Greed Index'), fngGauge(num(fg.fng), fg.fng_clase || String(fg.valor).split(' · ')[1] || '', fg.fng_ayer)] : []),
       el('p', 'ab-tm-sec', 'Corto plazo (no entra en el termómetro)'), ctxL,
-      el('p', 'ab-foot', (mon === 'BTC' ? '' : `${mon}: mismo medidor que BTC, con su propia historia (desde ${mon === 'XRP' ? '2017' : '2020'}) y el ciclo de 4 años de BTC. `) + 'Lógica inversa: cuando está barato y el ciclo está en su piso, comprar de a poco; cuando está caro y en el techo del ciclo, vender de a poco. Para semanas o meses, no para el próximo trade. No es asesoramiento financiero.'));
+      el('p', 'ab-foot', (mon === 'BTC' ? '' : `${mon}: mismo medidor que BTC, con su propia historia (desde ${mon === 'XRP' ? '2017' : '2020'}) y el ciclo de 4 años de BTC. `) + 'Lógica inversa: cuando está barato y el ciclo está en su piso, comprar de a poco; cuando está caro y en el techo del ciclo, vender de a poco.'));
   }
   function drawQuePasa(rows, s) {
     const box = document.getElementById('que-pasa');
@@ -4002,11 +4003,8 @@
       meta.append(el('i', 'ab-qp-tag' + (n.tema !== 'Cripto' ? ' ab-qp-hot' : ''), n.tema), `${n.fuente}${n.medios > 1 ? ` y ${n.medios - 1} medio${n.medios > 2 ? 's' : ''} más` : ''} · ${haceTxt(n.t)}`);
       a.append(el('b', '', n.titulo), meta); nb.append(a);
     });
-    const acc = ACC_INFO[MON()], fuentes = acc ? `Titulares de Google Noticias: ${acc[0]}.` : 'Titulares de Google Noticias y CoinDesk; ETF de Farside.';
     document.getElementById('qp-res').textContent = big.textContent;
-    document.getElementById('qp-note').textContent = strong
-      ? `Son cosas que pasaron al mismo tiempo: ayudan a entender el movimiento, no prueban la causa. ${fuentes} Futuros de ${acc ? acc[1] : 'Binance'}.`
-      : fuentes;
+    document.getElementById('qp-note').textContent = '';
   }
 
   // ---------- calendario economico de EE.UU. (importancia alta) ----------
@@ -4289,7 +4287,7 @@
       const fed = decisionFed(rows), fl = document.getElementById('fed-line');
       fl.hidden = !fed; fl.replaceChildren();
       if (fed) { const sp = el('span', '', fed.txt); if (fed.sesgo !== 'neutral') sp.style.color = fed.sesgo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)'; fl.append(el('b', '', '🏦 Fed'), sp); }
-      if (!nl.hidden) nl.append(el('b', '', 'Noticias'), el('span', '', `${cl.est === 'alcista' ? 'clima a favor de la suba' : cl.est === 'bajista' ? 'clima a favor de la baja' : 'clima neutral'} (${cl.buenas} buenas, ${cl.malas} malas en 6 h) · es contexto: medido 2021–2026, no mejoró la predicción`));
+      if (!nl.hidden) nl.append(el('b', '', 'Noticias'), el('span', '', `${cl.est === 'alcista' ? 'clima a favor de la suba' : cl.est === 'bajista' ? 'clima a favor de la baja' : 'clima neutral'} (${cl.buenas} buenas, ${cl.malas} malas en 6 h)`));
     }
     const p = pick(rows, 'plazo').find((r) => r.plazo === S.plazo);
     if (!p) return;
@@ -6378,9 +6376,6 @@
         const sl = lq.filter((x) => x[1] === 'l').reduce((a, x) => a + x[3], 0), ss = lq.filter((x) => x[1] === 's').reduce((a, x) => a + x[3], 0);
         fila('Liquidaciones reales (OKX)', `largos ${usd(sl)} · cortos ${usd(ss)} USD desde las ${horaAR(dsd)}`);
       }
-      const f = d.fuentes, oi = Object.entries(f.oi).filter(([, n]) => n).map(([k]) => ({ binance: 'Binance', bybit: 'Bybit', okx: 'OKX' })[k]);
-      $('lm-fuentes').textContent = `Open interest de ${oi.join(', ') || '—'}; largos/cortos de ${Object.entries(f.ls).filter(([, n]) => n).map(([k]) => (k === 'binance' ? 'Binance' : 'Bybit')).join(' y ') || '—'}; velas de ${f.velas}. Actualizado a las ${horaAR(d.hora)}.`
-        + (f.errores.length ? ` Sin respuesta: ${f.errores.map((x) => x[0]).join(', ')}.` : '');
     }
     function pintar() {
       if (!LM.datos) return;
@@ -6758,7 +6753,7 @@
       }
     }
     if (d.dolor !== null) item('opc', DD(P.c2), 'Línea violeta a rayas largas:',
-      'el "dolor máximo" de las opciones del viernes: el precio donde más opciones vencen sin valor. Cerca del vencimiento a veces atrae al precio; es contexto, no una predicción.');
+      'el "dolor máximo" de las opciones del viernes: el precio donde más opciones vencen sin valor. Cerca del vencimiento a veces atrae al precio.');
     if (d.plan) item('plan', DD(P.fg), 'Tu plan (líneas grises con nombre):',
       'compras que faltan (rayada: orden puesta; punteada: falta cargarla), tu precio promedio, la próxima toma de ganancias y la liquidación aproximada.');
     { const ab = abaLeyenda(tf); if (ab) item('abanico', DD(P.fg), ab[0], ab[1]); }

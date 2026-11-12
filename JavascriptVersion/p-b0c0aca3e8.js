@@ -1861,7 +1861,7 @@
       ...reglaFng(t),
       ...(fg ? [el('p', 'ab-tm-sec', 'Fear & Greed Index'), fngGauge(num(fg.fng), fg.fng_clase || String(fg.valor).split(' · ')[1] || '', fg.fng_ayer)] : []),
       el('p', 'ab-tm-sec', 'Corto plazo (no entra en el termómetro)'), ctxL,
-      el('p', 'ab-foot', (mon === 'BTC' ? '' : `${mon}: mismo medidor que BTC, con su propia historia (desde ${mon === 'XRP' ? '2017' : '2020'}) y el ciclo de 4 años de BTC. `) + 'Lógica inversa: cuando está barato y el ciclo está en su piso, comprar de a poco; cuando está caro y en el techo del ciclo, vender de a poco. Para semanas o meses, no para el próximo trade. No es asesoramiento financiero.'));
+      el('p', 'ab-foot', (mon === 'BTC' ? '' : `${mon}: mismo medidor que BTC, con su propia historia (desde ${mon === 'XRP' ? '2017' : '2020'}) y el ciclo de 4 años de BTC. `) + 'Lógica inversa: cuando está barato y el ciclo está en su piso, comprar de a poco; cuando está caro y en el techo del ciclo, vender de a poco.'));
   }
   function drawQuePasa(rows, s) {
     const box = document.getElementById('que-pasa');
@@ -1987,11 +1987,8 @@
       meta.append(el('i', 'ab-qp-tag' + (n.tema !== 'Cripto' ? ' ab-qp-hot' : ''), n.tema), `${n.fuente}${n.medios > 1 ? ` y ${n.medios - 1} medio${n.medios > 2 ? 's' : ''} más` : ''} · ${haceTxt(n.t)}`);
       a.append(el('b', '', n.titulo), meta); nb.append(a);
     });
-    const acc = ACC_INFO[MON()], fuentes = acc ? `Titulares de Google Noticias: ${acc[0]}.` : 'Titulares de Google Noticias y CoinDesk; ETF de Farside.';
     document.getElementById('qp-res').textContent = big.textContent;
-    document.getElementById('qp-note').textContent = strong
-      ? `Son cosas que pasaron al mismo tiempo: ayudan a entender el movimiento, no prueban la causa. ${fuentes} Futuros de ${acc ? acc[1] : 'Binance'}.`
-      : fuentes;
+    document.getElementById('qp-note').textContent = '';
   }
 
   // ---------- calendario economico de EE.UU. (importancia alta) ----------
@@ -2274,7 +2271,7 @@
       const fed = decisionFed(rows), fl = document.getElementById('fed-line');
       fl.hidden = !fed; fl.replaceChildren();
       if (fed) { const sp = el('span', '', fed.txt); if (fed.sesgo !== 'neutral') sp.style.color = fed.sesgo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)'; fl.append(el('b', '', '🏦 Fed'), sp); }
-      if (!nl.hidden) nl.append(el('b', '', 'Noticias'), el('span', '', `${cl.est === 'alcista' ? 'clima a favor de la suba' : cl.est === 'bajista' ? 'clima a favor de la baja' : 'clima neutral'} (${cl.buenas} buenas, ${cl.malas} malas en 6 h) · es contexto: medido 2021–2026, no mejoró la predicción`));
+      if (!nl.hidden) nl.append(el('b', '', 'Noticias'), el('span', '', `${cl.est === 'alcista' ? 'clima a favor de la suba' : cl.est === 'bajista' ? 'clima a favor de la baja' : 'clima neutral'} (${cl.buenas} buenas, ${cl.malas} malas en 6 h)`));
     }
     const p = pick(rows, 'plazo').find((r) => r.plazo === S.plazo);
     if (!p) return;
@@ -4363,9 +4360,6 @@
         const sl = lq.filter((x) => x[1] === 'l').reduce((a, x) => a + x[3], 0), ss = lq.filter((x) => x[1] === 's').reduce((a, x) => a + x[3], 0);
         fila('Liquidaciones reales (OKX)', `largos ${usd(sl)} · cortos ${usd(ss)} USD desde las ${horaAR(dsd)}`);
       }
-      const f = d.fuentes, oi = Object.entries(f.oi).filter(([, n]) => n).map(([k]) => ({ binance: 'Binance', bybit: 'Bybit', okx: 'OKX' })[k]);
-      $('lm-fuentes').textContent = `Open interest de ${oi.join(', ') || '—'}; largos/cortos de ${Object.entries(f.ls).filter(([, n]) => n).map(([k]) => (k === 'binance' ? 'Binance' : 'Bybit')).join(' y ') || '—'}; velas de ${f.velas}. Actualizado a las ${horaAR(d.hora)}.`
-        + (f.errores.length ? ` Sin respuesta: ${f.errores.map((x) => x[0]).join(', ')}.` : '');
     }
     function pintar() {
       if (!LM.datos) return;
@@ -4743,7 +4737,7 @@
       }
     }
     if (d.dolor !== null) item('opc', DD(P.c2), 'Línea violeta a rayas largas:',
-      'el "dolor máximo" de las opciones del viernes: el precio donde más opciones vencen sin valor. Cerca del vencimiento a veces atrae al precio; es contexto, no una predicción.');
+      'el "dolor máximo" de las opciones del viernes: el precio donde más opciones vencen sin valor. Cerca del vencimiento a veces atrae al precio.');
     if (d.plan) item('plan', DD(P.fg), 'Tu plan (líneas grises con nombre):',
       'compras que faltan (rayada: orden puesta; punteada: falta cargarla), tu precio promedio, la próxima toma de ganancias y la liquidación aproximada.');
     { const ab = abaLeyenda(tf); if (ab) item('abanico', DD(P.fg), ab[0], ab[1]); }

@@ -77,12 +77,7 @@ __PAGE__
 """
 
 # lo que en la version JS es distinto: BingX no se puede leer desde una pagina web
-CAMBIOS = [
-    ("Son órdenes esperando, no posiciones: pueden retirarse. BingX no entra en el total porque publica mucho más volumen que el resto.",
-     "Son órdenes esperando, no posiciones: pueden retirarse."),
-    ("Datos públicos de Binance Futures, Bybit, OKX, Bitget y BingX.",
-     "Datos públicos de Binance Futures, Bybit, OKX y Bitget, calculados en este teléfono."),
-]
+CAMBIOS = []   # (antes cambiaba dos aclaraciones de fuentes; ya no estan en la pagina)
 
 
 def version():
