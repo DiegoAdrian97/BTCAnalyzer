@@ -3394,102 +3394,139 @@
     if (window.abVoz) window.abVoz(txt);
   }
 
-  // ---------- dos graficos: la misma moneda en otra temporalidad, debajo (o al lado en pantalla completa ancha) ----------
-  // Usa las velas que ya trae el analisis (todas las temporalidades de 5m a 1D: sin pedir nada mas), se mueve con el
-  // precio en vivo, muestra tus dibujos y la mira va sincronizada con el principal (la vela que contiene ese momento).
-  const M2 = { on: false, tf: '4h', ch: null, s: null, bars: [], key: '', tema: '' };
-  try { const g = JSON.parse(localStorage.getItem('ab-multi') || 'null'); if (g) { M2.on = !!g.on; if (g.tf) M2.tf = g.tf; } } catch (e) { /* sin almacenamiento */ }
-  const M2_TFS = ['5m', '15m', '30m', '1h', '4h', '1d'], M2_MS = { '5m': 3e5, '15m': 9e5, '30m': 18e5, '1h': 36e5, '4h': 144e5, '1d': 864e5 };
-  const m2Guardar = () => { try { localStorage.setItem('ab-multi', JSON.stringify({ on: M2.on, tf: M2.tf })); } catch (e) { /* idem */ } };
-  const m2Box = document.getElementById('chart2-box'), m2Btn = document.getElementById('multi-btn');
-  (function () {
-    const nav = document.getElementById('chart2-tfs');
-    M2_TFS.forEach((tf) => { const b = el('button', 'ab-chipbtn', TF_TXT[tf] ? ({ '5m': '5m', '15m': '15m', '30m': '30m', '1h': '1h', '4h': '4h', '1d': '1D' })[tf] : tf); b.type = 'button'; b.dataset.tf = tf; nav.append(b); });
-    nav.addEventListener('click', (e) => { const b = e.target.closest('[data-tf]'); if (!b) return; M2.tf = b.dataset.tf; M2.key = ''; m2Guardar(); m2Pintar(true); });
-    document.getElementById('chart2-x').addEventListener('click', () => m2Poner(false));
-    m2Btn.addEventListener('click', () => m2Poner(!M2.on));
-  })();
-  function m2Poner(on) {
-    M2.on = on; m2Guardar();
-    m2Btn.setAttribute('aria-pressed', String(on));
-    const h = document.documentElement;
-    if (on && typeof altoGraf !== 'undefined' && altoGraf) h.style.setProperty('--graf-fijo', `${Math.round(altoGraf)}px`);
-    h.classList.toggle('ab-multi', on); m2Box.hidden = !on;
-    if (on) m2Pintar(true); else if (M2.ch) { M2.ch.remove(); M2.ch = null; M2.s = null; M2.key = ''; }
+  // ---------- varios graficos: la misma moneda en otras temporalidades (2 o 4 a la vez) ----------
+  // Usan las velas que ya trae el analisis (5m a 1D: sin pedir nada mas), se mueven con el precio en vivo, muestran tus
+  // dibujos y la mira va sincronizada en todos (la vela que contiene ese momento). En la compu van lado a lado (2) o en
+  // 2 x 2 (4) y el analisis pasa abajo, en dos columnas; en el celu, uno debajo del otro. Queda guardado.
+  const MG = { n: 1, tfs: ['4h', '1d', '15m'], sec: [] };
+  try {
+    const g = JSON.parse(localStorage.getItem('ab-multi') || 'null');
+    if (g) { MG.n = [1, 2, 4].includes(g.n) ? g.n : g.on ? 2 : 1; if (Array.isArray(g.tfs)) g.tfs.forEach((t, i) => { if (i < 3 && t) MG.tfs[i] = t; }); else if (g.tf) MG.tfs[0] = g.tf; }
+  } catch (e) { /* sin almacenamiento */ }
+  const MG_TFS = ['5m', '15m', '30m', '1h', '4h', '1d'], MG_MS = { '5m': 3e5, '15m': 9e5, '30m': 18e5, '1h': 36e5, '4h': 144e5, '1d': 864e5 };
+  const MG_TXT = { '5m': '5m', '15m': '15m', '30m': '30m', '1h': '1h', '4h': '4h', '1d': '1D' };
+  const mgGuardar = () => { try { localStorage.setItem('ab-multi', JSON.stringify({ n: MG.n, tfs: MG.tfs })); } catch (e) { /* idem */ } };
+  const mgVis = () => MG.sec.filter((s) => s.i < MG.n - 1);
+  MG.sec = [0, 1, 2].map((i) => {
+    const box = el('div', 'ab-chart2'); box.id = `chart${i + 2}-box`; box.hidden = true;
+    const h = el('div', 'ab-chart2-h'), leg = el('span', 'ab-chart2-leg'), nav = el('nav', 'ab-chart2-tfs'), c = el('div', 'ab-chart2-c');
+    nav.setAttribute('aria-label', `Temporalidad del gráfico ${i + 2}`);
+    MG_TFS.forEach((tf) => { const b = el('button', 'ab-chipbtn', MG_TXT[tf]); b.type = 'button'; b.dataset.tf = tf; nav.append(b); });
+    h.append(leg, nav); box.append(h, c);
+    const sec = { i, box, c, leg, nav, ch: null, s: null, bars: [], key: '', tema: '' };
+    nav.addEventListener('click', (e) => { const b = e.target.closest('[data-tf]'); if (!b) return; MG.tfs[i] = b.dataset.tf; mgGuardar(); sec.key = ''; mgPintarUno(sec, true); });
+    return sec;
+  });
+  { let ant = document.getElementById('chart'); MG.sec.forEach((s) => { ant.after(s.box); ant = s.box; }); }
+  // controles: el grupo 1 / 2 / 4 (en Capas) y el boton de la barra (en la compu) que pasa de uno al otro
+  const mgSeg = document.getElementById('multi-seg'), mgBtn = document.getElementById('multi-btn');
+  const MG_ICO = { 1: '<rect x="4" y="5" width="16" height="14" rx="2"/>', 2: '<rect x="3" y="5" width="8" height="14" rx="1.5"/><rect x="13" y="5" width="8" height="14" rx="1.5"/>',
+    4: '<rect x="3" y="4" width="8" height="7" rx="1.5"/><rect x="13" y="4" width="8" height="7" rx="1.5"/><rect x="3" y="13" width="8" height="7" rx="1.5"/><rect x="13" y="13" width="8" height="7" rx="1.5"/>' };
+  function mgControles() {
+    [...mgSeg.querySelectorAll('[data-n]')].forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.n === MG.n)));
+    mgBtn.innerHTML = `<svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8">${MG_ICO[MG.n]}</svg>`;
+    mgBtn.setAttribute('aria-label', `Gráficos a la vez: ${MG.n} (tocá para cambiar)`); mgBtn.title = `Gráficos a la vez: ${MG.n} → ${MG.n === 1 ? 2 : MG.n === 2 ? 4 : 1}`;
+    mgBtn.setAttribute('aria-pressed', String(MG.n > 1));
   }
-  const X2 = (t) => (M2.ch && M2.bars.length ? M2.ch.timeScale().logicalToCoordinate((t - M2.bars[0].t) / M2_MS[M2.tf]) : null);
-  const Y2 = (p) => (M2.s && p !== null && p !== undefined ? M2.s.priceToCoordinate(p) : null);
-  function m2Armar() {
+  mgSeg.addEventListener('click', (e) => { const b = e.target.closest('[data-n]'); if (b) mgPoner(+b.dataset.n); });
+  mgBtn.addEventListener('click', () => mgPoner(MG.n === 1 ? 2 : MG.n === 2 ? 4 : 1));
+  function mgPoner(n) {
+    MG.n = n; mgGuardar(); mgControles();
+    const h = document.documentElement;
+    if (n > 1 && typeof altoGraf !== 'undefined' && altoGraf) h.style.setProperty('--graf-fijo', `${Math.round(altoGraf)}px`);
+    h.classList.toggle('ab-multi', n > 1); h.classList.toggle('ab-multi-4', n === 4);
+    MG.sec.forEach((s) => { const v = s.i < n - 1; s.box.hidden = !v; if (!v && s.ch) { s.ch.remove(); s.ch = null; s.s = null; s.key = ''; } });
+    m2Pintar(true);
+    window.dispatchEvent(new Event('resize'));
+  }
+  const mgX = (s) => (t) => (s.ch && s.bars.length ? s.ch.timeScale().logicalToCoordinate((t - s.bars[0].t) / MG_MS[MG.tfs[s.i]]) : null);
+  const mgY = (s) => (p) => (s.s && p !== null && p !== undefined ? s.s.priceToCoordinate(p) : null);
+  // la mira en todos menos en el que se esta mirando (cada uno en su vela que contiene ese momento)
+  function mgMira(desde, ms, precio) {
+    MG.sec.forEach((s) => {
+      if (s === desde || !s.ch || s.box.hidden || !s.bars.length) return;
+      if (ms === null) { try { s.ch.clearCrosshairPosition(); } catch (e) { /* idem */ } mgLeyenda(s, null); return; }
+      const m = MG_MS[MG.tfs[s.i]], t = Math.min(Math.floor(ms / m) * m, s.bars[s.bars.length - 1].t);
+      try { s.ch.setCrosshairPosition(precio, T2(t), s.s); } catch (e) { /* fuera del rango */ }
+      mgLeyenda(s, T2(t));
+    });
+    if (desde && G.chart && G.d) {
+      if (ms === null) { try { G.chart.clearCrosshairPosition(); } catch (e) { /* idem */ } return; }
+      const t1 = Math.min(Math.floor((ms - G.d.t0) / G.d.tfMs) * G.d.tfMs + G.d.t0, G.d.all[G.d.all.length - 1].t);
+      try { G.chart.setCrosshairPosition(precio, T2(t1), G.c); } catch (e) { /* fuera del rango */ }
+    }
+  }
+  function mgArmar(s) {
     const P = G.P || pal(), tema = `${P.up}${P.dn}${P.mute}`;
-    if (M2.ch && M2.tema === tema) return;
-    if (M2.ch) M2.ch.remove();
-    M2.tema = tema; M2.key = '';
-    const box = document.getElementById('chart2');
+    if (s.ch && s.tema === tema) return;
+    if (s.ch) s.ch.remove();
+    s.tema = tema; s.key = '';
     const cross = { color: alpha(P.mute, 0.7), width: 1, style: LW.LineStyle.Dashed, labelBackgroundColor: P.lbl };
-    M2.ch = LW.createChart(box, { autoSize: true, layout: { background: { type: 'solid', color: 'rgba(0,0,0,0)' }, textColor: P.mute, fontFamily: P.font, fontSize: 11, attributionLogo: false },
+    s.ch = LW.createChart(s.c, { autoSize: true, layout: { background: { type: 'solid', color: 'rgba(0,0,0,0)' }, textColor: P.mute, fontFamily: P.font, fontSize: 11, attributionLogo: false },
       grid: { vertLines: { visible: false }, horzLines: { visible: false } }, crosshair: { mode: LW.CrosshairMode.Normal, vertLine: cross, horzLine: cross },
-      rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.08, bottom: 0.08 }, minimumWidth: box.clientWidth < 520 ? 58 : 70 },
+      rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.08, bottom: 0.08 }, minimumWidth: 58 },
       timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 3, barSpacing: 6, minBarSpacing: 1 },
       localization: { locale: 'es-AR', timeFormatter: (t) => fmtSec(t) }, handleScroll: { vertTouchDrag: false }, kineticScroll: { touch: true, mouse: false } });
     const pf = { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, quiet = { lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false, priceFormat: pf };
-    M2.e20 = M2.ch.addSeries(LW.LineSeries, { ...quiet, color: P.c0, lineWidth: 1 });
-    M2.e50 = M2.ch.addSeries(LW.LineSeries, { ...quiet, color: P.c1, lineWidth: 1 });
-    M2.e200 = M2.ch.addSeries(LW.LineSeries, { ...quiet, color: alpha(P.fg, 0.7), lineWidth: 2 });
-    M2.s = M2.ch.addSeries(LW.CandlestickSeries, { priceFormat: pf, upColor: P.up, downColor: P.dn, borderVisible: false, wickUpColor: P.up, wickDownColor: P.dn, priceLineStyle: LW.LineStyle.Dotted, priceLineWidth: 1 });
-    M2.capa = new Capa((ctx, w, h) => drawDibCon(ctx, w, h, X2, Y2, false), 'top'); M2.s.attachPrimitive(M2.capa);
-    // la mira: de este al principal (la vela del principal que contiene ese momento)
-    M2.ch.subscribeCrosshairMove((q) => {
-      m2Leyenda(q && q.time !== undefined ? q.time : null);
-      if (!q || !q.sourceEvent || !G.chart || !G.d) return;
-      if (q.time === undefined || !q.point) { try { G.chart.clearCrosshairPosition(); } catch (e) { /* idem */ } return; }
-      const ms = (q.time - TZ) * 1000, t1 = Math.floor((ms - G.d.t0) / G.d.tfMs) * G.d.tfMs + G.d.t0, p = M2.s.coordinateToPrice(q.point.y);
-      if (p !== null) try { G.chart.setCrosshairPosition(p, T2(Math.min(t1, G.d.all[G.d.all.length - 1].t)), G.c); } catch (e) { /* fuera del rango */ }
+    s.e20 = s.ch.addSeries(LW.LineSeries, { ...quiet, color: P.c0, lineWidth: 1 });
+    s.e50 = s.ch.addSeries(LW.LineSeries, { ...quiet, color: P.c1, lineWidth: 1 });
+    s.e200 = s.ch.addSeries(LW.LineSeries, { ...quiet, color: alpha(P.fg, 0.7), lineWidth: 2 });
+    s.s = s.ch.addSeries(LW.CandlestickSeries, { priceFormat: pf, upColor: P.up, downColor: P.dn, borderVisible: false, wickUpColor: P.up, wickDownColor: P.dn, priceLineStyle: LW.LineStyle.Dotted, priceLineWidth: 1 });
+    const xf = mgX(s), yf = mgY(s);
+    s.capa = new Capa((ctx, w, h) => drawDibCon(ctx, w, h, xf, yf, false), 'top'); s.s.attachPrimitive(s.capa);
+    s.ch.subscribeCrosshairMove((q) => {
+      mgLeyenda(s, q && q.time !== undefined ? q.time : null);
+      if (!q || !q.sourceEvent) return;
+      if (q.time === undefined || !q.point) { mgMira(s, null, null); return; }
+      const p = s.s.coordinateToPrice(q.point.y); if (p !== null) mgMira(s, (q.time - TZ) * 1000, p);
     });
   }
-  // del principal a este
+  // del principal a los demas
   function m2DesdeMain(q) {
-    if (!M2.on || !M2.ch || !q || !q.sourceEvent) return;
-    if (q.time === undefined || !q.point) { try { M2.ch.clearCrosshairPosition(); } catch (e) { /* idem */ } m2Leyenda(null); return; }
-    const ms = (q.time - TZ) * 1000, m = M2_MS[M2.tf], t2 = Math.floor(ms / m) * m, b = M2.bars.length ? M2.bars[M2.bars.length - 1] : null;
-    const p = G.c.coordinateToPrice(q.point.y);
-    if (!b || p === null) return;
-    try { M2.ch.setCrosshairPosition(p, T2(Math.min(t2, b.t)), M2.s); } catch (e) { /* fuera del rango */ }
-    m2Leyenda(T2(Math.min(t2, b.t)));
+    if (MG.n === 1 || !q || !q.sourceEvent) return;
+    if (q.time === undefined || !q.point) { mgMira(null, null, null); return; }
+    const p = G.c.coordinateToPrice(q.point.y); if (p !== null) mgMira(null, (q.time - TZ) * 1000, p);
   }
-  function m2Leyenda(t) {
-    const leg = document.getElementById('chart2-leg'); if (!M2.bars.length) { leg.textContent = ''; return; }
-    const b = (t !== null && M2.bars.find((x) => T2(x.t) === t)) || M2.bars[M2.bars.length - 1], ch = b.o ? (b.c / b.o - 1) * 100 : 0;
-    leg.replaceChildren(el('b', '', `${MON()} · ${TF_TXT[M2.tf]}`), ` C ${fp(b.c)} `);
-    const s = el('span', ch >= 0 ? 'ab-up' : 'ab-dn', `${ch >= 0 ? '+' : ''}${f1(ch)}%`); s.style.color = ch >= 0 ? G.P.up : G.P.dn; leg.append(s);
+  function mgLeyenda(s, t) {
+    if (!s.bars.length) { s.leg.textContent = ''; return; }
+    const b = (t !== null && s.bars.find((x) => T2(x.t) === t)) || s.bars[s.bars.length - 1], ch = b.o ? (b.c / b.o - 1) * 100 : 0;
+    s.leg.replaceChildren(el('b', '', `${MON()} · ${TF_TXT[MG.tfs[s.i]]}`), ` C ${fp(b.c)} `);
+    const sp = el('span', '', `${ch >= 0 ? '+' : ''}${f1(ch)}%`); sp.style.color = ch >= 0 ? G.P.up : G.P.dn; s.leg.append(sp);
   }
-  // datos: las velas del analisis de esa temporalidad (y las EMA que ya vienen calculadas)
-  function m2Pintar(ajustar) {
-    if (!M2.on || !S.rows) return;
-    m2Armar();
-    [...document.getElementById('chart2-tfs').children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tf === M2.tf)));
-    const rows = pick(S.rows, 'vela', M2.tf).map((r) => ({ t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), e20: num(r.ema20), e50: num(r.ema50), e200: num(r.ema200) }))
+  function mgPintarUno(s, ajustar) {
+    if (s.box.hidden || !S.rows) return;
+    mgArmar(s);
+    const tf = MG.tfs[s.i];
+    [...s.nav.children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tf === tf)));
+    const rows = pick(S.rows, 'vela', tf).map((r) => ({ t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), e20: num(r.ema20), e50: num(r.ema50), e200: num(r.ema200) }))
       .filter((b) => b.t !== null && b.c !== null).sort((a, b) => a.t - b.t);
-    const key = `${MON()}|${M2.tf}|${rows.length}|${rows.length ? rows[rows.length - 1].t : 0}`;
-    if (key === M2.key && !ajustar) { M2.capa.update(); return; }
-    const nuevo = key.split('|').slice(0, 2).join('|') !== M2.key.split('|').slice(0, 2).join('|');
-    M2.key = key; M2.bars = rows;
-    M2.s.setData(rows.map((b) => ({ time: T2(b.t), open: b.o, high: b.h, low: b.l, close: b.c })));
-    const linea = (k) => rows.filter((b) => b[k] !== null).map((b) => ({ time: T2(b.t), value: b[k] }));
-    M2.e20.setData(S.layers.ema ? linea('e20') : []); M2.e50.setData(S.layers.ema ? linea('e50') : []); M2.e200.setData(S.layers.ema ? linea('e200') : []);
-    if (nuevo || ajustar) { const n = rows.length, nb = Math.min(n, window.innerWidth < 600 ? 50 : 90); M2.ch.timeScale().setVisibleLogicalRange({ from: n - nb, to: n + 2 }); }
-    m2Leyenda(null);
+    const key = `${MON()}|${tf}|${rows.length}|${rows.length ? rows[rows.length - 1].t : 0}|${S.layers.ema ? 1 : 0}`;
+    if (key === s.key && !ajustar) { s.capa.update(); return; }
+    const nuevo = key.split('|').slice(0, 2).join('|') !== s.key.split('|').slice(0, 2).join('|');
+    s.key = key; s.bars = rows;
+    s.s.setData(rows.map((b) => ({ time: T2(b.t), open: b.o, high: b.h, low: b.l, close: b.c })));
+    const linea = (k) => (S.layers.ema ? rows.filter((b) => b[k] !== null).map((b) => ({ time: T2(b.t), value: b[k] })) : []);
+    s.e20.setData(linea('e20')); s.e50.setData(linea('e50')); s.e200.setData(linea('e200'));
+    if (nuevo || ajustar) { const n = rows.length, nb = Math.min(n, window.innerWidth < 600 ? 50 : 90); s.ch.timeScale().setVisibleLogicalRange({ from: n - nb, to: n + 2 }); }
+    mgLeyenda(s, null);
   }
-  // el precio en vivo mueve la ultima vela (o abre la siguiente si ya cerro)
+  function m2Pintar(ajustar) { if (MG.n > 1) mgVis().forEach((s) => mgPintarUno(s, ajustar)); }
+  // el precio en vivo mueve la ultima vela de cada uno (o abre la siguiente si ya cerro)
   function m2Vivo(precio) {
-    if (!M2.on || !M2.s || !M2.bars.length || !(precio > 0)) return;
-    const m = M2_MS[M2.tf], ult = M2.bars[M2.bars.length - 1], ahora = Date.now();
-    let b = ult;
-    if (ahora >= ult.t + m) { b = { t: Math.floor(ahora / m) * m, o: ult.c, h: ult.c, l: ult.c, c: ult.c }; M2.bars.push(b); }
-    b.c = precio; b.h = Math.max(b.h, precio); b.l = Math.min(b.l, precio);
-    try { M2.s.update({ time: T2(b.t), open: b.o, high: b.h, low: b.l, close: b.c }); } catch (e) { /* la serie se rehizo */ }
-    if (!G.hover) m2Leyenda(null);
+    if (MG.n === 1 || !(precio > 0)) return;
+    const ahora = Date.now();
+    mgVis().forEach((s) => {
+      if (!s.s || !s.bars.length) return;
+      const m = MG_MS[MG.tfs[s.i]], ult = s.bars[s.bars.length - 1];
+      let b = ult;
+      if (ahora >= ult.t + m) { b = { t: Math.floor(ahora / m) * m, o: ult.c, h: ult.c, l: ult.c, c: ult.c }; s.bars.push(b); }
+      b.c = precio; b.h = Math.max(b.h, precio); b.l = Math.min(b.l, precio);
+      try { s.s.update({ time: T2(b.t), open: b.o, high: b.h, low: b.l, close: b.c }); } catch (e) { /* la serie se rehizo */ }
+      if (!G.hover) mgLeyenda(s, null);
+    });
   }
-  if (M2.on) { document.documentElement.classList.add('ab-multi'); m2Box.hidden = false; m2Btn.setAttribute('aria-pressed', 'true'); }
+  mgControles();
+  if (MG.n > 1) { document.documentElement.classList.add('ab-multi'); document.documentElement.classList.toggle('ab-multi-4', MG.n === 4); MG.sec.forEach((s) => { s.box.hidden = s.i >= MG.n - 1; }); }
 
   // imagen del grafico (con las marcas, sin la mira) y una linea de encabezado; en el iPhone se comparte, en la compu se baja.
   // Se arma sincronico (toDataURL) para llamar a share dentro del toque: Safari no deja compartir despues de esperar

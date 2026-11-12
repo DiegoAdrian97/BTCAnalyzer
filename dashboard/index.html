@@ -916,12 +916,31 @@
   /* "Que estas viendo" abierto: crece hacia abajo; el grafico queda del alto que tenia y la pagina se alarga */
   html:is(.ab-ex-largo, .ab-multi) .ab-escena { position: relative; top: auto !important; height: auto !important; }
   html.ab-ex-largo .ab-escena #grafico:not(.ab-fs) { flex: none; grid-template-rows: auto auto auto var(--graf-fijo, 420px) auto auto; }
-  /* dos graficos: el segundo va debajo y la escena se alarga (el principal conserva su alto) */
-  html.ab-multi .ab-escena #grafico:not(.ab-fs) { flex: none; grid-template-rows: auto auto auto var(--graf-fijo, 420px) clamp(240px, calc(var(--graf-fijo, 420px) * .62), 420px) auto auto;
-    grid-template-areas: "tools head" "capas capas" "help help" "chart chart" "chart2 chart2" "ex ex" "note note"; }
-  @media (max-width: 999.98px) { html.ab-multi .ab-escena #grafico:not(.ab-fs) {
-    grid-template-areas: "tfs tfs tfs capasb head" "capas capas capas capas capas" "help help help help help" "chart chart chart chart chart" "chart2 chart2 chart2 chart2 chart2" "ex dibb lmb repro tipo" "note note note note note"; } }
+  /* varios graficos. Celu y tablet: debajo del principal (que conserva su alto) y la escena se alarga */
+  html.ab-multi .ab-escena #grafico:not(.ab-fs) { flex: none; --alto2: clamp(240px, calc(var(--graf-fijo, 420px) * .62), 420px);
+    grid-template-rows: auto auto auto var(--graf-fijo, 420px) var(--alto2) auto auto; grid-template-areas: "tools head" "capas capas" "help help" "chart chart" "chart2 chart2" "ex ex" "note note"; }
+  html.ab-multi.ab-multi-4 .ab-escena #grafico:not(.ab-fs) { grid-template-rows: auto auto auto var(--graf-fijo, 420px) var(--alto2) var(--alto2) var(--alto2) auto auto;
+    grid-template-areas: "tools head" "capas capas" "help help" "chart chart" "chart2 chart2" "chart3 chart3" "chart4 chart4" "ex ex" "note note"; }
+  @media (max-width: 999.98px) {
+    html.ab-multi .ab-escena #grafico:not(.ab-fs) { grid-template-areas: "tfs tfs tfs capasb head" "capas capas capas capas capas" "help help help help help" "chart chart chart chart chart" "chart2 chart2 chart2 chart2 chart2" "ex dibb lmb repro tipo" "note note note note note"; }
+    html.ab-multi.ab-multi-4 .ab-escena #grafico:not(.ab-fs) { grid-template-areas: "tfs tfs tfs capasb head" "capas capas capas capas capas" "help help help help help" "chart chart chart chart chart" "chart2 chart2 chart2 chart2 chart2" "chart3 chart3 chart3 chart3 chart3" "chart4 chart4 chart4 chart4 chart4" "ex dibb lmb repro tipo" "note note note note note"; }
+  }
   .ab-escena #grafico:not(.ab-fs) > #chart2-box { grid-area: chart2; margin-top: 10px; }
+  .ab-escena #grafico:not(.ab-fs) > #chart3-box { grid-area: chart3; margin-top: 10px; }
+  .ab-escena #grafico:not(.ab-fs) > #chart4-box { grid-area: chart4; margin-top: 10px; }
+  /* compu: los graficos ocupan todo el ancho (2 lado a lado, 4 en 2 x 2) y el analisis pasa abajo, en dos columnas */
+  @media (min-width: 1000px) {
+    html.ab-multi .ab { grid-template-columns: minmax(0, 1fr); }
+    html.ab-multi .ab-escena #grafico:not(.ab-fs) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 18px; --alto-m: clamp(420px, 70vh, 820px);
+      grid-template-rows: auto auto auto var(--alto-m) auto auto; grid-template-areas: "tools head" "capas capas" "help help" "chart chart2" "ex ex" "note note"; }
+    html.ab-multi.ab-multi-4 .ab-escena #grafico:not(.ab-fs) { --alto-m: clamp(340px, 50vh, 620px);
+      grid-template-rows: auto auto auto var(--alto-m) var(--alto-m) auto auto; grid-template-areas: "tools head" "capas capas" "help help" "chart chart2" "chart3 chart4" "ex ex" "note note"; }
+    html.ab-multi .ab-escena #grafico:not(.ab-fs) > .ab-card-head { justify-self: end; }
+    html.ab-multi .ab-escena #grafico:not(.ab-fs) > .ab-chart2 { border-top: 0; padding-top: 0; }
+    html.ab-multi .ab-hoja { display: block; column-count: 2; column-gap: 36px; column-rule: 1px solid var(--line); }
+    html.ab-multi .ab-hoja > * { break-inside: avoid; }
+    html.ab-multi .ab-hoja > .ab-card:first-of-type { border-top: 0; }
+  }
   html.ab-ex-largo .ab-escena #grafico:not(.ab-fs) > #ex-box[open] { max-height: none; overflow: visible; }
   /* en el celu "Que estas viendo" comparte fila con los botones: abierto, el texto usa todo el ancho (debajo de ellos) */
   @media (max-width: 599.98px) { html.ab-ex-largo .ab-escena #grafico:not(.ab-fs) > #ex-box[open] > :not(summary) {
@@ -1487,9 +1506,11 @@
   .ab-chart2 { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); min-height: 0; min-width: 0; border-top: 1px solid var(--line); padding-top: 6px; }
   .ab-chart2[hidden] { display: none; }
   .ab-chart2-h { display: flex; align-items: center; gap: 8px; min-width: 0; }
-  .ab-chart2-leg { font-size: 12px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1 1 auto; font-variant-numeric: tabular-nums; }
+  .ab-chart2-leg { font-size: 12px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 64px; flex: 1 1 auto; font-variant-numeric: tabular-nums; }
   .ab-chart2-leg b { color: var(--fg); font-weight: 600; margin-right: 4px; }
-  .ab-chart2-tfs { display: flex; gap: 2px; flex: none; }
+  .ab-chart2-tfs { display: flex; gap: 2px; flex: 0 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .ab-chart2-tfs::-webkit-scrollbar { display: none; }
+  .ab-chart2-tfs .ab-chipbtn { flex: none; }
   .ab-chart2-tfs .ab-chipbtn { padding: 3px 8px; font-size: 12px; min-height: 26px; }
   .ab-chart2-h .ab-round { flex: none; width: 28px; height: 28px; padding: 0; font-size: 12px; }
   .ab-chart2-c { position: relative; min-height: 0; min-width: 0; height: 100%; overflow: hidden; }
@@ -1502,6 +1523,23 @@
     html.ab-multi #grafico.ab-fs > #chart { grid-column: 1; grid-row: 4; }
     html.ab-multi #grafico.ab-fs > #chart2-box { grid-column: 2; grid-row: 4; border-top: 0; padding-top: 0; }
   }
+  @media (min-width: 600px) {
+    html.ab-multi.ab-multi-4 #grafico.ab-fs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr) minmax(0, 1fr); column-gap: 10px; row-gap: 6px; }
+    html.ab-multi.ab-multi-4 #grafico.ab-fs > :is(.ab-tools, .ab-capas, #chart-help, #scen-note) { grid-column: 1 / -1; }
+    html.ab-multi.ab-multi-4 #grafico.ab-fs > #chart { grid-column: 1; grid-row: 4; }
+    html.ab-multi.ab-multi-4 #grafico.ab-fs > #chart2-box { grid-column: 2; grid-row: 4; border-top: 0; padding-top: 0; }
+    html.ab-multi.ab-multi-4 #grafico.ab-fs > #chart3-box { grid-column: 1; grid-row: 5; }
+    html.ab-multi.ab-multi-4 #grafico.ab-fs > #chart4-box { grid-column: 2; grid-row: 5; }
+    html.ab-multi.ab-multi-4 #grafico.ab-fs > .ab-chart2 { flex: none; }
+  }
+  /* celu en pantalla completa con 4: uno debajo del otro (el principal un poco mas alto) */
+  @media (max-width: 599.98px) { html.ab-multi.ab-multi-4 #grafico.ab-fs > :is(#chart2-box, #chart3-box, #chart4-box) { flex: 1 1 0; } html.ab-multi.ab-multi-4 #grafico.ab-fs > #chart { flex: 1.5 1 0; } }
+  /* el boton de la barra que cambia 1 / 2 / 4: solo en la compu (en el celu esta en Capas) */
+  .ab-multi-btn { display: none; }
+  @media (min-width: 1000px) { .ab-multi-btn { display: inline-grid; place-items: center; } }
+  .ab-multi-seg { display: inline-flex; align-items: center; gap: 2px; }
+  .ab-multi-seg > span { margin-right: 4px; color: var(--mute); }
+  .ab-multi-seg .ab-iconbtn { min-width: 30px; padding-inline: 8px; }
 
   /* ordenar secciones */
   .ab-oculta { display: none !important; }
@@ -1605,7 +1643,7 @@
           <button type="button" data-scen="alcista" aria-pressed="false">Alcista</button>
           <button type="button" data-scen="bajista" aria-pressed="false">Bajista</button>
         </nav>
-        <button type="button" class="ab-iconbtn ab-dib-btn" id="dib-btn" aria-pressed="false" aria-label="Dibujar" title="Dibujar: líneas horizontales, de tendencia, rayos y zonas; tocá una para moverla, cambiarle el color, borrarla o que avise (tecla D)"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path d="M4 20l1-4.5L15.5 5a2.1 2.1 0 0 1 3 3L8 18.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M13.5 7l3 3" stroke="currentColor" stroke-width="1.8"/><path d="M4 22h16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".45"/></svg></button><button type="button" class="ab-iconbtn ab-lm-btn" id="lm-btn" aria-label="Mapa de liquidaciones" title="Mapa de liquidaciones"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><rect x="3" y="4" width="18" height="3" rx="1" fill="currentColor" opacity=".35"/><rect x="3" y="9" width="18" height="3" rx="1" fill="currentColor" opacity=".8"/><rect x="3" y="14" width="18" height="3" rx="1" fill="currentColor" opacity=".5"/><rect x="3" y="19" width="10" height="2" rx="1" fill="currentColor" opacity=".25"/></svg></button><button type="button" class="ab-iconbtn ab-repro-btn" id="repro-btn" aria-label="Reproducir el día" title="Reproducir el día"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path d="M11 6 4 12l7 6V6Zm9 0-7 6 7 6V6Z" fill="currentColor"/></svg></button><button type="button" class="ab-iconbtn ab-tipo-btn" id="tipo-btn" aria-pressed="true" aria-label="Ver velas"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path class="ab-ico-velas" d="M7 4v16M17 4v16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/><rect class="ab-ico-velas" x="5" y="8" width="4" height="7" rx="1" fill="currentColor"/><rect class="ab-ico-velas" x="15" y="6" width="4" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/><path class="ab-ico-linea" d="M3 17l5-6 4 3 4-6 5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button><button type="button" class="ab-iconbtn ab-capas-btn" id="capas-btn" aria-expanded="false" aria-controls="capas" aria-label="Capas del gráfico"><svg class="ab-capas-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M12 3 2.5 8 12 13l9.5-5L12 3zM2.5 12.5 12 17.5l9.5-5M2.5 16.5 12 21.5l9.5-5"/></svg><span class="ab-capas-txt">Capas</span> <b id="capas-n"></b></button>
+        <button type="button" class="ab-iconbtn ab-multi-btn" id="multi-btn" aria-pressed="false"></button><button type="button" class="ab-iconbtn ab-dib-btn" id="dib-btn" aria-pressed="false" aria-label="Dibujar" title="Dibujar: líneas horizontales, de tendencia, rayos y zonas; tocá una para moverla, cambiarle el color, borrarla o que avise (tecla D)"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path d="M4 20l1-4.5L15.5 5a2.1 2.1 0 0 1 3 3L8 18.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M13.5 7l3 3" stroke="currentColor" stroke-width="1.8"/><path d="M4 22h16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".45"/></svg></button><button type="button" class="ab-iconbtn ab-lm-btn" id="lm-btn" aria-label="Mapa de liquidaciones" title="Mapa de liquidaciones"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><rect x="3" y="4" width="18" height="3" rx="1" fill="currentColor" opacity=".35"/><rect x="3" y="9" width="18" height="3" rx="1" fill="currentColor" opacity=".8"/><rect x="3" y="14" width="18" height="3" rx="1" fill="currentColor" opacity=".5"/><rect x="3" y="19" width="10" height="2" rx="1" fill="currentColor" opacity=".25"/></svg></button><button type="button" class="ab-iconbtn ab-repro-btn" id="repro-btn" aria-label="Reproducir el día" title="Reproducir el día"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path d="M11 6 4 12l7 6V6Zm9 0-7 6 7 6V6Z" fill="currentColor"/></svg></button><button type="button" class="ab-iconbtn ab-tipo-btn" id="tipo-btn" aria-pressed="true" aria-label="Ver velas"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path class="ab-ico-velas" d="M7 4v16M17 4v16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/><rect class="ab-ico-velas" x="5" y="8" width="4" height="7" rx="1" fill="currentColor"/><rect class="ab-ico-velas" x="15" y="6" width="4" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/><path class="ab-ico-linea" d="M3 17l5-6 4 3 4-6 5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button><button type="button" class="ab-iconbtn ab-capas-btn" id="capas-btn" aria-expanded="false" aria-controls="capas" aria-label="Capas del gráfico"><svg class="ab-capas-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M12 3 2.5 8 12 13l9.5-5L12 3zM2.5 12.5 12 17.5l9.5-5M2.5 16.5 12 21.5l9.5-5"/></svg><span class="ab-capas-txt">Capas</span> <b id="capas-n"></b></button>
       </div>
       <div class="ab-capas" id="capas">
         <div class="ab-chips" id="layers">
@@ -1628,7 +1666,7 @@
           <button type="button" class="ab-iconbtn" id="fit">Ajustar</button>
           <button type="button" class="ab-iconbtn" id="log-btn" aria-pressed="false" title="Escala logarítmica: las mismas subas y bajas en % miden lo mismo (tecla L)">Log</button>
           <button type="button" class="ab-iconbtn" id="medir-btn" aria-pressed="false" title="Medir: arrastrá en el gráfico para ver el % y las velas entre dos puntos (con el mouse: Shift + arrastrar; tecla M)">Medir</button>
-          <button type="button" class="ab-iconbtn" id="multi-btn" aria-pressed="false" title="Dos gráficos: la misma moneda en otra temporalidad, con la mira sincronizada">2 gráficos</button>
+          <span class="ab-multi-seg" id="multi-seg" role="group" aria-label="Gráficos a la vez" title="La misma moneda en otras temporalidades, con la mira sincronizada"><span>Gráficos</span><button type="button" class="ab-iconbtn" data-n="1">1</button><button type="button" class="ab-iconbtn" data-n="2">2</button><button type="button" class="ab-iconbtn" data-n="4">4</button></span>
           <button type="button" class="ab-iconbtn" id="iman-btn" aria-pressed="false" title="Imán: la mira y los puntos de Medir se pegan a la apertura, máximo, mínimo o cierre de la vela más cercana (tecla I; mientras medís, Cmd o Ctrl lo invierte)">Imán</button>
           <button type="button" class="ab-iconbtn" id="foto-btn" title="Guardar o compartir una imagen del gráfico">Imagen</button>
           <button type="button" class="ab-iconbtn" id="replay" title="Repetir la animación del escenario" aria-label="Repetir la animación del escenario" style="display: none">↻</button>
@@ -1636,11 +1674,6 @@
       </div>
       <p class="ab-note ab-help" id="chart-help" hidden><span class="ab-only-mouse">Arrastrá el gráfico para moverte · rueda: zoom · arrastrá el eje de precios o el de horas para estirarlos · arrastrá el borde de abajo del precio o de cada indicador para hacerlo más alto o más bajo · doble clic en un eje: vuelve ese eje a como estaba (en el de horas, todos los paneles) · doble clic en el gráfico: ajusta todo · Shift + arrastrar: medir % y velas · teclas (con el mouse sobre el gráfico): ← → moverse, + − zoom, 0 ajustar, L logarítmica, M medir, I imán (Cmd/Ctrl mientras medís lo invierte), 1 a 6 temporalidad, F pantalla completa, Esc borrar la medición</span><span class="ab-only-touch">Arrastrá con un dedo para moverte · pellizcá para zoom (de costado: velas; vertical: precios) · arrastrá los ejes para estirarlos · arrastrá la manija de abajo de cada panel para cambiar su alto · doble toque en un eje lo vuelve a como estaba · tocá una vela para ver sus datos · "Medir" y arrastrá: % y velas entre dos puntos ("Imán" los pega a la apertura, máximo, mínimo o cierre)</span></p>
       <div class="ab-chart dash-skeleton" id="chart" data-source="analisis"></div>
-      <div class="ab-chart2" id="chart2-box" hidden>
-        <div class="ab-chart2-h"><span class="ab-chart2-leg" id="chart2-leg"></span><nav class="ab-chart2-tfs" id="chart2-tfs" aria-label="Temporalidad del segundo gráfico"></nav>
-          <button type="button" class="ab-iconbtn ab-round" id="chart2-x" aria-label="Cerrar el segundo gráfico" title="Cerrar el segundo gráfico">✕</button></div>
-        <div class="ab-chart2-c" id="chart2"></div>
-      </div>
       <details class="ab-exbox" id="ex-box"><summary>Qué estás viendo <b id="ex-n"></b></summary>
         <div class="ab-explain" id="legend"></div>
         <button type="button" class="ab-ex-limpiar" id="ex-limpiar" hidden>Quitar marcas</button></details>
@@ -5376,102 +5409,139 @@
     if (window.abVoz) window.abVoz(txt);
   }
 
-  // ---------- dos graficos: la misma moneda en otra temporalidad, debajo (o al lado en pantalla completa ancha) ----------
-  // Usa las velas que ya trae el analisis (todas las temporalidades de 5m a 1D: sin pedir nada mas), se mueve con el
-  // precio en vivo, muestra tus dibujos y la mira va sincronizada con el principal (la vela que contiene ese momento).
-  const M2 = { on: false, tf: '4h', ch: null, s: null, bars: [], key: '', tema: '' };
-  try { const g = JSON.parse(localStorage.getItem('ab-multi') || 'null'); if (g) { M2.on = !!g.on; if (g.tf) M2.tf = g.tf; } } catch (e) { /* sin almacenamiento */ }
-  const M2_TFS = ['5m', '15m', '30m', '1h', '4h', '1d'], M2_MS = { '5m': 3e5, '15m': 9e5, '30m': 18e5, '1h': 36e5, '4h': 144e5, '1d': 864e5 };
-  const m2Guardar = () => { try { localStorage.setItem('ab-multi', JSON.stringify({ on: M2.on, tf: M2.tf })); } catch (e) { /* idem */ } };
-  const m2Box = document.getElementById('chart2-box'), m2Btn = document.getElementById('multi-btn');
-  (function () {
-    const nav = document.getElementById('chart2-tfs');
-    M2_TFS.forEach((tf) => { const b = el('button', 'ab-chipbtn', TF_TXT[tf] ? ({ '5m': '5m', '15m': '15m', '30m': '30m', '1h': '1h', '4h': '4h', '1d': '1D' })[tf] : tf); b.type = 'button'; b.dataset.tf = tf; nav.append(b); });
-    nav.addEventListener('click', (e) => { const b = e.target.closest('[data-tf]'); if (!b) return; M2.tf = b.dataset.tf; M2.key = ''; m2Guardar(); m2Pintar(true); });
-    document.getElementById('chart2-x').addEventListener('click', () => m2Poner(false));
-    m2Btn.addEventListener('click', () => m2Poner(!M2.on));
-  })();
-  function m2Poner(on) {
-    M2.on = on; m2Guardar();
-    m2Btn.setAttribute('aria-pressed', String(on));
-    const h = document.documentElement;
-    if (on && typeof altoGraf !== 'undefined' && altoGraf) h.style.setProperty('--graf-fijo', `${Math.round(altoGraf)}px`);
-    h.classList.toggle('ab-multi', on); m2Box.hidden = !on;
-    if (on) m2Pintar(true); else if (M2.ch) { M2.ch.remove(); M2.ch = null; M2.s = null; M2.key = ''; }
+  // ---------- varios graficos: la misma moneda en otras temporalidades (2 o 4 a la vez) ----------
+  // Usan las velas que ya trae el analisis (5m a 1D: sin pedir nada mas), se mueven con el precio en vivo, muestran tus
+  // dibujos y la mira va sincronizada en todos (la vela que contiene ese momento). En la compu van lado a lado (2) o en
+  // 2 x 2 (4) y el analisis pasa abajo, en dos columnas; en el celu, uno debajo del otro. Queda guardado.
+  const MG = { n: 1, tfs: ['4h', '1d', '15m'], sec: [] };
+  try {
+    const g = JSON.parse(localStorage.getItem('ab-multi') || 'null');
+    if (g) { MG.n = [1, 2, 4].includes(g.n) ? g.n : g.on ? 2 : 1; if (Array.isArray(g.tfs)) g.tfs.forEach((t, i) => { if (i < 3 && t) MG.tfs[i] = t; }); else if (g.tf) MG.tfs[0] = g.tf; }
+  } catch (e) { /* sin almacenamiento */ }
+  const MG_TFS = ['5m', '15m', '30m', '1h', '4h', '1d'], MG_MS = { '5m': 3e5, '15m': 9e5, '30m': 18e5, '1h': 36e5, '4h': 144e5, '1d': 864e5 };
+  const MG_TXT = { '5m': '5m', '15m': '15m', '30m': '30m', '1h': '1h', '4h': '4h', '1d': '1D' };
+  const mgGuardar = () => { try { localStorage.setItem('ab-multi', JSON.stringify({ n: MG.n, tfs: MG.tfs })); } catch (e) { /* idem */ } };
+  const mgVis = () => MG.sec.filter((s) => s.i < MG.n - 1);
+  MG.sec = [0, 1, 2].map((i) => {
+    const box = el('div', 'ab-chart2'); box.id = `chart${i + 2}-box`; box.hidden = true;
+    const h = el('div', 'ab-chart2-h'), leg = el('span', 'ab-chart2-leg'), nav = el('nav', 'ab-chart2-tfs'), c = el('div', 'ab-chart2-c');
+    nav.setAttribute('aria-label', `Temporalidad del gráfico ${i + 2}`);
+    MG_TFS.forEach((tf) => { const b = el('button', 'ab-chipbtn', MG_TXT[tf]); b.type = 'button'; b.dataset.tf = tf; nav.append(b); });
+    h.append(leg, nav); box.append(h, c);
+    const sec = { i, box, c, leg, nav, ch: null, s: null, bars: [], key: '', tema: '' };
+    nav.addEventListener('click', (e) => { const b = e.target.closest('[data-tf]'); if (!b) return; MG.tfs[i] = b.dataset.tf; mgGuardar(); sec.key = ''; mgPintarUno(sec, true); });
+    return sec;
+  });
+  { let ant = document.getElementById('chart'); MG.sec.forEach((s) => { ant.after(s.box); ant = s.box; }); }
+  // controles: el grupo 1 / 2 / 4 (en Capas) y el boton de la barra (en la compu) que pasa de uno al otro
+  const mgSeg = document.getElementById('multi-seg'), mgBtn = document.getElementById('multi-btn');
+  const MG_ICO = { 1: '<rect x="4" y="5" width="16" height="14" rx="2"/>', 2: '<rect x="3" y="5" width="8" height="14" rx="1.5"/><rect x="13" y="5" width="8" height="14" rx="1.5"/>',
+    4: '<rect x="3" y="4" width="8" height="7" rx="1.5"/><rect x="13" y="4" width="8" height="7" rx="1.5"/><rect x="3" y="13" width="8" height="7" rx="1.5"/><rect x="13" y="13" width="8" height="7" rx="1.5"/>' };
+  function mgControles() {
+    [...mgSeg.querySelectorAll('[data-n]')].forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.n === MG.n)));
+    mgBtn.innerHTML = `<svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8">${MG_ICO[MG.n]}</svg>`;
+    mgBtn.setAttribute('aria-label', `Gráficos a la vez: ${MG.n} (tocá para cambiar)`); mgBtn.title = `Gráficos a la vez: ${MG.n} → ${MG.n === 1 ? 2 : MG.n === 2 ? 4 : 1}`;
+    mgBtn.setAttribute('aria-pressed', String(MG.n > 1));
   }
-  const X2 = (t) => (M2.ch && M2.bars.length ? M2.ch.timeScale().logicalToCoordinate((t - M2.bars[0].t) / M2_MS[M2.tf]) : null);
-  const Y2 = (p) => (M2.s && p !== null && p !== undefined ? M2.s.priceToCoordinate(p) : null);
-  function m2Armar() {
+  mgSeg.addEventListener('click', (e) => { const b = e.target.closest('[data-n]'); if (b) mgPoner(+b.dataset.n); });
+  mgBtn.addEventListener('click', () => mgPoner(MG.n === 1 ? 2 : MG.n === 2 ? 4 : 1));
+  function mgPoner(n) {
+    MG.n = n; mgGuardar(); mgControles();
+    const h = document.documentElement;
+    if (n > 1 && typeof altoGraf !== 'undefined' && altoGraf) h.style.setProperty('--graf-fijo', `${Math.round(altoGraf)}px`);
+    h.classList.toggle('ab-multi', n > 1); h.classList.toggle('ab-multi-4', n === 4);
+    MG.sec.forEach((s) => { const v = s.i < n - 1; s.box.hidden = !v; if (!v && s.ch) { s.ch.remove(); s.ch = null; s.s = null; s.key = ''; } });
+    m2Pintar(true);
+    window.dispatchEvent(new Event('resize'));
+  }
+  const mgX = (s) => (t) => (s.ch && s.bars.length ? s.ch.timeScale().logicalToCoordinate((t - s.bars[0].t) / MG_MS[MG.tfs[s.i]]) : null);
+  const mgY = (s) => (p) => (s.s && p !== null && p !== undefined ? s.s.priceToCoordinate(p) : null);
+  // la mira en todos menos en el que se esta mirando (cada uno en su vela que contiene ese momento)
+  function mgMira(desde, ms, precio) {
+    MG.sec.forEach((s) => {
+      if (s === desde || !s.ch || s.box.hidden || !s.bars.length) return;
+      if (ms === null) { try { s.ch.clearCrosshairPosition(); } catch (e) { /* idem */ } mgLeyenda(s, null); return; }
+      const m = MG_MS[MG.tfs[s.i]], t = Math.min(Math.floor(ms / m) * m, s.bars[s.bars.length - 1].t);
+      try { s.ch.setCrosshairPosition(precio, T2(t), s.s); } catch (e) { /* fuera del rango */ }
+      mgLeyenda(s, T2(t));
+    });
+    if (desde && G.chart && G.d) {
+      if (ms === null) { try { G.chart.clearCrosshairPosition(); } catch (e) { /* idem */ } return; }
+      const t1 = Math.min(Math.floor((ms - G.d.t0) / G.d.tfMs) * G.d.tfMs + G.d.t0, G.d.all[G.d.all.length - 1].t);
+      try { G.chart.setCrosshairPosition(precio, T2(t1), G.c); } catch (e) { /* fuera del rango */ }
+    }
+  }
+  function mgArmar(s) {
     const P = G.P || pal(), tema = `${P.up}${P.dn}${P.mute}`;
-    if (M2.ch && M2.tema === tema) return;
-    if (M2.ch) M2.ch.remove();
-    M2.tema = tema; M2.key = '';
-    const box = document.getElementById('chart2');
+    if (s.ch && s.tema === tema) return;
+    if (s.ch) s.ch.remove();
+    s.tema = tema; s.key = '';
     const cross = { color: alpha(P.mute, 0.7), width: 1, style: LW.LineStyle.Dashed, labelBackgroundColor: P.lbl };
-    M2.ch = LW.createChart(box, { autoSize: true, layout: { background: { type: 'solid', color: 'rgba(0,0,0,0)' }, textColor: P.mute, fontFamily: P.font, fontSize: 11, attributionLogo: false },
+    s.ch = LW.createChart(s.c, { autoSize: true, layout: { background: { type: 'solid', color: 'rgba(0,0,0,0)' }, textColor: P.mute, fontFamily: P.font, fontSize: 11, attributionLogo: false },
       grid: { vertLines: { visible: false }, horzLines: { visible: false } }, crosshair: { mode: LW.CrosshairMode.Normal, vertLine: cross, horzLine: cross },
-      rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.08, bottom: 0.08 }, minimumWidth: box.clientWidth < 520 ? 58 : 70 },
+      rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.08, bottom: 0.08 }, minimumWidth: 58 },
       timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 3, barSpacing: 6, minBarSpacing: 1 },
       localization: { locale: 'es-AR', timeFormatter: (t) => fmtSec(t) }, handleScroll: { vertTouchDrag: false }, kineticScroll: { touch: true, mouse: false } });
     const pf = { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, quiet = { lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false, priceFormat: pf };
-    M2.e20 = M2.ch.addSeries(LW.LineSeries, { ...quiet, color: P.c0, lineWidth: 1 });
-    M2.e50 = M2.ch.addSeries(LW.LineSeries, { ...quiet, color: P.c1, lineWidth: 1 });
-    M2.e200 = M2.ch.addSeries(LW.LineSeries, { ...quiet, color: alpha(P.fg, 0.7), lineWidth: 2 });
-    M2.s = M2.ch.addSeries(LW.CandlestickSeries, { priceFormat: pf, upColor: P.up, downColor: P.dn, borderVisible: false, wickUpColor: P.up, wickDownColor: P.dn, priceLineStyle: LW.LineStyle.Dotted, priceLineWidth: 1 });
-    M2.capa = new Capa((ctx, w, h) => drawDibCon(ctx, w, h, X2, Y2, false), 'top'); M2.s.attachPrimitive(M2.capa);
-    // la mira: de este al principal (la vela del principal que contiene ese momento)
-    M2.ch.subscribeCrosshairMove((q) => {
-      m2Leyenda(q && q.time !== undefined ? q.time : null);
-      if (!q || !q.sourceEvent || !G.chart || !G.d) return;
-      if (q.time === undefined || !q.point) { try { G.chart.clearCrosshairPosition(); } catch (e) { /* idem */ } return; }
-      const ms = (q.time - TZ) * 1000, t1 = Math.floor((ms - G.d.t0) / G.d.tfMs) * G.d.tfMs + G.d.t0, p = M2.s.coordinateToPrice(q.point.y);
-      if (p !== null) try { G.chart.setCrosshairPosition(p, T2(Math.min(t1, G.d.all[G.d.all.length - 1].t)), G.c); } catch (e) { /* fuera del rango */ }
+    s.e20 = s.ch.addSeries(LW.LineSeries, { ...quiet, color: P.c0, lineWidth: 1 });
+    s.e50 = s.ch.addSeries(LW.LineSeries, { ...quiet, color: P.c1, lineWidth: 1 });
+    s.e200 = s.ch.addSeries(LW.LineSeries, { ...quiet, color: alpha(P.fg, 0.7), lineWidth: 2 });
+    s.s = s.ch.addSeries(LW.CandlestickSeries, { priceFormat: pf, upColor: P.up, downColor: P.dn, borderVisible: false, wickUpColor: P.up, wickDownColor: P.dn, priceLineStyle: LW.LineStyle.Dotted, priceLineWidth: 1 });
+    const xf = mgX(s), yf = mgY(s);
+    s.capa = new Capa((ctx, w, h) => drawDibCon(ctx, w, h, xf, yf, false), 'top'); s.s.attachPrimitive(s.capa);
+    s.ch.subscribeCrosshairMove((q) => {
+      mgLeyenda(s, q && q.time !== undefined ? q.time : null);
+      if (!q || !q.sourceEvent) return;
+      if (q.time === undefined || !q.point) { mgMira(s, null, null); return; }
+      const p = s.s.coordinateToPrice(q.point.y); if (p !== null) mgMira(s, (q.time - TZ) * 1000, p);
     });
   }
-  // del principal a este
+  // del principal a los demas
   function m2DesdeMain(q) {
-    if (!M2.on || !M2.ch || !q || !q.sourceEvent) return;
-    if (q.time === undefined || !q.point) { try { M2.ch.clearCrosshairPosition(); } catch (e) { /* idem */ } m2Leyenda(null); return; }
-    const ms = (q.time - TZ) * 1000, m = M2_MS[M2.tf], t2 = Math.floor(ms / m) * m, b = M2.bars.length ? M2.bars[M2.bars.length - 1] : null;
-    const p = G.c.coordinateToPrice(q.point.y);
-    if (!b || p === null) return;
-    try { M2.ch.setCrosshairPosition(p, T2(Math.min(t2, b.t)), M2.s); } catch (e) { /* fuera del rango */ }
-    m2Leyenda(T2(Math.min(t2, b.t)));
+    if (MG.n === 1 || !q || !q.sourceEvent) return;
+    if (q.time === undefined || !q.point) { mgMira(null, null, null); return; }
+    const p = G.c.coordinateToPrice(q.point.y); if (p !== null) mgMira(null, (q.time - TZ) * 1000, p);
   }
-  function m2Leyenda(t) {
-    const leg = document.getElementById('chart2-leg'); if (!M2.bars.length) { leg.textContent = ''; return; }
-    const b = (t !== null && M2.bars.find((x) => T2(x.t) === t)) || M2.bars[M2.bars.length - 1], ch = b.o ? (b.c / b.o - 1) * 100 : 0;
-    leg.replaceChildren(el('b', '', `${MON()} · ${TF_TXT[M2.tf]}`), ` C ${fp(b.c)} `);
-    const s = el('span', ch >= 0 ? 'ab-up' : 'ab-dn', `${ch >= 0 ? '+' : ''}${f1(ch)}%`); s.style.color = ch >= 0 ? G.P.up : G.P.dn; leg.append(s);
+  function mgLeyenda(s, t) {
+    if (!s.bars.length) { s.leg.textContent = ''; return; }
+    const b = (t !== null && s.bars.find((x) => T2(x.t) === t)) || s.bars[s.bars.length - 1], ch = b.o ? (b.c / b.o - 1) * 100 : 0;
+    s.leg.replaceChildren(el('b', '', `${MON()} · ${TF_TXT[MG.tfs[s.i]]}`), ` C ${fp(b.c)} `);
+    const sp = el('span', '', `${ch >= 0 ? '+' : ''}${f1(ch)}%`); sp.style.color = ch >= 0 ? G.P.up : G.P.dn; s.leg.append(sp);
   }
-  // datos: las velas del analisis de esa temporalidad (y las EMA que ya vienen calculadas)
-  function m2Pintar(ajustar) {
-    if (!M2.on || !S.rows) return;
-    m2Armar();
-    [...document.getElementById('chart2-tfs').children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tf === M2.tf)));
-    const rows = pick(S.rows, 'vela', M2.tf).map((r) => ({ t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), e20: num(r.ema20), e50: num(r.ema50), e200: num(r.ema200) }))
+  function mgPintarUno(s, ajustar) {
+    if (s.box.hidden || !S.rows) return;
+    mgArmar(s);
+    const tf = MG.tfs[s.i];
+    [...s.nav.children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tf === tf)));
+    const rows = pick(S.rows, 'vela', tf).map((r) => ({ t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), e20: num(r.ema20), e50: num(r.ema50), e200: num(r.ema200) }))
       .filter((b) => b.t !== null && b.c !== null).sort((a, b) => a.t - b.t);
-    const key = `${MON()}|${M2.tf}|${rows.length}|${rows.length ? rows[rows.length - 1].t : 0}`;
-    if (key === M2.key && !ajustar) { M2.capa.update(); return; }
-    const nuevo = key.split('|').slice(0, 2).join('|') !== M2.key.split('|').slice(0, 2).join('|');
-    M2.key = key; M2.bars = rows;
-    M2.s.setData(rows.map((b) => ({ time: T2(b.t), open: b.o, high: b.h, low: b.l, close: b.c })));
-    const linea = (k) => rows.filter((b) => b[k] !== null).map((b) => ({ time: T2(b.t), value: b[k] }));
-    M2.e20.setData(S.layers.ema ? linea('e20') : []); M2.e50.setData(S.layers.ema ? linea('e50') : []); M2.e200.setData(S.layers.ema ? linea('e200') : []);
-    if (nuevo || ajustar) { const n = rows.length, nb = Math.min(n, window.innerWidth < 600 ? 50 : 90); M2.ch.timeScale().setVisibleLogicalRange({ from: n - nb, to: n + 2 }); }
-    m2Leyenda(null);
+    const key = `${MON()}|${tf}|${rows.length}|${rows.length ? rows[rows.length - 1].t : 0}|${S.layers.ema ? 1 : 0}`;
+    if (key === s.key && !ajustar) { s.capa.update(); return; }
+    const nuevo = key.split('|').slice(0, 2).join('|') !== s.key.split('|').slice(0, 2).join('|');
+    s.key = key; s.bars = rows;
+    s.s.setData(rows.map((b) => ({ time: T2(b.t), open: b.o, high: b.h, low: b.l, close: b.c })));
+    const linea = (k) => (S.layers.ema ? rows.filter((b) => b[k] !== null).map((b) => ({ time: T2(b.t), value: b[k] })) : []);
+    s.e20.setData(linea('e20')); s.e50.setData(linea('e50')); s.e200.setData(linea('e200'));
+    if (nuevo || ajustar) { const n = rows.length, nb = Math.min(n, window.innerWidth < 600 ? 50 : 90); s.ch.timeScale().setVisibleLogicalRange({ from: n - nb, to: n + 2 }); }
+    mgLeyenda(s, null);
   }
-  // el precio en vivo mueve la ultima vela (o abre la siguiente si ya cerro)
+  function m2Pintar(ajustar) { if (MG.n > 1) mgVis().forEach((s) => mgPintarUno(s, ajustar)); }
+  // el precio en vivo mueve la ultima vela de cada uno (o abre la siguiente si ya cerro)
   function m2Vivo(precio) {
-    if (!M2.on || !M2.s || !M2.bars.length || !(precio > 0)) return;
-    const m = M2_MS[M2.tf], ult = M2.bars[M2.bars.length - 1], ahora = Date.now();
-    let b = ult;
-    if (ahora >= ult.t + m) { b = { t: Math.floor(ahora / m) * m, o: ult.c, h: ult.c, l: ult.c, c: ult.c }; M2.bars.push(b); }
-    b.c = precio; b.h = Math.max(b.h, precio); b.l = Math.min(b.l, precio);
-    try { M2.s.update({ time: T2(b.t), open: b.o, high: b.h, low: b.l, close: b.c }); } catch (e) { /* la serie se rehizo */ }
-    if (!G.hover) m2Leyenda(null);
+    if (MG.n === 1 || !(precio > 0)) return;
+    const ahora = Date.now();
+    mgVis().forEach((s) => {
+      if (!s.s || !s.bars.length) return;
+      const m = MG_MS[MG.tfs[s.i]], ult = s.bars[s.bars.length - 1];
+      let b = ult;
+      if (ahora >= ult.t + m) { b = { t: Math.floor(ahora / m) * m, o: ult.c, h: ult.c, l: ult.c, c: ult.c }; s.bars.push(b); }
+      b.c = precio; b.h = Math.max(b.h, precio); b.l = Math.min(b.l, precio);
+      try { s.s.update({ time: T2(b.t), open: b.o, high: b.h, low: b.l, close: b.c }); } catch (e) { /* la serie se rehizo */ }
+      if (!G.hover) mgLeyenda(s, null);
+    });
   }
-  if (M2.on) { document.documentElement.classList.add('ab-multi'); m2Box.hidden = false; m2Btn.setAttribute('aria-pressed', 'true'); }
+  mgControles();
+  if (MG.n > 1) { document.documentElement.classList.add('ab-multi'); document.documentElement.classList.toggle('ab-multi-4', MG.n === 4); MG.sec.forEach((s) => { s.box.hidden = s.i >= MG.n - 1; }); }
 
   // imagen del grafico (con las marcas, sin la mira) y una linea de encabezado; en el iPhone se comparte, en la compu se baja.
   // Se arma sincronico (toDataURL) para llamar a share dentro del toque: Safari no deja compartir despues de esperar

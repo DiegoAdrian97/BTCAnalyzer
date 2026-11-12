@@ -915,12 +915,31 @@
   /* "Que estas viendo" abierto: crece hacia abajo; el grafico queda del alto que tenia y la pagina se alarga */
   html:is(.ab-ex-largo, .ab-multi) .ab-escena { position: relative; top: auto !important; height: auto !important; }
   html.ab-ex-largo .ab-escena #grafico:not(.ab-fs) { flex: none; grid-template-rows: auto auto auto var(--graf-fijo, 420px) auto auto; }
-  /* dos graficos: el segundo va debajo y la escena se alarga (el principal conserva su alto) */
-  html.ab-multi .ab-escena #grafico:not(.ab-fs) { flex: none; grid-template-rows: auto auto auto var(--graf-fijo, 420px) clamp(240px, calc(var(--graf-fijo, 420px) * .62), 420px) auto auto;
-    grid-template-areas: "tools head" "capas capas" "help help" "chart chart" "chart2 chart2" "ex ex" "note note"; }
-  @media (max-width: 999.98px) { html.ab-multi .ab-escena #grafico:not(.ab-fs) {
-    grid-template-areas: "tfs tfs tfs capasb head" "capas capas capas capas capas" "help help help help help" "chart chart chart chart chart" "chart2 chart2 chart2 chart2 chart2" "ex dibb lmb repro tipo" "note note note note note"; } }
+  /* varios graficos. Celu y tablet: debajo del principal (que conserva su alto) y la escena se alarga */
+  html.ab-multi .ab-escena #grafico:not(.ab-fs) { flex: none; --alto2: clamp(240px, calc(var(--graf-fijo, 420px) * .62), 420px);
+    grid-template-rows: auto auto auto var(--graf-fijo, 420px) var(--alto2) auto auto; grid-template-areas: "tools head" "capas capas" "help help" "chart chart" "chart2 chart2" "ex ex" "note note"; }
+  html.ab-multi.ab-multi-4 .ab-escena #grafico:not(.ab-fs) { grid-template-rows: auto auto auto var(--graf-fijo, 420px) var(--alto2) var(--alto2) var(--alto2) auto auto;
+    grid-template-areas: "tools head" "capas capas" "help help" "chart chart" "chart2 chart2" "chart3 chart3" "chart4 chart4" "ex ex" "note note"; }
+  @media (max-width: 999.98px) {
+    html.ab-multi .ab-escena #grafico:not(.ab-fs) { grid-template-areas: "tfs tfs tfs capasb head" "capas capas capas capas capas" "help help help help help" "chart chart chart chart chart" "chart2 chart2 chart2 chart2 chart2" "ex dibb lmb repro tipo" "note note note note note"; }
+    html.ab-multi.ab-multi-4 .ab-escena #grafico:not(.ab-fs) { grid-template-areas: "tfs tfs tfs capasb head" "capas capas capas capas capas" "help help help help help" "chart chart chart chart chart" "chart2 chart2 chart2 chart2 chart2" "chart3 chart3 chart3 chart3 chart3" "chart4 chart4 chart4 chart4 chart4" "ex dibb lmb repro tipo" "note note note note note"; }
+  }
   .ab-escena #grafico:not(.ab-fs) > #chart2-box { grid-area: chart2; margin-top: 10px; }
+  .ab-escena #grafico:not(.ab-fs) > #chart3-box { grid-area: chart3; margin-top: 10px; }
+  .ab-escena #grafico:not(.ab-fs) > #chart4-box { grid-area: chart4; margin-top: 10px; }
+  /* compu: los graficos ocupan todo el ancho (2 lado a lado, 4 en 2 x 2) y el analisis pasa abajo, en dos columnas */
+  @media (min-width: 1000px) {
+    html.ab-multi .ab { grid-template-columns: minmax(0, 1fr); }
+    html.ab-multi .ab-escena #grafico:not(.ab-fs) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 18px; --alto-m: clamp(420px, 70vh, 820px);
+      grid-template-rows: auto auto auto var(--alto-m) auto auto; grid-template-areas: "tools head" "capas capas" "help help" "chart chart2" "ex ex" "note note"; }
+    html.ab-multi.ab-multi-4 .ab-escena #grafico:not(.ab-fs) { --alto-m: clamp(340px, 50vh, 620px);
+      grid-template-rows: auto auto auto var(--alto-m) var(--alto-m) auto auto; grid-template-areas: "tools head" "capas capas" "help help" "chart chart2" "chart3 chart4" "ex ex" "note note"; }
+    html.ab-multi .ab-escena #grafico:not(.ab-fs) > .ab-card-head { justify-self: end; }
+    html.ab-multi .ab-escena #grafico:not(.ab-fs) > .ab-chart2 { border-top: 0; padding-top: 0; }
+    html.ab-multi .ab-hoja { display: block; column-count: 2; column-gap: 36px; column-rule: 1px solid var(--line); }
+    html.ab-multi .ab-hoja > * { break-inside: avoid; }
+    html.ab-multi .ab-hoja > .ab-card:first-of-type { border-top: 0; }
+  }
   html.ab-ex-largo .ab-escena #grafico:not(.ab-fs) > #ex-box[open] { max-height: none; overflow: visible; }
   /* en el celu "Que estas viendo" comparte fila con los botones: abierto, el texto usa todo el ancho (debajo de ellos) */
   @media (max-width: 599.98px) { html.ab-ex-largo .ab-escena #grafico:not(.ab-fs) > #ex-box[open] > :not(summary) {
@@ -1486,9 +1505,11 @@
   .ab-chart2 { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); min-height: 0; min-width: 0; border-top: 1px solid var(--line); padding-top: 6px; }
   .ab-chart2[hidden] { display: none; }
   .ab-chart2-h { display: flex; align-items: center; gap: 8px; min-width: 0; }
-  .ab-chart2-leg { font-size: 12px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1 1 auto; font-variant-numeric: tabular-nums; }
+  .ab-chart2-leg { font-size: 12px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 64px; flex: 1 1 auto; font-variant-numeric: tabular-nums; }
   .ab-chart2-leg b { color: var(--fg); font-weight: 600; margin-right: 4px; }
-  .ab-chart2-tfs { display: flex; gap: 2px; flex: none; }
+  .ab-chart2-tfs { display: flex; gap: 2px; flex: 0 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .ab-chart2-tfs::-webkit-scrollbar { display: none; }
+  .ab-chart2-tfs .ab-chipbtn { flex: none; }
   .ab-chart2-tfs .ab-chipbtn { padding: 3px 8px; font-size: 12px; min-height: 26px; }
   .ab-chart2-h .ab-round { flex: none; width: 28px; height: 28px; padding: 0; font-size: 12px; }
   .ab-chart2-c { position: relative; min-height: 0; min-width: 0; height: 100%; overflow: hidden; }
@@ -1501,6 +1522,23 @@
     html.ab-multi #grafico.ab-fs > #chart { grid-column: 1; grid-row: 4; }
     html.ab-multi #grafico.ab-fs > #chart2-box { grid-column: 2; grid-row: 4; border-top: 0; padding-top: 0; }
   }
+  @media (min-width: 600px) {
+    html.ab-multi.ab-multi-4 #grafico.ab-fs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr) minmax(0, 1fr); column-gap: 10px; row-gap: 6px; }
+    html.ab-multi.ab-multi-4 #grafico.ab-fs > :is(.ab-tools, .ab-capas, #chart-help, #scen-note) { grid-column: 1 / -1; }
+    html.ab-multi.ab-multi-4 #grafico.ab-fs > #chart { grid-column: 1; grid-row: 4; }
+    html.ab-multi.ab-multi-4 #grafico.ab-fs > #chart2-box { grid-column: 2; grid-row: 4; border-top: 0; padding-top: 0; }
+    html.ab-multi.ab-multi-4 #grafico.ab-fs > #chart3-box { grid-column: 1; grid-row: 5; }
+    html.ab-multi.ab-multi-4 #grafico.ab-fs > #chart4-box { grid-column: 2; grid-row: 5; }
+    html.ab-multi.ab-multi-4 #grafico.ab-fs > .ab-chart2 { flex: none; }
+  }
+  /* celu en pantalla completa con 4: uno debajo del otro (el principal un poco mas alto) */
+  @media (max-width: 599.98px) { html.ab-multi.ab-multi-4 #grafico.ab-fs > :is(#chart2-box, #chart3-box, #chart4-box) { flex: 1 1 0; } html.ab-multi.ab-multi-4 #grafico.ab-fs > #chart { flex: 1.5 1 0; } }
+  /* el boton de la barra que cambia 1 / 2 / 4: solo en la compu (en el celu esta en Capas) */
+  .ab-multi-btn { display: none; }
+  @media (min-width: 1000px) { .ab-multi-btn { display: inline-grid; place-items: center; } }
+  .ab-multi-seg { display: inline-flex; align-items: center; gap: 2px; }
+  .ab-multi-seg > span { margin-right: 4px; color: var(--mute); }
+  .ab-multi-seg .ab-iconbtn { min-width: 30px; padding-inline: 8px; }
 
   /* ordenar secciones */
   .ab-oculta { display: none !important; }

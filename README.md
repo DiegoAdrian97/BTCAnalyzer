@@ -276,9 +276,10 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
   camino se lleva a la volatilidad de hoy; verde/rojo si subió/bajó más que la mitad de los movimientos de ese horizonte,
   y se compara con lo que pasa en cualquier momento (solo dice que se aparta si z ≥ 2). Prueba: `node pruebas/abanico.js`
   (al azar no encuentra casos; una forma plantada 12 veces sí, y detecta que se aparta).
-- **Dos gráficos** (botón "2 gráficos" en Capas; queda guardado): la misma moneda en otra temporalidad (5m a 1D), con
-  las velas que ya trae el análisis, el precio en vivo, las EMA, tus dibujos y la mira sincronizada con el principal.
-  Va debajo (el principal conserva su alto y la pantalla se alarga); en pantalla completa ancha, lado a lado.
+- **Varios gráficos** (1 / 2 / 4: botón de la barra en la compu, o "Gráficos" en Capas; queda guardado): la misma moneda
+  en otras temporalidades (5m a 1D, cada uno elige la suya), con las velas que ya trae el análisis, el precio en vivo,
+  las EMA, tus dibujos y la mira sincronizada en todos. En la compu: 2 lado a lado o 4 en 2 × 2, a todo el ancho, y el
+  análisis pasa abajo en dos columnas. En el celu, uno debajo del otro (el principal conserva su alto).
 - **Ordenar secciones** (botón al final del análisis): arrastrar (o flechas) para cambiar el orden de las secciones del
   análisis y de "Más detalle", y el ojo para ocultarlas. Queda en `localStorage` (`ab-orden`), así que vale al cerrar y
   volver a abrir, en la compu y en el celu; "Volver al orden original" lo borra.
