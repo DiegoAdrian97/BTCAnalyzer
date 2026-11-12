@@ -276,6 +276,12 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
   camino se lleva a la volatilidad de hoy; verde/rojo si subió/bajó más que la mitad de los movimientos de ese horizonte,
   y se compara con lo que pasa en cualquier momento (solo dice que se aparta si z ≥ 2). Prueba: `node pruebas/abanico.js`
   (al azar no encuentra casos; una forma plantada 12 veces sí, y detecta que se aparta).
+- **La respuesta y el análisis completo**: arriba de todo, una sola tarjeta con el resultado final (de la fila
+  `central`, donde converge todo): dirección con un dial de fuerza, chance de movimiento fuerte frente a lo normal, el
+  rango con soporte, resistencia y el precio de ahora en una barra, la frase que lo junta, el aviso si hay riesgo y los
+  plazos para cambiarla. "Ver el análisis completo" abre 6 partes (cómo se llegó a la dirección, cuánto se puede mover,
+  niveles, qué está pasando, cuánto le creo y herramientas), cerradas, cada una con su resumen en una línea y un
+  índice para saltar. Las tarjetas de siempre viven adentro de esas partes (sin repetir la conclusión).
 - **Figuras del gráfico**: hombro-cabeza-hombro (y el invertido), triple techo y triple piso (tres extremos en la misma
   zona, hasta ~1 %, con dos valles o picos parecidos entre ellos; objetivo: la altura proyectada desde el cuello), doble
   techo y doble piso, triángulos, cuñas, canales y rangos. Igual en Python y JS (`python pruebas/triples.py`).

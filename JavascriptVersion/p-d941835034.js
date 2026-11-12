@@ -582,6 +582,7 @@
   function drawCentro(rows, sum) {
     const sec = document.getElementById('centro'), todas = pick(rows, 'central');
     const c = todas.find((x) => x.tf === S.tf) || todas.find((x) => x.tf === '1h');
+    drawRespuesta(rows, sum, c); drawPartes(rows, c);
     sec.hidden = !c; if (!c) return;
     const tfs = document.getElementById('ce-tfs');
     tfs.replaceChildren(...CE_TFS.filter(([tf]) => todas.some((x) => x.tf === tf)).map(([tf, txt]) => {
@@ -657,13 +658,118 @@
     rz.replaceChildren(el('b', '', '⚠ Atención: '), c.riesgo.join(' · '));
   }
 
+  // ---------- la respuesta: el resultado final del analisis, una sola vez y arriba de todo ----------
+  // Sale de la fila 'central' (donde convergen todos los calculos). El detalle de como se llego va en el analisis
+  // completo, en 6 partes (ver PARTES), sin repetir la conclusion.
+  const PLZ_CORTO = { '5 min': '5 min', '15 min': '15 min', '1 hora': '1 hora', '4 horas': '4 horas', '1 día': '1 día' };
+  function drawRespuesta(rows, sum, c) {
+    const sec = document.getElementById('respuesta'); sec.hidden = !c; if (!c) return;
+    const ahora = sum && okv(sum.precio) ? num(sum.precio) : null;
+    const plazo = CE_PLAZO[c.tf];
+    document.getElementById('rs-t').textContent = plazo ? `En ${plazo === '1 hora' ? 'la próxima hora' : plazo === '1 día' ? 'el próximo día' : `los próximos ${plazo}`}` : `Velas de ${TF_TXT[c.tf] || c.tf}`;
+    document.getElementById('rs-k').textContent = `${MON()}${c.hasta ? ` · hasta las ${c.hasta.slice(-5)} h` : ''}`;
+    // los plazos: cambian la respuesta (y el grafico)
+    const pl = document.getElementById('rs-plazos');
+    pl.replaceChildren(...pick(rows, 'plazo').map((p) => {
+      const b = el('button', 'ab-rs-pl', PLZ_CORTO[p.plazo] || p.plazo); b.type = 'button';
+      b.setAttribute('aria-pressed', String(plazo === p.plazo)); b.addEventListener('click', () => setPlazo(p.plazo)); return b;
+    }));
+    // direccion: palabra grande y un dial con cuanta fuerza tiene (a favor menos en contra)
+    const af = num(c.a_favor) || 0, ec = num(c.en_contra) || 0, sc = af + ec > 0 ? (af - ec) / (af + ec) : 0;
+    const dir = c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '';
+    const dw = document.getElementById('rs-dir'); dw.className = `ab-rs-dir ${dir}`.trim();
+    dw.textContent = dir === 'sube' ? '▲ Sube' : dir === 'baja' ? '▼ Baja' : '◆ Lateral';
+    const fuerzaTxt = Math.abs(sc) >= 0.6 ? 'con fuerza' : Math.abs(sc) >= 0.25 ? 'moderada' : 'sin fuerza';
+    document.getElementById('rs-dir-k').textContent = dir ? `Dirección ${fuerzaTxt}` : 'Sin dirección clara';
+    const ang = Math.PI * (1 - (sc + 1) / 2), nx = 32 + 24 * Math.cos(ang), ny = 32 - 24 * Math.sin(ang);
+    document.getElementById('rs-dial').innerHTML = `<path d="M6 32 A26 26 0 0 1 58 32" fill="none" stroke="url(#rs-g)" stroke-width="6" stroke-linecap="round"/>
+      <defs><linearGradient id="rs-g" x1="0" x2="1"><stop offset="0" stop-color="var(--color-bad)"/><stop offset=".5" stop-color="var(--line)"/><stop offset="1" stop-color="var(--color-ok)"/></linearGradient></defs>
+      <line x1="32" y1="32" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="var(--ink)" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="32" r="3.2" fill="var(--ink)"/>`;
+    document.getElementById('rs-dial').setAttribute('aria-label', `Fuerza de la dirección: ${fuerzaTxt}`);
+    // movimiento fuerte: la chance contra lo normal, en una barra
+    const pf = num(c.prob_fuerte), pn = num(c.prob_normal), mv = document.getElementById('rs-mov');
+    mv.className = `ab-rs-mov${c.fuerza === 'alta' ? ' alta' : c.fuerza === 'media' ? ' media' : ''}`;
+    if (okv(pf)) {
+      const tope = Math.max(pf, (pn || 0) * 2, 10);
+      mv.replaceChildren(el('small', '', 'Movimiento fuerte'), el('b', '', c.fuerza === 'alta' ? `⚡ ${f0(pf)}%` : `${f0(pf)}%`),
+        Object.assign(el('span', 'ab-rs-bar'), { innerHTML: `<i style="width:${Math.min(100, pf / tope * 100).toFixed(1)}%"></i>${okv(pn) ? `<u style="left:${Math.min(100, pn / tope * 100).toFixed(1)}%"></u>` : ''}` }),
+        el('span', 'ab-rs-sub', okv(pn) ? `lo normal: ${f0(pn)}%` : ''));
+    } else mv.replaceChildren(el('small', '', 'Movimiento fuerte'), el('b', '', '—'));
+    // rango: barra con el piso y el techo, el precio de ahora y el soporte y la resistencia mas cercanos
+    const rg = document.getElementById('rs-rango'), lo = num(c.rango_min), hi = num(c.rango_max), so = num(c.soporte), re = num(c.resistencia);
+    if (okv(lo) && okv(hi)) {
+      const vals = [lo, hi, so, re, ahora].filter((x) => okv(x) && x > 0), mn = Math.min(...vals), mx = Math.max(...vals), w = mx - mn || 1;
+      const x = (v) => `${((v - mn) / w * 92 + 4).toFixed(2)}%`;
+      const bar = el('div', 'ab-rs-rbar');
+      bar.innerHTML = `<i class="r" style="left:${x(lo)};width:calc(${x(hi)} - ${x(lo)})"></i>${okv(so) ? `<i class="s" style="left:${x(so)}"></i>` : ''}${okv(re) ? `<i class="e" style="left:${x(re)}"></i>` : ''}${ahora ? `<i class="a" style="left:${x(ahora)}"></i>` : ''}`;
+      const et = el('div', 'ab-rs-rlbl');
+      const lab = (cls, k, v) => { const s = el('span', cls); s.append(el('small', '', k), el('b', '', fp(v))); return s; };
+      et.append(okv(so) ? lab('s', 'Soporte', so) : el('span'), lab('r', '8 de cada 10 veces entre', lo), lab('r2', 'y', hi), okv(re) ? lab('e', 'Resistencia', re) : el('span'));
+      rg.replaceChildren(bar, et); rg.hidden = false;
+    } else rg.hidden = true;
+    // la frase que lo junta (la de la conclusion) y el aviso si hay riesgo
+    const cc = document.getElementById('cc-txt');
+    document.getElementById('rs-txt').textContent = cc ? cc.textContent.trim() : '';
+    const rz = document.getElementById('rs-riesgo'); rz.hidden = !c.riesgo.length;
+    rz.replaceChildren(el('b', '', '⚠ Atención: '), c.riesgo.join(' · '));
+  }
+  // ---------- el analisis completo: 6 partes, cada una con su resumen en una linea y el detalle al abrirla ----------
+  const PARTES = [
+    ['parte-dir', 'Cómo se llegó a la dirección', ['conclusion', 'ce-dir', 'sesgo', 'prediccion', ['que-espero', 'Todas las señales, una por una']]],
+    ['parte-mov', 'Cuánto se puede mover', ['movimiento', 'ce-fuerza', 'tug-wrap', 'likely']],
+    ['parte-niv', 'Niveles: hasta dónde', ['ce-mapa', 'niveles', 'probabilidades']],
+    ['parte-ctx', 'Qué está pasando', ['que-pasa', 'fed-line', 'news-line', 'calendario', 'senales']],
+    ['parte-conf', 'Cuánto le creo', ['apr-line', 'aprendizaje', 'aciertos']],
+    ['parte-herr', 'Herramientas', ['lm-abrir', 'ondas', 'indicadores', 'siri-atajo']],
+  ];
+  (function armarPartes() {
+    const hoja = document.getElementById('hoja'), $ = (id) => document.getElementById(id);
+    // los que vivian adentro de otra tarjeta llevan un id para poder moverlos
+    const pred = $('prediccion');
+    const tug = pred.querySelector('.ab-tug-wrap'); if (tug) tug.id = 'tug-wrap';
+    const lik = pred.querySelector('.ab-likely'); if (lik) lik.id = 'likely-box';
+    const idx = el('nav', 'ab-partes-idx'); idx.id = 'partes-idx'; idx.setAttribute('aria-label', 'Partes del análisis completo');
+    PARTES.forEach(([id, titulo, hijos], n) => {
+      const d = el('details', 'ab-parte'); d.id = id;
+      const s = el('summary'), t = el('span', 'ab-parte-t'); t.append(el('i', '', String(n + 1)), el('b', '', titulo));
+      s.append(t, el('span', 'ab-parte-res')); d.append(s);
+      const cuerpo = el('div', 'ab-parte-c'); d.append(cuerpo);
+      hijos.forEach((h) => {
+        const [hid, sub] = Array.isArray(h) ? h : [h, null], nodo = $(hid === 'likely' ? 'likely-box' : hid);
+        if (!nodo) return;
+        if (sub) { const w = el('details', 'ab-parte-sub'); w.append(el('summary', '', sub), nodo); cuerpo.append(w); } else cuerpo.append(nodo);
+      });
+      hoja.append(d);
+      const b = el('button', 'ab-chipbtn', titulo); b.type = 'button';
+      b.addEventListener('click', () => { d.open = true; d.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }); });
+      idx.append(b);
+    });
+    $('vista-btn').after(idx);
+    const md = $('mas-detalle'); if (md) md.hidden = true;
+    const sn = $('senales'); if (sn) { const sp = sn.querySelector('summary span'); if (sp) sp.textContent = 'Flujo de compras y libros de órdenes'; }
+  })();
+  // el resumen de una linea de cada parte (lo que se ve con la parte cerrada)
+  function drawPartes(rows, c) {
+    const res = (id, t) => { const e = document.querySelector(`#${id} .ab-parte-res`); if (e) e.textContent = t || ''; };
+    const txt = (id) => { const e = document.getElementById(id); return e ? e.textContent.replace(/\s+/g, ' ').trim() : ''; };
+    if (c) {
+      res('parte-dir', `Señales: ${String(c.a_favor).replace('.', ',')} a favor de la suba y ${String(c.en_contra).replace('.', ',')} de la baja · indicadores: ${txt('gauge-txt').toLowerCase() || '—'}`);
+      res('parte-mov', okv(c.prob_fuerte) ? `Chance de movimiento fuerte ${f0(num(c.prob_fuerte))}% (lo normal: ${f0(num(c.prob_normal))}%)${okv(c.esperado_usd) ? ` · suele moverse ~${num(c.esperado_usd) >= 100 ? f0(num(c.esperado_usd)) : fp(num(c.esperado_usd))} USD` : ''}` : '');
+      res('parte-niv', [okv(c.soporte) ? `Soporte ${fp(num(c.soporte))}` : '', okv(c.resistencia) ? `resistencia ${fp(num(c.resistencia))}` : ''].filter(Boolean).join(' · '));
+    }
+    const qp = txt('qp-res'), cal = document.querySelector('#calendario summary .ab-kicker');
+    res('parte-ctx', [qp, cal ? cal.textContent.trim() : ''].filter(Boolean).join(' · '));
+    res('parte-conf', txt('apr-line').replace(/^Confianza ahora:?\s*/i, ''));
+    res('parte-herr', 'Mapa de liquidaciones, figuras, todos los indicadores y Siri');
+  }
+
   // ---------- vista simple / completa ----------
   const VISTA_BTN = document.getElementById('vista-btn');
   function vista(completa, guardar) {
     document.documentElement.classList.toggle('ab-simple', !completa);
     VISTA_BTN.setAttribute('aria-expanded', String(completa));
     document.getElementById('vista-txt').textContent = completa ? 'Volver a la vista simple' : 'Ver el análisis completo';
-    document.getElementById('vista-sub').textContent = completa ? 'solo lo necesario: precio, resumen, movimiento, predicción y gráfico' : 'por qué, cómo viene acertando, indicadores, niveles y más';
+    document.getElementById('vista-sub').textContent = completa ? 'solo la respuesta y el gráfico' : 'cómo se llegó, cuánto se puede mover, niveles, contexto y cuánto acierta';
     if (guardar) try { localStorage.setItem('ab-vista', completa ? 'completa' : 'simple'); } catch (e) { /* sin almacenamiento */ }
   }
   let vistaGuardada = null; try { vistaGuardada = localStorage.getItem('ab-vista'); } catch (e) { /* sin almacenamiento */ }
@@ -671,17 +777,16 @@
   VISTA_BTN.addEventListener('click', () => {
     const completa = document.documentElement.classList.contains('ab-simple');
     vista(completa, true);
-    if (completa) document.getElementById('que-espero').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    if (completa) document.getElementById('partes-idx').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   });
   // ---------- ordenar el analisis a gusto: el orden y lo oculto quedan guardados en este navegador (localStorage) ----------
   (function () {
     const $ = (id) => document.getElementById(id), hoja = $('hoja'), det = $('mas-detalle');
     // secciones de la hoja: algunas van juntas (el termometro con el resumen; los plazos con la prediccion)
-    const HOJA = [['centro', ['centro', 'tm-tab']], ['conclusion'], ['que-pasa'], ['compras'], ['posiciones'], ['movimiento'], ['prediccion', ['plazos', 'prediccion']],
-      ['que-espero'], ['aprendizaje'], ['mas-detalle']].map(([id, ns]) => ({ id, ns: ns || [id] }));
-    const COMPLETA = new Set(['que-espero', 'aprendizaje', 'mas-detalle']);      // las que van despues de "Ver el analisis completo"
-    const NOM = { centro: 'Análisis (resumen)', conclusion: 'Conclusión', 'que-pasa': 'Qué está pasando', compras: 'Plan de compras', posiciones: 'Posiciones',
-      movimiento: 'Movimiento fuerte', prediccion: 'Predicción por plazo', 'que-espero': 'Qué espero', aprendizaje: 'Cómo viene acertando', 'mas-detalle': 'Más detalle' };
+    const HOJA = [['respuesta', ['respuesta', 'tm-tab']], ['compras'], ['posiciones']].concat(PARTES.map(([id]) => [id])).map(([id, ns]) => ({ id, ns: ns || [id] }));
+    const COMPLETA = new Set(PARTES.map(([id]) => id));      // las partes del analisis completo (despues del boton)
+    const NOM = { respuesta: 'La respuesta (arriba)', compras: 'Plan de compras', posiciones: 'Posiciones' };
+    PARTES.forEach(([id, t]) => { NOM[id] = t; });
     const DEF_H = HOJA.map((u) => u.id), DEF_D = [...det.children].filter((n) => n.id).map((n) => n.id);
     const leer = () => { try { return JSON.parse(localStorage.getItem('ab-orden')) || {}; } catch (e) { return {}; } };
     const guardar = (g) => { try { localStorage.setItem('ab-orden', JSON.stringify(g)); } catch (e) { /* sin almacenamiento */ } };
@@ -702,6 +807,7 @@
       // "Ver el analisis completo" queda antes de la primera de las que solo se ven en la vista completa
       const prim = oh.find((id) => COMPLETA.has(id)), vb = $('vista-btn');
       if (prim) hoja.insertBefore(vb, $(prim)); else hoja.append(vb);
+      vb.after($('partes-idx'));
       hoja.append($('orden-btn'));
       const cr = hoja.querySelector('.ab-credito'); if (cr) hoja.append(cr);     // el credito del grafico, al final
       od.forEach((id) => { const e = $(id); if (e) det.append(e); });
@@ -733,6 +839,7 @@
       const vis = (id) => { const e = $(id); return e && !e.hidden; };
       $('orden-hoja').replaceChildren(...mezclar(g.hoja, DEF_H).filter((id) => vis(id) || COMPLETA.has(id) || oc.has(id)).map((id) => fila(id, 'hoja', oc.has(id))));
       $('orden-det').replaceChildren(...mezclar(g.det, DEF_D).map((id) => fila(id, 'det', oc.has(id))));
+      $('orden-det').hidden = !DEF_D.length; $('orden-det').previousElementSibling.hidden = !DEF_D.length;
     }
     function desdeListas() {
       const g = leer(), ids = (ol) => [...$(ol).children].map((li) => li.dataset.id);
@@ -2293,8 +2400,8 @@
       d.style.flexBasis = '50%'; u.style.flexBasis = '50%';
       tug.append(d, u, el('i', 'ab-tug-mid'));
       later(() => { d.style.flexBasis = (100 - pu) + '%'; u.style.flexBasis = pu + '%'; });
-      document.getElementById('first-mg').textContent = `${f0(num(p.distancia))} USD para cada lado` + (num(p.factor) === 0 ? ' · sin ventaja aprendida: lo trata como moneda'
-        : p.sin_ventaja ? ' · en su repaso no le ganó a la tasa base: no lo toma como predicción' : ` · margen ±${f0(num(p.margen_primero))} pts`);
+      document.getElementById('first-mg').textContent = `${f0(num(p.distancia))} USD para cada lado` + (num(p.factor) === 0 ? ' · sin ventaja aprendida: 50/50'
+        : p.sin_ventaja ? ' · en su repaso no le ganó a lo normal: no lo toma como predicción' : ` · ±${f0(num(p.margen_primero))} pts`);
     }
     const lo = num(p.min), hi = num(p.max), span = hi - lo || 1;
     const at = (v) => Math.max(0, Math.min(100, (v - lo) / span * 100));
@@ -2321,7 +2428,7 @@
   function learnLine(a) {
     if (!a || !num(a.repasadas)) return 'Todavía junta experiencia para este plazo.';
     const hab = num(a.habilidad), ap = num(a.aciertos_aprendido), lo = num(a.ic_bajo), hi = num(a.ic_alto);
-    const v = hab === null ? 'midiendo' : hab >= 0.5 ? `le gana a la tasa base por ${f1(hab)}%` : hab > -0.5 ? 'sin ventaja clara sobre la tasa base' : `peor que la tasa base (${f1(hab)}%)`;
+    const v = hab === null ? 'midiendo' : hab >= 0.5 ? `le gana a lo normal por ${f1(hab)}%` : hab > -0.5 ? 'sin ventaja clara sobre lo normal' : `peor que lo normal (${f1(hab)}%)`;
     return ap === null || lo === null ? `Aprendiendo · ${v}` : `Acierta ${f1(ap)}% (entre ${f0(lo)} y ${f0(hi)}%) · ${v}`;
   }
   // calibracion: si un 60% del repaso paso de verdad ~60% de las veces (solo se muestra: ya salen calibradas)
@@ -2428,16 +2535,16 @@
       const sg = num(a.aciertos_seguro), ns = num(a.decisivas_seguro);
       const sgn = (x) => (x === null ? '—' : `${x > 0 ? '+' : ''}${f1(x)}%`);
       put('apr-ap', sgn(hab), hog === null ? '' : `método original ${sgn(hog)}`);
-      put('apr-og', pctTxt(ap), lo !== null ? `entre ${f0(lo)} y ${f0(hi)}% · ${f0(num(a.independientes))} independientes` : num(a.factor) === 0 ? 'no apuesta: lo trata como moneda' : '');
+      put('apr-og', pctTxt(ap), lo !== null ? `entre ${f0(lo)} y ${f0(hi)}% · medido en ${f0(num(a.independientes))} casos` : num(a.factor) === 0 ? 'sin ventaja: 50/50' : '');
       put('apr-br', pctTxt(sg), ns ? `${f0(ns)} veces que dio 58% o más` : 'casi nunca se anima');
       const b = document.getElementById('apr-ap');
       if (hab !== null) b.style.color = hab >= 0.5 ? 'var(--color-ok)' : hab <= -0.5 ? 'var(--color-bad)' : null;
       const desde = new Date(num(a.desde)).toLocaleDateString('es-AR', { ...tz, day: '2-digit', month: '2-digit' });
       const su = num(a.sep_arriba), sd = num(a.sep_abajo), ms = num(a.margen_sep);
       const sepTxt = su === null || sd === null ? '' : ` Cuando le daba más chances arriba que lo normal, tocó arriba primero ${f0(su)}% de las veces; cuando le daba menos, ${f0(sd)}%${ms === null ? '' : ` (diferencia ${f0(su - sd)} puntos, ±${f0(ms)} de margen)`}.`;
-      document.getElementById('apr-txt').textContent = `Repasó ${f0(num(a.repasadas))} predicciones desde el ${desde}. Hoy pesa más ${a.lider} (peso del modelo que aprende solo: ${f0(num(a.peso_modelo))}%; de la tasa base: ${f0(num(a.peso_base))}%). ${a.confianza}.${sepTxt}`;
+      document.getElementById('apr-txt').textContent = `Repasó ${f0(num(a.repasadas))} predicciones desde el ${desde}. Hoy pesa más ${a.lider} (peso del modelo que aprende solo: ${f0(num(a.peso_modelo))}%; de lo normal: ${f0(num(a.peso_base))}%). ${a.confianza}.${sepTxt}`;
     }
-    // curva: ventaja sobre la tasa base en ventanas de 150 predicciones, a medida que repasaba
+    // curva: ventaja sobre lo normal en ventanas de 150 predicciones, a medida que repasaba
     const box = document.getElementById('apr-chart'); box.replaceChildren();
     const lg = document.getElementById('apr-legend'); lg.replaceChildren();
     const pts = pick(rows, 'aprendizaje_curva').filter((r) => r.plazo === S.plazo)
@@ -2448,7 +2555,7 @@
       const [lo, hi] = d3.extent(vals);
       const x = d3.scaleLinear(d3.extent(pts, (p) => p.k), [ml, W - mr]);
       const yy = d3.scaleLinear([Math.min(-1, Math.floor(lo - 0.5)), Math.max(1, Math.ceil(hi + 0.5))], [H - mb, mt]).nice();
-      const svg = d3.select(box).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Ventaja sobre la tasa base a medida que aprende');
+      const svg = d3.select(box).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Ventaja sobre lo normal a medida que aprende');
       yy.ticks(4).forEach((v) => {
         svg.append('line').attr('class', 'ab-gl').attr('x1', ml).attr('x2', W - mr).attr('y1', yy(v)).attr('y2', yy(v)).style('stroke-dasharray', v === 0 ? '3 3' : null);
         svg.append('text').attr('x', ml - 4).attr('y', yy(v)).attr('dy', '.32em').attr('text-anchor', 'end').text(`${v > 0 ? '+' : ''}${v}%`);
@@ -2461,7 +2568,7 @@
       });
       const last = pts[pts.length - 1];
       if (last.a !== null) svg.append('circle').attr('cx', x(last.k)).attr('cy', yy(last.a)).attr('r', 3.5).style('fill', dash.colors[0]);
-      [[dash.colors[0], 'Equipo que aprende'], ['var(--color-fg-muted)', 'Método original'], ['transparent', 'Línea punteada: 0%, igual que la tasa base']].forEach(([c, t]) => {
+      [[dash.colors[0], 'Equipo que aprende'], ['var(--color-fg-muted)', 'Método original'], ['transparent', 'Línea punteada: 0%, igual que lo normal']].forEach(([c, t]) => {
         const sp = el('span'); const i = el('i'); i.style.background = c; if (c === 'transparent') i.style.borderTop = '1.5px dashed var(--color-fg-muted)';
         sp.append(i, t); lg.append(sp);
       });
@@ -2470,7 +2577,7 @@
     all.forEach((r) => {
       const tr = el('tr'); if (r.plazo === S.plazo) tr.className = 'ab-sel';
       // quien pesa mas en el equipo, en corto
-      const short = String(r.lider || '').replace('el modelo que aprende solo', 'pesa más: el modelo').replace('la tasa base', 'pesa más: la tasa base')
+      const short = String(r.lider || '').replace('el modelo que aprende solo', 'pesa más: el modelo').replace('lo normal', 'pesa más: lo normal')
         .replace('casos parecidos por ', 'pesa más: ').replace(/precio vs /g, '').replace('movimiento del último día', 'mov.\u00a024\u00a0h').replace(/ y /, ', ');
       const c0 = el('td'); c0.append(el('span', '', r.plazo), el('small', '', num(r.repasadas) ? short : 'junta experiencia'));
       const hb = num(r.habilidad), ho = num(r.habilidad_original);
@@ -2478,7 +2585,7 @@
       const c1 = el('td', 'r', sg(hb));
       if (hb !== null) { c1.style.color = hb >= 0.5 ? 'var(--color-ok)' : hb <= -0.5 ? 'var(--color-bad)' : null; c1.style.fontWeight = '600'; }
       const f = num(r.factor);
-      tr.append(c0, c1, el('td', 'r', sg(ho)), el('td', 'r', f === 0 ? 'moneda' : `×${ar.format(',.2f')(f)}`));
+      tr.append(c0, c1, el('td', 'r', sg(ho)), el('td', 'r', f === 0 ? '50/50' : `×${ar.format(',.2f')(f)}`));
       tr.addEventListener('click', () => setPlazo(r.plazo));
       tb.append(tr);
     });

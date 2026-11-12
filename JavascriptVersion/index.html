@@ -47,12 +47,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <link rel="preconnect" href="https://fapi.binance.com" crossorigin>
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
-<link rel="stylesheet" href="p-b02534ee11.css">
-<script>window.AB_PAGINA = "cf071c66d8";</script>
+<link rel="stylesheet" href="p-4a08cb597e.css">
+<script>window.AB_PAGINA = "841db36578";</script>
 <script defer src="app.js?v=46c202181b"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-3ae6bd2ed2.js"></script>
+<script defer src="p-d941835034.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -174,6 +174,18 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     <button type="button" class="ab-asa" id="asa" aria-label="Subir o bajar el análisis"><i></i></button>
 
   <!-- el analisis central: todos los calculos convergen en 5 puntos, en la temporalidad elegida (fila 'central') -->
+  <section class="ab-card ab-resp" id="respuesta" aria-labelledby="rs-t" data-source="analisis" hidden>
+    <div class="ab-rs-h"><h2 id="rs-t">En la próxima hora</h2><span class="ab-kicker" id="rs-k"></span></div>
+    <div class="ab-rs-top">
+      <div class="ab-rs-d"><small id="rs-dir-k"></small><b id="rs-dir" class="ab-rs-dir">—</b></div>
+      <svg class="ab-rs-dial" id="rs-dial" viewBox="0 0 64 36" role="img"></svg>
+      <div class="ab-rs-mov" id="rs-mov"></div>
+    </div>
+    <div class="ab-rs-rango" id="rs-rango" hidden></div>
+    <p class="ab-rs-txt" id="rs-txt"></p>
+    <div class="ab-ce-riesgo" id="rs-riesgo" hidden></div>
+    <div class="ab-rs-plazos" id="rs-plazos" role="group" aria-label="Plazo"></div>
+  </section>
   <section class="ab-card ab-centro" id="centro" aria-labelledby="ce-t" data-source="analisis" hidden>
     <div class="ab-card-head"><h2 id="ce-t">Análisis</h2><span class="ab-kicker" id="ce-k"></span></div>
     <div class="ab-ce-tfs" id="ce-tfs" role="group" aria-label="Temporalidad del análisis"></div>
@@ -293,7 +305,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 
   <!-- vista simple (por defecto): solo lo necesario para decidir. El analisis completo sigue calculandose y se abre aca -->
   <button type="button" class="ab-vista-btn" id="vista-btn" aria-expanded="false" aria-controls="que-espero aprendizaje mas-detalle">
-    <span id="vista-txt">Ver el análisis completo</span><small id="vista-sub">por qué, cómo viene acertando, indicadores, niveles y más</small>
+    <span id="vista-txt">Ver el análisis completo</span><small id="vista-sub">cómo se llegó, cuánto se puede mover, niveles, contexto y cuánto acierta</small>
   </button>
 
   <section class="ab-card ab-story" id="que-espero" aria-labelledby="story-t" data-source="analisis">
@@ -309,7 +321,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   <section class="ab-card" id="aprendizaje" aria-labelledby="apr-t" data-source="analisis">
     <div class="ab-card-head"><h2 id="apr-t">Cómo viene aprendiendo</h2><span class="ab-kicker" id="apr-k"></span></div>
     <div class="ab-apr-top">
-      <div class="ab-apr-stat"><small>Ventaja sobre la tasa base</small><b id="apr-ap">—</b><span id="apr-ap-n"></span></div>
+      <div class="ab-apr-stat"><small>Ventaja sobre lo normal</small><b id="apr-ap">—</b><span id="apr-ap-n"></span></div>
       <div class="ab-apr-stat"><small>Acierta qué toca primero</small><b id="apr-og">—</b><span id="apr-og-n"></span></div>
       <div class="ab-apr-stat"><small>Cuando se anima</small><b id="apr-br">—</b><span id="apr-br-n"></span></div>
     </div>
@@ -318,7 +330,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     <div class="ab-legend" id="apr-legend"></div>
     <div id="apr-cal"></div>
     <div class="ab-tbl-box"><table class="ab-tbl" id="apr-tbl"><thead><tr><th>Plazo</th><th class="r">Ventaja</th><th class="r">Original</th><th class="r" title="Cuánto estira (más de 1) o achica (menos de 1) sus probabilidades después de repasar sus predicciones">Ajuste</th></tr></thead><tbody></tbody></table></div>
-    <p class="ab-note">Cada vez que cierra una vela, el analista repasa sus últimas 1.000 predicciones de cada plazo (cada una hecha solo con lo que se sabía en ese momento) y las compara con lo que pasó. Trabaja con un equipo: 8 formas de buscar situaciones parecidas, un modelo que aprende solo con cada vela (movimientos, medias, RSI, MACD, Bollinger, volatilidad, volumen y hora del día) y la tasa base, que es decir siempre "lo normal". Con cada resultado baja el peso de los que se equivocaron y sube el de los que acertaron; si las probabilidades del equipo venían exageradas, las modera. Un resultado se usa para aprender recién cuando se conoce, y cada predicción se juzga con lo que había antes, así la medición es honesta. La <b>ventaja</b> es cuánto menos se equivoca que la tasa base (0% = no sabe más que lo normal). El margen de error de los aciertos cuenta que las predicciones que se pisan comparten resultado: a 1 hora, 1.000 predicciones valen como 80 independientes. En BTC, a estos plazos, una ventaja de 1% sostenida ya es mucha.</p>
+    <p class="ab-note">Cada vez que cierra una vela, el analista repasa sus últimas 1.000 predicciones de cada plazo (cada una hecha solo con lo que se sabía en ese momento) y las compara con lo que pasó. Trabaja con un equipo: 8 formas de buscar situaciones parecidas, un modelo que aprende solo con cada vela (movimientos, medias, RSI, MACD, Bollinger, volatilidad, volumen y hora del día) y "lo normal", que es decir siempre lo que pasa en general. Con cada resultado baja el peso de los que se equivocaron y sube el de los que acertaron; si las probabilidades del equipo venían exageradas, las modera. Un resultado se usa para aprender recién cuando se conoce, y cada predicción se juzga con lo que había antes, así la medición es honesta. La <b>ventaja</b> es cuánto menos se equivoca que lo normal (0% = no sabe más que lo normal). El margen de error de los aciertos cuenta que las predicciones que se pisan comparten resultado: a 1 hora, 1.000 predicciones valen como 80 independientes. En BTC, a estos plazos, una ventaja de 1% sostenida ya es mucha.</p>
   </section>
 
   <div class="ab-more-list" id="mas-detalle">
@@ -438,7 +450,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
   <div class="ab-repro ab-orden" id="orden" role="dialog" aria-modal="true" aria-labelledby="orden-t" hidden>
     <div class="ab-repro-h"><h2 id="orden-t">Ordenar secciones</h2><button type="button" class="ab-iconbtn ab-round" id="orden-x" aria-label="Cerrar">✕</button></div>
     <p class="ab-ord-nota">Arrastrá desde <b>≡</b> o usá las flechas; el ojo oculta la sección. Queda guardado en este navegador, también si cerrás la página.</p>
-    <h3 class="ab-ord-t">Análisis</h3><ol class="ab-ord-lista" id="orden-hoja"></ol>
+    <h3 class="ab-ord-t">Secciones</h3><ol class="ab-ord-lista" id="orden-hoja"></ol>
     <h3 class="ab-ord-t">Más detalle</h3><ol class="ab-ord-lista" id="orden-det"></ol>
     <div class="ab-ord-pie"><button type="button" class="ab-chipbtn" id="orden-reset">Volver al orden original</button><button type="button" class="ab-btn-pri" id="orden-listo">Listo</button></div>
   </div>

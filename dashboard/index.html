@@ -1461,7 +1461,7 @@
   @keyframes lmLate { 50% { opacity: .35; } }
   .ab-lm-vivo-tot { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 6px; font-variant-numeric: tabular-nums; }
   .ab-lm-vivo-tot div { font-size: 12px; color: var(--mute); }
-  .ab-lm-vivo-tot b { display: block; font-size: 17px; font-stretch: 85%; color: var(--fg); }
+  .ab-lm-vivo-tot b { display: block; font-size: 17px; font-stretch: 85%; color: var(--ink); }
   .ab-lm-vivo-tot .l b { color: var(--color-bad); } .ab-lm-vivo-tot .s b { color: var(--color-ok); }
   .ab-lm-feed { list-style: none; margin: 0; padding: 0; font-size: 13px; font-variant-numeric: tabular-nums; }
   .ab-lm-feed li { display: grid; grid-template-columns: 10px 1fr auto auto; gap: 8px; align-items: center; padding: 5px 0; border-top: 1px solid var(--line); }
@@ -1480,25 +1480,25 @@
   .ab-dib-bar[hidden] { display: none; }
   .ab-dib-sel { top: 56px; } .ab-dib-sel.ab-dib-sola { top: 8px; }
   .ab-dib-b { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 34px; padding: 0 8px; border: 0; border-radius: 9px;
-    background: transparent; color: var(--fg); font: inherit; font-size: 12.5px; font-weight: 550; cursor: pointer; }
+    background: transparent; color: var(--ink); font: inherit; font-size: 12.5px; font-weight: 550; cursor: pointer; }
   .ab-dib-b:hover { background: var(--soft2); }
   .ab-dib-b[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
   .ab-dib-listo { color: var(--senal); }
   .ab-dib-sep { flex: none; width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
   .ab-dib-col { flex: none; width: 24px; height: 24px; margin: 5px; border-radius: 50%; border: 0; cursor: pointer; box-shadow: inset 0 0 0 2px rgba(255,255,255,.35); }
-  .ab-dib-col[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--fg); }
+  .ab-dib-col[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--ink); }
   .ab-dib-b[hidden] { display: none; }
   .ab-chart.is-dibujando { cursor: crosshair; }
   .ab-dib-btn[aria-pressed="true"] { background: var(--ink) !important; color: var(--panel) !important; }
   html.ab-vigilia .ab-dib-bar { display: none; }
   .ab-toast { position: fixed; z-index: 90; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translate(-50%, 140%); max-width: calc(100vw - 32px);
     padding: 12px 16px 12px 14px; border-radius: 14px; background: var(--vidrio); -webkit-backdrop-filter: var(--vidrio-fx); backdrop-filter: var(--vidrio-fx);
-    border: 1px solid var(--vidrio-borde, var(--line)); border-left: 4px solid var(--toast-col); color: var(--fg); font-size: 14px; font-weight: 550;
+    border: 1px solid var(--vidrio-borde, var(--line)); border-left: 4px solid var(--toast-col); color: var(--ink); font-size: 14px; font-weight: 550;
     box-shadow: 0 8px 30px rgba(0,0,0,.18); transition: transform .35s cubic-bezier(.2,.9,.3,1.2); }
   .ab-toast.on { transform: translate(-50%, 0); }
   @media (prefers-reduced-motion: reduce) { .ab-toast { transition: none; } }
   .ab-radio-btn { display: inline-flex; align-items: center; gap: 5px; }
-  #radio-cada { font: inherit; font-size: 12.5px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--fg); padding: 4px 6px; }
+  #radio-cada { font: inherit; font-size: 12.5px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink); padding: 4px 6px; }
   #radio-cada[hidden], #radio-ya[hidden] { display: none; }
   @media (max-width: 599.98px) { .ab-vigilia-bar { left: 12px; right: 12px; flex-wrap: wrap; justify-content: flex-end; border-radius: 18px; } .ab-vigilia-bar #vigilia-est { flex: 1 1 100%; } }
 
@@ -1507,7 +1507,7 @@
   .ab-chart2[hidden] { display: none; }
   .ab-chart2-h { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .ab-chart2-leg { font-size: 12px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 64px; flex: 1 1 auto; font-variant-numeric: tabular-nums; }
-  .ab-chart2-leg b { color: var(--fg); font-weight: 600; margin-right: 4px; }
+  .ab-chart2-leg b { color: var(--ink); font-weight: 600; margin-right: 4px; }
   .ab-chart2-tfs { display: flex; gap: 2px; flex: 0 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
   .ab-chart2-tfs::-webkit-scrollbar { display: none; }
   .ab-chart2-tfs .ab-chipbtn { flex: none; }
@@ -1545,7 +1545,7 @@
   .ab-oculta { display: none !important; }
   .ab-orden-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin: 4px 0 16px; padding: 12px; border: 1px dashed var(--line); border-radius: 14px;
     background: transparent; color: var(--mute); font: inherit; font-size: 13.5px; cursor: pointer; }
-  .ab-orden-btn:hover { color: var(--fg); border-color: var(--mute); }
+  .ab-orden-btn:hover { color: var(--ink); border-color: var(--mute); }
   .ab-orden { width: min(520px, calc(100vw - 32px)); max-height: min(86svh, 760px); overflow-y: auto; overscroll-behavior: contain; display: grid; gap: 8px; align-content: start; }
   .ab-orden[hidden] { display: none; }
   .ab-orden .ab-repro-h h2 { margin: 0 auto 0 0; }
@@ -1559,13 +1559,78 @@
   .ab-ord-asa { height: 40px; border: 0; background: transparent; color: var(--mute); font-size: 20px; cursor: grab; touch-action: none; border-radius: 10px; }
   .ab-ord-asa:active { cursor: grabbing; }
   .ab-ord-n { font-size: 14px; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ab-ord-b, .ab-ord-ojo { height: 36px; border: 0; border-radius: 10px; background: transparent; color: var(--fg); font: inherit; font-size: 15px; cursor: pointer; display: grid; place-items: center; }
+  .ab-ord-b, .ab-ord-ojo { height: 36px; border: 0; border-radius: 10px; background: transparent; color: var(--ink); font: inherit; font-size: 15px; cursor: pointer; display: grid; place-items: center; }
   .ab-ord-b:hover, .ab-ord-ojo:hover, .ab-ord-asa:hover { background: var(--soft2); }
   .ab-ord-ojo[aria-pressed="false"] { color: var(--mute); }
   .ab-ord-pie { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 8px; }
   @media (max-width: 599.98px) { .ab-orden { width: auto; max-height: 88svh; } }
   .ab-credito { font-size: 11px; opacity: .7; }
   #cmp-foot-bx:empty, #pos-bx-nota:empty, #qp-note:empty { display: none !important; }
+
+  /* ---------- la respuesta (arriba) y el analisis completo en 6 partes ---------- */
+  #centro, #plazos, #mas-detalle { display: none !important; }
+  html.ab-simple :is(.ab-parte, #partes-idx) { display: none !important; }
+  .ab-resp { display: grid; gap: 14px; }
+  .ab-resp[hidden] { display: none; }
+  .ab-rs-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .ab-rs-h h2 { margin: 0; font-size: 1.05rem; }
+  .ab-rs-top { display: grid; grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1.1fr); align-items: center; gap: 14px; }
+  .ab-rs-d small, .ab-rs-mov small { display: block; font-size: 12px; color: var(--mute); }
+  .ab-rs-dir { display: block; font-size: clamp(1.7rem, 7vw, 2.2rem); font-weight: 750; letter-spacing: -.02em; line-height: 1.05; font-stretch: 85%; }
+  .ab-rs-dir.sube { color: var(--color-ok); } .ab-rs-dir.baja { color: var(--color-bad); }
+  .ab-rs-dial { width: 64px; height: 36px; }
+  .ab-rs-mov b { display: block; font-size: 1.35rem; font-weight: 700; font-stretch: 85%; font-variant-numeric: tabular-nums; }
+  .ab-rs-mov.alta b { color: var(--color-warn); }
+  .ab-rs-bar { position: relative; display: block; height: 6px; border-radius: 3px; background: var(--soft2); margin: 5px 0 3px; }
+  .ab-rs-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--ink); opacity: .75; }
+  .ab-rs-mov.alta .ab-rs-bar i { background: var(--color-warn); opacity: 1; }
+  .ab-rs-bar u { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--mute); }
+  .ab-rs-sub { font-size: 11.5px; color: var(--mute); }
+  .ab-rs-rango { display: grid; gap: 6px; }
+  .ab-rs-rango[hidden] { display: none; }
+  .ab-rs-rbar { position: relative; height: 22px; }
+  .ab-rs-rbar::before { content: ""; position: absolute; left: 0; right: 0; top: 10px; height: 2px; background: var(--line); border-radius: 1px; }
+  .ab-rs-rbar i { position: absolute; top: 4px; height: 14px; }
+  .ab-rs-rbar i.r { border-radius: 7px; background: color-mix(in srgb, var(--senal) 22%, transparent); border: 1px solid color-mix(in srgb, var(--senal) 45%, transparent); }
+  .ab-rs-rbar i.s, .ab-rs-rbar i.e { width: 2px; margin-left: -1px; background: var(--color-ok); }
+  .ab-rs-rbar i.e { background: var(--color-bad); }
+  .ab-rs-rbar i.a { width: 0; height: 0; top: -2px; margin-left: -6px; border: 6px solid transparent; border-top: 8px solid var(--ink); }
+  .ab-rs-rlbl { display: grid; grid-template-columns: auto 1fr auto auto; gap: 4px 12px; align-items: end; font-variant-numeric: tabular-nums; }
+  .ab-rs-rlbl span { display: grid; } .ab-rs-rlbl small { font-size: 11px; color: var(--mute); } .ab-rs-rlbl b { font-size: 14px; font-weight: 650; }
+  .ab-rs-rlbl .r { text-align: right; } .ab-rs-rlbl .r2 { text-align: left; }
+  .ab-rs-rlbl .e { text-align: right; } .ab-rs-rlbl .s b { color: var(--color-ok); } .ab-rs-rlbl .e b { color: var(--color-bad); }
+  .ab-rs-txt { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink); }
+  .ab-rs-plazos { display: flex; gap: 6px; flex-wrap: wrap; }
+  .ab-rs-pl { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--mute); cursor: pointer; }
+  .ab-rs-pl[aria-pressed="true"] { color: var(--sobre-senal); background: var(--senal); border-color: transparent; font-weight: 600; }
+  @media (max-width: 420px) { .ab-rs-top { grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr); gap: 10px; } .ab-rs-dial { width: 56px; height: 32px; }
+    .ab-rs-rlbl { grid-template-columns: auto 1fr auto auto; gap: 2px 8px; } .ab-rs-rlbl b { font-size: 13px; } }
+  /* indice y partes */
+  .ab-partes-idx { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 8px; }
+  .ab-partes-idx .ab-chipbtn { font-size: 12.5px; }
+  .ab-parte { border-top: 1px solid var(--line); }
+  .ab-parte > summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 14px 0; }
+  .ab-parte > summary::-webkit-details-marker { display: none; }
+  .ab-parte > summary::after { content: ""; grid-column: 2; grid-row: 1; align-self: center; width: 9px; height: 9px; border-right: 2px solid var(--mute); border-bottom: 2px solid var(--mute); transform: translateY(-2px) rotate(45deg); margin-right: 4px; transition: transform .2s; }
+  .ab-parte[open] > summary::after { transform: translateY(2px) rotate(-135deg); }
+  .ab-parte-t { display: flex; align-items: center; gap: 10px; font-size: 1.02rem; }
+  .ab-parte-t i { font-style: normal; flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--soft2); color: var(--ink); }
+  .ab-parte-res { grid-column: 1 / -1; padding-left: 34px; font-size: 13px; color: var(--mute); line-height: 1.4; }
+  .ab-parte-res:empty { display: none; }
+  .ab-parte[open] > summary .ab-parte-res { display: none; }
+  .ab-parte-c { display: grid; gap: 14px; padding: 0 0 18px; }
+  .ab-parte-c > .ab-card, .ab-parte-c > section, .ab-parte-c > .ab-hero-side, .ab-parte-c > .ab-conclu { border: 0 !important; padding: 0 !important; margin: 0 !important; background: transparent !important; box-shadow: none !important; }
+  .ab-parte-c > .ab-ce-p { border: 0 !important; padding: 0 !important; }
+  .ab-parte-sub > summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--ink); padding: 6px 0; }
+  .ab-parte-sub > .ab-card { border: 0 !important; padding: 8px 0 0 !important; background: transparent !important; box-shadow: none !important; }
+  .ab-parte-c .ab-card, .ab-parte-c .ab-more { overflow: visible !important; resize: none !important; }   /* adentro de una parte no recortan ni se estiran */
+  #parte-dir #cc-txt { display: none; }
+  #parte-dir #prediccion { display: block !important; }
+  #parte-dir .ab-verdict-big { font-size: 1.35rem; }
+  #parte-mov #ce-fuerza > :not(details) { display: none; }
+  #parte-mov #ce-fuerza > details > summary { font-size: 13.5px; }
+  .ab-parte-c > .ab-more { margin: 0; }
+  @media (min-width: 1000px) { html.ab-multi .ab-hoja > .ab-parte { break-inside: avoid; } }
 </style>
 
 <div class="ab ab-first ab-cargando" id="analista" data-source="analisis">
@@ -1686,6 +1751,18 @@
     <button type="button" class="ab-asa" id="asa" aria-label="Subir o bajar el análisis"><i></i></button>
 
   <!-- el analisis central: todos los calculos convergen en 5 puntos, en la temporalidad elegida (fila 'central') -->
+  <section class="ab-card ab-resp" id="respuesta" aria-labelledby="rs-t" data-source="analisis" hidden>
+    <div class="ab-rs-h"><h2 id="rs-t">En la próxima hora</h2><span class="ab-kicker" id="rs-k"></span></div>
+    <div class="ab-rs-top">
+      <div class="ab-rs-d"><small id="rs-dir-k"></small><b id="rs-dir" class="ab-rs-dir">—</b></div>
+      <svg class="ab-rs-dial" id="rs-dial" viewBox="0 0 64 36" role="img"></svg>
+      <div class="ab-rs-mov" id="rs-mov"></div>
+    </div>
+    <div class="ab-rs-rango" id="rs-rango" hidden></div>
+    <p class="ab-rs-txt" id="rs-txt"></p>
+    <div class="ab-ce-riesgo" id="rs-riesgo" hidden></div>
+    <div class="ab-rs-plazos" id="rs-plazos" role="group" aria-label="Plazo"></div>
+  </section>
   <section class="ab-card ab-centro" id="centro" aria-labelledby="ce-t" data-source="analisis" hidden>
     <div class="ab-card-head"><h2 id="ce-t">Análisis</h2><span class="ab-kicker" id="ce-k"></span></div>
     <div class="ab-ce-tfs" id="ce-tfs" role="group" aria-label="Temporalidad del análisis"></div>
@@ -1805,7 +1882,7 @@
 
   <!-- vista simple (por defecto): solo lo necesario para decidir. El analisis completo sigue calculandose y se abre aca -->
   <button type="button" class="ab-vista-btn" id="vista-btn" aria-expanded="false" aria-controls="que-espero aprendizaje mas-detalle">
-    <span id="vista-txt">Ver el análisis completo</span><small id="vista-sub">por qué, cómo viene acertando, indicadores, niveles y más</small>
+    <span id="vista-txt">Ver el análisis completo</span><small id="vista-sub">cómo se llegó, cuánto se puede mover, niveles, contexto y cuánto acierta</small>
   </button>
 
   <section class="ab-card ab-story" id="que-espero" aria-labelledby="story-t" data-source="analisis">
@@ -1821,7 +1898,7 @@
   <section class="ab-card" id="aprendizaje" aria-labelledby="apr-t" data-source="analisis">
     <div class="ab-card-head"><h2 id="apr-t">Cómo viene aprendiendo</h2><span class="ab-kicker" id="apr-k"></span></div>
     <div class="ab-apr-top">
-      <div class="ab-apr-stat"><small>Ventaja sobre la tasa base</small><b id="apr-ap">—</b><span id="apr-ap-n"></span></div>
+      <div class="ab-apr-stat"><small>Ventaja sobre lo normal</small><b id="apr-ap">—</b><span id="apr-ap-n"></span></div>
       <div class="ab-apr-stat"><small>Acierta qué toca primero</small><b id="apr-og">—</b><span id="apr-og-n"></span></div>
       <div class="ab-apr-stat"><small>Cuando se anima</small><b id="apr-br">—</b><span id="apr-br-n"></span></div>
     </div>
@@ -1830,7 +1907,7 @@
     <div class="ab-legend" id="apr-legend"></div>
     <div id="apr-cal"></div>
     <div class="ab-tbl-box"><table class="ab-tbl" id="apr-tbl"><thead><tr><th>Plazo</th><th class="r">Ventaja</th><th class="r">Original</th><th class="r" title="Cuánto estira (más de 1) o achica (menos de 1) sus probabilidades después de repasar sus predicciones">Ajuste</th></tr></thead><tbody></tbody></table></div>
-    <p class="ab-note">Cada vez que cierra una vela, el analista repasa sus últimas 1.000 predicciones de cada plazo (cada una hecha solo con lo que se sabía en ese momento) y las compara con lo que pasó. Trabaja con un equipo: 8 formas de buscar situaciones parecidas, un modelo que aprende solo con cada vela (movimientos, medias, RSI, MACD, Bollinger, volatilidad, volumen y hora del día) y la tasa base, que es decir siempre "lo normal". Con cada resultado baja el peso de los que se equivocaron y sube el de los que acertaron; si las probabilidades del equipo venían exageradas, las modera. Un resultado se usa para aprender recién cuando se conoce, y cada predicción se juzga con lo que había antes, así la medición es honesta. La <b>ventaja</b> es cuánto menos se equivoca que la tasa base (0% = no sabe más que lo normal). El margen de error de los aciertos cuenta que las predicciones que se pisan comparten resultado: a 1 hora, 1.000 predicciones valen como 80 independientes. En BTC, a estos plazos, una ventaja de 1% sostenida ya es mucha.</p>
+    <p class="ab-note">Cada vez que cierra una vela, el analista repasa sus últimas 1.000 predicciones de cada plazo (cada una hecha solo con lo que se sabía en ese momento) y las compara con lo que pasó. Trabaja con un equipo: 8 formas de buscar situaciones parecidas, un modelo que aprende solo con cada vela (movimientos, medias, RSI, MACD, Bollinger, volatilidad, volumen y hora del día) y "lo normal", que es decir siempre lo que pasa en general. Con cada resultado baja el peso de los que se equivocaron y sube el de los que acertaron; si las probabilidades del equipo venían exageradas, las modera. Un resultado se usa para aprender recién cuando se conoce, y cada predicción se juzga con lo que había antes, así la medición es honesta. La <b>ventaja</b> es cuánto menos se equivoca que lo normal (0% = no sabe más que lo normal). El margen de error de los aciertos cuenta que las predicciones que se pisan comparten resultado: a 1 hora, 1.000 predicciones valen como 80 independientes. En BTC, a estos plazos, una ventaja de 1% sostenida ya es mucha.</p>
   </section>
 
   <div class="ab-more-list" id="mas-detalle">
@@ -1950,7 +2027,7 @@
   <div class="ab-repro ab-orden" id="orden" role="dialog" aria-modal="true" aria-labelledby="orden-t" hidden>
     <div class="ab-repro-h"><h2 id="orden-t">Ordenar secciones</h2><button type="button" class="ab-iconbtn ab-round" id="orden-x" aria-label="Cerrar">✕</button></div>
     <p class="ab-ord-nota">Arrastrá desde <b>≡</b> o usá las flechas; el ojo oculta la sección. Queda guardado en este navegador, también si cerrás la página.</p>
-    <h3 class="ab-ord-t">Análisis</h3><ol class="ab-ord-lista" id="orden-hoja"></ol>
+    <h3 class="ab-ord-t">Secciones</h3><ol class="ab-ord-lista" id="orden-hoja"></ol>
     <h3 class="ab-ord-t">Más detalle</h3><ol class="ab-ord-lista" id="orden-det"></ol>
     <div class="ab-ord-pie"><button type="button" class="ab-chipbtn" id="orden-reset">Volver al orden original</button><button type="button" class="ab-btn-pri" id="orden-listo">Listo</button></div>
   </div>
@@ -2598,6 +2675,7 @@
   function drawCentro(rows, sum) {
     const sec = document.getElementById('centro'), todas = pick(rows, 'central');
     const c = todas.find((x) => x.tf === S.tf) || todas.find((x) => x.tf === '1h');
+    drawRespuesta(rows, sum, c); drawPartes(rows, c);
     sec.hidden = !c; if (!c) return;
     const tfs = document.getElementById('ce-tfs');
     tfs.replaceChildren(...CE_TFS.filter(([tf]) => todas.some((x) => x.tf === tf)).map(([tf, txt]) => {
@@ -2673,13 +2751,118 @@
     rz.replaceChildren(el('b', '', '⚠ Atención: '), c.riesgo.join(' · '));
   }
 
+  // ---------- la respuesta: el resultado final del analisis, una sola vez y arriba de todo ----------
+  // Sale de la fila 'central' (donde convergen todos los calculos). El detalle de como se llego va en el analisis
+  // completo, en 6 partes (ver PARTES), sin repetir la conclusion.
+  const PLZ_CORTO = { '5 min': '5 min', '15 min': '15 min', '1 hora': '1 hora', '4 horas': '4 horas', '1 día': '1 día' };
+  function drawRespuesta(rows, sum, c) {
+    const sec = document.getElementById('respuesta'); sec.hidden = !c; if (!c) return;
+    const ahora = sum && okv(sum.precio) ? num(sum.precio) : null;
+    const plazo = CE_PLAZO[c.tf];
+    document.getElementById('rs-t').textContent = plazo ? `En ${plazo === '1 hora' ? 'la próxima hora' : plazo === '1 día' ? 'el próximo día' : `los próximos ${plazo}`}` : `Velas de ${TF_TXT[c.tf] || c.tf}`;
+    document.getElementById('rs-k').textContent = `${MON()}${c.hasta ? ` · hasta las ${c.hasta.slice(-5)} h` : ''}`;
+    // los plazos: cambian la respuesta (y el grafico)
+    const pl = document.getElementById('rs-plazos');
+    pl.replaceChildren(...pick(rows, 'plazo').map((p) => {
+      const b = el('button', 'ab-rs-pl', PLZ_CORTO[p.plazo] || p.plazo); b.type = 'button';
+      b.setAttribute('aria-pressed', String(plazo === p.plazo)); b.addEventListener('click', () => setPlazo(p.plazo)); return b;
+    }));
+    // direccion: palabra grande y un dial con cuanta fuerza tiene (a favor menos en contra)
+    const af = num(c.a_favor) || 0, ec = num(c.en_contra) || 0, sc = af + ec > 0 ? (af - ec) / (af + ec) : 0;
+    const dir = c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '';
+    const dw = document.getElementById('rs-dir'); dw.className = `ab-rs-dir ${dir}`.trim();
+    dw.textContent = dir === 'sube' ? '▲ Sube' : dir === 'baja' ? '▼ Baja' : '◆ Lateral';
+    const fuerzaTxt = Math.abs(sc) >= 0.6 ? 'con fuerza' : Math.abs(sc) >= 0.25 ? 'moderada' : 'sin fuerza';
+    document.getElementById('rs-dir-k').textContent = dir ? `Dirección ${fuerzaTxt}` : 'Sin dirección clara';
+    const ang = Math.PI * (1 - (sc + 1) / 2), nx = 32 + 24 * Math.cos(ang), ny = 32 - 24 * Math.sin(ang);
+    document.getElementById('rs-dial').innerHTML = `<path d="M6 32 A26 26 0 0 1 58 32" fill="none" stroke="url(#rs-g)" stroke-width="6" stroke-linecap="round"/>
+      <defs><linearGradient id="rs-g" x1="0" x2="1"><stop offset="0" stop-color="var(--color-bad)"/><stop offset=".5" stop-color="var(--line)"/><stop offset="1" stop-color="var(--color-ok)"/></linearGradient></defs>
+      <line x1="32" y1="32" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="var(--ink)" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="32" r="3.2" fill="var(--ink)"/>`;
+    document.getElementById('rs-dial').setAttribute('aria-label', `Fuerza de la dirección: ${fuerzaTxt}`);
+    // movimiento fuerte: la chance contra lo normal, en una barra
+    const pf = num(c.prob_fuerte), pn = num(c.prob_normal), mv = document.getElementById('rs-mov');
+    mv.className = `ab-rs-mov${c.fuerza === 'alta' ? ' alta' : c.fuerza === 'media' ? ' media' : ''}`;
+    if (okv(pf)) {
+      const tope = Math.max(pf, (pn || 0) * 2, 10);
+      mv.replaceChildren(el('small', '', 'Movimiento fuerte'), el('b', '', c.fuerza === 'alta' ? `⚡ ${f0(pf)}%` : `${f0(pf)}%`),
+        Object.assign(el('span', 'ab-rs-bar'), { innerHTML: `<i style="width:${Math.min(100, pf / tope * 100).toFixed(1)}%"></i>${okv(pn) ? `<u style="left:${Math.min(100, pn / tope * 100).toFixed(1)}%"></u>` : ''}` }),
+        el('span', 'ab-rs-sub', okv(pn) ? `lo normal: ${f0(pn)}%` : ''));
+    } else mv.replaceChildren(el('small', '', 'Movimiento fuerte'), el('b', '', '—'));
+    // rango: barra con el piso y el techo, el precio de ahora y el soporte y la resistencia mas cercanos
+    const rg = document.getElementById('rs-rango'), lo = num(c.rango_min), hi = num(c.rango_max), so = num(c.soporte), re = num(c.resistencia);
+    if (okv(lo) && okv(hi)) {
+      const vals = [lo, hi, so, re, ahora].filter((x) => okv(x) && x > 0), mn = Math.min(...vals), mx = Math.max(...vals), w = mx - mn || 1;
+      const x = (v) => `${((v - mn) / w * 92 + 4).toFixed(2)}%`;
+      const bar = el('div', 'ab-rs-rbar');
+      bar.innerHTML = `<i class="r" style="left:${x(lo)};width:calc(${x(hi)} - ${x(lo)})"></i>${okv(so) ? `<i class="s" style="left:${x(so)}"></i>` : ''}${okv(re) ? `<i class="e" style="left:${x(re)}"></i>` : ''}${ahora ? `<i class="a" style="left:${x(ahora)}"></i>` : ''}`;
+      const et = el('div', 'ab-rs-rlbl');
+      const lab = (cls, k, v) => { const s = el('span', cls); s.append(el('small', '', k), el('b', '', fp(v))); return s; };
+      et.append(okv(so) ? lab('s', 'Soporte', so) : el('span'), lab('r', '8 de cada 10 veces entre', lo), lab('r2', 'y', hi), okv(re) ? lab('e', 'Resistencia', re) : el('span'));
+      rg.replaceChildren(bar, et); rg.hidden = false;
+    } else rg.hidden = true;
+    // la frase que lo junta (la de la conclusion) y el aviso si hay riesgo
+    const cc = document.getElementById('cc-txt');
+    document.getElementById('rs-txt').textContent = cc ? cc.textContent.trim() : '';
+    const rz = document.getElementById('rs-riesgo'); rz.hidden = !c.riesgo.length;
+    rz.replaceChildren(el('b', '', '⚠ Atención: '), c.riesgo.join(' · '));
+  }
+  // ---------- el analisis completo: 6 partes, cada una con su resumen en una linea y el detalle al abrirla ----------
+  const PARTES = [
+    ['parte-dir', 'Cómo se llegó a la dirección', ['conclusion', 'ce-dir', 'sesgo', 'prediccion', ['que-espero', 'Todas las señales, una por una']]],
+    ['parte-mov', 'Cuánto se puede mover', ['movimiento', 'ce-fuerza', 'tug-wrap', 'likely']],
+    ['parte-niv', 'Niveles: hasta dónde', ['ce-mapa', 'niveles', 'probabilidades']],
+    ['parte-ctx', 'Qué está pasando', ['que-pasa', 'fed-line', 'news-line', 'calendario', 'senales']],
+    ['parte-conf', 'Cuánto le creo', ['apr-line', 'aprendizaje', 'aciertos']],
+    ['parte-herr', 'Herramientas', ['lm-abrir', 'ondas', 'indicadores', 'siri-atajo']],
+  ];
+  (function armarPartes() {
+    const hoja = document.getElementById('hoja'), $ = (id) => document.getElementById(id);
+    // los que vivian adentro de otra tarjeta llevan un id para poder moverlos
+    const pred = $('prediccion');
+    const tug = pred.querySelector('.ab-tug-wrap'); if (tug) tug.id = 'tug-wrap';
+    const lik = pred.querySelector('.ab-likely'); if (lik) lik.id = 'likely-box';
+    const idx = el('nav', 'ab-partes-idx'); idx.id = 'partes-idx'; idx.setAttribute('aria-label', 'Partes del análisis completo');
+    PARTES.forEach(([id, titulo, hijos], n) => {
+      const d = el('details', 'ab-parte'); d.id = id;
+      const s = el('summary'), t = el('span', 'ab-parte-t'); t.append(el('i', '', String(n + 1)), el('b', '', titulo));
+      s.append(t, el('span', 'ab-parte-res')); d.append(s);
+      const cuerpo = el('div', 'ab-parte-c'); d.append(cuerpo);
+      hijos.forEach((h) => {
+        const [hid, sub] = Array.isArray(h) ? h : [h, null], nodo = $(hid === 'likely' ? 'likely-box' : hid);
+        if (!nodo) return;
+        if (sub) { const w = el('details', 'ab-parte-sub'); w.append(el('summary', '', sub), nodo); cuerpo.append(w); } else cuerpo.append(nodo);
+      });
+      hoja.append(d);
+      const b = el('button', 'ab-chipbtn', titulo); b.type = 'button';
+      b.addEventListener('click', () => { d.open = true; d.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }); });
+      idx.append(b);
+    });
+    $('vista-btn').after(idx);
+    const md = $('mas-detalle'); if (md) md.hidden = true;
+    const sn = $('senales'); if (sn) { const sp = sn.querySelector('summary span'); if (sp) sp.textContent = 'Flujo de compras y libros de órdenes'; }
+  })();
+  // el resumen de una linea de cada parte (lo que se ve con la parte cerrada)
+  function drawPartes(rows, c) {
+    const res = (id, t) => { const e = document.querySelector(`#${id} .ab-parte-res`); if (e) e.textContent = t || ''; };
+    const txt = (id) => { const e = document.getElementById(id); return e ? e.textContent.replace(/\s+/g, ' ').trim() : ''; };
+    if (c) {
+      res('parte-dir', `Señales: ${String(c.a_favor).replace('.', ',')} a favor de la suba y ${String(c.en_contra).replace('.', ',')} de la baja · indicadores: ${txt('gauge-txt').toLowerCase() || '—'}`);
+      res('parte-mov', okv(c.prob_fuerte) ? `Chance de movimiento fuerte ${f0(num(c.prob_fuerte))}% (lo normal: ${f0(num(c.prob_normal))}%)${okv(c.esperado_usd) ? ` · suele moverse ~${num(c.esperado_usd) >= 100 ? f0(num(c.esperado_usd)) : fp(num(c.esperado_usd))} USD` : ''}` : '');
+      res('parte-niv', [okv(c.soporte) ? `Soporte ${fp(num(c.soporte))}` : '', okv(c.resistencia) ? `resistencia ${fp(num(c.resistencia))}` : ''].filter(Boolean).join(' · '));
+    }
+    const qp = txt('qp-res'), cal = document.querySelector('#calendario summary .ab-kicker');
+    res('parte-ctx', [qp, cal ? cal.textContent.trim() : ''].filter(Boolean).join(' · '));
+    res('parte-conf', txt('apr-line').replace(/^Confianza ahora:?\s*/i, ''));
+    res('parte-herr', 'Mapa de liquidaciones, figuras, todos los indicadores y Siri');
+  }
+
   // ---------- vista simple / completa ----------
   const VISTA_BTN = document.getElementById('vista-btn');
   function vista(completa, guardar) {
     document.documentElement.classList.toggle('ab-simple', !completa);
     VISTA_BTN.setAttribute('aria-expanded', String(completa));
     document.getElementById('vista-txt').textContent = completa ? 'Volver a la vista simple' : 'Ver el análisis completo';
-    document.getElementById('vista-sub').textContent = completa ? 'solo lo necesario: precio, resumen, movimiento, predicción y gráfico' : 'por qué, cómo viene acertando, indicadores, niveles y más';
+    document.getElementById('vista-sub').textContent = completa ? 'solo la respuesta y el gráfico' : 'cómo se llegó, cuánto se puede mover, niveles, contexto y cuánto acierta';
     if (guardar) try { localStorage.setItem('ab-vista', completa ? 'completa' : 'simple'); } catch (e) { /* sin almacenamiento */ }
   }
   let vistaGuardada = null; try { vistaGuardada = localStorage.getItem('ab-vista'); } catch (e) { /* sin almacenamiento */ }
@@ -2687,17 +2870,16 @@
   VISTA_BTN.addEventListener('click', () => {
     const completa = document.documentElement.classList.contains('ab-simple');
     vista(completa, true);
-    if (completa) document.getElementById('que-espero').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    if (completa) document.getElementById('partes-idx').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   });
   // ---------- ordenar el analisis a gusto: el orden y lo oculto quedan guardados en este navegador (localStorage) ----------
   (function () {
     const $ = (id) => document.getElementById(id), hoja = $('hoja'), det = $('mas-detalle');
     // secciones de la hoja: algunas van juntas (el termometro con el resumen; los plazos con la prediccion)
-    const HOJA = [['centro', ['centro', 'tm-tab']], ['conclusion'], ['que-pasa'], ['compras'], ['posiciones'], ['movimiento'], ['prediccion', ['plazos', 'prediccion']],
-      ['que-espero'], ['aprendizaje'], ['mas-detalle']].map(([id, ns]) => ({ id, ns: ns || [id] }));
-    const COMPLETA = new Set(['que-espero', 'aprendizaje', 'mas-detalle']);      // las que van despues de "Ver el analisis completo"
-    const NOM = { centro: 'Análisis (resumen)', conclusion: 'Conclusión', 'que-pasa': 'Qué está pasando', compras: 'Plan de compras', posiciones: 'Posiciones',
-      movimiento: 'Movimiento fuerte', prediccion: 'Predicción por plazo', 'que-espero': 'Qué espero', aprendizaje: 'Cómo viene acertando', 'mas-detalle': 'Más detalle' };
+    const HOJA = [['respuesta', ['respuesta', 'tm-tab']], ['compras'], ['posiciones']].concat(PARTES.map(([id]) => [id])).map(([id, ns]) => ({ id, ns: ns || [id] }));
+    const COMPLETA = new Set(PARTES.map(([id]) => id));      // las partes del analisis completo (despues del boton)
+    const NOM = { respuesta: 'La respuesta (arriba)', compras: 'Plan de compras', posiciones: 'Posiciones' };
+    PARTES.forEach(([id, t]) => { NOM[id] = t; });
     const DEF_H = HOJA.map((u) => u.id), DEF_D = [...det.children].filter((n) => n.id).map((n) => n.id);
     const leer = () => { try { return JSON.parse(localStorage.getItem('ab-orden')) || {}; } catch (e) { return {}; } };
     const guardar = (g) => { try { localStorage.setItem('ab-orden', JSON.stringify(g)); } catch (e) { /* sin almacenamiento */ } };
@@ -2718,6 +2900,7 @@
       // "Ver el analisis completo" queda antes de la primera de las que solo se ven en la vista completa
       const prim = oh.find((id) => COMPLETA.has(id)), vb = $('vista-btn');
       if (prim) hoja.insertBefore(vb, $(prim)); else hoja.append(vb);
+      vb.after($('partes-idx'));
       hoja.append($('orden-btn'));
       const cr = hoja.querySelector('.ab-credito'); if (cr) hoja.append(cr);     // el credito del grafico, al final
       od.forEach((id) => { const e = $(id); if (e) det.append(e); });
@@ -2749,6 +2932,7 @@
       const vis = (id) => { const e = $(id); return e && !e.hidden; };
       $('orden-hoja').replaceChildren(...mezclar(g.hoja, DEF_H).filter((id) => vis(id) || COMPLETA.has(id) || oc.has(id)).map((id) => fila(id, 'hoja', oc.has(id))));
       $('orden-det').replaceChildren(...mezclar(g.det, DEF_D).map((id) => fila(id, 'det', oc.has(id))));
+      $('orden-det').hidden = !DEF_D.length; $('orden-det').previousElementSibling.hidden = !DEF_D.length;
     }
     function desdeListas() {
       const g = leer(), ids = (ol) => [...$(ol).children].map((li) => li.dataset.id);
@@ -4309,8 +4493,8 @@
       d.style.flexBasis = '50%'; u.style.flexBasis = '50%';
       tug.append(d, u, el('i', 'ab-tug-mid'));
       later(() => { d.style.flexBasis = (100 - pu) + '%'; u.style.flexBasis = pu + '%'; });
-      document.getElementById('first-mg').textContent = `${f0(num(p.distancia))} USD para cada lado` + (num(p.factor) === 0 ? ' · sin ventaja aprendida: lo trata como moneda'
-        : p.sin_ventaja ? ' · en su repaso no le ganó a la tasa base: no lo toma como predicción' : ` · margen ±${f0(num(p.margen_primero))} pts`);
+      document.getElementById('first-mg').textContent = `${f0(num(p.distancia))} USD para cada lado` + (num(p.factor) === 0 ? ' · sin ventaja aprendida: 50/50'
+        : p.sin_ventaja ? ' · en su repaso no le ganó a lo normal: no lo toma como predicción' : ` · ±${f0(num(p.margen_primero))} pts`);
     }
     const lo = num(p.min), hi = num(p.max), span = hi - lo || 1;
     const at = (v) => Math.max(0, Math.min(100, (v - lo) / span * 100));
@@ -4337,7 +4521,7 @@
   function learnLine(a) {
     if (!a || !num(a.repasadas)) return 'Todavía junta experiencia para este plazo.';
     const hab = num(a.habilidad), ap = num(a.aciertos_aprendido), lo = num(a.ic_bajo), hi = num(a.ic_alto);
-    const v = hab === null ? 'midiendo' : hab >= 0.5 ? `le gana a la tasa base por ${f1(hab)}%` : hab > -0.5 ? 'sin ventaja clara sobre la tasa base' : `peor que la tasa base (${f1(hab)}%)`;
+    const v = hab === null ? 'midiendo' : hab >= 0.5 ? `le gana a lo normal por ${f1(hab)}%` : hab > -0.5 ? 'sin ventaja clara sobre lo normal' : `peor que lo normal (${f1(hab)}%)`;
     return ap === null || lo === null ? `Aprendiendo · ${v}` : `Acierta ${f1(ap)}% (entre ${f0(lo)} y ${f0(hi)}%) · ${v}`;
   }
   // calibracion: si un 60% del repaso paso de verdad ~60% de las veces (solo se muestra: ya salen calibradas)
@@ -4444,16 +4628,16 @@
       const sg = num(a.aciertos_seguro), ns = num(a.decisivas_seguro);
       const sgn = (x) => (x === null ? '—' : `${x > 0 ? '+' : ''}${f1(x)}%`);
       put('apr-ap', sgn(hab), hog === null ? '' : `método original ${sgn(hog)}`);
-      put('apr-og', pctTxt(ap), lo !== null ? `entre ${f0(lo)} y ${f0(hi)}% · ${f0(num(a.independientes))} independientes` : num(a.factor) === 0 ? 'no apuesta: lo trata como moneda' : '');
+      put('apr-og', pctTxt(ap), lo !== null ? `entre ${f0(lo)} y ${f0(hi)}% · medido en ${f0(num(a.independientes))} casos` : num(a.factor) === 0 ? 'sin ventaja: 50/50' : '');
       put('apr-br', pctTxt(sg), ns ? `${f0(ns)} veces que dio 58% o más` : 'casi nunca se anima');
       const b = document.getElementById('apr-ap');
       if (hab !== null) b.style.color = hab >= 0.5 ? 'var(--color-ok)' : hab <= -0.5 ? 'var(--color-bad)' : null;
       const desde = new Date(num(a.desde)).toLocaleDateString('es-AR', { ...tz, day: '2-digit', month: '2-digit' });
       const su = num(a.sep_arriba), sd = num(a.sep_abajo), ms = num(a.margen_sep);
       const sepTxt = su === null || sd === null ? '' : ` Cuando le daba más chances arriba que lo normal, tocó arriba primero ${f0(su)}% de las veces; cuando le daba menos, ${f0(sd)}%${ms === null ? '' : ` (diferencia ${f0(su - sd)} puntos, ±${f0(ms)} de margen)`}.`;
-      document.getElementById('apr-txt').textContent = `Repasó ${f0(num(a.repasadas))} predicciones desde el ${desde}. Hoy pesa más ${a.lider} (peso del modelo que aprende solo: ${f0(num(a.peso_modelo))}%; de la tasa base: ${f0(num(a.peso_base))}%). ${a.confianza}.${sepTxt}`;
+      document.getElementById('apr-txt').textContent = `Repasó ${f0(num(a.repasadas))} predicciones desde el ${desde}. Hoy pesa más ${a.lider} (peso del modelo que aprende solo: ${f0(num(a.peso_modelo))}%; de lo normal: ${f0(num(a.peso_base))}%). ${a.confianza}.${sepTxt}`;
     }
-    // curva: ventaja sobre la tasa base en ventanas de 150 predicciones, a medida que repasaba
+    // curva: ventaja sobre lo normal en ventanas de 150 predicciones, a medida que repasaba
     const box = document.getElementById('apr-chart'); box.replaceChildren();
     const lg = document.getElementById('apr-legend'); lg.replaceChildren();
     const pts = pick(rows, 'aprendizaje_curva').filter((r) => r.plazo === S.plazo)
@@ -4464,7 +4648,7 @@
       const [lo, hi] = d3.extent(vals);
       const x = d3.scaleLinear(d3.extent(pts, (p) => p.k), [ml, W - mr]);
       const yy = d3.scaleLinear([Math.min(-1, Math.floor(lo - 0.5)), Math.max(1, Math.ceil(hi + 0.5))], [H - mb, mt]).nice();
-      const svg = d3.select(box).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Ventaja sobre la tasa base a medida que aprende');
+      const svg = d3.select(box).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Ventaja sobre lo normal a medida que aprende');
       yy.ticks(4).forEach((v) => {
         svg.append('line').attr('class', 'ab-gl').attr('x1', ml).attr('x2', W - mr).attr('y1', yy(v)).attr('y2', yy(v)).style('stroke-dasharray', v === 0 ? '3 3' : null);
         svg.append('text').attr('x', ml - 4).attr('y', yy(v)).attr('dy', '.32em').attr('text-anchor', 'end').text(`${v > 0 ? '+' : ''}${v}%`);
@@ -4477,7 +4661,7 @@
       });
       const last = pts[pts.length - 1];
       if (last.a !== null) svg.append('circle').attr('cx', x(last.k)).attr('cy', yy(last.a)).attr('r', 3.5).style('fill', dash.colors[0]);
-      [[dash.colors[0], 'Equipo que aprende'], ['var(--color-fg-muted)', 'Método original'], ['transparent', 'Línea punteada: 0%, igual que la tasa base']].forEach(([c, t]) => {
+      [[dash.colors[0], 'Equipo que aprende'], ['var(--color-fg-muted)', 'Método original'], ['transparent', 'Línea punteada: 0%, igual que lo normal']].forEach(([c, t]) => {
         const sp = el('span'); const i = el('i'); i.style.background = c; if (c === 'transparent') i.style.borderTop = '1.5px dashed var(--color-fg-muted)';
         sp.append(i, t); lg.append(sp);
       });
@@ -4486,7 +4670,7 @@
     all.forEach((r) => {
       const tr = el('tr'); if (r.plazo === S.plazo) tr.className = 'ab-sel';
       // quien pesa mas en el equipo, en corto
-      const short = String(r.lider || '').replace('el modelo que aprende solo', 'pesa más: el modelo').replace('la tasa base', 'pesa más: la tasa base')
+      const short = String(r.lider || '').replace('el modelo que aprende solo', 'pesa más: el modelo').replace('lo normal', 'pesa más: lo normal')
         .replace('casos parecidos por ', 'pesa más: ').replace(/precio vs /g, '').replace('movimiento del último día', 'mov.\u00a024\u00a0h').replace(/ y /, ', ');
       const c0 = el('td'); c0.append(el('span', '', r.plazo), el('small', '', num(r.repasadas) ? short : 'junta experiencia'));
       const hb = num(r.habilidad), ho = num(r.habilidad_original);
@@ -4494,7 +4678,7 @@
       const c1 = el('td', 'r', sg(hb));
       if (hb !== null) { c1.style.color = hb >= 0.5 ? 'var(--color-ok)' : hb <= -0.5 ? 'var(--color-bad)' : null; c1.style.fontWeight = '600'; }
       const f = num(r.factor);
-      tr.append(c0, c1, el('td', 'r', sg(ho)), el('td', 'r', f === 0 ? 'moneda' : `×${ar.format(',.2f')(f)}`));
+      tr.append(c0, c1, el('td', 'r', sg(ho)), el('td', 'r', f === 0 ? '50/50' : `×${ar.format(',.2f')(f)}`));
       tr.addEventListener('click', () => setPlazo(r.plazo));
       tb.append(tr);
     });
