@@ -2719,6 +2719,7 @@
       const prim = oh.find((id) => COMPLETA.has(id)), vb = $('vista-btn');
       if (prim) hoja.insertBefore(vb, $(prim)); else hoja.append(vb);
       hoja.append($('orden-btn'));
+      const cr = hoja.querySelector('.ab-credito'); if (cr) hoja.append(cr);     // el credito del grafico, al final
       od.forEach((id) => { const e = $(id); if (e) det.append(e); });
       HOJA.forEach((u) => u.ns.forEach((n) => { const e = $(n); if (e) e.classList.toggle('ab-oculta', oc.has(u.id)); }));
       DEF_D.forEach((id) => { const e = $(id); if (e) e.classList.toggle('ab-oculta', oc.has(id)); });
