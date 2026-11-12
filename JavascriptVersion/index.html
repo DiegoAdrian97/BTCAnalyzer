@@ -47,12 +47,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <link rel="preconnect" href="https://fapi.binance.com" crossorigin>
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
-<link rel="stylesheet" href="p-3dca5b842f.css">
-<script>window.AB_PAGINA = "ab5771d415";</script>
+<link rel="stylesheet" href="p-3e2974d316.css">
+<script>window.AB_PAGINA = "1cb2145cab";</script>
 <script defer src="app.js?v=015fe70079"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-b1a661feef.js"></script>
+<script defer src="p-9328375220.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -156,6 +156,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
           <button type="button" class="ab-iconbtn" id="fit">Ajustar</button>
           <button type="button" class="ab-iconbtn" id="log-btn" aria-pressed="false" title="Escala logarítmica: las mismas subas y bajas en % miden lo mismo (tecla L)">Log</button>
           <button type="button" class="ab-iconbtn" id="medir-btn" aria-pressed="false" title="Medir: arrastrá en el gráfico para ver el % y las velas entre dos puntos (con el mouse: Shift + arrastrar; tecla M)">Medir</button>
+          <button type="button" class="ab-iconbtn" id="multi-btn" aria-pressed="false" title="Dos gráficos: la misma moneda en otra temporalidad, con la mira sincronizada">2 gráficos</button>
           <button type="button" class="ab-iconbtn" id="iman-btn" aria-pressed="false" title="Imán: la mira y los puntos de Medir se pegan a la apertura, máximo, mínimo o cierre de la vela más cercana (tecla I; mientras medís, Cmd o Ctrl lo invierte)">Imán</button>
           <button type="button" class="ab-iconbtn" id="foto-btn" title="Guardar o compartir una imagen del gráfico">Imagen</button>
           <button type="button" class="ab-iconbtn" id="replay" title="Repetir la animación del escenario" aria-label="Repetir la animación del escenario" style="display: none">↻</button>
@@ -163,6 +164,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       </div>
       <p class="ab-note ab-help" id="chart-help" hidden><span class="ab-only-mouse">Arrastrá el gráfico para moverte · rueda: zoom · arrastrá el eje de precios o el de horas para estirarlos · arrastrá el borde de abajo del precio o de cada indicador para hacerlo más alto o más bajo · doble clic en un eje: vuelve ese eje a como estaba (en el de horas, todos los paneles) · doble clic en el gráfico: ajusta todo · Shift + arrastrar: medir % y velas · teclas (con el mouse sobre el gráfico): ← → moverse, + − zoom, 0 ajustar, L logarítmica, M medir, I imán (Cmd/Ctrl mientras medís lo invierte), 1 a 6 temporalidad, F pantalla completa, Esc borrar la medición</span><span class="ab-only-touch">Arrastrá con un dedo para moverte · pellizcá para zoom (de costado: velas; vertical: precios) · arrastrá los ejes para estirarlos · arrastrá la manija de abajo de cada panel para cambiar su alto · doble toque en un eje lo vuelve a como estaba · tocá una vela para ver sus datos · "Medir" y arrastrá: % y velas entre dos puntos ("Imán" los pega a la apertura, máximo, mínimo o cierre)</span></p>
       <div class="ab-chart dash-skeleton" id="chart" data-source="analisis"></div>
+      <div class="ab-chart2" id="chart2-box" hidden>
+        <div class="ab-chart2-h"><span class="ab-chart2-leg" id="chart2-leg"></span><nav class="ab-chart2-tfs" id="chart2-tfs" aria-label="Temporalidad del segundo gráfico"></nav>
+          <button type="button" class="ab-iconbtn ab-round" id="chart2-x" aria-label="Cerrar el segundo gráfico" title="Cerrar el segundo gráfico">✕</button></div>
+        <div class="ab-chart2-c" id="chart2"></div>
+      </div>
       <details class="ab-exbox" id="ex-box"><summary>Qué estás viendo <b id="ex-n"></b></summary>
         <div class="ab-explain" id="legend"></div>
         <button type="button" class="ab-ex-limpiar" id="ex-limpiar" hidden>Quitar marcas</button></details>

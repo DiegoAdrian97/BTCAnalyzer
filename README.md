@@ -276,6 +276,9 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
   camino se lleva a la volatilidad de hoy; verde/rojo si subió/bajó más que la mitad de los movimientos de ese horizonte,
   y se compara con lo que pasa en cualquier momento (solo dice que se aparta si z ≥ 2). Prueba: `node pruebas/abanico.js`
   (al azar no encuentra casos; una forma plantada 12 veces sí, y detecta que se aparta).
+- **Dos gráficos** (botón "2 gráficos" en Capas; queda guardado): la misma moneda en otra temporalidad (5m a 1D), con
+  las velas que ya trae el análisis, el precio en vivo, las EMA, tus dibujos y la mira sincronizada con el principal.
+  Va debajo (el principal conserva su alto y la pantalla se alarga); en pantalla completa ancha, lado a lado.
 - **Dibujar** (botón del lápiz, tecla D): línea horizontal, de tendencia, rayo y zona, como en TradingView. Se dibuja
   arrastrando o con dos toques (con el imán, las puntas se pegan a la vela); tocando un dibujo se selecciona: se mueve,
   se estira de las puntas, cambia de color, se borra (o Suprimir) y las líneas pueden **avisar** cuando el precio las
