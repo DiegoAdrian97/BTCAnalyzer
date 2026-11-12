@@ -279,6 +279,9 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
 - **Dos gráficos** (botón "2 gráficos" en Capas; queda guardado): la misma moneda en otra temporalidad (5m a 1D), con
   las velas que ya trae el análisis, el precio en vivo, las EMA, tus dibujos y la mira sincronizada con el principal.
   Va debajo (el principal conserva su alto y la pantalla se alarga); en pantalla completa ancha, lado a lado.
+- **Ordenar secciones** (botón al final del análisis): arrastrar (o flechas) para cambiar el orden de las secciones del
+  análisis y de "Más detalle", y el ojo para ocultarlas. Queda en `localStorage` (`ab-orden`), así que vale al cerrar y
+  volver a abrir, en la compu y en el celu; "Volver al orden original" lo borra.
 - **Dibujar** (botón del lápiz, tecla D): línea horizontal, de tendencia, rayo y zona, como en TradingView. Se dibuja
   arrastrando o con dos toques (con el imán, las puntas se pegan a la vela); tocando un dibujo se selecciona: se mueve,
   se estira de las puntas, cambia de color, se borra (o Suprimir) y las líneas pueden **avisar** cuando el precio las

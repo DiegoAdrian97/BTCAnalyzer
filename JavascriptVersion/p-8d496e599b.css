@@ -727,6 +727,9 @@
   #grafico.ab-fs .ab-chips { flex-wrap: nowrap; }
   #grafico.ab-fs .ab-tools > *, #grafico.ab-fs .ab-zoom > *, #grafico.ab-fs .ab-chips > * { flex: none; }
   #grafico.ab-fs .ab-tools { margin-right: 44px; }
+  @media (max-width: 899.98px) { #grafico.ab-fs .ab-tools { margin-right: 92px; } }   /* ahi hay dos botones redondos (Que estas viendo y cerrar) */
+  /* en el celu, en pantalla completa: los plazos en una linea y los botones (dibujar, mapa, reproducir...) en otra, a la vista */
+  @media (max-width: 599.98px) { #grafico.ab-fs .ab-tools { flex-wrap: wrap; overflow: visible; row-gap: 2px; } #grafico.ab-fs .ab-tools #tfs { flex: 1 1 100%; } }
   #grafico.ab-fs .ab-zoom-g > span { white-space: nowrap; }
   #grafico.ab-fs .ab-zoom-lbl { display: none; }
   #grafico.ab-fs > .ab-card-head { position: absolute; top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); z-index: 3; }
@@ -1498,3 +1501,27 @@
     html.ab-multi #grafico.ab-fs > #chart { grid-column: 1; grid-row: 4; }
     html.ab-multi #grafico.ab-fs > #chart2-box { grid-column: 2; grid-row: 4; border-top: 0; padding-top: 0; }
   }
+
+  /* ordenar secciones */
+  .ab-oculta { display: none !important; }
+  .ab-orden-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin: 4px 0 16px; padding: 12px; border: 1px dashed var(--line); border-radius: 14px;
+    background: transparent; color: var(--mute); font: inherit; font-size: 13.5px; cursor: pointer; }
+  .ab-orden-btn:hover { color: var(--fg); border-color: var(--mute); }
+  .ab-orden { width: min(520px, calc(100vw - 32px)); max-height: min(86svh, 760px); overflow-y: auto; overscroll-behavior: contain; display: grid; gap: 8px; align-content: start; }
+  .ab-orden[hidden] { display: none; }
+  .ab-orden .ab-repro-h h2 { margin: 0 auto 0 0; }
+  .ab-ord-nota { margin: 0; color: var(--mute); font-size: 13px; line-height: 1.45; }
+  .ab-ord-t { margin: 8px 0 0; font-size: 13px; font-weight: 650; color: var(--mute); }
+  .ab-ord-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .ab-ord-li { display: grid; grid-template-columns: 40px minmax(0, 1fr) 36px 36px 40px; align-items: center; gap: 2px; min-height: 46px; padding: 2px 4px; border-radius: 12px;
+    background: color-mix(in srgb, var(--panel) 78%, transparent); border: 1px solid var(--line); user-select: none; -webkit-user-select: none; }
+  .ab-ord-li.arrastra { position: relative; z-index: 2; background: var(--panel); border-color: var(--line); box-shadow: 0 8px 24px rgba(0,0,0,.16); }
+  .ab-ord-li.es-oculta .ab-ord-n { color: var(--mute); text-decoration: line-through; text-decoration-thickness: 1px; }
+  .ab-ord-asa { height: 40px; border: 0; background: transparent; color: var(--mute); font-size: 20px; cursor: grab; touch-action: none; border-radius: 10px; }
+  .ab-ord-asa:active { cursor: grabbing; }
+  .ab-ord-n { font-size: 14px; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ab-ord-b, .ab-ord-ojo { height: 36px; border: 0; border-radius: 10px; background: transparent; color: var(--fg); font: inherit; font-size: 15px; cursor: pointer; display: grid; place-items: center; }
+  .ab-ord-b:hover, .ab-ord-ojo:hover, .ab-ord-asa:hover { background: var(--soft2); }
+  .ab-ord-ojo[aria-pressed="false"] { color: var(--mute); }
+  .ab-ord-pie { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 8px; }
+  @media (max-width: 599.98px) { .ab-orden { width: auto; max-height: 88svh; } }

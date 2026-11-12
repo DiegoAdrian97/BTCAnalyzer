@@ -47,12 +47,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <link rel="preconnect" href="https://fapi.binance.com" crossorigin>
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
-<link rel="stylesheet" href="p-3e2974d316.css">
-<script>window.AB_PAGINA = "1cb2145cab";</script>
+<link rel="stylesheet" href="p-8d496e599b.css">
+<script>window.AB_PAGINA = "cd4f00fcd4";</script>
 <script defer src="app.js?v=015fe70079"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-9328375220.js"></script>
+<script defer src="p-37e5f133a2.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -403,6 +403,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
       </div>
     </details>
   </div>
+  <button type="button" class="ab-orden-btn" id="orden-btn"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M4 7h11M4 12h16M4 17h8M18 4v6m0 0-2.5-2.5M18 10l2.5-2.5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Ordenar secciones</button>
 
   <p class="ab-foot">Datos públicos de Binance Futures, Bybit, OKX y Bitget, calculados en este teléfono. Gráfico hecho con <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView Lightweight Charts™</a>. Las probabilidades y los escenarios cuentan lo que pasó en situaciones parecidas del pasado reciente; el mercado puede hacer otra cosa. No es una recomendación de inversión.</p>
   </div>
@@ -438,6 +439,14 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     </section>
     <div class="ab-lm-res" id="lm-res"></div>
     <p class="ab-repro-res"><span id="lm-fuentes"></span> Las franjas son una estimación de dónde se liquidarían posiciones apalancadas si el precio llegara (cuanto más brillante, más cargado comparado con el nivel más cargado de la vista; cortos arriba, largos abajo). El perfil del costado separa cada nivel por apalancamiento. Los círculos son liquidaciones reales. No predice el precio ni es consejo financiero.</p>
+  </div>
+  <div class="ab-repro-fondo" id="orden-fondo" hidden></div>
+  <div class="ab-repro ab-orden" id="orden" role="dialog" aria-modal="true" aria-labelledby="orden-t" hidden>
+    <div class="ab-repro-h"><h2 id="orden-t">Ordenar secciones</h2><button type="button" class="ab-iconbtn ab-round" id="orden-x" aria-label="Cerrar">✕</button></div>
+    <p class="ab-ord-nota">Arrastrá desde <b>≡</b> o usá las flechas; el ojo oculta la sección. Queda guardado en este navegador, también si cerrás la página.</p>
+    <h3 class="ab-ord-t">Análisis</h3><ol class="ab-ord-lista" id="orden-hoja"></ol>
+    <h3 class="ab-ord-t">Más detalle</h3><ol class="ab-ord-lista" id="orden-det"></ol>
+    <div class="ab-ord-pie"><button type="button" class="ab-chipbtn" id="orden-reset">Volver al orden original</button><button type="button" class="ab-btn-pri" id="orden-listo">Listo</button></div>
   </div>
   <div class="ab-repro-fondo" id="repro-fondo" hidden></div>
   <div class="ab-repro" id="repro" role="dialog" aria-modal="true" aria-labelledby="repro-t" hidden>

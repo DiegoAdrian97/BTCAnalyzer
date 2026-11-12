@@ -673,6 +673,112 @@
     vista(completa, true);
     if (completa) document.getElementById('que-espero').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   });
+  // ---------- ordenar el analisis a gusto: el orden y lo oculto quedan guardados en este navegador (localStorage) ----------
+  (function () {
+    const $ = (id) => document.getElementById(id), hoja = $('hoja'), det = $('mas-detalle');
+    // secciones de la hoja: algunas van juntas (el termometro con el resumen; los plazos con la prediccion)
+    const HOJA = [['centro', ['centro', 'tm-tab']], ['conclusion'], ['que-pasa'], ['compras'], ['posiciones'], ['movimiento'], ['prediccion', ['plazos', 'prediccion']],
+      ['que-espero'], ['aprendizaje'], ['mas-detalle']].map(([id, ns]) => ({ id, ns: ns || [id] }));
+    const COMPLETA = new Set(['que-espero', 'aprendizaje', 'mas-detalle']);      // las que van despues de "Ver el analisis completo"
+    const NOM = { centro: 'Análisis (resumen)', conclusion: 'Conclusión', 'que-pasa': 'Qué está pasando', compras: 'Plan de compras', posiciones: 'Posiciones',
+      movimiento: 'Movimiento fuerte', prediccion: 'Predicción por plazo', 'que-espero': 'Qué espero', aprendizaje: 'Cómo viene acertando', 'mas-detalle': 'Más detalle' };
+    const DEF_H = HOJA.map((u) => u.id), DEF_D = [...det.children].filter((n) => n.id).map((n) => n.id);
+    const leer = () => { try { return JSON.parse(localStorage.getItem('ab-orden')) || {}; } catch (e) { return {}; } };
+    const guardar = (g) => { try { localStorage.setItem('ab-orden', JSON.stringify(g)); } catch (e) { /* sin almacenamiento */ } };
+    // lo guardado + lo nuevo que no estaba (en su lugar de siempre, despues de su anterior)
+    function mezclar(guardado, def) {
+      const out = (guardado || []).filter((id) => def.includes(id));
+      def.forEach((id, k) => {
+        if (out.includes(id)) return;
+        let pos = 0; for (let j = k - 1; j >= 0; j--) { const q = out.indexOf(def[j]); if (q >= 0) { pos = q + 1; break; } }
+        out.splice(pos, 0, id);
+      });
+      return out;
+    }
+    function aplicar() {
+      const g = leer(), oc = new Set(g.ocultas || []);
+      const oh = mezclar(g.hoja, DEF_H), od = mezclar(g.det, DEF_D);
+      oh.forEach((id) => HOJA.find((u) => u.id === id).ns.forEach((n) => { const e = $(n); if (e) hoja.append(e); }));
+      // "Ver el analisis completo" queda antes de la primera de las que solo se ven en la vista completa
+      const prim = oh.find((id) => COMPLETA.has(id)), vb = $('vista-btn');
+      if (prim) hoja.insertBefore(vb, $(prim)); else hoja.append(vb);
+      hoja.append($('orden-btn'));
+      od.forEach((id) => { const e = $(id); if (e) det.append(e); });
+      HOJA.forEach((u) => u.ns.forEach((n) => { const e = $(n); if (e) e.classList.toggle('ab-oculta', oc.has(u.id)); }));
+      DEF_D.forEach((id) => { const e = $(id); if (e) e.classList.toggle('ab-oculta', oc.has(id)); });
+    }
+    const nombre = (id, grupo) => {
+      if (grupo === 'hoja') return NOM[id] || id;
+      const e = $(id), s = e && (e.querySelector('summary span') || e.querySelector('span') || e.querySelector('summary'));
+      return (s ? s.textContent : id).trim();
+    };
+    // el panel: dos listas; se arrastra desde ≡ (con el dedo o el mouse) o con las flechas; el ojo oculta
+    const pan = $('orden'), fondo = $('orden-fondo');
+    function fila(id, grupo, oc) {
+      const li = el('li', 'ab-ord-li'); li.dataset.id = id;
+      const asa = el('button', 'ab-ord-asa', '≡'); asa.type = 'button'; asa.setAttribute('aria-label', `Arrastrar ${nombre(id, grupo)}`);
+      const n = el('span', 'ab-ord-n', nombre(id, grupo));
+      const sub = el('button', 'ab-ord-b', '↑'), baj = el('button', 'ab-ord-b', '↓'); sub.type = baj.type = 'button';
+      sub.setAttribute('aria-label', 'Subir'); baj.setAttribute('aria-label', 'Bajar'); sub.dataset.acc = 'sub'; baj.dataset.acc = 'baj';
+      const ojo = el('button', 'ab-ord-ojo'); ojo.type = 'button'; ojo.dataset.acc = 'ojo'; ojo.setAttribute('aria-pressed', String(!oc));
+      ojo.setAttribute('aria-label', oc ? 'Mostrar' : 'Ocultar'); ojo.title = oc ? 'Oculta: tocá para mostrarla' : 'Visible: tocá para ocultarla';
+      ojo.innerHTML = oc ? '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3 3l18 18M10.6 6.2A9.8 9.8 0 0 1 12 6c5 0 9 6 9 6a16 16 0 0 1-3.2 3.7M6.5 7.6C4.3 9.2 3 12 3 12s4 6 9 6a8.6 8.6 0 0 0 3.9-.9" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>'
+        : '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3 12s4-6 9-6 9 6 9 6-4 6-9 6-9-6-9-6z" stroke="currentColor" stroke-width="1.8" fill="none"/><circle cx="12" cy="12" r="2.6" fill="currentColor"/></svg>';
+      li.classList.toggle('es-oculta', oc);
+      li.append(asa, n, sub, baj, ojo); return li;
+    }
+    function armar() {
+      const g = leer(), oc = new Set(g.ocultas || []);
+      const vis = (id) => { const e = $(id); return e && !e.hidden; };
+      $('orden-hoja').replaceChildren(...mezclar(g.hoja, DEF_H).filter((id) => vis(id) || COMPLETA.has(id) || oc.has(id)).map((id) => fila(id, 'hoja', oc.has(id))));
+      $('orden-det').replaceChildren(...mezclar(g.det, DEF_D).map((id) => fila(id, 'det', oc.has(id))));
+    }
+    function desdeListas() {
+      const g = leer(), ids = (ol) => [...$(ol).children].map((li) => li.dataset.id);
+      const oc = new Set(g.ocultas || []);
+      // las que no se listaron (ahora sin datos) conservan su lugar relativo
+      g.hoja = mezclar(ids('orden-hoja'), mezclar(g.hoja, DEF_H)); g.det = ids('orden-det');
+      [...pan.querySelectorAll('.ab-ord-li')].forEach((li) => { if (li.classList.contains('es-oculta')) oc.add(li.dataset.id); else oc.delete(li.dataset.id); });
+      g.ocultas = [...oc]; guardar(g); aplicar();
+    }
+    pan.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-acc]'); if (!b) return;
+      const li = b.closest('li');
+      if (b.dataset.acc === 'sub' && li.previousElementSibling) li.parentNode.insertBefore(li, li.previousElementSibling);
+      else if (b.dataset.acc === 'baj' && li.nextElementSibling) li.parentNode.insertBefore(li.nextElementSibling, li);
+      else if (b.dataset.acc === 'ojo') { const oc = !li.classList.contains('es-oculta'); const nu = fila(li.dataset.id, li.parentNode.id === 'orden-hoja' ? 'hoja' : 'det', oc); li.replaceWith(nu); nu.querySelector('.ab-ord-ojo').focus(); }
+      else return;
+      if (b.dataset.acc !== 'ojo') b.focus();
+      desdeListas();
+    });
+    // arrastrar: la fila sigue al dedo y las otras se corren
+    let drag = null;
+    pan.addEventListener('pointerdown', (e) => {
+      const asa = e.target.closest('.ab-ord-asa'); if (!asa) return;
+      const li = asa.closest('li'); e.preventDefault();
+      drag = { li, y0: e.clientY, id: e.pointerId }; li.classList.add('arrastra');
+      try { asa.setPointerCapture(e.pointerId); } catch (err) { /* idem */ }
+    });
+    pan.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const li = drag.li, ol = li.parentNode;
+      li.style.transform = `translateY(${e.clientY - drag.y0}px)`;
+      const r = li.getBoundingClientRect(), mid = r.top + r.height / 2;
+      const prev = li.previousElementSibling, next = li.nextElementSibling;
+      if (prev && mid < prev.getBoundingClientRect().top + prev.offsetHeight / 2) { const h = prev.offsetHeight; ol.insertBefore(li, prev); drag.y0 -= h; li.style.transform = `translateY(${e.clientY - drag.y0}px)`; }
+      else if (next && mid > next.getBoundingClientRect().top + next.offsetHeight / 2) { const h = next.offsetHeight; ol.insertBefore(next, li); drag.y0 += h; li.style.transform = `translateY(${e.clientY - drag.y0}px)`; }
+    });
+    const soltar = () => { if (!drag) return; drag.li.classList.remove('arrastra'); drag.li.style.transform = ''; drag = null; desdeListas(); };
+    pan.addEventListener('pointerup', soltar); pan.addEventListener('pointercancel', soltar);
+    function abrir() { armar(); pan.hidden = false; fondo.hidden = false; document.documentElement.style.overflow = 'hidden'; abFoco(pan, true); }
+    function cerrar() { if (pan.hidden) return; abFoco(pan, false); pan.hidden = true; fondo.hidden = true; document.documentElement.style.overflow = ''; }
+    $('orden-btn').addEventListener('click', abrir);
+    $('orden-x').addEventListener('click', cerrar); $('orden-listo').addEventListener('click', cerrar); fondo.addEventListener('click', cerrar);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !pan.hidden) cerrar(); });
+    $('orden-reset').addEventListener('click', () => { guardar({}); aplicar(); armar(); });
+    aplicar();
+  })();
+
 
   // ---------- color del mercado: verde si en 24 h sube, rojo si baja (como Robinhood). Tine el acento de toda la app
   (function () {
