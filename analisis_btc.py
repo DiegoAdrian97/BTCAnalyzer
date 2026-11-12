@@ -1517,7 +1517,7 @@ def explain(rows, price, spec):
         # el rango real: donde termino el 80% de los casos parecidos (los niveles +/- un escalon se pasan seguido)
         lo, hi = main["min"], main["max"]
         rango = f"8 de cada 10 veces terminó entre {ap(lo)} y {ap(hi)}" if lo and hi else f"lo más cerca está {ap(dn)} o {ap(up)}"
-        motivo = " (en su repaso no le ganó a la tasa base)" if main["sin_ventaja"] else ""
+        motivo = " (en su repaso no le ganó a lo normal)" if main["sin_ventaja"] else ""
         head = f"Hasta las {hh} h, sin dirección clara{motivo}: {rango}."
     agree = n_up if bias == "alcista" else n_dn
     if not signals:
@@ -1569,11 +1569,11 @@ def learning_text(a):
     hab = a["habilidad"]
     if hab is not None:
         if hab >= 0.5:
-            txt += f" Le gana a la tasa base: {ar(hab, 1)}% menos error que decir siempre lo normal."
+            txt += f" Le gana a lo normal: {ar(hab, 1)}% menos error que decir siempre lo que pasa en general."
         elif hab > -0.5:
-            txt += f" Todavía no le gana a la tasa base en forma clara ({ar(hab, 1)}%): sus probabilidades quedan cerca de lo normal."
+            txt += f" Todavía no le gana a lo normal en forma clara ({ar(hab, 1)}%): sus probabilidades quedan cerca de lo normal."
         else:
-            txt += f" Viene peor que la tasa base ({ar(hab, 1)}%): por eso modera sus probabilidades."
+            txt += f" Viene peor que lo normal ({ar(hab, 1)}%): por eso modera sus probabilidades."
     ap, lo, hi = a["aciertos_aprendido"], a["ic_bajo"], a["ic_alto"]
     if ap is not None and lo is not None:
         txt += f" Acertó {ar(ap)}% qué tocaba primero (con el margen de error, entre {ar(lo)}% y {ar(hi)}%)."

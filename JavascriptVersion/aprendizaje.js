@@ -50,7 +50,7 @@
   const recetaTxt = (r, n = null) => lista(RECETAS[r].slice(0, n === null ? RECETAS[r].length : n).map((i) => RASGOS[i]));
   function expertoTxt(e) {
     if (e === MODELO) return 'el modelo que aprende solo';
-    if (e === BASE) return 'la tasa base';
+    if (e === BASE) return 'lo normal';
     return 'casos parecidos por ' + recetaTxt(e);
   }
   function confianzaTxt(f) {

@@ -110,7 +110,7 @@ def experto_txt(e):
     if e == MODELO:
         return "el modelo que aprende solo"
     if e == BASE:
-        return "la tasa base"
+        return "lo normal"
     return "casos parecidos por " + receta_txt(e)
 
 

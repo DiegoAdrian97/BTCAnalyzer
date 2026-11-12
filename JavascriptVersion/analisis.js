@@ -1133,7 +1133,7 @@
       // el rango real: donde termino el 80% de los casos parecidos (los niveles +/- un escalon se pasan seguido)
       const lo = main.min, hi = main.max;
       const rango = lo && hi ? `8 de cada 10 veces terminó entre ${ap(lo)} y ${ap(hi)}` : `lo más cerca está ${ap(dn)} o ${ap(up)}`;
-      const motivo = main.sin_ventaja ? ' (en su repaso no le ganó a la tasa base)' : '';
+      const motivo = main.sin_ventaja ? ' (en su repaso no le ganó a lo normal)' : '';
       head = `Hasta las ${hh} h, sin dirección clara${motivo}: ${rango}.`;
     }
     const agree = bias === 'alcista' ? nUp : nDn;
@@ -1173,9 +1173,9 @@
     let txt = `Repasó sus últimas ${ar(a.repasadas)} predicciones con un equipo de expertos; hoy pesa más ${a.lider}. ${a.confianza}.`;
     const hab = a.habilidad;
     if (hab !== null) {
-      if (hab >= 0.5) txt += ` Le gana a la tasa base: ${ar(hab, 1)}% menos error que decir siempre lo normal.`;
-      else if (hab > -0.5) txt += ` Todavía no le gana a la tasa base en forma clara (${ar(hab, 1)}%): sus probabilidades quedan cerca de lo normal.`;
-      else txt += ` Viene peor que la tasa base (${ar(hab, 1)}%): por eso modera sus probabilidades.`;
+      if (hab >= 0.5) txt += ` Le gana a lo normal: ${ar(hab, 1)}% menos error que decir siempre lo que pasa en general.`;
+      else if (hab > -0.5) txt += ` Todavía no le gana a lo normal en forma clara (${ar(hab, 1)}%): sus probabilidades quedan cerca de lo normal.`;
+      else txt += ` Viene peor que lo normal (${ar(hab, 1)}%): por eso modera sus probabilidades.`;
     }
     const ap = a.aciertos_aprendido, lo = a.ic_bajo, hi = a.ic_alto;
     if (ap !== null && lo !== null) txt += ` Acertó ${ar(ap)}% qué tocaba primero (con el margen de error, entre ${ar(lo)}% y ${ar(hi)}%).`;
