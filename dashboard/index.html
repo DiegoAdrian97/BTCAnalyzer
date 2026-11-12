@@ -2074,6 +2074,14 @@
     h.classList.toggle('ab-ex-largo', on);
   }
   exBox.addEventListener('toggle', exLargo);
+  // con el toque se cambia el modo ANTES de que se abra o cierre (mismo cuadro): si no, se veia un cuadro con el grafico
+  // achicado y otro con el alto de vuelta (el "salto" al abrir)
+  exBox.querySelector('summary').addEventListener('click', () => {
+    if (S.fs) return;
+    const h = document.documentElement, abrir = !exBox.open;
+    if (abrir && altoGraf) h.style.setProperty('--graf-fijo', `${Math.round(altoGraf)}px`);
+    h.classList.toggle('ab-ex-largo', abrir);
+  });
   const exPanel = (on) => { card.classList.toggle('ab-fs-ex', on); exFsBtn.setAttribute('aria-expanded', String(on)); };
   exFsBtn.addEventListener('click', () => exPanel(!card.classList.contains('ab-fs-ex')));
   // en pantalla completa el titulo no pliega el panel: en el celular lo cierra
