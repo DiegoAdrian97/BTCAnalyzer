@@ -25,6 +25,7 @@
   /* Layout: franja superior (precio · prediccion protagonista · sesgo), selector de temporalidad,
      grafico grande con panel de probabilidades al costado, y debajo senales, niveles, ondas, indicadores. */
   /* sin zoom por doble toque en el iPhone (el pellizco sigue andando); el grafico usa sus propios gestos */
+  html, body { touch-action: manipulation; }   /* sin zoom de la pagina con doble toque */
   #dash-root { --dash-gutter: clamp(12px, 3vw, 32px); touch-action: manipulation; }
   /* hidden oculta siempre: las tarjetas tienen display: grid y eso le ganaba al atributo (el plan y las posiciones
      seguian a la vista en las acciones aunque estuvieran marcadas como ocultas) */

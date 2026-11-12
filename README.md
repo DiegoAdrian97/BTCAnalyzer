@@ -289,6 +289,11 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
   en otras temporalidades (5m a 1D, cada uno elige la suya), con las velas que ya trae el análisis, el precio en vivo,
   las EMA, tus dibujos y la mira sincronizada en todos. En la compu: 2 lado a lado o 4 en 2 × 2, a todo el ancho, y el
   análisis pasa abajo en dos columnas. En el celu, uno debajo del otro (el principal conserva su alto).
+  Las capas prendidas en el principal se ven también en los otros, con los datos de su temporalidad: EMA, Bollinger,
+  FVG, figuras y divergencias, flechitas de velas, ondas de Elliott, RSI y MACD, Fibonacci, liquidaciones al costado,
+  niveles y tu plan, dolor máximo de opciones y abanico. Los datos se arman una vez por vela nueva o cambio de capa.
+- **Sin zoom de la página en el celu**: el pellizco es para el gráfico (viewport sin zoom, `gesturestart` frenado y
+  movimientos con dos dedos sin efecto en la página); los gráficos siguen recibiendo el gesto.
 - **Ordenar secciones** (botón al final del análisis): arrastrar (o flechas) para cambiar el orden de las secciones del
   análisis y de "Más detalle", y el ojo para ocultarlas. Queda en `localStorage` (`ab-orden`), así que vale al cerrar y
   volver a abrir, en la compu y en el celu; "Volver al orden original" lo borra.

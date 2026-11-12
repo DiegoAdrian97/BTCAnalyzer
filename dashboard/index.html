@@ -26,6 +26,7 @@
   /* Layout: franja superior (precio · prediccion protagonista · sesgo), selector de temporalidad,
      grafico grande con panel de probabilidades al costado, y debajo senales, niveles, ondas, indicadores. */
   /* sin zoom por doble toque en el iPhone (el pellizco sigue andando); el grafico usa sus propios gestos */
+  html, body { touch-action: manipulation; }   /* sin zoom de la pagina con doble toque */
   #dash-root { --dash-gutter: clamp(12px, 3vw, 32px); touch-action: manipulation; }
   /* hidden oculta siempre: las tarjetas tienen display: grid y eso le ganaba al atributo (el plan y las posiciones
      seguian a la vista en las acciones aunque estuvieran marcadas como ocultas) */
@@ -3091,6 +3092,13 @@
     window.abVoz = (t) => { if (R.on) decir(t); };
     return { apagar: () => poner(false) };
   })();
+  // ---------- sin zoom de la pagina en el celu: el pellizco es para el grafico ----------
+  // Safari no hace caso a user-scalable=no: se frena el gesto de zoom (gesturestart) y cualquier movimiento con dos
+  // dedos. El grafico igual recibe los toques y hace su propio zoom (Lightweight Charts lee los dedos aunque la pagina
+  // no se mueva), asi que un pellizco que empieza en el grafico y termina afuera ya no agranda la pagina.
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
+  document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  if (window.visualViewport && window.visualViewport.scale > 1.01) document.querySelector('meta[name="viewport"]')?.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
   // ---------- pantalla siempre prendida: pide al sistema que no apague la pantalla (Wake Lock) y deja solo el precio,
   // el grafico y el fondo vivo. Si se bloquea el telefono con el boton, iOS apaga igual (ninguna app lo puede evitar):
   // al volver se vuelve a pedir. Sin Wake Lock (iOS viejo): un video mudo de 1 s en bucle, el truco de siempre
@@ -5655,7 +5663,7 @@
     }
   }
   function mgArmar(s) {
-    const P = G.P || pal(), tema = `${P.up}${P.dn}${P.mute}`;
+    const P = G.P || pal(), tema = `${P.up}${P.dn}${P.mute}|${!!S.layers.osc}`;
     if (s.ch && s.tema === tema) return;
     if (s.ch) s.ch.remove();
     s.tema = tema; s.key = '';
@@ -5666,12 +5674,28 @@
       timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 3, barSpacing: 6, minBarSpacing: 1 },
       localization: { locale: 'es-AR', timeFormatter: (t) => fmtSec(t) }, handleScroll: { vertTouchDrag: false }, kineticScroll: { touch: true, mouse: false } });
     const pf = { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, quiet = { lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false, priceFormat: pf };
+    s.bbU = s.ch.addSeries(LW.LineSeries, { ...quiet, color: alpha(P.mute, 0.4), lineWidth: 1 });
+    s.bbL = s.ch.addSeries(LW.LineSeries, { ...quiet, color: alpha(P.mute, 0.4), lineWidth: 1 });
     s.e20 = s.ch.addSeries(LW.LineSeries, { ...quiet, color: P.c0, lineWidth: 1 });
     s.e50 = s.ch.addSeries(LW.LineSeries, { ...quiet, color: P.c1, lineWidth: 1 });
     s.e200 = s.ch.addSeries(LW.LineSeries, { ...quiet, color: alpha(P.fg, 0.7), lineWidth: 2 });
     s.s = s.ch.addSeries(LW.CandlestickSeries, { priceFormat: pf, upColor: P.up, downColor: P.dn, borderVisible: false, wickUpColor: P.up, wickDownColor: P.dn, priceLineStyle: LW.LineStyle.Dotted, priceLineWidth: 1 });
-    const xf = mgX(s), yf = mgY(s);
-    s.capa = new Capa((ctx, w, h) => drawDibCon(ctx, w, h, xf, yf, false), 'top'); s.s.attachPrimitive(s.capa);
+    const xf = mgX(s), yf = mgY(s), sobre = mgOver(s);
+    s.capaU = new Capa(mgUnder(s), 'bottom'); s.s.attachPrimitive(s.capaU);
+    s.capa = new Capa((ctx, w, h) => { sobre(ctx, w, h); drawDibCon(ctx, w, h, xf, yf, false); }, 'top'); s.s.attachPrimitive(s.capa);
+    s.marks = LW.createSeriesMarkers(s.s, []); s.plines = [];
+    // RSI y MACD abajo, como en el principal (si esa capa esta prendida)
+    s.rsi = s.hist = s.macd = s.sig = null;
+    if (S.layers.osc) {
+      s.rsi = s.ch.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => f1(v), minMove: 0.1 }, color: P.c2, lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false,
+        autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }) }, 1);
+      [70, 30].forEach((v) => s.rsi.createPriceLine({ price: v, color: alpha(P.mute, 0.5), lineWidth: 1, lineStyle: LW.LineStyle.Dashed, axisLabelVisible: false }));
+      const mf = { type: 'custom', formatter: (v) => (Math.abs(v) >= 100 ? f0(v) : Math.abs(v) >= 1 ? f1(v) : ar.format(',.4f')(v)), minMove: 0.0001 };
+      s.hist = s.ch.addSeries(LW.HistogramSeries, { priceFormat: mf, lastValueVisible: false, priceLineVisible: false }, 2);
+      s.macd = s.ch.addSeries(LW.LineSeries, { priceFormat: mf, color: P.c0, lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false }, 2);
+      s.sig = s.ch.addSeries(LW.LineSeries, { priceFormat: mf, color: P.c1, lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false }, 2);
+      try { const pn = s.ch.panes(); pn[0].setStretchFactor(3); pn[1].setStretchFactor(1); pn[2].setStretchFactor(1); } catch (e) { /* sin paneles */ }
+    }
     s.ch.subscribeCrosshairMove((q) => {
       mgLeyenda(s, q && q.time !== undefined ? q.time : null);
       if (!q || !q.sourceEvent) return;
@@ -5696,17 +5720,150 @@
     mgArmar(s);
     const tf = MG.tfs[s.i];
     [...s.nav.children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tf === tf)));
-    const rows = pick(S.rows, 'vela', tf).map((r) => ({ t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), e20: num(r.ema20), e50: num(r.ema50), e200: num(r.ema200) }))
+    const rows = pick(S.rows, 'vela', tf).map((r) => ({ t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), e20: num(r.ema20), e50: num(r.ema50), e200: num(r.ema200),
+      bu: num(r.bb_up), bl: num(r.bb_lo), rsi: num(r.rsi), macd: num(r.macd), sig: num(r.macd_senal), hist: num(r.macd_hist) }))
       .filter((b) => b.t !== null && b.c !== null).sort((a, b) => a.t - b.t);
-    const key = `${MON()}|${tf}|${rows.length}|${rows.length ? rows[rows.length - 1].t : 0}|${S.layers.ema ? 1 : 0}`;
-    if (key === s.key && !ajustar) { s.capa.update(); return; }
+    // la clave: velas nuevas, capas prendidas, y las lineas de precio y el fib del principal (si cambian, se rehacen)
+    const capas = Object.keys(S.layers).filter((k) => S.layers[k]).join(','), extra = `${(G.plines || []).length}|${G.d && G.d.fib ? `${G.d.fib.a.t}${G.d.fib.b.p}` : ''}|${G.d ? G.d.dolor : ''}`;
+    const key = `${MON()}|${tf}|${rows.length}|${rows.length ? rows[rows.length - 1].t : 0}|${capas}|${extra}`;
+    if (key === s.key && !ajustar) { s.capa.update(); s.capaU.update(); return; }
     const nuevo = key.split('|').slice(0, 2).join('|') !== s.key.split('|').slice(0, 2).join('|');
     s.key = key; s.bars = rows;
     s.s.setData(rows.map((b) => ({ time: T2(b.t), open: b.o, high: b.h, low: b.l, close: b.c })));
     const linea = (k) => (S.layers.ema ? rows.filter((b) => b[k] !== null).map((b) => ({ time: T2(b.t), value: b[k] })) : []);
     s.e20.setData(linea('e20')); s.e50.setData(linea('e50')); s.e200.setData(linea('e200'));
+    const lin = (k, on) => (on ? rows.filter((b) => b[k] !== null).map((b) => ({ time: T2(b.t), value: b[k] })) : []);
+    s.bbU.setData(lin('bu', S.layers.bb)); s.bbL.setData(lin('bl', S.layers.bb));
+    if (s.rsi) {
+      s.rsi.setData(lin('rsi', true)); s.macd.setData(lin('macd', true)); s.sig.setData(lin('sig', true));
+      s.hist.setData(rows.filter((b) => b.hist !== null).map((b) => ({ time: T2(b.t), value: b.hist, color: alpha(b.hist >= 0 ? G.P.up : G.P.dn, 0.45) })));
+    }
+    mgDatos(s, rows, tf); mgAbanico(s);
+    s.ch.timeScale().applyOptions({ rightOffset: S.layers.abanico ? 14 : 3 });
+    s.capa.update(); s.capaU.update();
     if (nuevo || ajustar) { const n = rows.length, nb = Math.min(n, window.innerWidth < 600 ? 50 : 90); s.ch.timeScale().setVisibleLogicalRange({ from: n - nb, to: n + 2 }); }
     mgLeyenda(s, null);
+  }
+  // ---------- las capas del principal tambien en los otros graficos (cada uno con los datos de su temporalidad) ----------
+  // Los datos se arman una sola vez por vela nueva o cambio de capas (s.capKey); lo que se dibuja en cada cuadro es poco.
+  function mgDatos(s, bars, tf) {
+    const L = S.layers, R = S.rows, byT = new Map(bars.map((b) => [b.t, b]));
+    const dvg = {};
+    if (L.patrones) pick(R, 'divergencia', tf).forEach((v) => {
+      const k = `${v.t1}-${v.t2}-${v.tipo}`, g = (dvg[k] = dvg[k] || { tipo: v.tipo, t1: num(v.t1), t2: num(v.t2), p1: num(v.p1), p2: num(v.p2), names: [] });
+      g.names.push(v.indicador);
+    });
+    s.cap = {
+      byT, firstT: bars.length ? bars[0].t : 0, lastT: bars.length ? bars[bars.length - 1].t : 0, ms: MG_MS[tf],
+      bb: L.bb ? bars.filter((b) => b.bu !== null).map((b) => ({ t: b.t, u: b.bu, l: b.bl })) : [],
+      fvgs: L.fvg ? pick(R, 'fvg', tf).map((r) => ({ up: r.tipo === 'alcista', t: num(r.t), lo: num(r.bajo), hi: num(r.alto) })) : [],
+      figs: L.patrones ? pick(R, 'patron', tf).filter((p) => p.clase === 'grafico') : [],
+      divs: Object.values(dvg),
+      giros: L.ondas ? pick(R, 'giro', tf).map((r) => ({ t: num(r.t), p: num(r.precio), w: r.onda, alto: r.tipo === 'alto' })).filter((g) => byT.has(g.t)) : [],
+    };
+    // flechitas de patrones de velas (sin texto: el grafico es mas chico)
+    s.marks.setMarkers(L.patrones ? pick(R, 'patron', tf).filter((p) => p.clase === 'vela' && byT.has(num(p.t))).map((p) => ({
+      time: T2(num(p.t)), position: p.sesgo === 'alcista' ? 'belowBar' : 'aboveBar', color: colOf(p.sesgo),
+      shape: p.sesgo === 'alcista' ? 'arrowUp' : p.sesgo === 'bajista' ? 'arrowDown' : 'circle' })).sort((a, b) => a.time - b.time) : []);
+    // niveles del plazo y tu plan: las mismas lineas de precio que el principal
+    (s.plines || []).forEach((pl) => { try { s.s.removePriceLine(pl); } catch (e) { /* ya no estaba */ } });
+    s.plines = (G.plines || []).map((pl) => { try { return s.s.createPriceLine({ ...pl.options(), axisLabelVisible: true }); } catch (e) { return null; } }).filter(Boolean);
+  }
+  function mgUnder(s) {
+    return (ctx, w, h) => {
+      const c = s.cap, P = G.P, d = G.d; if (!c || !P) return;
+      const xf = mgX(s), yf = mgY(s), half = Math.max(2, (s.ch.timeScale().options().barSpacing || 6) / 2);
+      if (d && d.fib && d.fibs && d.fibs.length) {
+        const xa = xf(d.fib.a.t), xb = xf(d.fib.b.t), x0 = Math.max(0, Math.min(xa === null ? 0 : xa, xb === null ? 0 : xb));
+        ctx.save(); ctx.lineWidth = 1; ctx.setLineDash([2, 4]);
+        if (x0 < w) d.fibs.forEach((f) => { const y = yf(f.p); if (y === null || y < 0 || y > h) return; ctx.strokeStyle = alpha(P.c2 || P.mute, f.extremo ? 0.6 : 0.35); ctx.beginPath(); ctx.moveTo(x0, Math.round(y) + 0.5); ctx.lineTo(w, Math.round(y) + 0.5); ctx.stroke(); });
+        ctx.restore();
+      }
+      if (c.bb.length > 1) {
+        ctx.beginPath(); c.bb.forEach((b, i) => { const x = xf(b.t), y = yf(b.u); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+        for (let i = c.bb.length - 1; i >= 0; i--) ctx.lineTo(xf(c.bb[i].t), yf(c.bb[i].l));
+        ctx.closePath(); ctx.fillStyle = alpha(P.fg, 0.035); ctx.fill();
+      }
+      c.fvgs.forEach((z) => {
+        const x0 = xf(z.t), yt = yf(z.hi), yb = yf(z.lo); if (x0 === null || yt === null || yb === null || x0 - half > w) return;
+        ctx.fillStyle = alpha(z.up ? P.up : P.dn, 0.09); ctx.fillRect(x0 - half, yt, w - x0 + half, Math.max(2, yb - yt));
+        ctx.fillStyle = alpha(z.up ? P.up : P.dn, 0.5); ctx.fillRect(x0 - half, yt, 1.5, Math.max(2, yb - yt));
+      });
+    };
+  }
+  function mgOver(s) {
+    return (ctx, w, h) => {
+      const c = s.cap, P = G.P, d = G.d, L = S.layers; if (!c || !P) return;
+      const xf = mgX(s), yf = mgY(s);
+      c.figs.forEach((p) => {
+        const col = colOf(p.sesgo), conf = p.estado === 'confirmado';
+        [1, 2].forEach((k) => {
+          const t0 = num(p[`l${k}_t`]); if (t0 === null) return;
+          const p0 = num(p[`l${k}_p`]), mm = num(p[`l${k}_m`]), val = (t) => p0 + mm * (t - t0), ta = Math.max(t0, c.firstT), te = c.lastT + 3 * c.ms;
+          const x1 = xf(ta), y1 = yf(val(ta)), x2 = xf(te), y2 = yf(val(te)); if ([x1, y1, x2, y2].some((v) => v === null)) return;
+          ctx.setLineDash(conf ? [] : [6, 4]); ctx.strokeStyle = col; ctx.lineWidth = conf ? 1.8 : 1.3;
+          ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.setLineDash([]);
+        });
+        let first = null;
+        [1, 2, 3, 4, 5].forEach((k) => {
+          const t0 = num(p[`pt${k}_t`]); if (t0 === null) return;
+          const b = c.byT.get(t0); if (!b) return;
+          const pv = num(p[`pt${k}_p`]), x = xf(t0), y = yf(pv); if (x === null || y === null) return;
+          ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fillStyle = P.panel; ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 1.8; ctx.stroke();
+          if (!first) first = { x, y: y + (Math.abs(pv - b.l) < Math.abs(pv - b.h) ? 22 : -20) };
+        });
+        if (first) pillC(ctx, first.x, Math.max(14, Math.min(h - 12, first.y)), `${conf ? '✓ ' : ''}${p.nombre}`, col, conf, 'middle', w);
+      });
+      c.divs.forEach((v) => {
+        const col = v.tipo === 'alcista' ? P.up : P.dn, off = v.tipo === 'bajista' ? -8 : 8, x1 = xf(v.t1), y1 = yf(v.p1), x2 = xf(v.t2), y2 = yf(v.p2);
+        if ([x1, y1, x2, y2].some((q) => q === null)) return;
+        ctx.strokeStyle = col; ctx.lineWidth = 1.8; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x1, y1 + off); ctx.lineTo(x2, y2 + off); ctx.stroke();
+      });
+      if (c.giros.length) {
+        ctx.setLineDash([1, 4]); ctx.lineCap = 'round'; ctx.strokeStyle = alpha(P.fg, 0.4); ctx.lineWidth = 1.1; ctx.beginPath();
+        c.giros.forEach((g, i) => { const x = xf(g.t), y = yf(g.p); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke(); ctx.setLineDash([]);
+        c.giros.filter((g) => g.w).forEach((g) => {
+          const x = xf(g.t), y0 = yf(g.p); if (x === null || y0 === null) return;
+          const y = Math.max(10, Math.min(h - 10, y0 + (g.alto ? -12 : 12)));
+          ctx.beginPath(); ctx.arc(x, y, 6.5, 0, Math.PI * 2); ctx.fillStyle = P.panel; ctx.fill(); ctx.strokeStyle = alpha(P.fg, 0.6); ctx.lineWidth = 1; ctx.stroke();
+          ctx.font = `700 8.5px ${P.font}`; ctx.fillStyle = P.fg; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(g.w, x, y + 0.5);
+        });
+      }
+      // liquidaciones estimadas al costado y el dolor maximo de opciones: son por precio, las mismas del principal
+      if (L.liq && d && d.liq && d.liq.length) {
+        const lw = Math.min(46, w * 0.13), inR = d.liq.map((r) => ({ ...r, y: yf(r.p) })).filter((r) => r.y !== null && r.y > 0 && r.y < h);
+        const mx = Math.max(1, ...inR.map((r) => Math.max(r.l, r.s))), y0 = yf(d.price), y1 = yf(d.price * 1.0025), bh = y0 !== null && y1 !== null ? Math.max(2, Math.abs(y0 - y1) - 1) : 2;
+        inR.forEach((r) => [[r.l, P.dn], [r.s, P.up]].forEach(([v, col]) => { if (!(v > 0)) return; const bw = Math.max(3, Math.sqrt(v / mx) * (lw - 6)); ctx.fillStyle = alpha(col, 0.12 + 0.55 * v / mx); ctx.fillRect(w - bw, r.y - bh / 2, bw, bh); }));
+      }
+      if (d && d.dolor !== null && d.dolor !== undefined) {
+        const y = yf(d.dolor);
+        if (y !== null && y > 0 && y < h) { ctx.setLineDash([8, 5]); ctx.strokeStyle = alpha(P.c2 || P.mute, 0.7); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, Math.round(y) + 0.5); ctx.lineTo(w, Math.round(y) + 0.5); ctx.stroke(); ctx.setLineDash([]); }
+      }
+      // abanico de caminos de esta temporalidad (se calcula aparte, solo con casos realmente parecidos)
+      const a = s.aba;
+      if (L.abanico && a && a.casos && a.casos.length >= ABA_MIN && a.tf === MG.tfs[s.i] && a.mon === MON()) {
+        const x0 = xf(a.t0), y0 = yf(a.base0); if (x0 === null || y0 === null) return;
+        a.casos.forEach((cs) => {
+          ctx.beginPath(); ctx.moveTo(x0, y0);
+          cs.camino.forEach((v, k) => { const x = xf(a.t0 + (k + 1) * a.tfMs), y = yf(a.base0 * Math.exp(v)); if (x !== null && y !== null) ctx.lineTo(x, y); });
+          ctx.strokeStyle = alpha(cs.fin > a.M ? P.up : cs.fin < -a.M ? P.dn : P.mute, 0.42); ctx.lineWidth = 1; ctx.stroke();
+        });
+      }
+    };
+  }
+  function mgAbanico(s) {
+    const tf = MG.tfs[s.i];
+    if (!S.layers.abanico || !s.bars.length) { s.aba = null; return; }
+    const key = `${MON()}|${tf}|${s.bars[s.bars.length - 1].t}`;
+    if (s.abaKey === key || s.abaCorre === key) return;
+    s.abaCorre = key;
+    const mon = MON();
+    abaLeerVelas(mon, tf).then((V) => {
+      if (s.abaCorre !== key) return;
+      const r = V.length ? abaCalcular(V, 12) : { casos: [] };
+      r.tf = tf; r.mon = mon; r.H = 12; r.tfMs = MG_MS[tf];
+      s.aba = r; s.abaKey = key; s.abaCorre = null; if (s.capaU) s.capaU.update(); if (s.capa) s.capa.update();
+    }).catch(() => { s.abaCorre = null; });
   }
   function m2Pintar(ajustar) { if (MG.n > 1) mgVis().forEach((s) => mgPintarUno(s, ajustar)); }
   // el precio en vivo mueve la ultima vela de cada uno (o abre la siguiente si ya cerro)

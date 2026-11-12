@@ -17,7 +17,7 @@ OUT = os.path.join(HERE, "index.html")
 SHELL = """<!doctype html>
 <!-- Generado por generar_pagina.py desde dashboard/index.html: no editar a mano -->
 <html lang="es"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Analista BTC</title>
 <meta name="description" content="Análisis de BTC/USDT en vivo, calculado en el teléfono.">
 <meta name="theme-color" content="#000000">
