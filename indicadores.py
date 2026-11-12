@@ -771,6 +771,12 @@ def patron_grafico(bars, pivots, atr_last):
                          f"se confirma y el objetivo es {_ap(target)}.")
             return result("Hombro-cabeza-hombro invertido", "alcista", [neck], shoulders, target, desc, broke)
     # triangulos, cunas, canales y rangos: piden mas toques que un doble techo o piso, asi que van primero
+    # triple techo / triple piso: tres extremos en la misma zona (como el doble, hasta ~1%), con un valle (o pico)
+    # entre cada par, los dos parecidos; va antes que triangulos y rangos porque es mas especifica
+    tol2 = max(tol, min(0.01 * px, 2 * atr_last))
+    triple = _triple(bars, highs, lows, i_last, tol, tol2, still_valid, result, flat_line, point, px)
+    if triple:
+        return triple
     lines_fig = figura_lineas(bars, P, atr_last)
     if lines_fig:
         return lines_fig
@@ -827,6 +833,71 @@ def patron_grafico(bars, pivots, atr_last):
             if desc:
                 return result("Doble piso", "alcista", [flat_line(nk, "Cuello")],
                               [point(a, "Piso 1"), point(b, "Piso 2")], target, desc, broke)
+    return None
+
+
+def _triple(bars, highs, lows, i_last, tol, tol2, still_valid, result, flat_line, point, px):
+    """Triple techo o triple piso vigente (o None). Igual que _triple en indicadores.js."""
+    def find(pts, opp, tops):
+        beyond = (lambda x, y: x > y) if tops else (lambda x, y: x < y)
+        for ci in range(len(pts) - 1, max(-1, len(pts) - 4), -1):
+            c = pts[ci]
+            if c[1] < i_last - 80 or any(beyond(p[2], c[2]) for p in pts[ci + 1:]):
+                continue
+            for bi in range(ci - 1, max(-1, ci - 4), -1):
+                b = pts[bi]
+                for ai in range(bi - 1, max(-1, bi - 4), -1):
+                    a = pts[ai]
+                    trio = (a[2], b[2], c[2])
+                    if max(trio) - min(trio) > tol2:
+                        continue
+                    edge = min(trio) if tops else max(trio)       # el menos extremo de los tres
+                    if any(beyond(pts[j][2], edge) for j in range(ai + 1, ci) if j != bi):
+                        continue                                  # en el medio hubo otro extremo mayor
+                    m1 = [p for p in opp if a[1] < p[1] < b[1]]
+                    m2 = [p for p in opp if b[1] < p[1] < c[1]]
+                    if not m1 or not m2:
+                        continue
+                    if tops:
+                        v1, v2 = min(p[2] for p in m1), min(p[2] for p in m2)
+                        neck = min(m1 + m2, key=lambda p: p[2])
+                        flojo = max(v1, v2)
+                    else:
+                        v1, v2 = max(p[2] for p in m1), max(p[2] for p in m2)
+                        neck = max(m1 + m2, key=lambda p: p[2])
+                        flojo = min(v1, v2)
+                    depth = abs(edge - neck[2])
+                    if depth <= 2 * tol or abs(edge - flojo) < 0.4 * depth:
+                        continue                                  # poco profundo, o un valle casi sin bajar
+                    return a, b, c, neck
+        return None
+
+    found = find(highs, lows, True)
+    if found:
+        a, b, c, nk = found
+        if still_valid(c, "bajista", max(a[2], b[2], c[2]), lambda j: nk[2]):
+            neck, top = nk[2], (a[2] + b[2] + c[2]) / 3
+            target, broke = neck - (top - neck), px < neck
+            if not any(bars[j][3] <= target for j in range(c[1] + 1, len(bars))):
+                zona = f"{_ap(a[2])}, {_ap(b[2])} y {_ap(c[2])}"
+                desc = (f"Tres máximos que rechazaron la misma zona ({zona}). BTC perdió el cuello en {_ap(neck)}: objetivo {_ap(target)}."
+                        if broke else f"Tres máximos que rechazaron la misma zona ({zona}). Si BTC cierra debajo del cuello ({_ap(neck)}), "
+                                      f"se confirma y el objetivo es {_ap(target)}.")
+                return result("Triple techo", "bajista", [flat_line(nk, "Cuello")],
+                              [point(a, "Techo 1"), point(b, "Techo 2"), point(c, "Techo 3")], target, desc, broke)
+    found = find(lows, highs, False)
+    if found:
+        a, b, c, nk = found
+        if still_valid(c, "alcista", min(a[2], b[2], c[2]), lambda j: nk[2]):
+            neck, bot = nk[2], (a[2] + b[2] + c[2]) / 3
+            target, broke = neck + (neck - bot), px > neck
+            if not any(bars[j][2] >= target for j in range(c[1] + 1, len(bars))):
+                zona = f"{_ap(a[2])}, {_ap(b[2])} y {_ap(c[2])}"
+                desc = (f"Tres mínimos que defendieron la misma zona ({zona}). BTC superó el cuello en {_ap(neck)}: objetivo {_ap(target)}."
+                        if broke else f"Tres mínimos que defendieron la misma zona ({zona}). Si BTC cierra arriba del cuello ({_ap(neck)}), "
+                                      f"se confirma y el objetivo es {_ap(target)}.")
+                return result("Triple piso", "alcista", [flat_line(nk, "Cuello")],
+                              [point(a, "Piso 1"), point(b, "Piso 2"), point(c, "Piso 3")], target, desc, broke)
     return None
 
 

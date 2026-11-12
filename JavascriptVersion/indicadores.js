@@ -779,6 +779,11 @@
         return result('Hombro-cabeza-hombro invertido', 'alcista', [neck], shoulders, target, desc, broke);
       }
     }
+    // triple techo / triple piso: tres extremos en la misma zona (como el doble, hasta ~1%), con un valle (o pico)
+    // entre cada par, los dos parecidos; va antes que triangulos y rangos porque es mas especifica
+    const tol3 = Math.max(tol, Math.min(0.01 * px, 2 * atrLast));
+    const triple = tripleFig(bars, highs, lows, iLast, tol, tol3, stillValid, result, flatLine, point, px);
+    if (triple) return triple;
     // triangulos, cunas, canales y rangos: piden mas toques que un doble techo o piso, asi que van primero
     const linesFig = figuraLineas(bars, P, atrLast);
     if (linesFig) return linesFig;
@@ -826,6 +831,69 @@
           const desc = broke ? `Dos mínimos que defendieron la misma zona (${ap(a[2])} y ${ap(b[2])}). BTC superó el cuello en ${ap(neck)}: objetivo ${ap(target)}.`
             : `Dos mínimos que defendieron la misma zona (${ap(a[2])} y ${ap(b[2])}). Si BTC cierra arriba del cuello (${ap(neck)}), se confirma y el objetivo es ${ap(target)}.`;
           return result('Doble piso', 'alcista', [flatLine(nk, 'Cuello')], [point(a, 'Piso 1'), point(b, 'Piso 2')], target, desc, broke);
+        }
+      }
+    }
+    return null;
+  }
+
+  /** Triple techo o triple piso vigente (o null). Igual que _triple en indicadores.py. */
+  function tripleFig(bars, highs, lows, iLast, tol, tol2, stillValid, result, flatLine, point, px) {
+    const find = (pts, opp, tops) => {
+      const beyond = tops ? (x, y) => x > y : (x, y) => x < y;
+      for (let ci = pts.length - 1; ci > Math.max(-1, pts.length - 4); ci--) {
+        const c = pts[ci];
+        if (c[1] < iLast - 80 || pts.slice(ci + 1).some((p) => beyond(p[2], c[2]))) continue;
+        for (let bi = ci - 1; bi > Math.max(-1, ci - 4); bi--) {
+          const b = pts[bi];
+          for (let ai = bi - 1; ai > Math.max(-1, bi - 4); ai--) {
+            const a = pts[ai], trio = [a[2], b[2], c[2]];
+            if (Math.max(...trio) - Math.min(...trio) > tol2) continue;
+            const edge = tops ? Math.min(...trio) : Math.max(...trio);        // el menos extremo de los tres
+            let otro = false; for (let j = ai + 1; j < ci; j++) if (j !== bi && beyond(pts[j][2], edge)) { otro = true; break; }
+            if (otro) continue;                                                // en el medio hubo otro extremo mayor
+            const m1 = opp.filter((p) => a[1] < p[1] && p[1] < b[1]), m2 = opp.filter((p) => b[1] < p[1] && p[1] < c[1]);
+            if (!m1.length || !m2.length) continue;
+            let neck, flojo;
+            if (tops) {
+              const v1 = Math.min(...m1.map((p) => p[2])), v2 = Math.min(...m2.map((p) => p[2]));
+              neck = m1.concat(m2).reduce((m, p) => (p[2] < m[2] ? p : m)); flojo = Math.max(v1, v2);
+            } else {
+              const v1 = Math.max(...m1.map((p) => p[2])), v2 = Math.max(...m2.map((p) => p[2]));
+              neck = m1.concat(m2).reduce((m, p) => (p[2] > m[2] ? p : m)); flojo = Math.min(v1, v2);
+            }
+            const depth = Math.abs(edge - neck[2]);
+            if (depth <= 2 * tol || Math.abs(edge - flojo) < 0.4 * depth) continue;   // poco profundo, o un valle casi sin bajar
+            return [a, b, c, neck];
+          }
+        }
+      }
+      return null;
+    };
+    const range = (a, b) => { const r = []; for (let j = a; j < b; j++) r.push(j); return r; };
+    let found = find(highs, lows, true);
+    if (found) {
+      const [a, b, c, nk] = found;
+      if (stillValid(c, 'bajista', Math.max(a[2], b[2], c[2]), () => nk[2])) {
+        const neck = nk[2], top = (a[2] + b[2] + c[2]) / 3, target = neck - (top - neck), broke = px < neck;
+        if (!range(c[1] + 1, bars.length).some((j) => bars[j][3] <= target)) {
+          const zona = `${ap(a[2])}, ${ap(b[2])} y ${ap(c[2])}`;
+          const desc = broke ? `Tres máximos que rechazaron la misma zona (${zona}). BTC perdió el cuello en ${ap(neck)}: objetivo ${ap(target)}.`
+            : `Tres máximos que rechazaron la misma zona (${zona}). Si BTC cierra debajo del cuello (${ap(neck)}), se confirma y el objetivo es ${ap(target)}.`;
+          return result('Triple techo', 'bajista', [flatLine(nk, 'Cuello')], [point(a, 'Techo 1'), point(b, 'Techo 2'), point(c, 'Techo 3')], target, desc, broke);
+        }
+      }
+    }
+    found = find(lows, highs, false);
+    if (found) {
+      const [a, b, c, nk] = found;
+      if (stillValid(c, 'alcista', Math.min(a[2], b[2], c[2]), () => nk[2])) {
+        const neck = nk[2], bot = (a[2] + b[2] + c[2]) / 3, target = neck + (neck - bot), broke = px > neck;
+        if (!range(c[1] + 1, bars.length).some((j) => bars[j][2] >= target)) {
+          const zona = `${ap(a[2])}, ${ap(b[2])} y ${ap(c[2])}`;
+          const desc = broke ? `Tres mínimos que defendieron la misma zona (${zona}). BTC superó el cuello en ${ap(neck)}: objetivo ${ap(target)}.`
+            : `Tres mínimos que defendieron la misma zona (${zona}). Si BTC cierra arriba del cuello (${ap(neck)}), se confirma y el objetivo es ${ap(target)}.`;
+          return result('Triple piso', 'alcista', [flatLine(nk, 'Cuello')], [point(a, 'Piso 1'), point(b, 'Piso 2'), point(c, 'Piso 3')], target, desc, broke);
         }
       }
     }

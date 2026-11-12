@@ -276,6 +276,9 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
   camino se lleva a la volatilidad de hoy; verde/rojo si subió/bajó más que la mitad de los movimientos de ese horizonte,
   y se compara con lo que pasa en cualquier momento (solo dice que se aparta si z ≥ 2). Prueba: `node pruebas/abanico.js`
   (al azar no encuentra casos; una forma plantada 12 veces sí, y detecta que se aparta).
+- **Figuras del gráfico**: hombro-cabeza-hombro (y el invertido), triple techo y triple piso (tres extremos en la misma
+  zona, hasta ~1 %, con dos valles o picos parecidos entre ellos; objetivo: la altura proyectada desde el cuello), doble
+  techo y doble piso, triángulos, cuñas, canales y rangos. Igual en Python y JS (`python pruebas/triples.py`).
 - **Varios gráficos** (1 / 2 / 4: botón de la barra en la compu, o "Gráficos" en Capas; queda guardado): la misma moneda
   en otras temporalidades (5m a 1D, cada uno elige la suya), con las velas que ya trae el análisis, el precio en vivo,
   las EMA, tus dibujos y la mira sincronizada en todos. En la compu: 2 lado a lado o 4 en 2 × 2, a todo el ancho, y el
