@@ -739,6 +739,14 @@ Cada una contra un control (lo que daría el azar en la misma situación), BTC 2
   cuándo apunta a la suba o a la baja y lo medido. Se reconocen solas por el texto (el glosario está al final del script de la página).
 - Las capas del gráfico arrancan apagadas (salvo "Mi plan"); el panel de activos va siempre oculto (se abre con el selector).
 
+### Un solo mapa de liquidaciones
+
+El gráfico principal (capa "Liquidaciones"), el análisis y el mapa de calor usan el mismo modelo (`liq_perfil` en
+`indicadores.py` = `liqPerfil` en `indicadores.js`, igual que `simular` del mapa) y, en la página, los mismos datos
+(`api/liquidaciones`: open interest de Binance, Bybit y OKX y las cuentas de Binance y Bybit). Antes el gráfico usaba otro
+modelo con un solo exchange y por eso no coincidían. Python arma lo mismo con Bybit, Binance y OKX. Si en el mapa elegís
+solo algunos apalancamientos, muestra solo esos (el gráfico suma todos).
+
 ### Flujo de compras, VWAP, perfil de volumen e ICT medidos (`medir_flujo.py`, nov. 2026)
 
 BTC 1 h 2021–2026 (perpetuos y spot de Binance, con el volumen comprador). Acierto de la dirección; entra solo lo que gana en

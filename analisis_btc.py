@@ -998,26 +998,36 @@ def forming_from_5m(closed_5m, live_5m, tf, last_closed_t):
 # ---------- registro de pronosticos ----------
 
 
-def liquidation_map_bybit(h1, hours=168):
-    """El mismo mapa con datos de Bybit: open interest por hora (en BTC, se pasa a USD con el cierre) y la
-    proporcion de cuentas compradas y vendidas."""
+def liquidation_map_bybit(h1, price=None, hours=736):
+    """Liquidaciones pendientes con el mismo modelo que el mapa de calor de la pagina (indicadores.liq_perfil): open
+    interest de Bybit, Binance y OKX (cada uno con su propio cambio) y la parte larga de las cuentas de Bybit y Binance,
+    hora por hora. A Binance y OKX se les pide sin insistir: si no responden, sigue con lo que haya."""
+    import urllib.request
     ex = exchange("bybit")
+    bars = h1[-hours:]
+    cierre = {b[0]: b[4] for b in bars}
+    precio_de = lambda t: cierre.get(t) or cierre.get(t - bg.HOUR_MS)
     oi_raw = api("bybit", ex.publicGetV5MarketOpenInterest,
                  {"category": "linear", "symbol": "BTCUSDT", "intervalTime": "1h", "limit": 200})["result"]["list"]
     ls_raw = api("bybit", ex.publicGetV5MarketAccountRatio,
                  {"category": "linear", "symbol": "BTCUSDT", "period": "1h", "limit": 200})["result"]["list"]
-    bars = h1[-(hours + 2):]
-    close_at = {b[0] + bg.HOUR_MS: b[4] for b in bars}
-    oi = sorted((int(x["timestamp"]), float(x["openInterest"]) * close_at[int(x["timestamp"])])
-                for x in oi_raw if int(x["timestamp"]) in close_at)
-    ls = {int(x["timestamp"]): float(x["buyRatio"]) / float(x["sellRatio"]) for x in ls_raw if float(x["sellRatio"]) > 0}
-    price_by_hour = dict(sorted(close_at.items()))
-    suffix_lo, suffix_hi, lo, hi = {}, {}, float("inf"), 0.0
-    for b in reversed(bars):
-        suffix_lo[b[0]], suffix_hi[b[0]] = lo, hi
-        lo, hi = min(lo, b[3]), max(hi, b[2])
-    after = lambda t: (suffix_lo.get(t - bg.HOUR_MS, float("inf")), suffix_hi.get(t - bg.HOUR_MS, 0.0))
-    return ind.mapa_liquidaciones(price_by_hour, oi[-hours:], ls, after)
+    ois = [sorted((int(x["timestamp"]), float(x["openInterest"]) * precio_de(int(x["timestamp"])))
+                  for x in oi_raw if precio_de(int(x["timestamp"])))]
+    lss = [sorted((int(x["timestamp"]), float(x["buyRatio"])) for x in ls_raw)]
+
+    def bajar(u):
+        return json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"}), timeout=8).read())
+    for nombre, fn in (("Binance OI", lambda: ois.append(sorted((int(x["timestamp"]), float(x["sumOpenInterestValue"])) for x in
+                                                                 bajar("https://fapi.binance.com/futures/data/openInterestHist?symbol=BTCUSDT&period=1h&limit=500")))),
+                       ("OKX OI", lambda: ois.append(sorted((int(x[0]), float(x[1])) for x in
+                                                            bajar("https://www.okx.com/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=1H")["data"]))),
+                       ("Binance L/S", lambda: lss.append(sorted((int(x["timestamp"]), float(x["longAccount"])) for x in
+                                                                 bajar("https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=1h&limit=500"))))):
+        try:
+            fn()
+        except Exception as e:
+            print(f"({nombre} no disponible para el mapa de liquidaciones: {type(e).__name__})")
+    return ind.liq_perfil([b[:5] for b in bars], ois, lss, bg.HOUR_MS, 5 * 86_400_000, price or bars[-1][4])
 
 
 TF_TXT = {"5m": "5 min", "15m": "15 min", "30m": "30 min", "1h": "1 hora", "4h": "4 horas", "1d": "diario", "1w": "semanal", "1M": "mensual"}
@@ -1853,7 +1863,7 @@ def analyze():
                              "tipo": kind, "distancia": round(pct(p, price), 2)})
     try:
         # con open interest y long/short de Bybit (a Binance solo se le pide el funding)
-        heat = cached("liquidaciones", 300, lambda: liquidation_map_bybit(h1))
+        heat = cached("liquidaciones", 300, lambda: liquidation_map_bybit(h1, price))
         rows += [{"tabla": "liquidacion", **x} for x in heat]
         for side, kind in (("longs", "soporte"), ("shorts", "resistencia")):
             near = [x for x in heat if (x["precio"] < price) == (side == "longs") and x[side] > 0]

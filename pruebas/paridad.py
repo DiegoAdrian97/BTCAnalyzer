@@ -89,6 +89,10 @@ def flujo_casos():
 
 
 FLUJO = flujo_casos()
+# open interest inventado de dos exchanges (sube y baja) y la parte larga de las cuentas, para el mapa de liquidaciones
+LIQ_OI = [[[b[0], round(8e9 + 4e8 * math.sin(i / 9) + 2e6 * i, 2)] for i, b in enumerate(H1[-400:])],
+          [[b[0] + 60_000, round(3e9 + 2e8 * math.cos(i / 7), 2)] for i, b in enumerate(H1[-400:]) if i % 5]]
+LIQ_LS = [[[b[0], round(0.5 + 0.12 * math.sin(i / 13), 4)] for i, b in enumerate(H1[-400:])]]
 _HC = FC["ahora"] // 3_600_000 * 3_600_000 - 3_600_000
 FC_FLUJO = [FC["filas"] + [{"tabla": "flujo", "t": _HC, "cvd_div": cd, "absorcion": ab, "cambio_24h": ch},
                            {"tabla": "ict", "tf": "1h", "tipo": "barrida", "sesgo": sb, "t": _HC, "bajo": 61234.5, "alto": 61234.5}]
@@ -132,6 +136,7 @@ def py():
         "ict_h4": ind.ict(H4, ind.atr_w([b[2] for b in H4], [b[3] for b in H4], [b[4] for b in H4]), 240),
         "ict_filas": A.ict_filas("1h", H1, 60),
         "flujo": [ind.flujo_senales(*c) for c in FLUJO],
+        "liq_perfil": ind.liq_perfil([b[:5] for b in H1[-400:]], LIQ_OI, LIQ_LS, 3_600_000, 5 * 86_400_000, H1[-1][4]),
         "central_flujo": [A.central(f, FC["precio"], {"1h": H1, "4h": H4}, FC["ahora"]) for f in FC_FLUJO],
         "base_perp": [A.base_perp(61300, 61234.5, "Bybit"), A.base_perp(61190, 61234.5, "Bybit"), A.base_perp(61240, 61234.5, "Bybit")],
         "_ctx_raw": raw,
@@ -165,6 +170,7 @@ console.log(JSON.stringify({
   ict_h4: Ind.ict(d.H4, Ind.atrW(d.H4.map((b) => b[2]), d.H4.map((b) => b[3]), d.H4.map((b) => b[4])), 240),
   ict_filas: A.ictFilas('1h', d.H1, 60),
   flujo: d.FLUJO.map((c) => Ind.flujoSenales(...c)),
+  liq_perfil: Ind.liqPerfil(d.H1.slice(-400).map((b) => b.slice(0, 5)), d.LIQ_OI, d.LIQ_LS, 3600000, 5 * 86400000, d.H1[d.H1.length - 1][4]),
   central_flujo: d.FC_FLUJO.map((f) => A.central(f, d.FC.precio, { "1h": d.H1, "4h": d.H4 }, d.FC.ahora)),
   base_perp: [A.basePerp(61300, 61234.5, 'Bybit'), A.basePerp(61190, 61234.5, 'Bybit'), A.basePerp(61240, 61234.5, 'Bybit')],
   rango: (() => { const c = d.H1.map((b) => b[4]), e50 = Ind.ema(c, 50), e200 = Ind.ema(c, 200), rsi = Ind.rsi(c), mh = Ind.macd(c)[2];
@@ -202,7 +208,7 @@ def main():
     raw = p.pop("_ctx_raw")
     entrada = {"FC": FC, "H1": H1, "H4": H4, "D1": D1, "ALT": ALT, "AHORA": AHORA, "raw": raw, "LIQ": LIQ,
                "CASOS": CASOS, "SPEC_1H": SPEC_1H, "LOG_ENTRADAS": LOG_ENTRADAS, "LOG_CIERRES": LOG_CIERRES,
-               "OPC_LIBRO": OPC_LIBRO, "OPC_DVOL": OPC_DVOL, "OPC_AHORA": OPC_AHORA, "FLUJO": FLUJO, "FC_FLUJO": FC_FLUJO}
+               "OPC_LIBRO": OPC_LIBRO, "OPC_DVOL": OPC_DVOL, "OPC_AHORA": OPC_AHORA, "FLUJO": FLUJO, "FC_FLUJO": FC_FLUJO, "LIQ_OI": LIQ_OI, "LIQ_LS": LIQ_LS}
     out = subprocess.run(["node", "-e", JS, RAIZ], input=json.dumps(entrada), capture_output=True, text=True)
     if out.returncode:
         raise SystemExit("node fallo:\n" + out.stderr[-2000:])

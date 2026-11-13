@@ -917,20 +917,20 @@
     return [rows, per, mergedBids, mergedAsks];
   }
 
-  /** Liquidaciones pendientes estimadas con open interest nuevo y ratio long/short de la ultima semana. */
-  function liquidationMap(raw, h1, hours = 168) {
-    const bars = h1.slice(-(hours + 2));
-    const priceByHour = new Map(bars.map((b) => [b[0] + HOUR_MS, b[4]]));
-    const sufLo = new Map(), sufHi = new Map();
-    let lo = Infinity, hi = 0;
-    for (let k = bars.length - 1; k >= 0; k--) {
-      sufLo.set(bars[k][0], lo); sufHi.set(bars[k][0], hi);
-      lo = Math.min(lo, bars[k][3]); hi = Math.max(hi, bars[k][2]);
+  /**
+   * Liquidaciones pendientes con el mismo modelo y los mismos datos que el mapa de calor (Ind.liqPerfil; como
+   * liquidation_map_bybit en Python): raw es lo de api/liquidaciones (velas, open interest de cada exchange y parte larga
+   * de las cuentas). Sin esa funcion (una version vieja guardada), el open interest de Bybit en monedas y su ratio.
+   */
+  function liquidationMap(raw, h1, price) {
+    if (raw.velas && raw.oi && !Array.isArray(raw.oi)) {
+      return Ind.liqPerfil(raw.velas.map((b) => b.slice(0, 5)), Object.values(raw.oi), Object.values(raw.ls || {}), HOUR_MS, 5 * 864e5, price);
     }
-    const after = (t) => [sufLo.has(t - HOUR_MS) ? sufLo.get(t - HOUR_MS) : Infinity, sufHi.has(t - HOUR_MS) ? sufHi.get(t - HOUR_MS) : 0];
-    // open interest de Bybit en monedas: a USD con el cierre de cada hora (como liquidation_map_bybit)
-    const oi = raw.oi.filter((x) => priceByHour.has(x[0])).map((x) => [x[0], x[1] * priceByHour.get(x[0])]).slice(-hours);
-    return Ind.mapaLiquidaciones(priceByHour, oi, new Map(raw.ls), after);
+    const bars = h1.slice(-736), cierre = new Map(bars.map((b) => [b[0], b[4]]));
+    const precioDe = (t) => cierre.get(t) || cierre.get(t - HOUR_MS);
+    const oi = (raw.oi || []).filter((x) => precioDe(x[0])).map((x) => [x[0], x[1] * precioDe(x[0])]);
+    const ls = (raw.ls || []).map(([t, r]) => [t, r / (1 + r)]);
+    return Ind.liqPerfil(bars.map((b) => b.slice(0, 5)), [oi], [ls], HOUR_MS, 5 * 864e5, price);
   }
 
   /** Vela en curso de cualquier temporalidad, armada con las velas de 5m desde que abrio. */
@@ -1380,7 +1380,7 @@
       });
     }
     if (input.liqRaw) {
-      const heat = liquidationMap(input.liqRaw, h1);
+      const heat = liquidationMap(input.liqRaw, h1, price);
       heat.forEach((x) => rows.push({ tabla: 'liquidacion', ...x }));
       [['longs', 'soporte'], ['shorts', 'resistencia']].forEach(([side, kind]) => {
         const near = heat.filter((x) => (x.precio < price) === (side === 'longs') && x[side] > 0);

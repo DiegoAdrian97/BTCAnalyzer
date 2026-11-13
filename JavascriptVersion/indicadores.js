@@ -648,6 +648,41 @@
    * priceByHour: Map ts -> precio; oiHist: [[ts, oiUsd]]; lsHist: Map ts -> ratio long/short;
    * afterExtremes(ts) -> [minimo, maximo] del precio despues de ts, para descartar lo ya liquidado.
    */
+  const LIQ_NIVELES = [[3, 0.06], [5, 0.1], [10, 0.22], [25, 0.27], [50, 0.2], [100, 0.15]], LIQ_MANT = 0.005;
+  /** Liquidaciones pendientes estimadas: el mismo modelo que el mapa de calor (igual que liq_perfil en Python: ahi esta explicado). */
+  function liqPerfil(velas, ois, lss, ms, vidaMs, ref, band = 0.12, step = 0.0025, niveles = LIQ_NIVELES, mant = LIQ_MANT) {
+    const nB = Math.round((2 * band) / step), loE = ref * (1 - band), paso = ref * step, T = niveles.length;
+    const Lt = niveles.map(() => new Array(nB).fill(0)), St = niveles.map(() => new Array(nB).fill(0));
+    const serieEn = (pares) => { const m = new Map(); pares.forEach(([t, v]) => m.set(Math.floor(t / ms) * ms, v)); return m; };
+    const fuentes = ois.filter((x) => x.length > 1).map(serieEn), lsf = lss.filter((x) => x.length).map(serieEn);
+    const dec = Math.pow(0.5, ms / vidaMs), binf = (p) => Math.floor((p - loE) / paso);
+    let lsUlt = 0.5;
+    for (let j = 1; j < velas.length; j++) {
+      const [t0, , h, l, c] = velas[j], t = Math.floor(t0 / ms) * ms, tp = Math.floor(velas[j - 1][0] / ms) * ms;
+      const kl = Math.max(0, binf(l)), ks = Math.min(nB - 1, binf(h));
+      for (let i = 0; i < T; i++) { for (let k = kl; k < nB; k++) Lt[i][k] = 0; for (let k = 0; k <= ks; k++) St[i][k] = 0; }
+      let delta = 0, total = 0;
+      fuentes.forEach((f) => { const a = f.get(t), b = f.get(tp); if (a !== undefined && b !== undefined) { delta += a - b; total += b; } });
+      const fac = dec * (delta < 0 && total > 0 ? Math.max(0, 1 + delta / total) : 1);
+      for (let i = 0; i < T; i++) for (let k = 0; k < nB; k++) { Lt[i][k] *= fac; St[i][k] *= fac; }
+      if (delta > 0) {
+        const v = lsf.filter((m) => m.has(t)).map((m) => m.get(t));
+        if (v.length) { let sm = 0; v.forEach((x) => { sm += x; }); lsUlt = sm / v.length; }
+        const e = (h + l + c) / 3;
+        niveles.forEach(([lev, w], i) => {
+          const pl = e * (1 - 1 / lev + mant), ps = e * (1 + 1 / lev - mant), kL = binf(pl), kS = binf(ps);
+          if (pl < l && kL >= 0 && kL < nB) Lt[i][kL] += delta * lsUlt * w;
+          if (ps > h && kS >= 0 && kS < nB) St[i][kS] += delta * (1 - lsUlt) * w;
+        });
+      }
+    }
+    const out = [];
+    for (let k = 0; k < nB; k++) {
+      let lg = 0, sh = 0; for (let i = 0; i < T; i++) { lg += Lt[i][k]; sh += St[i][k]; }
+      if (lg || sh) out.push({ precio: rnd(loE + (k + 0.5) * paso, 1), longs: rnd(lg / 1e6, 2), shorts: rnd(sh / 1e6, 2) });
+    }
+    return out;
+  }
   function mapaLiquidaciones(priceByHour, oiHist, lsHist, afterExtremes, levWeights = null, band = 0.12, step = 0.0025) {
     levWeights = levWeights || [[10, 0.3], [25, 0.3], [50, 0.25], [100, 0.15]];
     const prices = [...priceByHour.values()];
@@ -1252,7 +1287,7 @@
   const Ind = {
     ar, rnd, roundEven, sma, ema, rma, wma, hma, vwma, rsi, stoch, stochRsi, cci, williamsR, momentum, macd,
     awesome, bullBearPower, ultimate, dmi, atrW, mfi, cmf, obv, bollinger, keltner, psar, supertrend, ichimoku,
-    vwapSession, calificar, ratingTxt, divergencia, fvg, zigzag, elliott, mapaLiquidaciones, patronesVelas,
+    vwapSession, calificar, ratingTxt, divergencia, fvg, zigzag, elliott, mapaLiquidaciones, liqPerfil, LIQ_NIVELES, LIQ_MANT, patronesVelas,
     estadisticaVelas, patronGrafico, figuraLineas, wyckoff, divergencias, pivotes, ict, ictDescripcion, ICT_NOMBRE, flujoSenales,
   };
   root.Ind = Ind;

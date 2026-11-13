@@ -627,6 +627,79 @@ def elliott(pivots, bars):
     return [], SIN_ELLIOTT, None, None, ""
 
 
+# Apalancamientos y cuanto del open interest nuevo se lleva cada uno (los de TradingDifferent, como el mapa de calor de
+# la pagina), y el margen de mantenimiento: la liquidacion cae un poco antes de perder todo el margen
+LIQ_NIVELES = ((3, 0.06), (5, 0.1), (10, 0.22), (25, 0.27), (50, 0.2), (100, 0.15))
+LIQ_MANT = 0.005
+
+
+def _serie_en(pares, ms):
+    m = {}
+    for t, v in pares:
+        m[(int(t) // ms) * ms] = v
+    return m
+
+
+def liq_perfil(velas, ois, lss, ms, vida_ms, ref, band=0.12, step=0.0025, niveles=LIQ_NIVELES, mant=LIQ_MANT):
+    """Liquidaciones pendientes estimadas: el mismo modelo que el mapa de calor de la pagina (simular en index.html),
+    asi el grafico principal, el analisis y el mapa dicen lo mismo. Vela por vela: 1) lo que el precio cruzo se liquida;
+    2) si el open interest bajo, lo pendiente baja en esa proporcion (y todo se va olvidando: vida media vida_ms);
+    3) el open interest nuevo (sumando cada exchange) se reparte en largos y cortos segun las cuentas, en cada
+    apalancamiento, al precio tipico de la vela. velas [[t, o, h, l, c]], ois [[[t, usd]]] (uno por exchange),
+    lss [[[t, parte larga 0-1]]]. Devuelve [{precio, longs, shorts}] (millones de USD) en escalones de step alrededor de
+    ref (hasta band). Igual que liqPerfil() en indicadores.js."""
+    n_b = int(round(2 * band / step))
+    lo_e, paso = ref * (1 - band), ref * step
+    T = len(niveles)
+    Lt = [[0.0] * n_b for _ in range(T)]
+    St = [[0.0] * n_b for _ in range(T)]
+    fuentes = [_serie_en(s, ms) for s in ois if len(s) > 1]
+    lsf = [_serie_en(s, ms) for s in lss if s]
+    dec = 0.5 ** (ms / vida_ms)
+    ls_ult = 0.5
+    binf = lambda p: int(math.floor((p - lo_e) / paso))
+    for j in range(1, len(velas)):
+        t, h, l, c = (int(velas[j][0]) // ms) * ms, velas[j][2], velas[j][3], velas[j][4]
+        tp = (int(velas[j - 1][0]) // ms) * ms
+        kl, ks = max(0, binf(l)), min(n_b - 1, binf(h))
+        for i in range(T):
+            for k in range(kl, n_b):
+                Lt[i][k] = 0.0
+            for k in range(0, ks + 1):
+                St[i][k] = 0.0
+        delta = total = 0.0
+        for f in fuentes:
+            a, b = f.get(t), f.get(tp)
+            if a is not None and b is not None:
+                delta += a - b
+                total += b
+        fac = dec * (max(0.0, 1 + delta / total) if delta < 0 and total > 0 else 1.0)
+        for i in range(T):
+            Li, Si = Lt[i], St[i]
+            for k in range(n_b):
+                Li[k] *= fac
+                Si[k] *= fac
+        if delta > 0:
+            v = [m[t] for m in lsf if t in m]
+            if v:
+                ls_ult = sum(v) / len(v)
+            e = (h + l + c) / 3
+            for i, (lev, w) in enumerate(niveles):
+                pl, ps = e * (1 - 1 / lev + mant), e * (1 + 1 / lev - mant)
+                k_l, k_s = binf(pl), binf(ps)
+                if pl < l and 0 <= k_l < n_b:
+                    Lt[i][k_l] += delta * ls_ult * w
+                if ps > h and 0 <= k_s < n_b:
+                    St[i][k_s] += delta * (1 - ls_ult) * w
+    out = []
+    for k in range(n_b):
+        lg = sum(Lt[i][k] for i in range(T))
+        sh = sum(St[i][k] for i in range(T))
+        if lg or sh:
+            out.append({"precio": round(lo_e + (k + 0.5) * paso, 1), "longs": round(lg / 1e6, 2), "shorts": round(sh / 1e6, 2)})
+    return out
+
+
 def mapa_liquidaciones(price_by_hour, oi_hist, ls_hist, after_extremes, lev_weights=None, band=0.12, step=0.0025):
     """Estimacion de donde quedan liquidaciones pendientes (mismo enfoque que los heatmaps publicos).
 
