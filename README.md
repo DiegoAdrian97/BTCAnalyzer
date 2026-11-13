@@ -734,7 +734,7 @@ Cada una contra un control (lo que daría el azar en la misma situación), BTC 2
   última semana, con actual, previsión y anterior, y la marca positivo/negativo para el mercado según la sorpresa (la lectura
   habitual de las tasas, no medida). Python = JS: `pruebas/calendario.py`.
 - **Ayudas ocultas**: pasar el mouse (o mantener apretado en el celu) sobre un indicador o dato abre una tarjeta con qué es,
-  cuándo apunta a la suba o a la baja y lo medido. Se reconocen solas por el texto (`GLOSARIO` en la página).
+  cuándo apunta a la suba o a la baja y lo medido. Se reconocen solas por el texto (el glosario está al final del script de la página).
 - Las capas del gráfico arrancan apagadas (salvo "Mi plan"); el panel de activos va siempre oculto (se abre con el selector).
 
 ### Flujo de compras, VWAP, perfil de volumen e ICT medidos (`medir_flujo.py`, nov. 2026)
