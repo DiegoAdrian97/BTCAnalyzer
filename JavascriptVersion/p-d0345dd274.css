@@ -1905,4 +1905,100 @@
   .ab-partes-idx .ab-chipbtn { border: 1px solid var(--vidrio-borde); background: var(--t2-sunk); }
   /* "Que estas viendo" y el resto de los textos chicos */
   .ab-kicker { color: var(--t2-mute); }
+  /* ======================= menos texto, mas visual (nov 2026) =======================
+     Cada dato se ve como una pieza (barra, medidor, ficha); las frases que lo explicaban quedan en el title, en la
+     ayuda (mantener apretado / pasar el mouse) o detras de "Cómo se calcula". */
+  .ab-v-ficha { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+    line-height: 1.35; white-space: nowrap; color: var(--t2-ink); background: var(--t2-sunk); border: 1px solid var(--vidrio-borde); font-variant-numeric: tabular-nums; }
+  .ab-v-ficha.up { color: var(--color-ok); background: color-mix(in srgb, var(--color-ok) 11%, transparent); border-color: color-mix(in srgb, var(--color-ok) 24%, transparent); }
+  .ab-v-ficha.dn { color: var(--color-bad); background: color-mix(in srgb, var(--color-bad) 10%, transparent); border-color: color-mix(in srgb, var(--color-bad) 24%, transparent); }
+  .ab-v-ficha.warn { color: var(--color-warn); background: color-mix(in srgb, var(--color-warn) 12%, transparent); border-color: color-mix(in srgb, var(--color-warn) 26%, transparent); }
+  .ab-v-ficha.rng::first-letter { color: var(--color-ok); }
+  .ab-v-ficha[title] { cursor: help; }
+  .ab-v-fichas { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  /* pulseada: a favor de la suba contra la baja */
+  .ab-v-tira { display: grid; grid-template-columns: auto minmax(60px, 1fr) auto; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; min-width: 0; }
+  .ab-v-tira > b { font-size: 13px; font-weight: 700; } .ab-v-tira > b.up { color: var(--color-ok); } .ab-v-tira > b.dn { color: var(--color-bad); }
+  .ab-v-tira-b { display: flex; gap: 3px; height: 8px; }
+  .ab-v-tira-b i { flex: 1 1 0; border-radius: 4px; min-width: 3px; transition: flex-grow var(--mo-l, .4s) var(--mo-ease, ease); }
+  .ab-v-tira-b i.up { background: var(--color-ok); } .ab-v-tira-b i.dn { background: var(--color-bad); }
+  /* medidor: cifra grande, que es, y una barra con la marca de referencia */
+  .ab-v-med { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "n k" "n b" "s s"; column-gap: 12px; row-gap: 5px; align-items: center; min-width: 0; }
+  .ab-v-med > b { grid-area: n; font-family: var(--font-cifras); font-size: 1.55rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .ab-v-med > small { grid-area: k; font-size: 12.5px; color: var(--t2-mute); align-self: end; }
+  .ab-v-med-b { grid-area: b; position: relative; height: 7px; border-radius: 4px; background: color-mix(in srgb, var(--t2-ink) 9%, transparent); }
+  .ab-v-med-b i { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: var(--t2-ink); transition: width var(--mo-l, .4s) var(--mo-ease, ease); }
+  .ab-v-med-b u { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--t2-mute); opacity: .7; }
+  .ab-v-med-s { grid-area: s; font-size: 11.5px; color: var(--t2-mute); }
+  .ab-v-med.up > b { color: var(--color-ok); } .ab-v-med.up .ab-v-med-b i { background: var(--color-ok); }
+  .ab-v-med.dn > b { color: var(--color-bad); } .ab-v-med.dn .ab-v-med-b i { background: var(--color-bad); }
+  .ab-v-med.tenue { opacity: .78; } .ab-v-med.tenue > b { font-size: 1.15rem; }
+  /* la respuesta: prediccion, indicadores y ciclo en tres fichas (antes una frase) */
+  .ab .ab-rs-txt { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; font-size: inherit; }
+  .ab .ab-rs-txt:empty { display: none; }
+  .ab-v-acuerdo { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 8px; align-items: center; padding: 9px 12px;
+    border-radius: 14px; background: var(--t2-sunk); border: 1px solid var(--vidrio-borde); min-width: 0; cursor: help; }
+  .ab-v-acuerdo i { grid-row: 1 / 3; font-style: normal; font-size: 15px; color: var(--t2-mute); }
+  .ab-v-acuerdo small { font-size: 11.5px; color: var(--t2-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ab-v-acuerdo b { font-size: 13.5px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ab-v-acuerdo.up i, .ab-v-acuerdo.up b { color: var(--color-ok); } .ab-v-acuerdo.dn i, .ab-v-acuerdo.dn b { color: var(--color-bad); }
+  @media (max-width: 420px) { .ab-v-acuerdo { padding: 8px 9px; } .ab-v-acuerdo i { display: none; } .ab-v-acuerdo { grid-template-columns: minmax(0, 1fr); } }
+  /* resumen de cada parte cerrada: fichas */
+  .ab-parte-res { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+  .ab-parte-res .ab-v-tira { width: min(220px, 100%); }
+  /* ¿para donde?: la pulseada y el medidor, sin frases */
+  #ce-dir { display: grid; gap: 12px; }
+  #ce-dir > h3 { margin-bottom: 0; }
+  #ce-dir > .ab-v-tira > b { font-size: 14px; }
+  /* las estadisticas: tres por fila tambien en la hoja (antes una debajo de la otra) */
+  .ab .ab-hoja .ab-apr-top { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .ab-hoja .ab-apr-stat { padding: 10px 12px !important; border-radius: 14px; align-content: start; }
+  .ab-hoja .ab-apr-stat small { font-size: 11.5px; line-height: 1.25; }
+  .ab-hoja .ab-apr-stat b { font-size: 1.4rem !important; }
+  .ab-hoja .ab-apr-stat span { font-size: 11px; line-height: 1.3; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  /* lo que ya dice la respuesta no se repite en la parte 1 */
+  #parte-dir #prediccion :is(#verdict-big, #titular) { display: none !important; }
+  /* explicaciones largas: plegadas enteras, en un boton chico */
+  .ab .ab-plegable:not(.abierta) { display: inline-flex; -webkit-line-clamp: unset; font-size: 0 !important; line-height: 0; color: transparent; overflow: hidden; height: auto; padding: 0; margin: 2px 0; }
+  .ab .ab-plegable:not(.abierta)::after { content: "ⓘ Cómo se calcula"; position: static; font-size: 12.5px; line-height: 1.4; font-weight: 600; color: var(--t2-mute);
+    background: var(--t2-sunk); box-shadow: none; border: 1px solid var(--vidrio-borde); border-radius: 999px; padding: 3px 11px; }
+  .ab .ab-plegable:not(.abierta):hover::after { color: var(--t2-ink); }
+  .ab .ab-plegable.abierta { font-size: 12.5px; line-height: 1.5; color: var(--t2-mute); }
+  /* confianza ahora: medidores */
+  #apr-line { display: grid; gap: 12px; }
+  #apr-line > b { font-size: 13.5px; font-weight: 650; color: var(--t2-ink); }
+  /* calibracion: cada fila, lo que dijo contra lo que paso */
+  .ab-calib-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
+  .ab-calib-h .ab-tm-sec { margin: 0; }
+  .ab-calib-ley { display: flex; gap: 14px; font-size: 11.5px; color: var(--t2-mute); margin: 6px 0 2px; }
+  .ab-calib-ley span::before { content: ""; display: inline-block; width: 3px; height: 11px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .ab-calib-ley .dijo::before { background: var(--t2-mute); } .ab-calib-ley .paso::before { background: var(--t2-ink); }
+  .ab-calib { display: grid; gap: 8px; margin-top: 6px; }
+  .ab-calib-row { display: grid; grid-template-columns: 6.6em minmax(0, 1fr) 5.2em; gap: 10px; align-items: center; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .ab-calib-k b { font-weight: 650; } .ab-calib-k b.lejos { color: var(--color-warn); }
+  .ab-calib-n { text-align: right; color: var(--t2-mute); font-size: 11.5px; white-space: nowrap; }
+  .ab-calib-n::after { content: " casos"; }
+  .ab-calib-bar { position: relative; height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--t2-ink) 8%, transparent); }
+  .ab-calib-bar i, .ab-calib-bar b { position: absolute; top: -4px; width: 3px; height: 16px; border-radius: 2px; }
+  .ab-calib-bar i { background: var(--t2-mute); } .ab-calib-bar b { background: var(--t2-ink); }
+
+  /* posiciones: el riesgo como regla de precios */
+  .ab-pos-rgv { display: grid; gap: 12px; }
+  .ab-v-med.warn > b { color: var(--color-warn); } .ab-v-med.warn .ab-v-med-b i { background: var(--color-warn); }
+  .ab-pos-esc { position: relative; height: 66px; margin: 4px 6px 0; }
+  .ab-pos-esc::before { content: ""; position: absolute; left: 0; right: 0; top: 32px; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--t2-ink) 10%, transparent); }
+  .ab-pos-esc-z { position: absolute; top: 31px; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--t2-ink) 22%, transparent); }   /* donde queda el precio en 6 meses (95%) */
+  .ab-pos-esc-m { position: absolute; top: 0; transform: translateX(-50%); display: grid; justify-items: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ab-pos-esc-m::after { content: ""; order: 2; width: 2px; height: 14px; margin-top: 2px; border-radius: 1px; background: var(--t2-mute); }
+  .ab-pos-esc-m small { font-size: 10.5px; color: var(--t2-mute); line-height: 1.1; } .ab-pos-esc-m b { font-size: 11.5px; font-weight: 650; line-height: 1.2; }
+  .ab-pos-esc-m.abajo { top: 28px; } .ab-pos-esc-m.abajo::after { order: -1; margin: 0 0 2px; height: 10px; }
+  .ab-pos-esc-m.liq b, .ab-pos-esc-m.liq small { color: var(--color-bad); } .ab-pos-esc-m.liq::after { background: var(--color-bad); width: 3px; }
+  .ab-pos-esc-m.ahora b { color: var(--t2-ink); } .ab-pos-esc-m.ahora::after { background: var(--t2-ink); width: 3px; }
+  .ab-pos-esc-m.peor b, .ab-pos-esc-m.peor small { color: var(--color-warn); }
+  .ab-pos-rgv > .ab-v-ficha { justify-self: start; }
+  .ab-pos-det > summary { cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--t2-mute); }
+  .ab-pos-det p { margin: 6px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--t2-mute); }
+  .ab-pos-pz { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ab-pos-pz > .ab-v-med { flex: 1 1 100%; }
+
   :root { --ab-css: 1; }   /* marca: la pagina comprueba con esto que el estilo cargo */
