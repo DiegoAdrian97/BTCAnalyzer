@@ -369,23 +369,45 @@ const NOMBRES = [
   ['ADP', 'Empleo privado (ADP)'],
 ];
 const nombreEs = (titulo) => { const t = (titulo || '').toLowerCase(); const m = NOMBRES.find(([en]) => t.includes(en.toLowerCase())); return m ? m[1] : titulo; };
-function parseCalendario(txt) {
-  const out = [];
+// como lee el mercado cada dato (igual que SENTIDO en noticias.py: ahi esta explicado)
+const SENTIDO = [
+  ['inflation expectations', -1], ['inflation', -1], ['cpi', -1], ['pce', -1], ['ppi', -1], ['price index', -1], ['prices', -1],
+  ['unemployment rate', 1], ['jobless claims', 1], ['continuing claims', 1],
+  ['interest rate', -1], ['payrolls', -1], ['adp', -1], ['jolts', -1], ['employment', -1], ['hourly earnings', -1],
+  ['retail sales', -1], ['gdp', -1], ['ism', -1], ['pmi', -1], ['durable goods', -1], ['industrial production', -1],
+  ['consumer confidence', 1], ['sentiment', 1],
+];
+const sentido = (titulo) => { const t = (titulo || '').toLowerCase(); const m = SENTIDO.find(([k]) => t.includes(k)); return m ? m[1] : 0; };
+function efecto(titulo, actual, previsto, anterior) {
+  const s = sentido(titulo), ref = previsto ?? anterior;
+  if (!s || actual === null || actual === undefined || ref === null || ref === undefined) return null;
+  const d = Number(actual) - Number(ref);
+  if (!Number.isFinite(d)) return null;
+  if (Math.abs(d) < 1e-12) return 'neutral';
+  return d * s > 0 ? 'positivo' : 'negativo';
+}
+/** Igual que parse_calendario en noticias.py. */
+function parseCalendario(txt, nowMs = null) {
+  const out = [], cal = [];
   for (const e of JSON.parse(txt).result || []) {
-    if (e.importance !== 1 || !e.date) continue;
-    out.push({ tabla: 'evento', t: Date.parse(e.date), titulo: nombreEs(e.title), original: (e.title || '').slice(0, 80),
-      previsto: e.forecast ?? null, anterior: e.previous ?? null, actual: e.actual ?? null });
+    if (e.importance === null || e.importance === undefined || e.importance < 0 || !e.date) continue;
+    const t = Date.parse(e.date), tit = e.title || '', act = e.actual ?? null, prv = e.forecast ?? null, ant = e.previous ?? null;
+    if (e.importance === 1 && (nowMs === null || t >= nowMs - 86400000)) out.push({ tabla: 'evento', t, titulo: nombreEs(tit), original: tit.slice(0, 80), previsto: prv, anterior: ant, actual: act });
+    cal.push({ tabla: 'calendario', t, titulo: nombreEs(tit), original: tit.slice(0, 80), importancia: e.importance === 1 ? 3 : 2,
+      actual: act, previsto: prv, anterior: ant, unidad: e.unit || '', escala: e.scale || '', periodo: e.period || '', efecto: efecto(tit, act, prv, ant) });
   }
-  return out.sort((a, b) => a.t - b.t);
+  out.sort((a, b) => a.t - b.t);
+  cal.sort((a, b) => a.t - b.t || b.importancia - a.importancia || (a.original < b.original ? -1 : a.original > b.original ? 1 : 0));
+  return out.concat(cal);
 }
 async function calendario(nowMs) {
   const iso = (ms) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, '.000Z');
   const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), Math.max(500, Math.min(12000, LIMITE - Date.now())));
   try {
-    const r = await fetch(`https://economic-calendar.tradingview.com/events?from=${iso(nowMs - 86400000)}&to=${iso(nowMs + 8 * 86400000)}&countries=US`,
+    const r = await fetch(`https://economic-calendar.tradingview.com/events?from=${iso(nowMs - 7 * 86400000)}&to=${iso(nowMs + 8 * 86400000)}&countries=US`,
       { headers: { 'User-Agent': UA, Origin: 'https://www.tradingview.com', Referer: 'https://www.tradingview.com/' }, signal: ctl.signal });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return parseCalendario(await r.text());
+    return parseCalendario(await r.text(), nowMs);
   } finally { clearTimeout(tm); }
 }
 
@@ -436,6 +458,7 @@ module.exports.mismaNoticia = mismaNoticia;
 module.exports.enIngles = enIngles;
 module.exports.miedoCodicia = miedoCodicia;
 module.exports.primaCoinbase = primaCoinbase;
+module.exports.parseCalendario = parseCalendario;
 module.exports.sesgo = sesgo;
 module.exports.tema = tema;
 module.exports.ACCIONES = ACCIONES;

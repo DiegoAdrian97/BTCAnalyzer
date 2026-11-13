@@ -586,26 +586,64 @@ def nombre_es(titulo):
     return titulo
 
 
-def parse_calendario(txt):
-    """Datos de importancia alta de EE.UU.: hora (ms UTC), nombre en español, previsto, anterior y actual."""
-    out = []
+# Como lee el mercado cada dato (la lectura de las tasas: una economia mas caliente aleja los recortes de la Fed y suele
+# pesar sobre BTC y las acciones; mas desempleo los acerca). 1: un valor mas alto es positivo; -1: negativo; 0: sin lectura.
+# El primero que aparece en el nombre manda. No esta medido: es la lectura habitual (como la marca Investing.com).
+SENTIDO = [
+    ("inflation expectations", -1), ("inflation", -1), ("cpi", -1), ("pce", -1), ("ppi", -1), ("price index", -1), ("prices", -1),
+    ("unemployment rate", 1), ("jobless claims", 1), ("continuing claims", 1),
+    ("interest rate", -1), ("payrolls", -1), ("adp", -1), ("jolts", -1), ("employment", -1), ("hourly earnings", -1),
+    ("retail sales", -1), ("gdp", -1), ("ism", -1), ("pmi", -1), ("durable goods", -1), ("industrial production", -1),
+    ("consumer confidence", 1), ("sentiment", 1),
+]
+
+
+def sentido(titulo):
+    t = (titulo or "").lower()
+    return next((v for k, v in SENTIDO if k in t), 0)
+
+
+def efecto(titulo, actual, previsto, anterior):
+    """'positivo', 'negativo' o 'neutral' para el mercado, comparando el dato con lo previsto (o con el anterior)."""
+    s = sentido(titulo)
+    ref = previsto if previsto is not None else anterior
+    if not s or actual is None or ref is None:
+        return None
+    try:
+        d = float(actual) - float(ref)
+    except (TypeError, ValueError):
+        return None
+    if abs(d) < 1e-12:
+        return "neutral"
+    return "positivo" if d * s > 0 else "negativo"
+
+
+def parse_calendario(txt, now_ms=None):
+    """Calendario de EE.UU.: filas 'evento' (importancia alta, desde ayer: entran al analisis, como antes) y filas
+    'calendario' (importancia media y alta, de la ultima semana y la que viene: para mostrar, con el efecto del dato)."""
+    out, cal = [], []
     for e in json.loads(txt).get("result", []):
-        if e.get("importance") != 1 or not e.get("date"):
+        if e.get("importance") is None or e.get("importance") < 0 or not e.get("date"):
             continue
         t = int(datetime.fromisoformat(e["date"].replace("Z", "+00:00")).timestamp() * 1000)
-        out.append({"tabla": "evento", "t": t, "titulo": nombre_es(e.get("title")), "original": (e.get("title") or "")[:80],
-                    "previsto": e.get("forecast"), "anterior": e.get("previous"), "actual": e.get("actual")})
+        tit, act, prv, ant = e.get("title") or "", e.get("actual"), e.get("forecast"), e.get("previous")
+        if e.get("importance") == 1 and (now_ms is None or t >= now_ms - 86400000):
+            out.append({"tabla": "evento", "t": t, "titulo": nombre_es(tit), "original": tit[:80], "previsto": prv, "anterior": ant, "actual": act})
+        cal.append({"tabla": "calendario", "t": t, "titulo": nombre_es(tit), "original": tit[:80], "importancia": 3 if e["importance"] == 1 else 2,
+                    "actual": act, "previsto": prv, "anterior": ant, "unidad": e.get("unit") or "", "escala": e.get("scale") or "",
+                    "periodo": e.get("period") or "", "efecto": efecto(tit, act, prv, ant)})
     out.sort(key=lambda r: r["t"])
-    return out
+    cal.sort(key=lambda r: (r["t"], -r["importancia"], r["original"]))
+    return out + cal
 
 
 def _calendario(now_ms):
-    a = datetime.fromtimestamp(now_ms / 1000 - 86400, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    a = datetime.fromtimestamp(now_ms / 1000 - 7 * 86400, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
     b = datetime.fromtimestamp(now_ms / 1000 + 8 * 86400, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
     req = urllib.request.Request("https://economic-calendar.tradingview.com/events?from=" + a + "&to=" + b + "&countries=US",
                                  headers={"User-Agent": UA, "Origin": "https://www.tradingview.com", "Referer": "https://www.tradingview.com/"})
     with urllib.request.urlopen(req, timeout=12) as r:
-        return parse_calendario(r.read().decode("utf-8", "replace"))
+        return parse_calendario(r.read().decode("utf-8", "replace"), now_ms)
 
 
 def externo(now_ms=None, moneda="BTC"):

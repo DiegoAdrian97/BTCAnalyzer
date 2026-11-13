@@ -20,4 +20,5 @@ jobs:
       - run: python pruebas/sesgo.py
       - run: node pruebas/widget_api.js   # /api/widget y el capital, con BingX simulado
       - run: python pruebas/triples.py    # triple techo / triple piso (Python = JS)
+      - run: python pruebas/calendario.py    # calendario economico con el efecto de cada dato (Python = JS)
       - run: node pruebas/abanico.js      # abanico de caminos: solo casos realmente parecidos

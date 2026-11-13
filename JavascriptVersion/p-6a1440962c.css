@@ -1446,15 +1446,46 @@
   @media (prefers-reduced-motion: reduce) { .ab-arriba { transition: none; } }
 
   /* ---------- calendario: lo que viene ---------- */
-  .ab-cal-list { display: grid; gap: 14px; margin-top: 8px; }
-  .ab-cal-dia h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: var(--mute); }
-  .ab-cal-ev { display: grid; grid-template-columns: 3.4em minmax(0, 1fr); gap: 2px 10px; padding: 8px 0; border-top: 1px solid var(--line); }
-  .ab-cal-ev:first-of-type { border-top: 0; }
-  .ab-cal-ev time { font-stretch: 85%; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 15px; }
-  .ab-cal-ev b { font-weight: 600; }
-  .ab-cal-ev small { grid-column: 2; color: var(--mute); font-size: 12.5px; line-height: 1.4; }
-  .ab-cal-ev.fuerte time, .ab-cal-ev.fuerte b { color: var(--color-warn); }
-  .ab-cal-ev .ab-cal-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; font-size: 11.5px; font-weight: 600; background: var(--soft); color: var(--mute); }
+  .ab-cal-list { display: grid; gap: 16px; margin-top: 8px; container-type: inline-size; }
+  .ab-cal-seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--soft); justify-self: start; }
+  .ab-cal-seg button { font: inherit; font-size: 13px; font-weight: 600; color: var(--mute); background: none; border: 0; border-radius: 9px; padding: 6px 12px; cursor: pointer;
+    display: inline-flex; gap: 6px; align-items: baseline; }
+  .ab-cal-seg button small { font-weight: 500; font-size: 11.5px; font-variant-numeric: tabular-nums; opacity: .8; }
+  .ab-cal-seg button[aria-selected="true"] { color: var(--ink); background: var(--panel); box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 0 0 1px var(--line); }
+  .ab-cal-dia h3 { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--mute); }
+  .ab-cal-tab { display: grid; }
+  .ab-cal-row { display: grid; grid-template-columns: 3.1em 26px minmax(0, 1fr) 6.2em 5.4em 5.4em; gap: 4px 10px; align-items: baseline;
+    padding: 9px 0 9px 8px; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  .ab-cal-row > .ab-cal-nm:last-child { grid-column: 3 / -1; }
+  .ab-cal-head { padding: 0 0 6px 8px; border-top: 0; font-size: 11.5px; color: var(--mute); }
+  .ab-cal-row .n { text-align: right; }
+  .ab-cal-row time { font-stretch: 85%; font-weight: 600; font-size: 14px; }
+  .ab-cal-imp { display: inline-flex; gap: 2px; align-self: center; }
+  .ab-cal-imp i { width: 6px; height: 6px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 14%, transparent); }
+  .ab-cal-imp i.on { background: var(--ink); }
+  .ab-cal-row.fuerte .ab-cal-imp i.on, .ab-cal-row.fuerte time { color: var(--color-warn); }
+  .ab-cal-row.fuerte .ab-cal-imp i.on { background: var(--color-warn); }
+  .ab-cal-nm { min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; }
+  .ab-cal-nm b { font-weight: 600; }
+  .ab-cal-nm small { flex-basis: 100%; color: var(--mute); font-size: 12px; line-height: 1.4; }
+  .ab-cal-tag { padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--soft); color: var(--mute); white-space: nowrap; }
+  .ab-cal-act { font-weight: 700; display: grid; justify-items: end; }
+  .ab-cal-act em { font-style: normal; font-size: 10.5px; font-weight: 600; letter-spacing: .01em; color: var(--mute); }
+  .ab-cal-row.ef-positivo .ab-cal-act, .ab-cal-row.ef-positivo .ab-cal-act em { color: var(--color-ok); }
+  .ab-cal-row.ef-negativo .ab-cal-act, .ab-cal-row.ef-negativo .ab-cal-act em { color: var(--color-bad); }
+  .ab-cal-row.ef-positivo { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--color-ok) 70%, transparent); }
+  .ab-cal-row.ef-negativo { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--color-bad) 70%, transparent); }
+  .ab-cal-ant { color: var(--mute); }
+  @container (max-width: 560px) {
+    .ab-cal-row { grid-template-columns: 3.1em 26px repeat(3, minmax(0, 1fr)); }
+    .ab-cal-row .ab-cal-nm { grid-column: 3 / -1; }
+    .ab-cal-row .n { grid-row: 2; text-align: left; }
+    .ab-cal-row > .n:nth-last-child(3) { grid-column: 3; } .ab-cal-row > .n:nth-last-child(2) { grid-column: 4; } .ab-cal-row > .n:nth-last-child(1) { grid-column: 5; }
+    .ab-cal-act { justify-items: start; }
+    .ab-cal-head { display: none; }
+    .ab-cal-row > .n::before { display: block; font-size: 10.5px; font-weight: 500; color: var(--mute); }
+    .ab-cal-row > .n:nth-last-child(3)::before { content: "Actual"; } .ab-cal-row > .n:nth-last-child(2)::before { content: "Previsión"; } .ab-cal-row > .n:nth-last-child(1)::before { content: "Anterior"; }
+  }
 
   /* ---------- mapa de liquidaciones ---------- */
   .ab-lm { width: min(1180px, calc(100vw - 32px)); }

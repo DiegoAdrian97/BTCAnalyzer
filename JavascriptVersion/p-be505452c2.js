@@ -2157,34 +2157,72 @@
     }
     return out.filter((e) => e.t > desde && e.t <= hasta);
   }
+  // Calendario economico como el de Investing.com: lo que viene y lo que ya salio (ultima semana), con el dato actual, lo
+  // previsto y el anterior. El dato que ya salio se marca positivo o negativo para el mercado segun como lo lee el mercado
+  // (efecto: api/contexto.js y noticias.py). Las filas 'calendario' traen importancia media y alta; sin ellas (un servidor
+  // viejo) queda lo de antes: las de importancia alta.
+  let CAL_VISTA = 'viene';
+  const calValor = (v, e) => {
+    if (v === null || v === undefined || v === '') return '—';
+    const n = Number(v); if (!Number.isFinite(n)) return String(v);
+    const d = Math.abs(n) >= 100 ? 0 : Math.abs(n) >= 10 ? 1 : (String(v).split('.')[1] || '').length > 1 ? 2 : 1;
+    const u = e.unidad || '';
+    return `${n.toLocaleString('es-AR', { minimumFractionDigits: Math.min(2, d), maximumFractionDigits: Math.min(2, d) })}${e.escala || ''}${u === '%' ? '%' : u ? ` ${u}` : ''}`;
+  };
   function drawCalendario(rows) {
     const now = Date.now(), FED = /interest rate decision|fomc decision|interest rate fomc/i;
-    const eeuu = pick(rows, 'evento').filter((e) => num(e.t) > now).map((e) => {
-      const fed = FED.test(e.original || ''), pv = e.previsto, an = e.anterior;
-      const extra = [pv !== null && pv !== undefined && pv !== '' ? `se espera ${pv}` : '', an !== null && an !== undefined && an !== '' ? `antes ${an}` : ''].filter(Boolean).join(' · ');
-      return { t: num(e.t), titulo: e.titulo, tag: 'EE.UU.', fuerte: fed,
-        nota: (extra ? `${extra}. ` : '') + (fed ? 'La hora de la decisión BTC se movió ~3,2 veces lo normal, y más del doble el 78% de las veces.' : 'Esa hora BTC suele moverse 1,6–1,8 veces lo normal (fuerte 23–29% de las veces).') };
-    });
-    const hasta = eeuu.length ? Math.max(now + 7 * 864e5, ...eeuu.map((e) => e.t)) : now + 7 * 864e5;
-    const todos = eeuu.concat(eventosCripto(now, hasta)).sort((a, b) => a.t - b.t);
+    let cal = pick(rows, 'calendario');
+    if (!cal.length) cal = pick(rows, 'evento').map((e) => ({ ...e, importancia: 3 }));
+    const datos = cal.map((e) => ({ ...e, t: num(e.t), fed: FED.test(e.original || '') }));
+    const futuros = datos.filter((e) => e.t > now);
+    const hasta = futuros.length ? Math.max(now + 7 * 864e5, ...futuros.map((e) => e.t)) : now + 7 * 864e5;
+    const viene = futuros.concat(eventosCripto(now, hasta).map((e) => ({ ...e, cripto: true, importancia: e.fuerte ? 3 : 1 }))).sort((a, b) => a.t - b.t);
+    const salio = datos.filter((e) => e.t <= now && e.t >= now - 7 * 864e5).sort((a, b) => b.t - a.t || b.importancia - a.importancia);
     const box = document.getElementById('cal-list'), prox = document.getElementById('cal-prox');
-    box.replaceChildren();
-    if (!todos.length) { box.append(el('p', 'ab-note', 'Sin eventos en los próximos días.')); prox.textContent = ''; return; }
-    const p0 = todos[0];
-    prox.textContent = `próximo: ${p0.titulo.replace(/^Vencen opciones de BTC.*/, 'opciones')} en ${faltaTxt(p0.t - now)}`;
+    const p0 = viene[0];
+    prox.textContent = p0 ? `próximo: ${p0.titulo.replace(/^Vencen opciones de BTC.*/, 'opciones')} en ${faltaTxt(p0.t - now)}` : '';
+    // selector: lo que viene / ya salieron (con cuantos positivos y negativos)
+    const pos = salio.filter((e) => e.efecto === 'positivo').length, neg = salio.filter((e) => e.efecto === 'negativo').length;
+    const seg = el('div', 'ab-cal-seg'); seg.setAttribute('role', 'tablist');
+    [['viene', 'Lo que viene', `${viene.length}`], ['salio', 'Ya salieron', salio.length ? `${pos}▲ ${neg}▼` : '0']].forEach(([k, txt, n]) => {
+      const b = el('button', '', ''); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(CAL_VISTA === k));
+      b.append(txt, el('small', '', n)); b.addEventListener('click', () => { CAL_VISTA = k; drawCalendario(rows); }); seg.append(b);
+    });
+    const lista = CAL_VISTA === 'viene' ? viene : salio;
+    const out = [seg];
+    if (!lista.length) out.push(el('p', 'ab-note', CAL_VISTA === 'viene' ? 'Sin eventos en los próximos días.' : 'Sin datos de la última semana.'));
     const porDia = new Map();
-    todos.forEach((e) => { const k = new Date(e.t).toLocaleDateString('es-AR', { ...tz, weekday: 'long', day: '2-digit', month: '2-digit' }); if (!porDia.has(k)) porDia.set(k, []); porDia.get(k).push(e); });
+    lista.forEach((e) => { const k = new Date(e.t).toLocaleDateString('es-AR', { ...tz, weekday: 'long', day: '2-digit', month: '2-digit' }); if (!porDia.has(k)) porDia.set(k, []); porDia.get(k).push(e); });
     porDia.forEach((evs, k) => {
       const d = el('div', 'ab-cal-dia'), dd = diaAR(evs[0].t);
-      d.append(el('h3', '', dd === 'hoy' || dd === 'mañana' ? `${dd[0].toUpperCase()}${dd.slice(1)} · ${k}` : k[0].toUpperCase() + k.slice(1)));
+      d.append(el('h3', '', dd === 'hoy' || dd === 'mañana' || dd === 'ayer' ? `${dd[0].toUpperCase()}${dd.slice(1)} · ${k}` : k[0].toUpperCase() + k.slice(1)));
+      const tabla = el('div', 'ab-cal-tab');
+      if (!evs.every((e) => e.cripto)) {
+        const h = el('div', 'ab-cal-row ab-cal-head');
+        h.append(el('span', '', 'Hora'), el('span', '', ''), el('span', '', 'Evento'), el('span', 'n', 'Actual'), el('span', 'n', 'Previsión'), el('span', 'n', 'Anterior'));
+        tabla.append(h);
+      }
       evs.forEach((e) => {
-        const r = el('div', `ab-cal-ev${e.fuerte ? ' fuerte' : ''}`), tt = el('time', '', horaAR(e.t)); tt.dateTime = new Date(e.t).toISOString();
-        const nm = el('span'); nm.append(el('b', '', e.titulo), el('span', 'ab-cal-tag', e.tag));
-        r.append(tt, nm, el('small', '', `${e.nota}${e.t - now < 864e5 ? ` Falta ${faltaTxt(e.t - now)}.` : ''}`));
-        d.append(r);
+        const r = el('div', `ab-cal-row${e.efecto ? ` ef-${e.efecto}` : ''}${e.fed || e.fuerte ? ' fuerte' : ''}`);
+        const tt = el('time', '', horaAR(e.t)); tt.dateTime = new Date(e.t).toISOString();
+        const imp = el('span', 'ab-cal-imp'); imp.setAttribute('aria-label', `importancia ${e.importancia >= 3 ? 'alta' : e.importancia === 2 ? 'media' : 'baja'}`);
+        for (let k2 = 1; k2 <= 3; k2++) imp.append(el('i', k2 <= e.importancia ? 'on' : ''));
+        const nm = el('span', 'ab-cal-nm');
+        nm.append(el('b', '', e.titulo), el('span', 'ab-cal-tag', e.cripto ? 'cripto' : `EE.UU.${e.periodo ? ` · ${e.periodo}` : ''}`));
+        if (e.cripto) nm.append(el('small', '', e.nota));
+        else if (e.t > now && e.t - now < 864e5) nm.append(el('small', '', `Falta ${faltaTxt(e.t - now)}`));
+        r.append(tt, imp, nm);
+        if (!e.cripto) {
+          const act = el('span', 'n ab-cal-act', calValor(e.actual, e));
+          if (e.efecto === 'positivo' || e.efecto === 'negativo') act.append(el('em', '', e.efecto === 'positivo' ? '▲ positivo' : '▼ negativo'));
+          else if (e.efecto === 'neutral') act.append(el('em', '', '= lo previsto'));
+          r.append(act, el('span', 'n', calValor(e.previsto, e)), el('span', 'n ab-cal-ant', calValor(e.anterior, e)));
+        }
+        tabla.append(r);
       });
-      box.append(d);
+      d.append(tabla); out.push(d);
     });
+    box.replaceChildren(...out);
   }
 
   // ---------- movimiento fuerte en la proxima hora ----------
@@ -5871,6 +5909,18 @@
     [/^(Pivote|Pivotes)/, 'app', 'Pivotes', 'Niveles clásicos que salen del máximo, mínimo y cierre del día anterior (P, R1–R3 arriba, S1–S3 abajo).', null, null, 'Muchos traders los miran, por eso a veces frenan al precio.'],
     [/^(Mínimo|Máximo) (24 h|7 días|30 días)/, 'app', 'Mínimos y máximos recientes', 'El precio más bajo y más alto de ese período. Suelen hacer de soporte y resistencia, y debajo y arriba suele haber stops.'],
     [/^(Precio más probable)/, 'app', 'Precio más probable', 'El precio del medio de lo que pasó en los casos parecidos a esa hora: la mitad terminó arriba y la mitad abajo.'],
+    // ----- calendario economico -----
+    [/^Calendario económico/, 'macro', 'Calendario económico', 'Los datos de la economía de EE.UU. que mueven a los mercados: lo que viene y lo que salió la última semana. Los puntos son la importancia (3 = alta).',
+      null, null, 'Medido en BTC: la hora en que sale un dato fuerte se mueve 1,6–1,8 veces lo normal; la de la Fed, ~3 veces.'],
+    [/^(Actual|Previsión|Anterior)$/, 'macro', 'Actual, previsión y anterior', 'Actual es el dato que salió; previsión, lo que esperaban los analistas; anterior, el del período pasado. Lo que mueve al precio es la sorpresa: la diferencia entre el actual y la previsión.'],
+    [/(▲ positivo|▼ negativo|= lo previsto)$/, 'macro', 'Positivo o negativo para el mercado', 'Cómo suele leer el mercado la sorpresa del dato. Una economía más caliente de lo previsto (más inflación, más empleo, más crecimiento) aleja los recortes de tasa de la Fed y suele pesar sobre BTC y las acciones; más desempleo o menos inflación los acercan.',
+      'Positivo: el dato acerca recortes de tasa (o mejora el ánimo).', 'Negativo: el dato aleja los recortes.', 'Es la lectura habitual, no una medición: a veces el mercado reacciona al revés.'],
+    [/^Inflación|^Precios mayoristas/, 'macro', 'Inflación (IPC, PCE, PPI)', 'Cuánto subieron los precios. La Fed la mira para decidir las tasas.', 'Más baja de lo previsto: acerca recortes de tasa, positivo.', 'Más alta de lo previsto: aleja recortes, negativo.'],
+    [/^Empleo|^Vacantes laborales/, 'macro', 'Empleo', 'Cuántos puestos de trabajo se crearon. Un mercado laboral fuerte le da margen a la Fed para no bajar tasas.', 'Menos empleo de lo previsto: acerca recortes, suele ser positivo.', 'Más empleo de lo previsto: aleja recortes, suele ser negativo.'],
+    [/^Tasa de desempleo|^Pedidos de subsidio/, 'macro', 'Desempleo', 'Qué parte de la gente busca trabajo y no consigue (o cuántos pidieron subsidio esa semana).', 'Más desempleo de lo previsto: acerca recortes de tasa, positivo para el mercado.', 'Menos desempleo: aleja recortes, negativo.'],
+    [/^Decisión de tasas/, 'macro', 'Decisión de tasas de la Fed', 'La Fed fija la tasa de interés de EE.UU. Tasas más bajas abaratan el dinero y suelen favorecer a BTC.', 'Baja más de lo esperado: positivo.', 'Sube o baja menos de lo esperado: negativo.', 'Medido: esa hora BTC se mueve ~3 veces lo normal.'],
+    [/^(PIB|Ventas minoristas|ISM)/, 'macro', 'Actividad económica', 'Cuánto crece la economía o cuánto se vende. Una economía más fuerte de lo previsto le da margen a la Fed para no bajar tasas.', 'Más débil de lo previsto: acerca recortes, suele ser positivo para BTC.', 'Más fuerte de lo previsto: aleja recortes, suele ser negativo.'],
+    [/^Confianza del consumidor/, 'macro', 'Confianza del consumidor', 'Encuesta sobre el ánimo de los consumidores de EE.UU.', 'Más confianza de lo previsto: mejor ánimo, positivo.', 'Menos confianza: negativo.'],
     // ----- capas y herramientas -----
     [/^Abanico$/, 'herr', 'Abanico de caminos', 'Los caminos que siguió el precio después de situaciones realmente iguales a la de ahora. Solo aparece si hay suficientes casos.'],
     [/^Mi plan$/, 'herr', 'Mi plan', 'Las líneas de tu plan de compras y tus posiciones en el gráfico.'],
@@ -5885,7 +5935,7 @@
   const PANEL = { rsi: 'RSI', macd: 'MACD', delta: 'Delta', cvd: 'CVD' };
 
   // ----- reconocer las etiquetas -----
-  const CAND = 'td:first-child, th, b, strong, small, h2, h3, summary, button, li, .ab-tile-t, .ab-kicker, .ab-pill, span';
+  const CAND = 'td:first-child, th, b, strong, small, h2, h3, summary, button, li, .ab-tile-t, .ab-kicker, .ab-pill, .ab-cal-act, span';
   const FUERA = '#legend, .ab-ay, .ab-ohlc, input, textarea, select, #act-list, .ab-nt-pop, .ab-dib-bar, #tfs, .ab-tm-anios, script, style';
   const memo = new Map();
   const buscar = (txt, n) => {
