@@ -42,7 +42,7 @@
   const LINEA_K = 'ab-grafico-linea';
   const lineaGuardada = (() => { try { return localStorage.getItem(LINEA_K) === '1'; } catch (e) { return false; } })();
   const S = { linea: lineaGuardada, plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
-    layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, fib: true, liq: true, osc: true, plan: true, opc: true, abanico: true, flujo: window.innerWidth >= 600 }, log: false, medir: false, iman: false };
+    layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, fib: true, liq: true, osc: true, plan: true, opc: true, abanico: true, flujo: window.innerWidth >= 600, vp: true }, log: false, medir: false, iman: false };
   const defBars = () => (window.innerWidth < 600 ? 50 : 90);  // en el telefono, menos para que se lean
   S.nbars = defBars();
   // en el celu arranca con lo esencial (velas, medias, patrones y liquidaciones); el resto se prende en "Capas"
@@ -2973,6 +2973,7 @@
       }
     }
     dibAbanico(ctx, w, h, S.tf);
+    if (L.vp) { ctx.save(); ctx.globalAlpha = dimA('vp'); dibPerfil(ctx, w, h, perfilVisible(G.chart, d.all), Y, P, d.narrow); ctx.restore(); }
   }
 
   // encima de las velas: figuras, divergencias, ondas de Elliott y el mapa de liquidaciones al costado
@@ -3581,6 +3582,7 @@
       localization: { locale: 'es-AR', timeFormatter: (t) => fmtSec(t) }, handleScroll: { vertTouchDrag: false }, kineticScroll: { touch: true, mouse: false } });
     const pf = { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, quiet = { lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false, priceFormat: pf };
     s.bbU = s.ch.addSeries(LW.LineSeries, { ...quiet, color: alpha(P.mute, 0.4), lineWidth: 1 });
+    s.vwap = s.ch.addSeries(LW.LineSeries, { ...quiet, color: VWAP_COL, lineWidth: 1.5 });
     s.bbL = s.ch.addSeries(LW.LineSeries, { ...quiet, color: alpha(P.mute, 0.4), lineWidth: 1 });
     s.e20 = s.ch.addSeries(LW.LineSeries, { ...quiet, color: P.c0, lineWidth: 1 });
     s.e50 = s.ch.addSeries(LW.LineSeries, { ...quiet, color: P.c1, lineWidth: 1 });
@@ -3629,7 +3631,7 @@
     const tf = MG.tfs[s.i];
     [...s.nav.children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tf === tf)));
     const rows = pick(S.rows, 'vela', tf).map((r) => ({ t: num(r.t), o: num(r.o), h: num(r.h), l: num(r.l), c: num(r.c), e20: num(r.ema20), e50: num(r.ema50), e200: num(r.ema200),
-      bu: num(r.bb_up), bl: num(r.bb_lo), rsi: num(r.rsi), macd: num(r.macd), sig: num(r.macd_senal), hist: num(r.macd_hist) }))
+      v: num(r.v), bu: num(r.bb_up), bl: num(r.bb_lo), rsi: num(r.rsi), macd: num(r.macd), sig: num(r.macd_senal), hist: num(r.macd_hist) }))
       .filter((b) => b.t !== null && b.c !== null).sort((a, b) => a.t - b.t);
     // la clave: velas nuevas, capas prendidas, y las lineas de precio y el fib del principal (si cambian, se rehacen)
     const capas = Object.keys(S.layers).filter((k) => S.layers[k]).join(','), extra = `${(G.plines || []).length}|${G.d && G.d.fib ? `${G.d.fib.a.t}${G.d.fib.b.p}` : ''}|${G.d ? G.d.dolor : ''}`;
@@ -3642,6 +3644,7 @@
     s.e20.setData(linea('e20')); s.e50.setData(linea('e50')); s.e200.setData(linea('e200'));
     const lin = (k, on) => (on ? rows.filter((b) => b[k] !== null).map((b) => ({ time: T2(b.t), value: b[k] })) : []);
     s.bbU.setData(lin('bu', S.layers.bb)); s.bbL.setData(lin('bl', S.layers.bb));
+    s.vwap.setData(S.layers.vp ? vwapSerie(rows, MG_MS[tf] / 6e4) : []);
     if (s.rsi) {
       s.rsi.setData(lin('rsi', true)); s.macd.setData(lin('macd', true)); s.sig.setData(lin('sig', true));
       s.hist.setData(rows.filter((b) => b.hist !== null).map((b) => ({ time: T2(b.t), value: b.hist, color: alpha(b.hist >= 0 ? G.P.up : G.P.dn, 0.45) })));
@@ -3693,6 +3696,7 @@
         for (let i = c.bb.length - 1; i >= 0; i--) ctx.lineTo(xf(c.bb[i].t), yf(c.bb[i].l));
         ctx.closePath(); ctx.fillStyle = alpha(P.fg, 0.035); ctx.fill();
       }
+      if (S.layers.vp) dibPerfil(ctx, w, h, perfilVisible(s.ch, s.bars), yf, P, true);
       c.fvgs.forEach((z) => {
         const x0 = xf(z.t), yt = yf(z.hi), yb = yf(z.lo); if (x0 === null || yt === null || yb === null || x0 - half > w) return;
         ctx.fillStyle = alpha(z.up ? P.up : P.dn, 0.09); ctx.fillRect(x0 - half, yt, w - x0 + half, Math.max(2, yb - yt));
@@ -3895,6 +3899,64 @@
     s.delta.setData(f.delta); s.cvdP.setData(f.cvdP); s.cvdS.setData(f.cvdS); s.oi.setData(f.oi);
   }
 
+  // ---------- VWAP y perfil de volumen (POC, VAH, VAL) ----------
+  // VWAP: el precio promedio pesado por volumen desde el inicio de la sesion (dia UTC en las temporalidades de hasta 4 h,
+  // mes en el diario, año en la semanal y la mensual): arriba del VWAP manda la compra del dia, abajo la venta.
+  // Perfil: cuanto volumen se opero en cada precio de las velas que estas viendo (como el "volume profile" de TradingView):
+  // POC = el precio con mas volumen; VAH y VAL = los bordes de la zona donde se opero el 70 %.
+  function vwapSerie(bars, tfMin) {
+    const sesion = (t) => { const d = new Date(t); return tfMin < 1440 ? Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) : tfMin < 10080 ? Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) : Date.UTC(d.getUTCFullYear(), 0, 1); };
+    const out = []; let s0 = null, pv = 0, vv = 0;
+    bars.forEach((b) => {
+      if (b.v === null || b.v === undefined) return;
+      const se = sesion(b.t); if (se !== s0) { s0 = se; pv = 0; vv = 0; out.push({ corte: true }); }
+      pv += ((b.h + b.l + b.c) / 3) * b.v; vv += b.v;
+      if (vv > 0) out.push({ time: T2(b.t), value: pv / vv });
+    });
+    // un hueco entre sesiones (whitespace) para que la linea no una el final de un dia con el comienzo del siguiente
+    return out.map((x, i) => (x.corte ? (i && out[i + 1] ? { time: out[i + 1].time } : null) : x)).filter(Boolean).filter((x, i, a) => !i || x.time !== a[i - 1].time);
+  }
+  function perfilVol(bars, n = 48) {
+    const bs = bars.filter((b) => b.v > 0 && b.h >= b.l); if (bs.length < 5) return null;
+    let lo = Infinity, hi = -Infinity; bs.forEach((b) => { lo = Math.min(lo, b.l); hi = Math.max(hi, b.h); });
+    if (!(hi > lo)) return null;
+    const paso = (hi - lo) / n, vol = new Float64Array(n);
+    bs.forEach((b) => {
+      const k0 = Math.max(0, Math.min(n - 1, Math.floor((b.l - lo) / paso))), k1 = Math.max(0, Math.min(n - 1, Math.floor((b.h - lo) / paso)));
+      const parte = b.v / (k1 - k0 + 1); for (let k = k0; k <= k1; k++) vol[k] += parte;
+    });
+    let poc = 0; for (let k = 1; k < n; k++) if (vol[k] > vol[poc]) poc = k;
+    const tot = vol.reduce((a, v) => a + v, 0); let a = poc, z = poc, acc = vol[poc];
+    while (acc < tot * 0.7 && (a > 0 || z < n - 1)) { const va = a > 0 ? vol[a - 1] : -1, vz = z < n - 1 ? vol[z + 1] : -1; if (vz >= va) acc += vol[++z]; else acc += vol[--a]; }
+    const p = (k) => lo + (k + 0.5) * paso;
+    return { lo, paso, n, vol, max: vol[poc], poc: p(poc), vah: lo + (z + 1) * paso, val: lo + a * paso, a, z };
+  }
+  /** El perfil dibujado a la izquierda del panel (barras horizontales), y las lineas POC / VAH / VAL. */
+  function dibPerfil(ctx, w, h, pr, yf, P, chico) {
+    if (!pr) return;
+    const ancho = Math.min(chico ? 70 : 120, w * 0.22);
+    for (let k = 0; k < pr.n; k++) {
+      const y1 = yf(pr.lo + (k + 1) * pr.paso), y0 = yf(pr.lo + k * pr.paso); if (y1 === null || y0 === null) continue;
+      const bw = pr.vol[k] / pr.max * ancho, dentro = k >= pr.a && k <= pr.z;
+      ctx.fillStyle = alpha(dentro ? P.c2 || P.mute : P.mute, dentro ? 0.22 : 0.12); ctx.fillRect(0, Math.min(y0, y1) + 0.5, bw, Math.max(1, Math.abs(y0 - y1) - 1));
+    }
+    [[pr.poc, 'POC', 0.9, []], [pr.vah, 'VAH', 0.6, [4, 4]], [pr.val, 'VAL', 0.6, [4, 4]]].forEach(([v, t, a, dash]) => {
+      const y = yf(v); if (y === null || y < 0 || y > h) return;
+      ctx.setLineDash(dash); ctx.strokeStyle = alpha(P.c2 || P.mute, a); ctx.lineWidth = t === 'POC' ? 1.4 : 1;
+      ctx.beginPath(); ctx.moveTo(0, Math.round(y) + 0.5); ctx.lineTo(w, Math.round(y) + 0.5); ctx.stroke(); ctx.setLineDash([]);
+      ctx.font = `600 9.5px ${P.font}`; ctx.fillStyle = alpha(P.c2 || P.mute, 0.95); ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText(`${t} ${fp(v)}`, 4, y - 2);
+    });
+  }
+  // el perfil de lo que se ve: se rehace al mover o hacer zoom (una vez por cuadro como mucho)
+  function perfilVisible(chart, bars) {
+    const r = chart.timeScale().getVisibleLogicalRange(); if (!r || !bars.length) return null;
+    const a = Math.max(0, Math.floor(r.from)), z = Math.min(bars.length - 1, Math.ceil(r.to));
+    const k = `${bars.length}|${a}|${z}|${bars[bars.length - 1].c}`;
+    if (bars.__vpK === k) return bars.__vp;
+    bars.__vpK = k; bars.__vp = z > a ? perfilVol(bars.slice(a, z + 1)) : null; return bars.__vp;
+  }
+
+  const VWAP_COL = '#d946ef';
   function buildChart(box, P) {
     if (G.chart) { try { G.chart.remove(); } catch (e) { /* ya no estaba */ } }
     clearInterval(G.cdTimer);
@@ -3918,6 +3980,7 @@
     G.bbL = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet, color: alpha(P.mute, 0.4), lineWidth: 1 });
     G.vol = chart.addSeries(LW.HistogramSeries, { ...quiet, priceScaleId: 'vol', priceFormat: { type: 'volume' } });
     chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.84, bottom: 0 }, visible: false });
+    G.vwap = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet, color: VWAP_COL, lineWidth: 1.5 });
     G.e20 = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet, color: P.c0, lineWidth: 1 });
     G.e50 = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet, color: P.c1, lineWidth: 1 });
     G.e200 = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet, color: alpha(P.fg, 0.7), lineWidth: 2 });
@@ -4987,6 +5050,7 @@
     const line = (k) => all.filter((b) => b[k] !== null).map((b) => ({ time: T2(b.t), value: b[k] }));
     G.e20.setData(L.ema ? line('e20') : []); G.e50.setData(L.ema ? line('e50') : []); G.e200.setData(L.ema ? line('e200') : []);
     G.bbU.setData(L.bb ? line('bu') : []); G.bbL.setData(L.bb ? line('bl') : []);
+    G.vwap.setData(L.vp ? vwapSerie(all, TF_MIN[tf]) : []);
     if (G.fl) {
       const fe = flujoDe(MON(), tf, () => { if (S.rows && S.layers.flujo) drawChart(S.rows, S.sum); });
       G.flS = flujoSeries(fe, all, P); flujoSet(G.fl, G.flS);
@@ -5122,6 +5186,11 @@
     if (L.fvg && fvgs.length) item('fvg', CC(alpha(P.up, 0.35)), 'Franjas verdes o rojas:', 'huecos (FVG) que el precio dejó sin operar; suele volver a llenarlos.');
     if (L.ema) item('ema', { background: `linear-gradient(90deg, ${P.c0} 50%, ${P.c1} 50%)` }, 'Líneas azul y naranja:', 'medias móviles EMA 20 y EMA 50.');
     if (L.ema && d.all.some((b) => b.e200 !== null && b.e200 !== undefined)) item('ema', { background: alpha(P.fg, 0.7) }, 'Línea gris gruesa:', 'media móvil EMA 200 (la tendencia de fondo de esta temporalidad; en la mensual no hay 200 velas para calcularla).');
+    if (L.vp) {
+      const pr = perfilVisible(G.chart, all), vw = all.length ? vwapSerie(all, TF_MIN[tf]).slice(-1)[0] : null, px = all.length ? all[all.length - 1].c : null;
+      item('vp', CC(VWAP_COL), 'Línea fucsia y barras a la izquierda (VWAP y perfil de volumen):',
+        `el VWAP es el precio promedio pesado por volumen desde que empezó la sesión${vw && vw.value && px ? `: está en ${fp(vw.value)}, y el precio ${px >= vw.value ? 'arriba (manda la compra)' : 'abajo (manda la venta)'}` : ''}. Las barras muestran cuánto se operó en cada precio de lo que estás viendo${pr ? `: el POC (el precio con más volumen) es ${fp(pr.poc)} y el 70 % se operó entre ${fp(pr.val)} (VAL) y ${fp(pr.vah)} (VAH)` : ''}. Esos precios suelen frenar al precio o atraerlo.`);
+    }
     if (L.bb) item('bb', CC(alpha(P.fg, 0.12)), 'Banda gris:', 'Bollinger, el rango normal del precio en las últimas 20 velas.');
     if (L.liq && liq.length) item('liq', { background: `linear-gradient(90deg, ${P.dn}, ${P.up})` }, 'Barras junto al eje de precios:',
       'liquidaciones estimadas. Rojas: longs que se liquidan si baja; verdes: shorts si sube. Pasá el mouse o tocá ahí para ver los USD.');
