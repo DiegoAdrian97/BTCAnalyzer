@@ -724,6 +724,19 @@ Cada una contra un control (lo que daría el azar en la misma situación), BTC 2
 | Vencimiento de opciones (dolor máximo) | No hay historia gratuita del interés abierto por precio | No se mide |
 | Nasdaq (QQQ) adelantándose a BTC | Yahoo no le da velas de 1 h a GitHub (429); no hay otra fuente gratuita de intradiario | No se pudo medir |
 
+### Libro y trades en vivo, calendario económico y ayudas
+
+- **Libro y trades en vivo** (botón junto al mapa de liquidaciones, o "Libro y trades" en Capas): el libro sumado de Binance,
+  Bybit y OKX con la parte de cada uno, y las órdenes a mercado que entran (Binance perpetuo y spot, Bybit, OKX y Coinbase).
+  Lo que llega junto del mismo lado (menos de 150 ms) es una sola orden: al tocarla se ve cuánto entró en cada exchange. La
+  capa "Trades en vivo" las dibuja como burbujas en el gráfico. Solo conecta con el panel abierto o la capa prendida.
+- **Calendario económico** (como Investing.com, con datos del calendario de TradingView): lo que viene y lo que salió la
+  última semana, con actual, previsión y anterior, y la marca positivo/negativo para el mercado según la sorpresa (la lectura
+  habitual de las tasas, no medida). Python = JS: `pruebas/calendario.py`.
+- **Ayudas ocultas**: pasar el mouse (o mantener apretado en el celu) sobre un indicador o dato abre una tarjeta con qué es,
+  cuándo apunta a la suba o a la baja y lo medido. Se reconocen solas por el texto (`GLOSARIO` en la página).
+- Las capas del gráfico arrancan apagadas (salvo "Mi plan"); el panel de activos va siempre oculto (se abre con el selector).
+
 ### Flujo de compras, VWAP, perfil de volumen e ICT medidos (`medir_flujo.py`, nov. 2026)
 
 BTC 1 h 2021–2026 (perpetuos y spot de Binance, con el volumen comprador). Acierto de la dirección; entra solo lo que gana en
