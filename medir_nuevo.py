@@ -253,7 +253,7 @@ def main():
     ev = {"entran largos (OI y precio suben 4 h)": [], "entran cortos (OI sube, precio baja)": [], "cierran cortos (OI baja, precio sube)": [], "cierran largos (OI baja, precio baja)": []}
     for t in ts:
         i, a, b = idx.get(t), mh.get(t), mh.get(t - 4 * H)
-        if i is None or i < 4 or not b:
+        if i is None or i < 5 or not b or not (b[0] > 0) or not (a[0] > 0):
             continue
         doi, dpx = a[0] / b[0] - 1, C1[i - 1] / C1[i - 5] - 1
         if abs(doi) < 0.01:
