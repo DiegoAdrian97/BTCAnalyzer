@@ -795,6 +795,7 @@
       idx.append(b);
     });
     $('vista-btn').after(idx);
+    { const q = $('qp-box'); if (q) q.open = true; }   // adentro de la parte 4 ya tiene titulo: queda abierto, sin repetirlo
     const md = $('mas-detalle'); if (md) md.hidden = true;
     const sn = $('senales'); if (sn) { const sp = sn.querySelector('summary span'); if (sp) sp.textContent = 'Flujo de compras y libros de órdenes'; sn.addEventListener('toggle', () => { if (sn.open && typeof libroTic === 'function') libroTic(); }); }
   })();
@@ -2141,14 +2142,26 @@
       const temas = [...new Set(hot.map((n) => n.tema.toLowerCase()))].slice(0, 2);
       const parts = lbls.slice(0, 4).concat(temas.map((t) => `noticias de ${t}`));
       const veces = ar.format(',.1f')(Math.abs(w.ch) / (w.th / (w.h === 1 ? 2 : w.h === 4 ? 4 : 1)));
-      document.getElementById('qp-sum').textContent = (w.h === 24 ? 'Es un movimiento grande para un día. ' : `Es ${veces} veces lo que se mueve normalmente. `)
+      // en fichas: cuantas veces lo normal y con que coincide (la frase entera, en el title)
+      const qs = document.getElementById('qp-sum');
+      qs.title = (w.h === 24 ? 'Es un movimiento grande para un día. ' : `Es ${veces} veces lo que se mueve normalmente. `)
         + (parts.length ? `Coincide con ${parts.length > 1 ? parts.slice(0, -1).join(', ') + ' y ' + parts[parts.length - 1] : parts[0]}.`
           : 'No hay una causa clara en los datos: puede ser una orden grande o una reacción técnica.');
+      qs.replaceChildren(...(w.h === 24 ? [] : [vFicha(`×${veces} lo normal`, 'warn')]), ...(parts.length ? parts.map((x) => vFicha(x, dir > 0 ? 'up' : 'dn')) : [vFicha('sin causa clara en los datos')]));
     } else {
       const w1 = win[0];
       big.append(`Sin movimientos fuertes: ${MON()} `, el('span', 'ab-qp-mv', sg(w1.ch, 1)), ` en ${w1.txt}`);
-      document.getElementById('qp-sum').textContent = 'Se mueve dentro de lo normal. Cuando haya una suba o baja fuerte, acá aparece qué la explica.';
+      const qs = document.getElementById('qp-sum'); qs.replaceChildren(); qs.title = '';
     }
+    // 1 h, 4 h y 24 h: cuanto se movio, en una barra desde el centro; las marcas son lo que ya cuenta como fuerte
+    let vb = document.getElementById('qp-vent');
+    if (!vb) { vb = el('div', 'ab-qp-vent'); vb.id = 'qp-vent'; big.after(vb); }
+    vb.replaceChildren(...win.map((x) => {
+      const r = el('div', `ab-qp-v${Math.abs(x.ch) >= x.th ? ' fuerte' : ''}`), b = el('span', 'ab-qp-v-b'), f = el('i'), k = Math.min(1, Math.abs(x.ch) / (2 * x.th));
+      f.style.width = `${k * 50}%`; f.style[x.ch >= 0 ? 'left' : 'right'] = '50%'; f.className = x.ch >= 0 ? 'up' : 'dn'; b.append(f, el('u'), el('u'));
+      r.title = `En ${x.txt}: ${sg(x.ch, 1)} (fuerte desde ±${f1(x.th)}%)`;
+      r.append(el('small', '', `${x.h} h`), b, el('b', x.ch >= 0 ? 'up' : 'dn', sg(x.ch, 1))); return r;
+    }));
     const ul = document.getElementById('qp-fact'); ul.replaceChildren();
     const fed = decisionFed(rows);
     if (fed) {
@@ -2167,8 +2180,8 @@
     cle.hidden = !news.length;
     if (news.length) {
       const b = el('b', 'ab-qp-s ab-' + cl.est, cl.est === 'alcista' ? '▲ a favor de la suba' : cl.est === 'bajista' ? '▼ a favor de la baja' : '◆ neutral');
-      cle.append('Clima de las noticias (6 h):', b,
-        el('small', '', `${cl.buenas} buenas${cl.tb ? ` (${cl.tb})` : ''} · ${cl.malas} malas${cl.tm ? ` (${cl.tm})` : ''} · lectura automática de los titulares`));
+      const tr = vTira(cl.buenas, cl.malas, 'buenas', 'malas'); tr.title = `${cl.buenas} buenas${cl.tb ? ` (${cl.tb})` : ''} · ${cl.malas} malas${cl.tm ? ` (${cl.tm})` : ''} · lectura automática de los titulares`;
+      cle.append(el('small', '', 'Noticias (6 h)'), b, tr);
     }
     const nb = document.getElementById('qp-news'); nb.replaceChildren();
     document.getElementById('qp-news-t').textContent = strong ? `Noticias de esas horas` : 'Noticias de las últimas 24 h';
@@ -2194,7 +2207,7 @@
     const hoy = f(Date.now()), man = f(Date.now() + 86400000);
     return f(t) === hoy ? 'hoy' : f(t) === man ? 'mañana' : `el ${f(t)}`;
   };
-  const faltaTxt = (ms) => { const m = Math.max(0, Math.round(ms / 60000)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`; };
+  const faltaTxt = (ms) => { const m = Math.max(0, Math.round(ms / 60000)); return m < 60 ? `${m} min` : m < 48 * 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min` : `${Math.floor(m / 1440)} d ${Math.floor((m % 1440) / 60)} h`; };   // 95 h se leia mal: 3 d 23 h
   // decision de tasas de la Fed: lo que salio contra lo que se esperaba. Mas baja de lo previsto: bueno para BTC;
   // mas alta: malo; igual: ya estaba descontado
   function decisionFed(rows, horas = 48) {

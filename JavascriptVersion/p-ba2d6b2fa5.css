@@ -1940,7 +1940,7 @@
     border-radius: 14px; background: var(--t2-sunk); border: 1px solid var(--vidrio-borde); min-width: 0; cursor: help; }
   .ab-v-acuerdo i { grid-row: 1 / 3; font-style: normal; font-size: 15px; color: var(--t2-mute); }
   .ab-v-acuerdo small { font-size: 11.5px; color: var(--t2-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ab-v-acuerdo b { font-size: 13.5px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ab-v-acuerdo b { font-size: 13.5px; font-weight: 650; line-height: 1.25; overflow-wrap: anywhere; }   /* "Más probable que baje" no se corta: pasa a 2 renglones */
   .ab-v-acuerdo.up i, .ab-v-acuerdo.up b { color: var(--color-ok); } .ab-v-acuerdo.dn i, .ab-v-acuerdo.dn b { color: var(--color-bad); }
   @media (max-width: 420px) { .ab-v-acuerdo { padding: 8px 9px; } .ab-v-acuerdo i { display: none; } .ab-v-acuerdo { grid-template-columns: minmax(0, 1fr); } }
   /* resumen de cada parte cerrada: fichas */
@@ -2012,5 +2012,24 @@
   .ab .ab-wave-big { font-size: clamp(1.05rem, 2.6vw, 1.3rem) !important; line-height: 1.3 !important; font-weight: 650 !important; letter-spacing: -.01em; margin: 4px 0 6px !important; }
   /* celus angostos: en las fichas de cifras queda la cifra y su nombre (la nota chica, en la ayuda) */
   @media (max-width: 420px) { .ab-hoja .ab-apr-stat span { display: none; } .ab-hoja .ab-apr-stat { padding: 9px 10px !important; } .ab-hoja .ab-apr-stat b { font-size: 1.2rem !important; } }
+
+  /* que esta pasando: el movimiento en barras (1 h, 4 h, 24 h) y las causas en fichas */
+  .ab-qp-vent { display: grid; gap: 7px; margin: 10px 0 4px; }
+  .ab-qp-v { display: grid; grid-template-columns: 2.6em minmax(0, 1fr) 4.4em; gap: 10px; align-items: center; font-variant-numeric: tabular-nums; cursor: help; }
+  .ab-qp-v small { font-size: 12px; color: var(--t2-mute); } .ab-qp-v > b { font-size: 13px; text-align: right; font-weight: 650; }
+  .ab-qp-v > b.up { color: var(--color-ok); } .ab-qp-v > b.dn { color: var(--color-bad); }
+  .ab-qp-v-b { position: relative; height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--t2-ink) 8%, transparent); }
+  .ab-qp-v-b i { position: absolute; top: 0; bottom: 0; border-radius: 4px; transition: width var(--mo-l, .4s) var(--mo-ease, ease); }
+  .ab-qp-v-b i.up { background: color-mix(in srgb, var(--color-ok) 75%, transparent); } .ab-qp-v-b i.dn { background: color-mix(in srgb, var(--color-bad) 75%, transparent); }
+  .ab-qp-v.fuerte .ab-qp-v-b i.up { background: var(--color-ok); } .ab-qp-v.fuerte .ab-qp-v-b i.dn { background: var(--color-bad); }
+  .ab-qp-v-b u { position: absolute; top: -3px; bottom: -3px; width: 1.5px; background: var(--t2-mute); opacity: .55; left: 25%; }
+  .ab-qp-v-b u + u { left: 75%; }
+  .ab-qp-v-b::after { content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--t2-ink); opacity: .5; border-radius: 1px; }
+  .ab .ab-qp-sum { display: flex; flex-wrap: wrap; gap: 6px; } .ab .ab-qp-sum:empty { display: none; }
+  .ab .ab-qp-clima { display: grid; grid-template-columns: auto auto minmax(90px, 1fr); align-items: center; gap: 10px; }
+  .ab .ab-qp-clima > small { color: var(--t2-mute); font-size: 12.5px; }
+  @media (max-width: 420px) { .ab .ab-qp-clima { grid-template-columns: auto 1fr; } .ab .ab-qp-clima .ab-v-tira { grid-column: 1 / -1; } }
+
+  #parte-ctx #qp-box > summary { display: none; }
 
   :root { --ab-css: 1; }   /* marca: la pagina comprueba con esto que el estilo cargo */
