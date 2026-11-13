@@ -1956,7 +1956,7 @@
   .ab-hoja .ab-apr-stat { padding: 10px 12px !important; border-radius: 14px; align-content: start; }
   .ab-hoja .ab-apr-stat small { font-size: 11.5px; line-height: 1.25; }
   .ab-hoja .ab-apr-stat b { font-size: 1.4rem !important; }
-  .ab-hoja .ab-apr-stat span { font-size: 11px; line-height: 1.3; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .ab-hoja .ab-apr-stat span { font-size: 11px; line-height: 1.3; overflow-wrap: anywhere; }
   /* lo que ya dice la respuesta no se repite en la parte 1 */
   #parte-dir #prediccion :is(#verdict-big, #titular) { display: none !important; }
   /* explicaciones largas: plegadas enteras, en un boton chico */
@@ -2001,6 +2001,18 @@
   .ab-pos-det p { margin: 6px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--t2-mute); }
   .ab-pos-pz { display: flex; flex-wrap: wrap; gap: 6px; }
   .ab-pos-pz > .ab-v-med { flex: 1 1 100%; }
+
+  .ab-split { height: 14px !important; border-radius: 7px !important; }
+  .ab-split-ley { display: flex; justify-content: space-between; gap: 10px; margin-top: 6px; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .ab-split-ley .up { color: var(--color-ok); } .ab-split-ley .dn { color: var(--color-bad); }
+
+  .ab-pos-esc-m.izq { transform: none; justify-items: start; } .ab-pos-esc-m.der { transform: translateX(-100%); justify-items: end; }
+  .ab-pos-esc-m.izq::after, .ab-pos-esc-m.der::after { margin-inline: 0; }
+  .ab-pos-esc-m.sin { top: 26px; } .ab-pos-esc-m.sin::after { height: 16px; }
+  /* el conteo de Elliott: un titulo, no un cartel */
+  .ab .ab-wave-big { font-size: clamp(1.05rem, 2.6vw, 1.3rem) !important; line-height: 1.3 !important; font-weight: 650 !important; letter-spacing: -.01em; margin: 4px 0 6px !important; }
+  /* celus angostos: en las fichas de cifras queda la cifra y su nombre (la nota chica, en la ayuda) */
+  @media (max-width: 420px) { .ab-hoja .ab-apr-stat span { display: none; } .ab-hoja .ab-apr-stat { padding: 9px 10px !important; } .ab-hoja .ab-apr-stat b { font-size: 1.2rem !important; } }
 
   :root { --ab-css: 1; }   /* marca: la pagina comprueba con esto que el estilo cargo */
 </style>
@@ -2517,6 +2529,24 @@
     d.setAttribute('role', 'img'); d.setAttribute('aria-label', `${k}: ${Math.round(v)}%${sub ? ` · ${sub}` : ''}`); return d;
   };
   // ficha chica: icono + dato (con color por lado)
+  // la regla de precios de una posicion: ya dibujada, cada etiqueta va arriba o abajo donde no pise a otra; si no entra
+  // en ninguna fila queda solo la marca (la cifra, en el title)
+  const acomodarEsc = (esc) => {
+    if (!esc.isConnected) return;
+    const filas = [[], []], libre = (f, b) => filas[f].every(([l, r]) => b.right + 6 <= l || b.left >= r + 6);
+    const ms = [...esc.querySelectorAll('.ab-pos-esc-m')].sort((a, b) => b.classList.contains('ahora') - a.classList.contains('ahora'));   // "ahora" primero
+    ms.forEach((m) => {
+      if (m.dataset.k === undefined) m.dataset.k = m.innerHTML;
+      m.classList.remove('abajo', 'sin'); m.innerHTML = m.dataset.k;
+      if (!m.children.length) { m.classList.add('sin'); return; }
+      for (const f of [0, 1]) {
+        m.classList.toggle('abajo', f === 1); const b = m.getBoundingClientRect();
+        if (libre(f, b)) { filas[f].push([b.left, b.right]); return; }
+      }
+      m.classList.remove('abajo'); m.classList.add('sin'); m.replaceChildren();
+    });
+  };
+  window.addEventListener('resize', () => document.querySelectorAll('.ab-pos-esc').forEach(acomodarEsc), { passive: true });
   const vFicha = (txt, cls, title) => { const f = el('span', `ab-v-ficha ${cls || ''}`.trim(), txt); if (title) f.title = title; return f; };
   // precio en cifras de ancho fijo; con dir (1 sube, -1 baja) las que cambiaron entran rodando desde ese lado
   const QUIETO = matchMedia('(prefers-reduced-motion: reduce)');
@@ -4057,11 +4087,17 @@
         const lo = Math.min(...marcas.map((x) => x[0])) * 0.96, hi = d.precio * 1.02, esc = el('div', 'ab-pos-esc');
         esc.setAttribute('role', 'img'); esc.setAttribute('aria-label', marcas.map((x) => `${x[1]} ${fp(x[0])}`).join(', '));
         const zona = el('span', 'ab-pos-esc-z'); zona.style.left = `${((Math.min(n95, n90) - lo) / (hi - lo)) * 100}%`; zona.style.width = `${((d.precio - Math.min(n95, n90)) / (hi - lo)) * 100}%`; esc.append(zona);
-        marcas.sort((a, b) => a[0] - b[0]).forEach(([v, k, cls], n) => {
-          const mk = el('span', `ab-pos-esc-m ${cls}${n % 2 ? ' abajo' : ''}`); mk.style.left = `${((v - lo) / (hi - lo)) * 100}%`; mk.title = `${k}: ${fp(v)}`;
-          mk.append(el('small', '', k), el('b', '', fp(v))); esc.append(mk);
+        // etiquetas sin encimarse: arriba o abajo segun haya lugar (a menos de 24% de otra en la misma fila cambia de fila;
+        // si no entra en ninguna, queda solo la marca y la cifra en el title). En los bordes se alinean hacia adentro
+        const filas = [[], []];
+        marcas.sort((a, b) => a[0] - b[0]).forEach(([v, k, cls]) => {
+          const x = ((v - lo) / (hi - lo)) * 100, fila = cls === 'ahora' ? 0 : filas.findIndex((f) => !f.length || x - f[f.length - 1] >= 24);
+          const mk = el('span', `ab-pos-esc-m ${cls}${fila === 1 ? ' abajo' : ''}${fila < 0 ? ' sin' : ''}${x < 12 ? ' izq' : x > 88 ? ' der' : ''}`);
+          mk.style.left = `${x}%`; mk.title = `${k}: ${fp(v)}`;
+          if (fila >= 0) { filas[fila].push(x); mk.append(el('small', '', k), el('b', '', fp(v))); }
+          esc.append(mk);
         });
-        rg.append(esc);
+        rg.append(esc); requestAnimationFrame(() => acomodarEsc(esc));
         if (lr) rg.append(vFicha(!lv ? `liquidación ${f0((1 - lr / d.precio) * 100)}% abajo` : lr < lv ? '✓ aguanta la peor caída' : '✗ no aguanta la peor caída', !lv ? '' : lr < lv ? 'up' : 'dn', det[det.length - 1]));
         const dd = el('details', 'ab-pos-det'); dd.append(el('summary', '', 'Detalle'), el('p', '', det.join(' '))); rg.append(dd);
         box.append(el('p', 'ab-pos-sec', 'Riesgo a 6 meses'), rg);
@@ -8157,8 +8193,13 @@
     const up = num(p.sube), base = num(p.base), price = num(sum.precio);
     document.getElementById('prob-when').textContent = `Hasta las ${p.hora.slice(-5)} h del ${p.hora.slice(0, 5)}`;
     const split = document.getElementById('split'); split.replaceChildren();
-    const u = el('div', 'ab-sp-u', `▲ Cierra arriba ${f0(up)}%`), d = el('div', 'ab-sp-d', `${f0(100 - up)}% abajo ▼`), bm = el('div', 'ab-sp-base');
+    // las cifras van afuera de la barra (con 10% no entraban adentro y se cortaban)
+    const u = el('div', 'ab-sp-u'), d = el('div', 'ab-sp-d'), bm = el('div', 'ab-sp-base');
     u.style.flexBasis = '50%'; d.style.flexBasis = '50%'; bm.style.left = '50%'; split.append(u, d, bm);
+    split.title = `Cierra arriba ${f0(up)}% · abajo ${f0(100 - up)}%`;
+    let ley = document.getElementById('split-ley');
+    if (!ley) { ley = el('div', 'ab-split-ley'); ley.id = 'split-ley'; split.after(ley); }
+    ley.replaceChildren(el('b', 'up', `▲ Cierra arriba ${f0(up)}%`), el('b', 'dn', `${f0(100 - up)}% abajo ▼`));
     later(() => { u.style.flexBasis = up + '%'; d.style.flexBasis = (100 - up) + '%'; bm.style.left = `calc(${base}% - 1px)`; });
     const v = document.getElementById('verdict'); v.textContent = `Al cierre: ${p.veredicto.toLowerCase()}`;
     v.style.color = p.veredicto === 'Sesgo alcista' ? 'var(--color-ok)' : p.veredicto === 'Sesgo bajista' ? 'var(--color-bad)' : 'var(--color-fg-muted)';
