@@ -3227,7 +3227,8 @@
   const DIB = { modo: false, herr: null, sel: null, nuevo: null, espera: false, lado: {}, todos: {} };
   try { DIB.todos = JSON.parse(localStorage.getItem('ab-dibujos')) || {}; } catch (e) { DIB.todos = {}; }
   const DIB_COL = ['#2962ff', '#f23645', '#089981', '#ff9800', '#9c27b0'];
-  const DIB_NOM = { h: 'Línea horizontal', t: 'Línea de tendencia', r: 'Rayo', z: 'Zona' };
+  const DIB_NOM = { h: 'Línea horizontal', t: 'Línea de tendencia', r: 'Rayo', z: 'Zona', pl: 'Posición larga', ps: 'Posición corta' };
+  const esPos = (d) => d.tipo === 'pl' || d.tipo === 'ps';
   const dibLista = () => DIB.todos[MON()] || (DIB.todos[MON()] = []);
   window.abDib = DIB;                                     // para las pruebas
   const dibGuardar = () => { try { localStorage.setItem('ab-dibujos', JSON.stringify(DIB.todos)); } catch (e) { /* sin almacenamiento */ } };
@@ -3270,7 +3271,23 @@
         if (sel) pts.push([Math.min(w - tw - 16, Math.max(16, w * 0.5)), ya]);
       } else {
         const yb = yf(d.b.p), xb = xf(d.b.t); if (yb === null || xa === null || xb === null) return;
-        if (d.tipo === 'z') {
+        if (esPos(d)) {
+          // caja de posicion: verde de la entrada al objetivo, roja de la entrada al stop, con % y la relacion
+          const ys = yf(d.stop), x0 = Math.min(xa, xb), ww = Math.max(4, Math.abs(xb - xa));
+          if (ys === null) return;
+          ctx.setLineDash([]);
+          ctx.fillStyle = alpha(G.P.up, sel ? 0.22 : 0.16); ctx.fillRect(x0, Math.min(ya, yb), ww, Math.abs(yb - ya));
+          ctx.fillStyle = alpha(G.P.dn, sel ? 0.22 : 0.16); ctx.fillRect(x0, Math.min(ya, ys), ww, Math.abs(ys - ya));
+          ctx.strokeStyle = alpha(G.P.fg, 0.7); ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(x0, ya); ctx.lineTo(x0 + ww, ya); ctx.stroke();
+          const larga = d.tipo === 'pl', gan = Math.abs(d.b.p / d.a.p - 1) * 100, per = Math.abs(d.stop / d.a.p - 1) * 100, rr = per ? gan / per : 0;
+          const ahora = G.d && G.d.price, pnl = ahora ? (larga ? ahora / d.a.p - 1 : 1 - ahora / d.a.p) * 100 : null;
+          ctx.font = `600 10.5px ${G.P.font}`; ctx.textAlign = 'left';
+          const lbl = (y, txt, col, abajo) => { const tw = ctx.measureText(txt).width + 10; ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(x0 + 4, abajo ? y + 3 : y - 19, tw, 16, 4); ctx.fill(); ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle'; ctx.fillText(txt, x0 + 9, abajo ? y + 11 : y - 11); };
+          lbl(yb, `Objetivo ${fp(d.b.p)} · ${larga ? '+' : '−'}${f1(gan)}%`, G.P.up, larga ? false : true);
+          lbl(ys, `Stop ${fp(d.stop)} · −${f1(per)}%`, G.P.dn, larga ? true : false);
+          lbl(ya, `${larga ? 'Larga' : 'Corta'} ${fp(d.a.p)} · R:R ${f1(rr)}${pnl !== null ? ` · ahora ${pnl >= 0 ? '+' : ''}${f1(pnl)}%` : ''}${d.aviso ? ' 🔔' : ''}`, alpha(G.P.fg, 0.75), larga);
+          if (sel) pts.push([xa, ya], [xb, yb], [xb, ys]);
+        } else if (d.tipo === 'z') {
           const x0 = Math.min(xa, xb), y0 = Math.min(ya, yb), ww = Math.abs(xb - xa), hh = Math.abs(yb - ya);
           ctx.fillStyle = alpha(d.col, sel ? 0.2 : 0.13); ctx.fillRect(x0, y0, ww, hh); ctx.strokeRect(x0 + 0.5, y0 + 0.5, ww, hh);
           const pc = (Math.max(d.a.p, d.b.p) / Math.min(d.a.p, d.b.p) - 1) * 100;
@@ -3296,6 +3313,7 @@
       const xa = X(s.a.t), ya = Y(s.a.p), xb = X(s.b.t), yb = Y(s.b.p);
       const pts = [['a', xa, ya], ['b', xb, yb]];
       if (s.tipo === 'z') pts.push(['ab', xa, yb], ['ba', xb, ya]);
+      if (esPos(s)) pts.push(['s', xb, Y(s.stop)]);
       for (const [k, px, py] of pts) if (px !== null && py !== null && Math.hypot(px - x, py - y) <= tol + 3) return { d: s, k };
     }
     const dSeg = (x1, y1, x2, y2) => { const dx = x2 - x1, dy = y2 - y1, L = dx * dx + dy * dy; const u = L ? Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy) / L)) : 0; return Math.hypot(x - x1 - u * dx, y - y1 - u * dy); };
@@ -3303,6 +3321,10 @@
       const d = lista[i], ya = Y(d.a.p); if (ya === null) continue;
       if (d.tipo === 'h') { if (Math.abs(y - ya) <= tol) return { d, k: 'cuerpo' }; continue; }
       const xa = X(d.a.t), xb = X(d.b.t), yb = Y(d.b.p); if (xa === null || xb === null || yb === null) continue;
+      if (esPos(d)) {
+        const ys = Y(d.stop), x0 = Math.min(xa, xb) - tol, x1 = Math.max(xa, xb) + tol, y0 = Math.min(ya, yb, ys) - tol, y1 = Math.max(ya, yb, ys) + tol;
+        if (x >= x0 && x <= x1 && y >= y0 && y <= y1) return { d, k: 'cuerpo' }; continue;
+      }
       if (d.tipo === 'z') {
         const x0 = Math.min(xa, xb) - tol, x1 = Math.max(xa, xb) + tol, y0 = Math.min(ya, yb) - tol, y1 = Math.max(ya, yb) + tol;
         if (x >= x0 && x <= x1 && y >= y0 && y <= y1) return { d, k: 'cuerpo' }; continue;
@@ -3320,6 +3342,8 @@
       t: '<path d="M4 19 20 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="4" cy="19" r="2.2" fill="currentColor"/><circle cx="20" cy="5" r="2.2" fill="currentColor"/>',
       r: '<path d="M4 19 21 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="4" cy="19" r="2.2" fill="currentColor"/><path d="m15 4 6 0 0 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
       z: '<rect x="4" y="7" width="16" height="10" rx="1.5" stroke="currentColor" stroke-width="2" fill="currentColor" fill-opacity=".18"/>',
+      pl: '<rect x="4" y="4" width="16" height="8" fill="var(--color-ok)" fill-opacity=".55"/><rect x="4" y="12" width="16" height="6" fill="var(--color-bad)" fill-opacity=".55"/><path d="M4 12h16" stroke="currentColor" stroke-width="1.6"/>',
+      ps: '<rect x="4" y="6" width="16" height="6" fill="var(--color-bad)" fill-opacity=".55"/><rect x="4" y="12" width="16" height="8" fill="var(--color-ok)" fill-opacity=".55"/><path d="M4 12h16" stroke="currentColor" stroke-width="1.6"/>',
     };
     const svg = (p) => `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">${p}</svg>`;
     DIB.bar = el('div', 'ab-dib-bar'); DIB.bar.setAttribute('role', 'toolbar'); DIB.bar.setAttribute('aria-label', 'Herramientas de dibujo'); DIB.bar.hidden = true;
@@ -3362,6 +3386,8 @@
     if (d) {
       [...DIB.selBar.querySelectorAll('[data-col]')].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.col === d.col)));
       const av = DIB.selBar.querySelector('[data-acc="aviso"]'); av.hidden = d.tipo === 'z'; av.setAttribute('aria-pressed', String(!!d.aviso)); av.textContent = d.aviso ? 'Avisa' : 'Avisar';
+      av.title = esPos(d) ? 'Avisar cuando el precio llegue al objetivo o al stop (una vez)' : 'Avisar cuando el precio toque la línea (una vez)';
+      [...DIB.selBar.querySelectorAll('[data-col]')].forEach((b) => { b.hidden = esPos(d); });
     }
     if (DIB.box) { DIB.box.classList.toggle('is-dibujando', !!DIB.herr); DIB.box.style.touchAction = DIB.herr ? 'none' : ''; }
   }
@@ -3400,6 +3426,13 @@
     };
     const terminar = () => {
       const n = DIB.nuevo; DIB.nuevo = null; DIB.espera = false; DIB.herr = null;
+      if (n && esPos(n)) {
+        // la caja de posicion: si se arrastro para el lado equivocado (larga hacia abajo), se da vuelta; ancho minimo 10 velas
+        if ((n.tipo === 'pl') !== (n.b.p > n.a.p)) n.b.p = 2 * n.a.p - n.b.p;
+        if (n.b.p === n.a.p) n.b.p = n.a.p * (n.tipo === 'pl' ? 1.01 : 0.99);
+        if (Math.abs(n.b.t - n.a.t) < 10 * G.d.tfMs) n.b.t = n.a.t + 10 * G.d.tfMs;
+        n.stop = n.a.p - (n.b.p - n.a.p) / 2;
+      }
       if (n && (n.tipo === 'h' || n.a.t !== n.b.t || n.a.p !== n.b.p)) { dibLista().push(n); DIB.sel = n.id; dibGuardar(); }
       dibPint();
     };
@@ -3417,7 +3450,7 @@
       if (!hit) { if (DIB.sel) { DIB.sel = null; dibPint(); } return; }
       DIB.sel = hit.d.id;
       const d = hit.d;
-      drag = { k: hit.k, d, a0: { ...d.a }, b0: { ...d.b }, l0: G.chart.timeScale().coordinateToLogical(x), p0: G.c.coordinateToPrice(y), y0: Y(d.a.p) - y, movio: false };
+      drag = { k: hit.k, d, s0: d.stop, a0: { ...d.a }, b0: { ...d.b }, l0: G.chart.timeScale().coordinateToLogical(x), p0: G.c.coordinateToPrice(y), y0: Y(d.a.p) - y, movio: false };
       tomar(); dibPint();
     }, { capture: true });
     const bloquear = (e) => { if (drag) { e.preventDefault(); e.stopImmediatePropagation(); } };
@@ -3448,10 +3481,13 @@
         } else {
           const dt = Math.round(l - drag.l0) * G.d.tfMs, dp = p - drag.p0;
           d.a = { t: drag.a0.t + dt, p: drag.a0.p + dp }; d.b = { t: drag.b0.t + dt, p: drag.b0.p + dp };
+          if (esPos(d)) d.stop = drag.s0 + dp;
         }
       } else {
         const pt = punto(x, y, e); if (!pt) return;
-        if (drag.k === 'ab') { d.a = { t: pt.t, p: d.a.p }; d.b = { t: d.b.t, p: pt.p }; }
+        if (drag.k === 's') d.stop = pt.p;
+        else if (esPos(d) && drag.k === 'b') d.b = pt;
+        else if (drag.k === 'ab') { d.a = { t: pt.t, p: d.a.p }; d.b = { t: d.b.t, p: pt.p }; }
         else if (drag.k === 'ba') { d.b = { t: pt.t, p: d.b.p }; d.a = { t: d.a.t, p: pt.p }; }
         else d[drag.k] = pt;
       }
@@ -3465,6 +3501,7 @@
         const n = DIB.nuevo; if (!n) return;
         // toque sin arrastrar en una de dos puntas: queda esperando la segunda (con el mouse se ve venir; en el celu, al tocar)
         const sinMover = n.tipo !== 'h' && Math.abs(X(n.b.t) - X(n.a.t)) < 6 && Math.abs(Y(n.b.p) - Y(n.a.p)) < 6;
+        if (sinMover && esPos(n)) { terminar(); return; }   // con un toque: caja con objetivo a 1% y 10 velas de ancho
         if (sinMover && !DIB.espera) { DIB.espera = true; G.dib.update(); return; }
         terminar(); return;
       }
@@ -3479,6 +3516,11 @@
     const ahora = Date.now(); let cambio = false;
     dibLista().forEach((d) => {
       if (!d.aviso || d.tipo === 'z') return;
+      if (esPos(d)) {
+        const larga = d.tipo === 'pl', toca = larga ? (precio >= d.b.p ? 'objetivo' : precio <= d.stop ? 'stop' : null) : (precio <= d.b.p ? 'objetivo' : precio >= d.stop ? 'stop' : null);
+        if (toca) { d.aviso = false; cambio = true; avisoApp(`${MON()}: tu posición ${larga ? 'larga' : 'corta'} llegó al ${toca} (${fp(toca === 'stop' ? d.stop : d.b.p)})`, toca === 'stop' ? G.P.dn : G.P.up); }
+        return;
+      }
       if (d.tipo !== 'h' && ahora < Math.min(d.a.t, d.b.t)) return;
       const v = dibValor(d, ahora); if (!(v > 0)) return;
       const lado = Math.sign(precio - v), antes = DIB.lado[d.id];
