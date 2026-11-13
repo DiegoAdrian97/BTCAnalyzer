@@ -5174,7 +5174,7 @@
       ctx.restore();
     }
     const half = (X(d.lastT + d.tfMs) - X(d.lastT)) / 2 || 3;
-    if (L.libro || TR.abierto) { ctx.save(); ctx.globalAlpha = dimA('libro'); dibLibro(ctx, w, h, d.all, d.tfMs, X, Y, half); ctx.restore(); }
+    if (L.libro) { ctx.save(); ctx.globalAlpha = dimA('libro'); dibLibro(ctx, w, h, d.all, d.tfMs, X, Y, half); ctx.restore(); }
     if (L.bb && d.bb.length > 1) {
       ctx.globalAlpha = dimA('bb'); ctx.beginPath();
       d.bb.forEach((b, i) => { const x = X(b.t), y = Y(b.u); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
