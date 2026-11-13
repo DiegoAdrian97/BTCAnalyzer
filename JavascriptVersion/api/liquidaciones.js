@@ -9,8 +9,10 @@
  *
  * Fuentes (todas publicas, sin claves):
  *   velas          Binance Futures (si falla, Bybit)
- *   open interest  Binance (ultimos 30 dias), Bybit (de a 200, hacia atras) y OKX (todo OKX, 5m / 1H / 1D), en USD
- *   largos/cortos  Binance (cuentas) y Bybit (cuentas)
+ *   open interest  Binance (ultimos 30 dias), Bybit (de a 200, hacia atras), OKX (todo OKX, 5m / 1H / 1D) y Gate, en USD
+ *                  Bitget, Hyperliquid y MEXC: solo el de ahora (no publican historia): se usa para escalar lo nuevo al
+ *                  mercado entero (los mismos exchanges que junta la terminal de CriptoArgento)
+ *   largos/cortos  Binance, Bybit y Gate (cuentas)
  *   liquidaciones  OKX (las reales de las ultimas horas; las en vivo las recibe la pagina directo de Binance, Bybit y OKX)
  * Coinglass, Hyblock, Kingfisher y TradingDifferent no publican sus datos (API paga o ninguna).
  */
@@ -20,6 +22,7 @@ const PREVIAS = { '5m': 300, '15m': 300, '1h': 400, '4h': 300, '1d': 200 };     
 const BYBIT_TF = { '5m': '5min', '15m': '15min', '1h': '1h', '4h': '4h', '1d': '1d' };
 const BYBIT_K = { '5m': '5', '15m': '15', '1h': '60', '4h': '240', '1d': 'D' };
 const OKX_TF = { '5m': '5m', '1h': '1H', '1d': '1D' };
+const GATE_TF = { '5m': '5m', '15m': '15m', '1h': '1h', '4h': '4h', '1d': '1d' };
 const MONEDAS = new Set(['BTC', 'ETH', 'SOL', 'XRP', 'BNB', 'DOGE', 'ADA', 'AVAX', 'LINK', 'LTC', 'SUI', 'ZEC', 'TRX', 'DOT', 'NEAR', 'APT', 'ARB', 'OP', 'TON', 'HYPE']);
 
 const pedir = async (url) => {
@@ -77,6 +80,30 @@ async function oiOkx(mon, tf) {
   const j = await pedir(`https://www.okx.com/api/v5/rubik/stat/contracts/open-interest-volume?ccy=${mon}&period=${OKX_TF[tf]}`);
   return (j.data || []).map((x) => [+x[0], +x[1]]).sort((a, b) => a[0] - b[0]);
 }
+// Gate: open interest en USD y proporcion de cuentas, con historia (hasta 1000 velas)
+async function statsGate(mon, tf, n) {
+  const j = await pedir(`https://api.gateio.ws/api/v4/futures/usdt/contract_stats?contract=${mon}_USDT&interval=${GATE_TF[tf]}&limit=${Math.min(1000, n)}`);
+  const xs = (Array.isArray(j) ? j : []).filter((x) => x && x.time).sort((a, b) => a.time - b.time);
+  return { oi: xs.filter((x) => +x.open_interest_usd > 0).map((x) => [x.time * 1000, +x.open_interest_usd]),
+    ls: xs.filter((x) => +x.lsr_account > 0).map((x) => [x.time * 1000, +x.lsr_account / (1 + +x.lsr_account)]) };
+}
+// tamano del contrato de Gate (BTC 0,0001...): para las liquidaciones en vivo de Gate en la pagina
+async function multGate(mon) { const c = await pedir(`https://api.gateio.ws/api/v4/futures/usdt/contracts/${mon}_USDT`); return +c.quanto_multiplier || 0; }
+// el open interest de ahora (USD) de los que no publican historia
+async function oiAhoraOtros(mon) {
+  const sym = `${mon}USDT`;
+  const [bg, hl, mx, mxd] = await Promise.all([
+    intento(pedir(`https://api.bitget.com/api/v2/mix/market/open-interest?symbol=${sym}&productType=usdt-futures`)),
+    intento(fetch('https://api.hyperliquid.xyz/info', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'metaAndAssetCtxs' }), signal: AbortSignal.timeout(9000) }).then((r) => r.json())),
+    intento(pedir(`https://contract.mexc.com/api/v1/contract/ticker?symbol=${mon}_USDT`)),
+    intento(pedir(`https://contract.mexc.com/api/v1/contract/detail?symbol=${mon}_USDT`))]);
+  const out = {};
+  const pBg = bg && bg.data && bg.data.openInterestList && bg.data.openInterestList[0];
+  if (pBg) { const t = await intento(pedir(`https://api.bitget.com/api/v2/mix/market/ticker?symbol=${sym}&productType=usdt-futures`)); const px = t && t.data && t.data[0] ? +t.data[0].lastPr : 0; if (px) out.bitget = +pBg.size * px; }
+  if (Array.isArray(hl)) { const i = hl[0].universe.findIndex((u) => u.name === mon); if (i >= 0 && hl[1][i]) out.hyperliquid = +hl[1][i].openInterest * +hl[1][i].markPx; }
+  if (mx && mx.data && mxd && mxd.data) { const v = +mx.data.holdVol * +mxd.data.contractSize * +mx.data.lastPrice; if (v > 0) out.mexc = v; }
+  return out;
+}
 async function lsBinance(sym, tf) {
   const j = await pedir(`https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=${sym}&period=${tf}&limit=500`);
   return j.map((x) => [+x.timestamp, +x.longAccount]).sort((a, b) => a[0] - b[0]);
@@ -118,13 +145,16 @@ module.exports = async (req, res) => {
     const cierre = new Map(v.velas.map((b) => [b[0], b[4]]));
     const precioDe = (t) => cierre.get(t) || cierre.get(t - TF_MS[tf]) || null;
     const ctP = ctOkx(mon).catch(() => 0);
-    const [bin, byb, okx, lsb, lsy, liq] = await Promise.all([intento(oiBinance(sym, tf)), intento(oiBybit(sym, tf, n, precioDe)), intento(oiOkx(mon, tf)),
-      intento(lsBinance(sym, tf)), intento(lsBybit(sym, tf)), intento(liqOkx(mon, ctP))]);
+    const [bin, byb, okx, lsb, lsy, liq, gate, otros, gm] = await Promise.all([intento(oiBinance(sym, tf)), intento(oiBybit(sym, tf, n, precioDe)), intento(oiOkx(mon, tf)),
+      intento(lsBinance(sym, tf)), intento(lsBybit(sym, tf)), intento(liqOkx(mon, ctP)), intento(statsGate(mon, tf, n)), oiAhoraOtros(mon).catch(() => ({})), multGate(mon).catch(() => 0)]);
+    const ga = gate && gate.oi ? gate : { oi: [], ls: [], error: gate && gate.error };
     const ok = (x) => (Array.isArray(x) ? x : []), err = (x) => (Array.isArray(x) ? null : x.error);
-    const fuentes = { velas: v.fuente, oi: { binance: ok(bin).length, bybit: ok(byb).length, okx: ok(okx).length }, ls: { binance: ok(lsb).length, bybit: ok(lsy).length },
-      liquidaciones: { okx: ok(liq).length }, errores: [['Binance OI', err(bin)], ['Bybit OI', err(byb)], ['OKX OI', err(okx)], ['Binance L/S', err(lsb)], ['Bybit L/S', err(lsy)], ['OKX liq.', err(liq)]].filter((x) => x[1]) };
+    const fuentes = { velas: v.fuente, oi: { binance: ok(bin).length, bybit: ok(byb).length, okx: ok(okx).length, gate: ga.oi.length }, ls: { binance: ok(lsb).length, bybit: ok(lsy).length, gate: ga.ls.length },
+      oiAhora: Object.keys(otros), liquidaciones: { okx: ok(liq).length },
+      errores: [['Binance OI', err(bin)], ['Bybit OI', err(byb)], ['OKX OI', err(okx)], ['Gate', ga.error || null], ['Binance L/S', err(lsb)], ['Bybit L/S', err(lsy)], ['OKX liq.', err(liq)]].filter((x) => x[1]) };
     res.status(200).send(JSON.stringify({ ok: true, moneda: mon, tf, ver: VER[tf], hora: Date.now(), velas: v.velas,
-      oi: { binance: ok(bin), bybit: ok(byb), okx: ok(okx) }, ls: { binance: ok(lsb), bybit: ok(lsy) }, liq: ok(liq), okxCt: await ctP, fuentes }));
+      oi: { binance: ok(bin), bybit: ok(byb), okx: ok(okx), gate: ga.oi }, ls: { binance: ok(lsb), bybit: ok(lsy), gate: ga.ls }, oiAhora: otros,
+      liq: ok(liq), okxCt: await ctP, gateMult: gm, fuentes }));
   } catch (e) {
     res.setHeader('Cache-Control', 'no-store');
     res.status(502).send(JSON.stringify({ ok: false, error: String(e.message || e).slice(0, 200) }));

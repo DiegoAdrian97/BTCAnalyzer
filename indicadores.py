@@ -640,13 +640,21 @@ def _serie_en(pares, ms):
     return m
 
 
-def liq_perfil(velas, ois, lss, ms, vida_ms, ref, band=0.12, step=0.0025, niveles=LIQ_NIVELES, mant=LIQ_MANT):
+def liq_escala(ois, oi_ahora):
+    """Cuanto mas grande es el mercado entero que lo que tiene historia: (open interest de ahora de los que tienen
+    historia + el de los que solo dan el de ahora) / el de los que tienen historia. Igual que liqEscala() en JS."""
+    h = sum(s[-1][1] for s in ois if s)
+    e = sum(v for v in (oi_ahora or {}).values() if v and v > 0)
+    return round((h + e) / h, 4) if h > 0 else 1.0
+
+
+def liq_perfil(velas, ois, lss, ms, vida_ms, ref, band=0.12, step=0.0025, niveles=LIQ_NIVELES, mant=LIQ_MANT, escala=1.0):
     """Liquidaciones pendientes estimadas: el mismo modelo que el mapa de calor de la pagina (simular en index.html),
     asi el grafico principal, el analisis y el mapa dicen lo mismo. Vela por vela: 1) lo que el precio cruzo se liquida;
     2) si el open interest bajo, lo pendiente baja en esa proporcion (y todo se va olvidando: vida media vida_ms);
     3) el open interest nuevo (sumando cada exchange) se reparte en largos y cortos segun las cuentas, en cada
     apalancamiento, al precio tipico de la vela. velas [[t, o, h, l, c]], ois [[[t, usd]]] (uno por exchange),
-    lss [[[t, parte larga 0-1]]]. Devuelve [{precio, longs, shorts}] (millones de USD) en escalones de step alrededor de
+    lss [[[t, parte larga 0-1]]]; escala: lo nuevo se agranda en esa proporcion (los exchanges sin historia, liq_escala). Devuelve [{precio, longs, shorts}] (millones de USD) en escalones de step alrededor de
     ref (hasta band). Igual que liqPerfil() en indicadores.js."""
     n_b = int(round(2 * band / step))
     lo_e, paso = ref * (1 - band), ref * step
@@ -688,9 +696,9 @@ def liq_perfil(velas, ois, lss, ms, vida_ms, ref, band=0.12, step=0.0025, nivele
                 pl, ps = e * (1 - 1 / lev + mant), e * (1 + 1 / lev - mant)
                 k_l, k_s = binf(pl), binf(ps)
                 if pl < l and 0 <= k_l < n_b:
-                    Lt[i][k_l] += delta * ls_ult * w
+                    Lt[i][k_l] += delta * escala * ls_ult * w
                 if ps > h and 0 <= k_s < n_b:
-                    St[i][k_s] += delta * (1 - ls_ult) * w
+                    St[i][k_s] += delta * escala * (1 - ls_ult) * w
     out = []
     for k in range(n_b):
         lg = sum(Lt[i][k] for i in range(T))

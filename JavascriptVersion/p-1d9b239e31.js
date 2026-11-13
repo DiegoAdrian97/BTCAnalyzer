@@ -4815,6 +4815,10 @@
       const Lt = tiers.map(() => new Float64Array(NB)), St = tiers.map(() => new Float64Array(NB));
       const L = new Float64Array(NB), S2 = new Float64Array(NB), grid = new Float32Array(ver * NB), liqEst = new Float64Array(ver);
       const dec = Math.pow(0.5, ms / VIDA[d.tf]);
+      // los exchanges que solo dan el open interest de ahora (Bitget, Hyperliquid, MEXC): lo nuevo se agranda en esa
+      // proporcion (como Ind.liqEscala, la misma cuenta que el grafico principal y el analisis)
+      let hOi = 0, eOi = 0; Object.values(d.oi).forEach((s) => { if (s.length) hOi += s[s.length - 1][1]; }); Object.values(d.oiAhora || {}).forEach((v) => { if (v > 0) eOi += v; });
+      const esc = hOi > 0 ? Math.round(((hOi + eOi) / hOi) * 1e4) / 1e4 : 1;
       let lsUlt = 0.5;
       for (let j = 1; j < n; j++) {
         const [t, , h, l, c] = V[j], tp = V[j - 1][0];
@@ -4837,8 +4841,8 @@
           const e = (h + l + c) / 3;
           tiers.forEach(([lev, w], i) => {
             const pl = e * (1 - 1 / lev + MANT), ps = e * (1 + 1 / lev - MANT), kL = bin(pl), kS = bin(ps);
-            if (pl < l && kL >= 0 && kL < NB) Lt[i][kL] += delta * lsUlt * w;
-            if (ps > h && kS >= 0 && kS < NB) St[i][kS] += delta * (1 - lsUlt) * w;
+            if (pl < l && kL >= 0 && kL < NB) Lt[i][kL] += delta * esc * lsUlt * w;
+            if (ps > h && kS >= 0 && kS < NB) St[i][kS] += delta * esc * (1 - lsUlt) * w;
           });
         }
         if (j >= ini) {
@@ -5068,7 +5072,7 @@
       }
     }
     // ---- en vivo: solo mientras el panel esta abierto y a la vista (no gasta bateria ni datos con el panel cerrado)
-    function vivoCerrar() { VIVO.gen++; clearInterval(VIVO.oiT); clearTimeout(VIVO.rec); VIVO.rec = 0; VIVO.socks.forEach((w) => { try { w.close(); } catch (e) { /* ya cerrado */ } }); VIVO.socks = []; clearInterval(VIVO.ping); $('lm-vivo-dot').classList.remove('on'); }
+    function vivoCerrar() { VIVO.gen++; clearInterval(VIVO.oiT); clearInterval(VIVO.gateT); clearTimeout(VIVO.rec); VIVO.rec = 0; VIVO.socks.forEach((w) => { try { w.close(); } catch (e) { /* ya cerrado */ } }); VIVO.socks = []; clearInterval(VIVO.ping); $('lm-vivo-dot').classList.remove('on'); }
     function vivoAbrir() {
       vivoCerrar();
       const gen = VIVO.gen, mon = LM.mon, tf = LM.tf, sym = `${mon}USDT`, on = new Set();
@@ -5119,6 +5123,26 @@
           if (/M/.test(x.liquidation)) nueva(+x.timestamp, lado(otro), +x.price, +x.amount, 'Deribit');
         });
       });
+      // Gate: sus liquidaciones publicas, cada 10 s (size = la posicion liquidada: positiva, un largo); a USD con el tamaño
+      // de contrato que manda api/liquidaciones
+      const gm = LM.datos && LM.datos.moneda === mon ? LM.datos.gateMult : 0;
+      if (gm) {
+        const vistos = new Set();
+        const gatePedir = async () => {
+          try {
+            const r = await fetch(`https://api.gateio.ws/api/v4/futures/usdt/liq_orders?contract=${mon}_USDT&limit=100`, { signal: AbortSignal.timeout(8000) });
+            const xs = r.ok ? await r.json() : [];
+            if (gen !== VIVO.gen || !Array.isArray(xs)) return;
+            on.add('Gate'); estado();
+            xs.slice().reverse().forEach((x) => {
+              const k = `${x.time}|${x.size}|${x.fill_price}`; if (vistos.has(k)) return; vistos.add(k);
+              if (Date.now() - x.time * 1000 > 15 * 60000) return;            // al abrir: solo lo de los ultimos minutos
+              nueva(x.time * 1000, +x.size > 0 ? 'l' : 's', +x.fill_price, Math.abs(+x.size) * gm * +x.fill_price, 'Gate');
+            });
+          } catch (e) { /* Gate no respondio: sigue con los demas */ }
+        };
+        gatePedir(); VIVO.gateT = setInterval(gatePedir, 10000);
+      }
       // que no se corten por inactividad (Bybit y OKX piden ping)
       // el open interest de ahora (Binance), cada minuto: lo que entra mientras miras tambien suma zonas nuevas
       const oiAhora = async () => {

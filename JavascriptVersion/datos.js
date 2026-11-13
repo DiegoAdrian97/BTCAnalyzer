@@ -326,7 +326,7 @@
         const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 12000);
         const r = await fetch(`api/liquidaciones?moneda=${SYM.replace('USDT', '')}&tf=1h`, { signal: ctl.signal }).finally(() => clearTimeout(tm));
         const j = r.ok ? await r.json() : null;
-        if (j && j.ok && Object.values(j.oi).some((x) => x.length > 1)) return { velas: j.velas, oi: j.oi, ls: j.ls };
+        if (j && j.ok && Object.values(j.oi).some((x) => x.length > 1)) return { velas: j.velas, oi: j.oi, ls: j.ls, oiAhora: j.oiAhora || {} };
       } catch (e) { /* sin la funcion: lo de abajo */ }
       const [oi, ls] = await Promise.all([oiSerie(200), lsSerie(200)]);
       return { oi, ls };

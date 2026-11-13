@@ -999,9 +999,10 @@ def forming_from_5m(closed_5m, live_5m, tf, last_closed_t):
 
 
 def liquidation_map_bybit(h1, price=None, hours=736):
-    """Liquidaciones pendientes con el mismo modelo que el mapa de calor de la pagina (indicadores.liq_perfil): open
-    interest de Bybit, Binance y OKX (cada uno con su propio cambio) y la parte larga de las cuentas de Bybit y Binance,
-    hora por hora. A Binance y OKX se les pide sin insistir: si no responden, sigue con lo que haya."""
+    """Liquidaciones pendientes con el mismo modelo y las mismas fuentes que el mapa de calor de la pagina
+    (indicadores.liq_perfil, api/liquidaciones.js): open interest de Bybit, Binance, OKX y Gate (cada uno con su propio
+    cambio), la parte larga de las cuentas de Bybit, Binance y Gate, y el open interest de ahora de Bitget, Hyperliquid y
+    MEXC para escalar lo nuevo al mercado entero. A los demas se les pide sin insistir: si no responden, sigue con lo que haya."""
     import urllib.request
     ex = exchange("bybit")
     bars = h1[-hours:]
@@ -1015,19 +1016,42 @@ def liquidation_map_bybit(h1, price=None, hours=736):
                   for x in oi_raw if precio_de(int(x["timestamp"])))]
     lss = [sorted((int(x["timestamp"]), float(x["buyRatio"])) for x in ls_raw)]
 
-    def bajar(u):
-        return json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"}), timeout=8).read())
+    def bajar(u, cuerpo=None):
+        req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0", "Content-Type": "application/json"}, data=cuerpo)
+        return json.loads(urllib.request.urlopen(req, timeout=8).read())
+    otros = {}
+
+    def gate():
+        xs = sorted(bajar("https://api.gateio.ws/api/v4/futures/usdt/contract_stats?contract=BTC_USDT&interval=1h&limit=1000"), key=lambda x: x["time"])
+        ois.append([(x["time"] * 1000, float(x["open_interest_usd"])) for x in xs if float(x.get("open_interest_usd") or 0) > 0])
+        lss.append([(x["time"] * 1000, float(x["lsr_account"]) / (1 + float(x["lsr_account"]))) for x in xs if float(x.get("lsr_account") or 0) > 0])
+
+    def bitget():
+        a = bajar("https://api.bitget.com/api/v2/mix/market/open-interest?symbol=BTCUSDT&productType=usdt-futures")["data"]["openInterestList"][0]
+        px = float(bajar("https://api.bitget.com/api/v2/mix/market/ticker?symbol=BTCUSDT&productType=usdt-futures")["data"][0]["lastPr"])
+        otros["bitget"] = float(a["size"]) * px
+
+    def hyperliquid():
+        meta, ctx = bajar("https://api.hyperliquid.xyz/info", json.dumps({"type": "metaAndAssetCtxs"}).encode())
+        i = next(k for k, u in enumerate(meta["universe"]) if u["name"] == "BTC")
+        otros["hyperliquid"] = float(ctx[i]["openInterest"]) * float(ctx[i]["markPx"])
+
+    def mexc():
+        t = bajar("https://contract.mexc.com/api/v1/contract/ticker?symbol=BTC_USDT")["data"]
+        d = bajar("https://contract.mexc.com/api/v1/contract/detail?symbol=BTC_USDT")["data"]
+        otros["mexc"] = float(t["holdVol"]) * float(d["contractSize"]) * float(t["lastPrice"])
     for nombre, fn in (("Binance OI", lambda: ois.append(sorted((int(x["timestamp"]), float(x["sumOpenInterestValue"])) for x in
                                                                  bajar("https://fapi.binance.com/futures/data/openInterestHist?symbol=BTCUSDT&period=1h&limit=500")))),
                        ("OKX OI", lambda: ois.append(sorted((int(x[0]), float(x[1])) for x in
                                                             bajar("https://www.okx.com/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=1H")["data"]))),
                        ("Binance L/S", lambda: lss.append(sorted((int(x["timestamp"]), float(x["longAccount"])) for x in
-                                                                 bajar("https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=1h&limit=500"))))):
+                                                                 bajar("https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=1h&limit=500")))),
+                       ("Gate", gate), ("Bitget OI", bitget), ("Hyperliquid OI", hyperliquid), ("MEXC OI", mexc)):
         try:
             fn()
         except Exception as e:
             print(f"({nombre} no disponible para el mapa de liquidaciones: {type(e).__name__})")
-    return ind.liq_perfil([b[:5] for b in bars], ois, lss, bg.HOUR_MS, 5 * 86_400_000, price or bars[-1][4])
+    return ind.liq_perfil([b[:5] for b in bars], ois, lss, bg.HOUR_MS, 5 * 86_400_000, price or bars[-1][4], escala=ind.liq_escala(ois, otros))
 
 
 TF_TXT = {"5m": "5 min", "15m": "15 min", "30m": "30 min", "1h": "1 hora", "4h": "4 horas", "1d": "diario", "1w": "semanal", "1M": "mensual"}

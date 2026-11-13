@@ -743,7 +743,7 @@ Cada una contra un control (lo que daría el azar en la misma situación), BTC 2
 
 El gráfico principal (capa "Liquidaciones"), el análisis y el mapa de calor usan el mismo modelo (`liq_perfil` en
 `indicadores.py` = `liqPerfil` en `indicadores.js`, igual que `simular` del mapa) y, en la página, los mismos datos
-(`api/liquidaciones`: open interest de Binance, Bybit y OKX y las cuentas de Binance y Bybit). Antes el gráfico usaba otro
+(`api/liquidaciones`: open interest con historia de Binance, Bybit, OKX y Gate, las cuentas de Binance, Bybit y Gate, y el open interest de ahora de Bitget, Hyperliquid y MEXC, que no publican historia: lo nuevo se agranda en esa proporción). Los mismos exchanges que junta la terminal de CriptoArgento; en vivo, el mapa suma también las liquidaciones de Gate (cada 10 s) a las de Binance, Bybit, OKX, BitMEX y Deribit. Antes el gráfico usaba otro
 modelo con un solo exchange y por eso no coincidían. Python arma lo mismo con Bybit, Binance y OKX. Si en el mapa elegís
 solo algunos apalancamientos, muestra solo esos (el gráfico suma todos).
 

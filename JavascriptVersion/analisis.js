@@ -924,7 +924,8 @@
    */
   function liquidationMap(raw, h1, price) {
     if (raw.velas && raw.oi && !Array.isArray(raw.oi)) {
-      return Ind.liqPerfil(raw.velas.map((b) => b.slice(0, 5)), Object.values(raw.oi), Object.values(raw.ls || {}), HOUR_MS, 5 * 864e5, price);
+      const ois = Object.values(raw.oi);
+      return Ind.liqPerfil(raw.velas.map((b) => b.slice(0, 5)), ois, Object.values(raw.ls || {}), HOUR_MS, 5 * 864e5, price, 0.12, 0.0025, Ind.LIQ_NIVELES, Ind.LIQ_MANT, Ind.liqEscala(ois, raw.oiAhora));
     }
     const bars = h1.slice(-736), cierre = new Map(bars.map((b) => [b[0], b[4]]));
     const precioDe = (t) => cierre.get(t) || cierre.get(t - HOUR_MS);
