@@ -383,8 +383,11 @@
       let arriba = 0, abajo = 0;
       liq.forEach((x) => { if (x.precio / price - 1 > 0 && x.precio / price - 1 <= 0.03) arriba += x.shorts; if (1 - x.precio / price > 0 && 1 - x.precio / price <= 0.03) abajo += x.longs; });
       if (arriba + abajo >= 10) {
-        if (arriba >= 1.5 * abajo) cf('direccion', 1, 1, `Más liquidaciones arriba (${ar(arriba, 0)} M de shorts) que abajo (${ar(abajo, 0)} M): imán hacia arriba`);
-        else if (abajo >= 1.5 * arriba) cf('direccion', -1, 1, `Más liquidaciones abajo (${ar(abajo, 0)} M de longs) que arriba (${ar(arriba, 0)} M): imán hacia abajo`);
+        // medido (medir_nuevo.py): no es un iman; el precio suele ir para el otro lado (52-53%), de 1 hora a 1 dia
+        if (['1h', '4h', '1d'].includes(tf)) {
+          if (arriba >= 1.5 * abajo) cf('direccion', -1, 1, `Más liquidaciones arriba (${ar(arriba, 0)} M de shorts) que abajo (${ar(abajo, 0)} M): medido, el precio suele ir para el otro lado (52–53%)`);
+          else if (abajo >= 1.5 * arriba) cf('direccion', 1, 1, `Más liquidaciones abajo (${ar(abajo, 0)} M de longs) que arriba (${ar(arriba, 0)} M): medido, el precio suele ir para el otro lado (52–53%)`);
+        }
       }
       if (libros.length && corto) {
         let d = 0; libros.forEach((x) => { d += x.desequilibrio; }); d /= libros.length;
@@ -848,6 +851,14 @@
   }
 
   // ---------- contexto actual (como analisis_btc.py; en el navegador las fuentes son Bybit, Bitget y Binance) ----------
+  /** Cuentas de las ultimas semanas: [texto, senal, posicion %] (igual que cuentas_lectura en Python: ahi esta lo medido). */
+  function cuentasLectura(ls) {
+    const now = ls[ls.length - 1], pos = rnd((100 * ls.filter((x) => x <= now).length) / ls.length, 1);
+    if (ls.length >= 200 && pos >= 90) return [`Más compradas que el ${ar(pos)}% de las últimas semanas: medido, las 4 h y el día siguientes siguió subiendo 53–55%`, 'alcista', pos];
+    if (now > 2) return ['Mayoría long', 'neutral', pos];
+    if (now < 0.9) return ['Mayoría short', 'neutral', pos];
+    return ['Posicionamiento parejo', 'neutral', pos];
+  }
   function context(raw, h1) {
     const rows = [];
     const add = (key, title, value, signal, detail, num = {}) => rows.push({ tabla: 'contexto', clave: key, titulo: title, valor: value, senal: signal, detalle: detail, ...num });
@@ -860,9 +871,12 @@
           const dOi = pct(oi[oi.length - 1], oi[oi.length - 1 - hrs]);
           const dPx = pct(closes1h[closes1h.length - 1], closes1h[closes1h.length - 1 - hrs]);
           let why, sig;
+          // medido (medir_nuevo.py; como en Python): entrar largos o cortos no anticipa nada; cerrar largos en 4 h, si
           if (Math.abs(dOi) < 0.5) [why, sig] = ['Posicionamiento estable', 'neutral'];
-          else if (dPx >= 0) [why, sig] = dOi > 0 ? ['Entran longs nuevos: suba con fuerza', 'alcista'] : ['Cierran shorts: suba sin dinero nuevo', 'neutral'];
-          else [why, sig] = dOi > 0 ? ['Entran shorts nuevos: baja con fuerza', 'bajista'] : ['Cierran o liquidan longs: baja por descarga', 'neutral'];
+          else if (dPx >= 0) [why, sig] = [dOi > 0 ? 'Entran longs nuevos' : 'Cierran shorts: suba sin dinero nuevo', 'neutral'];
+          else if (dOi > 0) [why, sig] = ['Entran shorts nuevos', 'neutral'];
+          else if (hrs === 4 && dOi <= -1) [why, sig] = ['Cierran o liquidan longs: la hora siguiente suele rebotar (medido: 52–54%)', 'alcista'];
+          else [why, sig] = ['Cierran o liquidan longs: baja por descarga', 'neutral'];
           add(`oi_${hrs}h`, `Open interest ${hrs} h`, `${arp(dOi)} con precio ${arp(dPx)}`, sig, why, { d_oi: rnd(dOi, 2), d_px: rnd(dPx, 2) });
         });
       }
@@ -877,13 +891,10 @@
       });
     }
     if (raw.ls && raw.ls.length) {
-      const nowLs = raw.ls[raw.ls.length - 1], prevLs = raw.ls[0];
-      let crowd, sig;
-      if (nowLs > 2) [crowd, sig] = ['Mayoría long: si cae, puede haber cascada de liquidaciones', 'bajista'];
-      else if (nowLs < 0.9) [crowd, sig] = ['Mayoría short: si sube, puede haber squeeze', 'alcista'];
-      else [crowd, sig] = ['Posicionamiento parejo', 'neutral'];
+      const nowLs = raw.ls[raw.ls.length - 1], prevLs = raw.ls[Math.max(0, raw.ls.length - 25)];
+      const [crowd, sig, pos] = cuentasLectura(raw.ls);
       const top = raw.top == null || Number.isNaN(raw.top) ? '' : `, top traders ${ar(raw.top, 2)}`;
-      add('long_short', 'Cuentas long / short', `${ar(nowLs, 2)} (24 h antes ${ar(prevLs, 2)}${top})`, sig, crowd);
+      add('long_short', 'Cuentas long / short', `${ar(nowLs, 2)} (24 h antes ${ar(prevLs, 2)}${top})`, sig, crowd, { pct: pos });
     }
     if (raw.base) rows.push(basePerp(raw.base.mark, raw.base.index, 'Bybit'));
     if (raw.liq) rows.push(liqReales(raw.liq, raw.liqT));
@@ -1056,8 +1067,8 @@
   const PLAZOS = [
     ['5 min', '5m', 1, ['5m'], ['libros', 'flujo_1 h'], '5 min'],
     ['15 min', '5m', 3, ['5m', '15m'], ['libros', 'flujo_1 h'], '5 min'],
-    ['1 hora', '5m', 12, ['15m', '1h'], ['flujo_1 h', 'flujo_4 h', 'oi_1h'], '15 min'],
-    ['4 horas', '30m', 8, ['1h', '4h'], ['flujo_4 h', 'oi_4h', 'oi_24h', 'long_short'], '1 hora'],
+    ['1 hora', '5m', 12, ['15m', '1h'], ['flujo_1 h', 'flujo_4 h', 'oi_1h', 'oi_4h'], '15 min'],
+    ['4 horas', '30m', 8, ['1h', '4h'], ['flujo_4 h', 'oi_24h', 'long_short'], '1 hora'],
     ['1 día', '4h', 6, ['4h', '1d'], ['oi_24h', 'long_short', 'funding'], '4 horas'],
   ];
   // Fibonacci del swing de 90 dias en 4 h (como analisis_btc.py: el unico que mostro ventaja) y su rebote medido

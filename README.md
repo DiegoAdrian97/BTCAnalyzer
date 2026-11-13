@@ -724,6 +724,23 @@ Cada una contra un control (lo que daría el azar en la misma situación), BTC 2
 | Vencimiento de opciones (dolor máximo) | No hay historia gratuita del interés abierto por precio | No se mide |
 | Nasdaq (QQQ) adelantándose a BTC | Yahoo no le da velas de 1 h a GitHub (429); no hay otra fuente gratuita de intradiario | No se pudo medir |
 
+### Lo nuevo, medido (`medir_nuevo.py`, nov. 2026)
+
+BTC 2021/22–2026 (velas de 1 h y 5 min, y las "metrics" de 5 min de Binance: open interest, cuentas y top traders),
+cada señal en 2021-24 y en 2025-26; entra solo lo que gana en los dos (z ≥ 2, el mismo lado):
+
+| Señal | Resultado | ¿Entra? |
+|---|---|---|
+| Calendario: la marca positivo/negativo del dato (1.200 datos) | 15 min, 1 h y 4 h: 49–56%, sin repetirse | No (queda la marca, con la aclaración) |
+| Mapa de liquidaciones: más de un lado a menos de 3% ("imán") | El precio fue para el **otro** lado: 52–53% a 1 h, 4 h y 1 día, en los dos tramos | Sí, al revés (1 h a 1 día). Antes contaba como imán: restaba |
+| Cuentas muy compradas (10% más alto del mes) | Siguió subiendo 53–55% a 4 h y 1 día | Sí (plazos 4 horas y 1 día) |
+| Cuentas muy vendidas; top traders | No se repite en los dos tramos | No |
+| Cierran largos en 4 h (open interest −1% o más, precio bajando) | La hora siguiente rebotó 52–54% | Sí (plazo 1 hora) |
+| Entran largos o cortos (open interest y precio) | 48–52% | No: ya no cuenta como señal (antes sí) |
+
+Sin historia gratis, no se pueden medir: los libros de órdenes y sus muros, los trades por exchange de Bybit, OKX y
+Coinbase, y el open interest de Gate, Bitget, Hyperliquid y MEXC de más de unas semanas.
+
 ### Libro y trades en vivo, calendario económico y ayudas
 
 - **En vivo: libro y trades, dentro del gráfico** (botón junto al mapa de liquidaciones, o en Capas): a la derecha de las
@@ -918,6 +935,7 @@ python JavascriptVersion/generar_pagina.py
 | `dashboard/index.html` | La página del dashboard |
 | `render.yaml` | Configuración para Render |
 | `JavascriptVersion/` | La versión que corre entera en el teléfono (Vercel): `analisis.js`, `indicadores.js`, `aprendizaje.js`, `datos.js`, `worker.js` |
+| `medir_nuevo.py` | Mide el calendario, el mapa de liquidaciones, las cuentas largas/cortas y el open interest |
 | `medir_flujo.py` | Mide el flujo de compras (delta, CVD, spot), el VWAP, el perfil de volumen y los conceptos ICT |
 | `medir_contexto.py` | Mide con años de historia si una señal o idea nueva le gana a la tasa base antes de sumarla |
 | `JavascriptVersion/api/posiciones.js` | Tus posiciones y órdenes de BingX, solo lectura (Vercel) |

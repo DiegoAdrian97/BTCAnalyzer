@@ -311,7 +311,7 @@
       const now = Date.now();
       const liqP = SYM === 'BTCUSDT' ? intento(liqOkx(now)) : Promise.resolve(null);
       const [oi, ls, taker, top, fr, base] = await Promise.all([
-        intento(oiSerie(30)), intento(lsSerie(25)), intento(bitgetTaker().catch((e) => { if (SOLO_BITGET.has(SYM)) throw e; return binanceTaker(); })), SOLO_BITGET.has(SYM) ? null : intento(binanceTop()),
+        intento(oiSerie(30)), intento(lsSerie(500)), intento(bitgetTaker().catch((e) => { if (SOLO_BITGET.has(SYM)) throw e; return binanceTaker(); })), SOLO_BITGET.has(SYM) ? null : intento(binanceTop()),
         intento(cached(`${pre()}funding`, 3 * 3600000, () => fundingRaw().catch(fundingBitget))), intento(bybitBase().catch(bitgetBase)),
       ]);
       if (!oi && !ls && !taker && !fr) throw new Error('sin datos del momento');

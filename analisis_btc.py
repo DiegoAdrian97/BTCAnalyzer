@@ -700,6 +700,23 @@ def horizon_stats(tf, s, h, price, fit):
 
 
 # ---------- contexto actual ----------
+def cuentas_lectura(ls):
+    """Cuentas largas/cortas de las ultimas ~3 semanas (ratio por hora): (texto, senal, en que % de la serie esta ahora).
+    Medido (medir_nuevo.py, BTC 2022-2026, cuentas de Binance): con las cuentas mas compradas que el 90% del ultimo mes,
+    las 4 h y el dia siguientes el precio siguio subiendo 53-55% de las veces, en los dos tramos (no es "a la contra").
+    Muy vendidas: no se repite. Igual que cuentasLectura() en analisis.js."""
+    now = ls[-1]
+    pos = round(100 * sum(1 for x in ls if x <= now) / len(ls), 1)
+    if len(ls) >= 200 and pos >= 90:
+        return f"Más compradas que el {round(pos)}% de las últimas semanas: medido, las 4 h y el día siguientes siguió subiendo 53–55%", "alcista", pos
+    if now > 2:
+        return "Mayoría long", "neutral", pos
+    if now < 0.9:
+        return "Mayoría short", "neutral", pos
+    return "Posicionamiento parejo", "neutral", pos
+
+
+
 def context(bgx, h1):
     """Open interest y long/short de Bybit, flujo y top traders de OKX, funding de BingX (cada 3 h)."""
     rows = []
@@ -717,14 +734,19 @@ def context(bgx, h1):
                                    for x in raw if int(x["timestamp"]) in close_at)]
         for hrs in (1, 4, 24):
             d_oi, d_px = pct(oi[-1], oi[-1 - hrs]), pct(closes_1h[-1], closes_1h[-1 - hrs])
+            # Medido (medir_nuevo.py, BTC 2022-2026, open interest de Binance): que entren largos o cortos no anticipa
+            # nada (48-52%, sin repetirse); que cierren largos en 4 h (open interest -1% o mas con el precio bajando) si:
+            # la hora siguiente reboto 52-54% de las veces, en los dos tramos
             if abs(d_oi) < 0.5:
                 why, sig = "Posicionamiento estable", "neutral"
             elif d_px >= 0:
-                why, sig = (("Entran longs nuevos: suba con fuerza", "alcista") if d_oi > 0 else
-                            ("Cierran shorts: suba sin dinero nuevo", "neutral"))
+                why, sig = ("Entran longs nuevos" if d_oi > 0 else "Cierran shorts: suba sin dinero nuevo"), "neutral"
+            elif d_oi > 0:
+                why, sig = "Entran shorts nuevos", "neutral"
+            elif hrs == 4 and d_oi <= -1:
+                why, sig = "Cierran o liquidan longs: la hora siguiente suele rebotar (medido: 52–54%)", "alcista"
             else:
-                why, sig = (("Entran shorts nuevos: baja con fuerza", "bajista") if d_oi > 0 else
-                            ("Cierran o liquidan longs: baja por descarga", "neutral"))
+                why, sig = "Cierran o liquidan longs: baja por descarga", "neutral"
             add(f"oi_{hrs}h", f"Open interest {hrs} h", f"{arp(d_oi)} con precio {arp(d_px)}", sig, why,
                 d_oi=round(d_oi, 2), d_px=round(d_px, 2))
     except Exception as e:
@@ -745,23 +767,18 @@ def context(bgx, h1):
 
     try:
         ls = api("bybit", byb.publicGetV5MarketAccountRatio,
-                 {"category": "linear", "symbol": "BTCUSDT", "period": "1h", "limit": 25})["result"]["list"]
+                 {"category": "linear", "symbol": "BTCUSDT", "period": "1h", "limit": 500})["result"]["list"]
         ls = [float(x["buyRatio"]) / float(x["sellRatio"]) for x in sorted(ls, key=lambda x: int(x["timestamp"]))
               if float(x["sellRatio"]) > 0]
-        now_ls, prev_ls = ls[-1], ls[0]
+        now_ls, prev_ls = ls[-1], ls[max(0, len(ls) - 25)]
         try:
             top = float(api("okx", okx.publicGetRubikStatContractsLongShortPositionRatioContractTopTrader,
                             {"instId": "BTC-USDT-SWAP", "period": "1H", "limit": "1"})["data"][0][1])
             top_txt = f", top traders {ar(top, 2)}"
         except Exception:
             top_txt = ""
-        if now_ls > 2:
-            crowd, sig = "Mayoría long: si cae, puede haber cascada de liquidaciones", "bajista"
-        elif now_ls < 0.9:
-            crowd, sig = "Mayoría short: si sube, puede haber squeeze", "alcista"
-        else:
-            crowd, sig = "Posicionamiento parejo", "neutral"
-        add("long_short", "Cuentas long / short", f"{ar(now_ls, 2)} (24 h antes {ar(prev_ls, 2)}{top_txt})", sig, crowd)
+        crowd, sig, pos = cuentas_lectura(ls)
+        add("long_short", "Cuentas long / short", f"{ar(now_ls, 2)} (24 h antes {ar(prev_ls, 2)}{top_txt})", sig, crowd, pct=pos)
     except Exception as e:
         print(f"(long/short no disponible: {type(e).__name__})")
 
@@ -1220,8 +1237,8 @@ def lc1(s):
 PLAZOS = [
     ("5 min", "5m", 1, ("5m",), ("libros", "flujo_1 h"), "5 min"),
     ("15 min", "5m", 3, ("5m", "15m"), ("libros", "flujo_1 h"), "5 min"),
-    ("1 hora", "5m", 12, ("15m", "1h"), ("flujo_1 h", "flujo_4 h", "oi_1h"), "15 min"),
-    ("4 horas", "30m", 8, ("1h", "4h"), ("flujo_4 h", "oi_4h", "oi_24h", "long_short"), "1 hora"),
+    ("1 hora", "5m", 12, ("15m", "1h"), ("flujo_1 h", "flujo_4 h", "oi_1h", "oi_4h"), "15 min"),
+    ("4 horas", "30m", 8, ("1h", "4h"), ("flujo_4 h", "oi_24h", "long_short"), "1 hora"),
     ("1 día", "4h", 6, ("4h", "1d"), ("oi_24h", "long_short", "funding"), "4 horas"),
 ]
 SHORT_CTX = {"flujo_1 h": "Compras a mercado 1 h", "flujo_4 h": "Compras a mercado 4 h", "oi_1h": "Open interest 1 h",
@@ -1476,11 +1493,14 @@ def central(rows, price, candles, now_ms):
             _cf(F, "direccion", -1 if bb["valor"] >= 100 else 1, 0.5 if largo_tf else 1, f"Precio {'arriba de la banda superior' if bb['valor'] >= 100 else 'debajo de la banda inferior'} de Bollinger: suele volver adentro")
         arriba = sum(x["shorts"] for x in liq if 0 < x["precio"] / price - 1 <= 0.03)
         abajo = sum(x["longs"] for x in liq if 0 < 1 - x["precio"] / price <= 0.03)
-        if arriba + abajo >= 10:
+        # Medido (medir_nuevo.py, BTC 2021-2026, el mismo modelo del mapa): no es un iman. Con mas liquidaciones de un lado
+        # a menos de 3%, la hora, las 4 h y el dia siguientes el precio fue para el OTRO lado el 52-53% de las veces, en los
+        # dos tramos (suelen juntarse donde el precio viene de correr: corrige). Cuenta al reves, de 1 hora a 1 dia
+        if arriba + abajo >= 10 and tf in ("1h", "4h", "1d"):
             if arriba >= 1.5 * abajo:
-                _cf(F, "direccion", 1, 1, f"Más liquidaciones arriba ({ar(arriba, 0)} M de shorts) que abajo ({ar(abajo, 0)} M): imán hacia arriba")
+                _cf(F, "direccion", -1, 1, f"Más liquidaciones arriba ({ar(arriba, 0)} M de shorts) que abajo ({ar(abajo, 0)} M): medido, el precio suele ir para el otro lado (52–53%)")
             elif abajo >= 1.5 * arriba:
-                _cf(F, "direccion", -1, 1, f"Más liquidaciones abajo ({ar(abajo, 0)} M de longs) que arriba ({ar(arriba, 0)} M): imán hacia abajo")
+                _cf(F, "direccion", 1, 1, f"Más liquidaciones abajo ({ar(abajo, 0)} M de longs) que arriba ({ar(arriba, 0)} M): medido, el precio suele ir para el otro lado (52–53%)")
         if libros and corto:
             d = sum(x["desequilibrio"] for x in libros) / len(libros)
             if abs(d) >= 15:
