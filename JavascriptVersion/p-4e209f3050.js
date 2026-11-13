@@ -2173,7 +2173,40 @@
     const u = e.unidad || '';
     return `${n.toLocaleString('es-AR', { minimumFractionDigits: Math.min(2, d), maximumFractionDigits: Math.min(2, d) })}${e.escala || ''}${u === '%' ? '%' : u ? ` ${u}` : ''}`;
   };
+  // el calendario en vivo: se pide solo el calendario (api/contexto?solo=calendario, cache de 20 s) cada minuto desde
+  // 3 min antes de un dato hasta que sale su valor (o 45 min despues), y cada 10 min el resto del tiempo. Cuando sale el
+  // valor, se redibuja y se avisa con el dato, lo previsto y si es positivo o negativo para el mercado
+  const CALV = { filas: null, avisados: new Set(), rows: null };
+  const calDe = (rows) => (CALV.filas ? CALV.filas : rows);
+  async function calVivo() {
+    if (document.hidden) return;
+    try {
+      const r = await fetch('api/contexto?solo=calendario', { cache: 'no-store', signal: AbortSignal.timeout(12000) });
+      const j = r.ok ? await r.json() : null; if (!j || !Array.isArray(j.rows) || !j.rows.length) return;
+      const antes = new Map(pick(calDe(CALV.rows || []), 'calendario').map((e) => [`${e.t}|${e.original}`, e]));
+      CALV.filas = j.rows;
+      pick(j.rows, 'calendario').forEach((e) => {
+        const k = `${e.t}|${e.original}`, v = antes.get(k);
+        if (e.actual == null || !v || v.actual != null || CALV.avisados.has(k) || Date.now() - num(e.t) > 90 * 60000) return;
+        CALV.avisados.add(k);
+        const ef = e.efecto === 'positivo' ? ' · ▲ positivo para el mercado' : e.efecto === 'negativo' ? ' · ▼ negativo para el mercado' : '';
+        avisoApp(`Salió ${e.titulo}: ${calValor(e.actual, e)} (previsto ${calValor(e.previsto, e)})${ef}`, e.efecto === 'positivo' ? 'var(--color-ok)' : e.efecto === 'negativo' ? 'var(--color-bad)' : null);
+      });
+      drawCalendario(CALV.rows || []);
+    } catch (e) { /* sin red: el proximo intento */ }
+  }
+  const calEspera = () => {
+    const now = Date.now();
+    const cerca = pick(calDe(CALV.rows || []), 'calendario').some((e) => { const t = num(e.t); return e.actual == null && t - now < 3 * 60000 && now - t < 45 * 60000; });
+    return cerca ? 60000 : 10 * 60000;
+  };
+  let calUlt = 0;
+  setInterval(() => { if (Date.now() - calUlt >= calEspera() - 2000) { calUlt = Date.now(); calVivo(); } }, 60000);
+  setTimeout(() => { calUlt = Date.now(); calVivo(); }, 15000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && calEspera() === 60000) calVivo(); });
   function drawCalendario(rows) {
+    CALV.rows = rows;
+    rows = calDe(rows);
     const now = Date.now(), FED = /interest rate decision|fomc decision|interest rate fomc/i;
     let cal = pick(rows, 'calendario');
     if (!cal.length) cal = pick(rows, 'evento').map((e) => ({ ...e, importancia: 3 }));

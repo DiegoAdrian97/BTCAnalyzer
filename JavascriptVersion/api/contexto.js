@@ -442,6 +442,15 @@ async function externo(nowMs = Date.now(), limiteMs = Infinity, moneda = 'BTC') 
 }
 
 module.exports = async (req, res) => {
+  // solo el calendario, casi al instante (la pagina lo pide cada minuto alrededor de un dato): cache de 20 s
+  if (req.query && req.query.solo === 'calendario') {
+    let filas = [];
+    try { filas = await calendario(Date.now()); } catch (e) { /* sin calendario */ }
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, s-maxage=20, stale-while-revalidate=40');
+    res.status(200).send(JSON.stringify({ rows: filas, hora: Date.now() }));
+    return;
+  }
   let rows = [];
   const moneda = /^[A-Z]{2,6}$/.test(String((req.query && req.query.moneda) || '')) ? req.query.moneda : 'BTC';
   try { rows = await externo(Date.now(), Date.now() + 8000, moneda); } catch (e) { /* sin datos de afuera: la pagina igual funciona */ }
@@ -462,4 +471,3 @@ module.exports.parseCalendario = parseCalendario;
 module.exports.sesgo = sesgo;
 module.exports.tema = tema;
 module.exports.ACCIONES = ACCIONES;
-module.exports.parseCalendario = parseCalendario;
