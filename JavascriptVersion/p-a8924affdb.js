@@ -3231,7 +3231,10 @@
   const esPos = (d) => d.tipo === 'pl' || d.tipo === 'ps';
   const dibLista = () => DIB.todos[MON()] || (DIB.todos[MON()] = []);
   window.abDib = DIB;                                     // para las pruebas
-  const dibGuardar = () => { try { localStorage.setItem('ab-dibujos', JSON.stringify(DIB.todos)); } catch (e) { /* sin almacenamiento */ } };
+  // al cambiar cuantas cajas de posicion hay, "que estas viendo" suma (o saca) su explicacion
+  let dibNPos = -1;
+  const dibGuardar = () => { try { localStorage.setItem('ab-dibujos', JSON.stringify(DIB.todos)); } catch (e) { /* sin almacenamiento */ }
+    const n = dibLista().filter(esPos).length; if (n !== dibNPos) { const antes = dibNPos; dibNPos = n; if (antes >= 0 && S.rows) requestAnimationFrame(() => drawChart(S.rows, S.sum)); } };
   const dibSel = () => dibLista().find((x) => x.id === DIB.sel) || null;
   const dibPint = () => { if (G.dib) G.dib.update(); dibBarra(); };
   // el precio de una linea en un momento (en escala log, la recta va en log, como se ve)
@@ -3928,7 +3931,7 @@
     });
     return out;
   }
-  const FL_SPOT = '#38bdf8', FL_OI = '#f59e0b';
+  const FL_SPOT = '#38bdf8', FL_OI = '#f59e0b', FL_SPOT_NOMBRE = 'celeste', FL_OI_NOMBRE = 'naranja';
   /** Agrega los dos paneles a un grafico (el principal o uno de los otros). base = indice del primer panel. */
   function flujoPaneles(chart, base, P) {
     const fmt = { type: 'custom', formatter: (v) => usdC(v), minMove: 1 }, q = { lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false, priceFormat: fmt };
@@ -4379,6 +4382,7 @@
     G.e20.applyOptions({ color: dim(P.c0, 'ema') }); G.e50.applyOptions({ color: dim(P.c1, 'ema') }); G.e200.applyOptions({ color: dim(alpha(P.fg, 0.7), 'ema') });
     G.bbU.applyOptions({ color: dim(alpha(P.mute, 0.4), 'bb') }); G.bbL.applyOptions({ color: dim(alpha(P.mute, 0.4), 'bb') });
     G.ghost.applyOptions({ visible: !k || k.has('futuro') });
+    if (G.fl) { G.fl.cvdP.applyOptions({ color: dim(alpha(P.fg, 0.85), 'flujo') }); G.fl.cvdS.applyOptions({ color: dim(FL_SPOT, 'flujo') }); G.fl.oi.applyOptions({ color: dim(FL_OI, 'flujo') }); }
     G.under.update(); G.over.update();
   }
 
@@ -5415,8 +5419,23 @@
     if (L.vp) {
       const pr = perfilVisible(G.chart, all), vw = all.length ? vwapSerie(all, TF_MIN[tf]).slice(-1)[0] : null, px = all.length ? all[all.length - 1].c : null;
       item('vp', CC(VWAP_COL), 'Línea fucsia y barras a la izquierda (VWAP y perfil de volumen):',
-        `el VWAP es el precio promedio pesado por volumen desde que empezó la sesión${vw && vw.value && px ? `: está en ${fp(vw.value)}, y el precio ${px >= vw.value ? 'arriba (manda la compra)' : 'abajo (manda la venta)'}` : ''}. Las barras muestran cuánto se operó en cada precio de lo que estás viendo${pr ? `: el POC (el precio con más volumen) es ${fp(pr.poc)} y el 70 % se operó entre ${fp(pr.val)} (VAL) y ${fp(pr.vah)} (VAH)` : ''}. Esos precios suelen frenar al precio o atraerlo.`);
+        `el VWAP es el precio promedio pesado por volumen desde que empezó la sesión${vw && vw.value && px ? `: está en ${fp(vw.value)} y el precio ${px >= vw.value ? 'arriba' : 'abajo'}. Ojo: medido en BTC, en las horas siguientes el precio suele volver hacia el VWAP (estar arriba no es señal de compra)` : ''}. Las barras muestran cuánto se operó en cada precio de lo que estás viendo${pr ? `: el POC (el precio con más volumen) es ${fp(pr.poc)} y el 70 % se operó entre ${fp(pr.val)} (VAL) y ${fp(pr.vah)} (VAH)` : ''}. Esos precios suelen frenar al precio o atraerlo.`);
     }
+    if (L.flujo && G.flS) {
+      const ul = (arr) => (arr && arr.length ? arr[arr.length - 1].value : null);
+      const dl = ul(G.flS.delta), cp = ul(G.flS.cvdP), cs = ul(G.flS.cvdS);
+      const fl = (rows || []).find((r) => r.tabla === 'flujo');
+      const ahora = !fl ? '' : fl.cvd_div === 'bajista' ? ' Ahora: divergencia de CVD bajista (el precio hizo máximo de 24 h y las compras agresivas no acompañaron): medido, la hora siguiente bajó 56–57% de las veces.'
+        : fl.cvd_div === 'alcista' ? ' Ahora: divergencia de CVD alcista (el precio hizo mínimo de 24 h y las ventas agresivas se agotaron): medido, las 4 h siguientes subieron 57–60% de las veces.'
+        : fl.absorcion === 'alcista' ? ` Ahora: en spot se compra mientras el precio cae (${(fl.cambio_24h > 0 ? '+' : '') + f1(fl.cambio_24h)}% en 24 h), absorción: medido, las 4 h siguientes subieron 57–60%.`
+        : fl.absorcion === 'bajista' ? ` Ahora: en spot se vende mientras el precio sube (${(fl.cambio_24h > 0 ? '+' : '') + f1(fl.cambio_24h)}% en 24 h): medido, las 4 h siguientes bajaron 53–54%.`
+        : ' Ahora no hay divergencia ni absorción.';
+      item('flujo', { background: `linear-gradient(90deg, ${P.up} 33%, ${alpha(P.fg, 0.85)} 33% 66%, ${FL_SPOT} 66%)` }, 'Paneles de delta y CVD:',
+        `el delta (barras) es cuánto se compró menos cuánto se vendió a mercado en cada vela${dl === null ? '' : ` (la última: ${usdC(dl)} USD)`}: verde, ganaron los compradores apurados. El CVD es ese delta sumado: la línea gris en perpetuos${cp === null ? '' : ` (${usdC(cp)})`}, la ${FL_SPOT_NOMBRE} en spot${cs === null ? '' : ` (${usdC(cs)})`}, y la ${FL_OI_NOMBRE} es el interés abierto (cuántas posiciones hay abiertas). Lo que sirve es compararlo con el precio: si el precio hace un máximo nuevo y el CVD no, la suba no tiene compradores detrás.${ahora}`);
+    }
+    { const pos = dibLista().filter(esPos); dibNPos = pos.length;
+      if (pos.length) item('pos', { background: `linear-gradient(180deg, ${alpha(P.up, 0.5)} 50%, ${alpha(P.dn, 0.5)} 50%)` }, pos.length > 1 ? `Tus ${pos.length} cajas de posición:` : 'Tu caja de posición:',
+        'la parte verde va de la entrada al objetivo y la roja de la entrada al stop. R:R es cuánto ganás por cada peso que arriesgás (2 = el doble). "Ahora" dice cuánto irías ganando o perdiendo con el precio de este momento. Tocá la caja para moverla o pedir un aviso cuando llegue al objetivo o al stop.'); }
     if (L.bb) item('bb', CC(alpha(P.fg, 0.12)), 'Banda gris:', 'Bollinger, el rango normal del precio en las últimas 20 velas.');
     if (L.liq && liq.length) item('liq', { background: `linear-gradient(90deg, ${P.dn}, ${P.up})` }, 'Barras junto al eje de precios:',
       'liquidaciones estimadas. Rojas: longs que se liquidan si baja; verdes: shorts si sube. Pasá el mouse o tocá ahí para ver los USD.');
