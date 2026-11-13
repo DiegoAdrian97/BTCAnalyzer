@@ -2211,17 +2211,18 @@
     let cal = pick(rows, 'calendario');
     if (!cal.length) cal = pick(rows, 'evento').map((e) => ({ ...e, importancia: 3 }));
     const datos = cal.map((e) => ({ ...e, t: num(e.t), fed: FED.test(e.original || '') }));
+    // hoy (desde las 0 h de Argentina) y lo que viene: como el calendario de Investing, lo de hoy queda aunque ya haya salido
+    const hoy0 = (() => { const d = new Date(now - 3 * 36e5); d.setUTCHours(0, 0, 0, 0); return d.getTime() + 3 * 36e5; })();
     const futuros = datos.filter((e) => e.t > now);
-    // solo los datos de EE.UU. de importancia alta (de todos los temas: los trae asi api/contexto)
-    const viene = futuros.sort((a, b) => a.t - b.t);
+    const viene = datos.filter((e) => e.t >= hoy0).sort((a, b) => a.t - b.t);
     const salio = datos.filter((e) => e.t <= now && e.t >= now - 7 * 864e5).sort((a, b) => b.t - a.t || b.importancia - a.importancia);
     const box = document.getElementById('cal-list'), prox = document.getElementById('cal-prox');
-    const p0 = viene[0];
+    const p0 = futuros.sort((a, b) => a.t - b.t)[0];
     prox.textContent = p0 ? `próximo: ${p0.titulo.replace(/^Vencen opciones de BTC.*/, 'opciones')} en ${faltaTxt(p0.t - now)}` : '';
     // selector: lo que viene / ya salieron (con cuantos positivos y negativos)
     const pos = salio.filter((e) => e.efecto === 'positivo').length, neg = salio.filter((e) => e.efecto === 'negativo').length;
     const seg = el('div', 'ab-cal-seg'); seg.setAttribute('role', 'tablist');
-    [['viene', 'Lo que viene', `${viene.length}`], ['salio', 'Ya salieron', salio.length ? `${pos}▲ ${neg}▼` : '0']].forEach(([k, txt, n]) => {
+    [['viene', 'Hoy y lo que viene', `${viene.length}`], ['salio', 'Última semana', salio.length ? `${pos}▲ ${neg}▼` : '0']].forEach(([k, txt, n]) => {
       const b = el('button', '', ''); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(CAL_VISTA === k));
       b.append(txt, el('small', '', n)); b.addEventListener('click', () => { CAL_VISTA = k; drawCalendario(rows); }); seg.append(b);
     });

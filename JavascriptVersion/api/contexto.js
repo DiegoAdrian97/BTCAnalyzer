@@ -386,13 +386,16 @@ function efecto(titulo, actual, previsto, anterior) {
   if (Math.abs(d) < 1e-12) return 'neutral';
   return d * s > 0 ? 'positivo' : 'negativo';
 }
+// lo que Investing marca con 3 estrellas aunque TradingView lo ponga en importancia media (igual que en noticias.py)
+const CLAVES_ALTA = /\b(cpi|inflation rate|ppi|pce|non farm|nonfarm|unemployment rate|adp|jolts|jobless claims|average hourly|retail sales|gdp|ism (manufacturing|services|non-manufacturing)|interest rate decision|fomc|fed chair|powell|michigan|consumer confidence|durable goods)\b/i;
+const esAlta = (e) => e.importance === 1 || (e.importance === 0 && CLAVES_ALTA.test(e.title || ''));
 /** Igual que parse_calendario en noticias.py. */
 function parseCalendario(txt, nowMs = null) {
   const out = [], cal = [];
   for (const e of JSON.parse(txt).result || []) {
-    if (e.importance !== 1 || !e.date) continue;          // solo importancia alta, de todos los temas
+    if (!esAlta(e) || !e.date) continue;                  // solo importancia alta (o lo que Investing marca alto), de todos los temas
     const t = Date.parse(e.date), tit = e.title || '', act = e.actual ?? null, prv = e.forecast ?? null, ant = e.previous ?? null;
-    if (nowMs === null || t >= nowMs - 86400000) out.push({ tabla: 'evento', t, titulo: nombreEs(tit), original: tit.slice(0, 80), previsto: prv, anterior: ant, actual: act });
+    if (e.importance === 1 && (nowMs === null || t >= nowMs - 86400000)) out.push({ tabla: 'evento', t, titulo: nombreEs(tit), original: tit.slice(0, 80), previsto: prv, anterior: ant, actual: act });
     cal.push({ tabla: 'calendario', t, titulo: nombreEs(tit), original: tit.slice(0, 80), importancia: 3,
       actual: act, previsto: prv, anterior: ant, unidad: e.unit || '', escala: e.scale || '', periodo: e.period || '', efecto: efecto(tit, act, prv, ant) });
   }

@@ -618,17 +618,28 @@ def efecto(titulo, actual, previsto, anterior):
     return "positivo" if d * s > 0 else "negativo"
 
 
+# Los datos que Investing marca con 3 estrellas aunque TradingView los ponga en importancia media (el IPP, los
+# subsidios por desempleo, Michigan...): entran igual. Igual que CLAVES_ALTA en api/contexto.js
+CLAVES_ALTA = re.compile(r"\b(cpi|inflation rate|ppi|pce|non farm|nonfarm|unemployment rate|adp|jolts|jobless claims|average hourly|"
+                         r"retail sales|gdp|ism (manufacturing|services|non-manufacturing)|interest rate decision|fomc|fed chair|powell|"
+                         r"michigan|consumer confidence|durable goods)\b", re.I)
+
+
+def es_alta(e):
+    return e.get("importance") == 1 or (e.get("importance") == 0 and bool(CLAVES_ALTA.search(e.get("title") or "")))
+
+
 def parse_calendario(txt, now_ms=None):
     """Calendario de EE.UU., solo importancia alta y de todos los temas (sin filtrar categorias): filas 'evento' (desde
     ayer: entran al analisis, como antes) y filas 'calendario' (la ultima semana y la que viene: para mostrar, con el
     efecto del dato)."""
     out, cal = [], []
     for e in json.loads(txt).get("result", []):
-        if e.get("importance") != 1 or not e.get("date"):
+        if not es_alta(e) or not e.get("date"):
             continue
         t = int(datetime.fromisoformat(e["date"].replace("Z", "+00:00")).timestamp() * 1000)
         tit, act, prv, ant = e.get("title") or "", e.get("actual"), e.get("forecast"), e.get("previous")
-        if now_ms is None or t >= now_ms - 86400000:
+        if e.get("importance") == 1 and (now_ms is None or t >= now_ms - 86400000):   # al analisis: lo de siempre (lo medido)
             out.append({"tabla": "evento", "t": t, "titulo": nombre_es(tit), "original": tit[:80], "previsto": prv, "anterior": ant, "actual": act})
         cal.append({"tabla": "calendario", "t": t, "titulo": nombre_es(tit), "original": tit[:80], "importancia": 3,
                     "actual": act, "previsto": prv, "anterior": ant, "unidad": e.get("unit") or "", "escala": e.get("scale") or "",

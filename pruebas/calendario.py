@@ -37,8 +37,10 @@ def main():
         assert ef[k] == v, f"{k}: {ef[k]} (esperado {v})"
     ev = [r for r in py if r["tabla"] == "evento"]
     assert [r["original"] for r in ev] == ["Fed Interest Rate Decision", "Retail Sales MoM"], [r["original"] for r in ev]   # alta y desde ayer
-    for k in ("Building Permits", "Initial Jobless Claims", "Michigan Consumer Sentiment", "Crude Oil Inventories"):   # media o baja: afuera
+    for k in ("Building Permits", "Crude Oil Inventories"):   # media o baja: afuera
         assert k not in ef, k
+    # media en TradingView pero alta en Investing: entran
+    assert ef["Initial Jobless Claims"] == "negativo" and ef["Michigan Consumer Sentiment"] == "positivo" and ef["Michigan Inflation Expectations"] == "negativo"
     print(f"calendario: todo bien ({len(ef)} datos, {len(ev)} de importancia alta para el análisis)")
 
 
