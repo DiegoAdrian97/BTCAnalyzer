@@ -589,6 +589,9 @@ NOMBRES = [
     ("Building Permits", "Permisos de construcción"),
     ("Housing Starts", "Inicio de viviendas"),
     ("Existing Home Sales", "Ventas de viviendas usadas"),
+    ("Crude Oil", "Inventarios de petróleo (EIA)"),
+    ("10-Year Note Auction", "Subasta de bonos del Tesoro a 10 años"),
+    ("30-Year Bond Auction", "Subasta de bonos del Tesoro a 30 años"),
     ("New Home Sales", "Ventas de viviendas nuevas"),
     ("ADP", "Empleo privado (ADP)"),
 ]
@@ -609,7 +612,7 @@ SENTIDO = [
     ("unemployment rate", 1), ("jobless claims", 1), ("continuing claims", 1),
     ("interest rate", -1), ("payrolls", -1), ("adp", -1), ("jolts", -1), ("employment", -1), ("hourly earnings", -1),
     ("retail sales", -1), ("gdp", -1), ("ism", -1), ("pmi", -1), ("durable goods", -1), ("industrial production", -1),
-    ("consumer confidence", 1), ("sentiment", 1),
+    ("consumer confidence", 1), ("sentiment", 1), ("auction", -1),
 ]
 
 
@@ -633,16 +636,17 @@ def efecto(titulo, actual, previsto, anterior):
     return "positivo" if d * s > 0 else "negativo"
 
 
-# Lo que se muestra en el calendario: los datos que Investing marca con 3 estrellas en EE.UU., por nombre exacto y con
-# cualquier importancia de TradingView (ahi el IPC anual o los subsidios por desempleo vienen como baja, y las viviendas
-# como alta). Igual que INVESTING_ALTA en api/contexto.js
+# Lo que se muestra en el calendario: los datos que Investing marca con 3 estrellas en EE.UU. (comparado con su calendario
+# de la semana del 10/11/2026: IPC y IPC nucleo mensual, subsidios, viviendas usadas, inventarios de petroleo, subastas de
+# bonos a 10 y 30 años, PPI mensual; no el IPC anual ni el PPI nucleo), por nombre exacto y con cualquier importancia de
+# TradingView, que no coincide con la de Investing. Igual que INVESTING_ALTA en api/contexto.js
 INVESTING_ALTA = re.compile(
     r"non farm payrolls|unemployment rate|average hourly earnings mom|adp employment change|jolts job openings|"
-    r"initial jobless claims|(core )?inflation rate (mom|yoy)|(core )?ppi mom|core pce price index (mom|yoy)|pce price index yoy|"
-    r"retail sales (mom|ex autos mom)|gdp growth rate qoq( adv| 2nd est| 3rd est| final)?|ism (manufacturing|services) pmi|"
+    r"initial jobless claims|(core )?inflation rate mom|ppi mom|core pce price index (mom|yoy)|retail sales (mom|ex autos mom)|"
+    r"gdp growth rate qoq( adv| 2nd est| 3rd est| final)?|ism (manufacturing|services) pmi|durable goods orders mom|"
     r"fed interest rate decision|fomc minutes|fed press conference|fed chair .+|.*powell.*|cb consumer confidence|"
-    r"michigan consumer sentiment( prel| final)?|michigan inflation expectations( prel| final)?|durable goods orders mom|"
-    r"philadelphia fed manufacturing index", re.I)
+    r"philadelphia fed manufacturing index|existing home sales|new home sales|eia crude oil stocks change|crude oil inventories|"
+    r"(10|30)-year (note|bond) auction", re.I)
 
 
 def es_alta(e):

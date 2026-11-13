@@ -380,6 +380,9 @@ const NOMBRES = [
   ['Building Permits', 'Permisos de construcción'],
   ['Housing Starts', 'Inicio de viviendas'],
   ['Existing Home Sales', 'Ventas de viviendas usadas'],
+  ['Crude Oil', 'Inventarios de petróleo (EIA)'],
+  ['10-Year Note Auction', 'Subasta de bonos del Tesoro a 10 años'],
+  ['30-Year Bond Auction', 'Subasta de bonos del Tesoro a 30 años'],
   ['New Home Sales', 'Ventas de viviendas nuevas'],
   ['ADP', 'Empleo privado (ADP)'],
 ];
@@ -390,7 +393,7 @@ const SENTIDO = [
   ['unemployment rate', 1], ['jobless claims', 1], ['continuing claims', 1],
   ['interest rate', -1], ['payrolls', -1], ['adp', -1], ['jolts', -1], ['employment', -1], ['hourly earnings', -1],
   ['retail sales', -1], ['gdp', -1], ['ism', -1], ['pmi', -1], ['durable goods', -1], ['industrial production', -1],
-  ['consumer confidence', 1], ['sentiment', 1],
+  ['consumer confidence', 1], ['sentiment', 1], ['auction', -1],
 ];
 const sentido = (titulo) => { const t = (titulo || '').toLowerCase(); const m = SENTIDO.find(([k]) => t.includes(k)); return m ? m[1] : 0; };
 function efecto(titulo, actual, previsto, anterior) {
@@ -405,11 +408,11 @@ function efecto(titulo, actual, previsto, anterior) {
 // importancia de TradingView (igual que INVESTING_ALTA en noticias.py: ahi esta explicado)
 const INVESTING_ALTA = new RegExp('^(?:' + [
   'non farm payrolls|unemployment rate|average hourly earnings mom|adp employment change|jolts job openings',
-  'initial jobless claims|(core )?inflation rate (mom|yoy)|(core )?ppi mom|core pce price index (mom|yoy)|pce price index yoy',
-  'retail sales (mom|ex autos mom)|gdp growth rate qoq( adv| 2nd est| 3rd est| final)?|ism (manufacturing|services) pmi',
+  'initial jobless claims|(core )?inflation rate mom|ppi mom|core pce price index (mom|yoy)|retail sales (mom|ex autos mom)',
+  'gdp growth rate qoq( adv| 2nd est| 3rd est| final)?|ism (manufacturing|services) pmi|durable goods orders mom',
   'fed interest rate decision|fomc minutes|fed press conference|fed chair .+|.*powell.*|cb consumer confidence',
-  'michigan consumer sentiment( prel| final)?|michigan inflation expectations( prel| final)?|durable goods orders mom',
-  'philadelphia fed manufacturing index'].join('|') + ')$', 'i');
+  'philadelphia fed manufacturing index|existing home sales|new home sales|eia crude oil stocks change|crude oil inventories',
+  '(10|30)-year (note|bond) auction'].join('|') + ')$', 'i');
 const esAlta = (e) => INVESTING_ALTA.test((e.title || '').trim());
 /** Igual que parse_calendario en noticias.py. */
 function parseCalendario(txt, nowMs = null) {

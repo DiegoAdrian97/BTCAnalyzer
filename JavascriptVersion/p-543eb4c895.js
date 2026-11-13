@@ -2341,7 +2341,8 @@
         r.append(tt, imp, nm);
         if (!e.cripto) {
           const act = el('span', 'n ab-cal-act', calValor(e.actual, e));
-          if (e.efecto === 'positivo' || e.efecto === 'negativo') act.append(el('em', '', e.efecto === 'positivo' ? '▲ positivo' : '▼ negativo'));
+          if (e.efecto === 'positivo' || e.efecto === 'negativo') { const em = el('em', '', e.efecto === 'positivo' ? '▲ alcista' : '▼ bajista');
+            em.title = 'Para cripto: un dato que aleja recortes de tasas (más inflación, más empleo) suele pesar. No es el color de Investing, que compara con lo previsto para el dólar.'; act.append(em); }
           else if (e.efecto === 'neutral') act.append(el('em', '', '= lo previsto'));
           r.append(act, el('span', 'n', calValor(e.previsto, e)), el('span', 'n ab-cal-ant', calValor(e.anterior, e)));
         }
