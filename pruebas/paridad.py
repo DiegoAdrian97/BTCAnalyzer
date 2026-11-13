@@ -102,6 +102,9 @@ def py():
         "registro": registro_py(),
         "rango": rango_py(),
         "opciones": A.opciones(OPC_LIBRO, OPC_DVOL, 61234.5, OPC_AHORA),
+        "ict_h1": ind.ict(H1, ind.atr_w([b[2] for b in H1], [b[3] for b in H1], [b[4] for b in H1]), 60),
+        "ict_h4": ind.ict(H4, ind.atr_w([b[2] for b in H4], [b[3] for b in H4], [b[4] for b in H4]), 240),
+        "ict_filas": A.ict_filas("1h", H1, 60),
         "base_perp": [A.base_perp(61300, 61234.5, "Bybit"), A.base_perp(61190, 61234.5, "Bybit"), A.base_perp(61240, 61234.5, "Bybit")],
         "_ctx_raw": raw,
     }
@@ -130,6 +133,9 @@ console.log(JSON.stringify({
     const sc = A.logAndScore([[1000, '1h', 4, 100.0, 60.0]], d.LOG_ENTRADAS, cl);
     return Object.fromEntries([...sc.entries()].sort()); })(),
   opciones: A.opciones(d.OPC_LIBRO, d.OPC_DVOL, 61234.5, d.OPC_AHORA),
+  ict_h1: Ind.ict(d.H1, Ind.atrW(d.H1.map((b) => b[2]), d.H1.map((b) => b[3]), d.H1.map((b) => b[4])), 60),
+  ict_h4: Ind.ict(d.H4, Ind.atrW(d.H4.map((b) => b[2]), d.H4.map((b) => b[3]), d.H4.map((b) => b[4])), 240),
+  ict_filas: A.ictFilas('1h', d.H1, 60),
   base_perp: [A.basePerp(61300, 61234.5, 'Bybit'), A.basePerp(61190, 61234.5, 'Bybit'), A.basePerp(61240, 61234.5, 'Bybit')],
   rango: (() => { const c = d.H1.map((b) => b[4]), e50 = Ind.ema(c, 50), e200 = Ind.ema(c, 200), rsi = Ind.rsi(c), mh = Ind.macd(c)[2];
     const st = Apr.estados(Apr.rasgos(d.H1, 60, e50, e200, rsi, mh), 2), F = A.volEscala(d.H1, 60, 4, false);

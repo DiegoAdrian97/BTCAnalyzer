@@ -1136,11 +1136,103 @@
       ['R3', h + 2 * (p - l)], ['S3', l - 2 * (h - p)]];
   }
 
+  // ---------- conceptos ICT / SMC: order blocks, breakers, IFVG, barridas de liquidez y Power of Three ----------
+  /** Igual que ict() en indicadores.py (ver ahi la explicacion). Devuelve [zonas y eventos, estadistica]. */
+  function ict(bars, atr, tfMin = 60, horizon = 6, lookback = 1000, sigue = 400) {
+    const n = bars.length, o = col(bars, 1), h = col(bars, 2), l = col(bars, 3), c = col(bars, 4);
+    const start = Math.max(25, n - lookback), stats = {};
+    const medir = (tipo, k, sube) => {
+      if (k + horizon < n) {
+        const s = (stats[tipo] = stats[tipo] || [0, 0]); s[0] += 1;
+        if (sube ? c[k + horizon] > c[k] : c[k + horizon] < c[k]) s[1] += 1;
+      }
+    };
+    const zonas = [];
+    for (let k = start; k < n - 3; k++) {
+      const a = atr[k]; if (!a || a <= 0) continue;
+      if (c[k] < o[k] && Math.max(c[k + 1], c[k + 2], c[k + 3]) - h[k] >= 1.5 * a) zonas.push({ tipo: 'ob', sesgo: 'alcista', k, kd: k + 4, bajo: l[k], alto: h[k] });
+      else if (c[k] > o[k] && l[k] - Math.min(c[k + 1], c[k + 2], c[k + 3]) >= 1.5 * a) zonas.push({ tipo: 'ob', sesgo: 'bajista', k, kd: k + 4, bajo: l[k], alto: h[k] });
+    }
+    for (let k = start; k < n; k++) {
+      if (l[k] > h[k - 2]) zonas.push({ tipo: 'fvg', sesgo: 'alcista', k: k - 1, kd: k + 1, bajo: h[k - 2], alto: l[k] });
+      else if (h[k] < l[k - 2]) zonas.push({ tipo: 'fvg', sesgo: 'bajista', k: k - 1, kd: k + 1, bajo: h[k], alto: l[k - 2] });
+    }
+    const vivas = [];
+    zonas.forEach((z) => {
+      let estado = z.tipo, sesgo = z.sesgo, tocado = false, rompeK = null, viva = true;
+      const fin = Math.min(n, z.kd + sigue);
+      for (let j = z.kd; j < fin; j++) {
+        const rompe = sesgo === 'alcista' ? c[j] < z.bajo : c[j] > z.alto;
+        if (rompe) {
+          if (estado === 'ob' || estado === 'fvg') {
+            estado = estado === 'ob' ? 'breaker' : 'ifvg'; sesgo = sesgo === 'alcista' ? 'bajista' : 'alcista'; tocado = false; rompeK = j;
+            continue;
+          }
+          viva = false; break;
+        }
+        if (!tocado && l[j] <= z.alto && h[j] >= z.bajo) { tocado = true; if (estado !== 'fvg') medir(estado, j, sesgo === 'alcista'); }
+      }
+      if (viva && fin === n && estado !== 'fvg') vivas.push({ tipo: estado, sesgo, t: bars[z.k][0], t_rompe: rompeK !== null ? bars[rompeK][0] : null, bajo: z.bajo, alto: z.alto, tocado });
+    });
+    const px = c[n - 1], out = [];
+    ['ob', 'breaker', 'ifvg'].forEach((tipo) => {
+      const zs = vivas.filter((z) => z.tipo === tipo).map((z, i) => [z, i]).sort((a, b) => Math.abs((a[0].alto + a[0].bajo) / 2 - px) - Math.abs((b[0].alto + b[0].bajo) / 2 - px) || a[1] - b[1]).map((x) => x[0]);
+      out.push(...zs.slice(0, 3));
+    });
+    for (let k = start; k < n; k++) {
+      let hh = -Infinity, ll = Infinity; for (let j = k - 20; j < k; j++) { if (h[j] > hh) hh = h[j]; if (l[j] < ll) ll = l[j]; }
+      let ev = null;
+      if (h[k] > hh && c[k] < hh) ev = ['bajista', hh];
+      else if (l[k] < ll && c[k] > ll) ev = ['alcista', ll];
+      if (ev) {
+        medir('barrida', k, ev[0] === 'alcista');
+        if (k >= n - 5) out.push({ tipo: 'barrida', sesgo: ev[0], t: bars[k][0], t_rompe: null, bajo: ev[1], alto: ev[1], tocado: false });
+      }
+    }
+    if (tfMin <= 60) {
+      const dias = new Map();
+      for (let k = start; k < n; k++) { const d = Math.floor(bars[k][0] / 86400000); if (!dias.has(d)) dias.set(d, []); dias.get(d).push(k); }
+      const claves = [...dias.keys()].sort((a, b) => a - b), ult = claves.length ? claves[claves.length - 1] : null;
+      claves.forEach((d) => {
+        const ks = dias.get(d), d0 = d * 86400000, asia = ks.filter((k) => bars[k][0] < d0 + 8 * 3600000);
+        if (asia.length < 2 || bars[ks[0]][0] !== d0) return;
+        let ah = -Infinity, al = Infinity; asia.forEach((k) => { if (h[k] > ah) ah = h[k]; if (l[k] < al) al = l[k]; });
+        const ap_ = o[ks[0]];
+        let bajo = false, alto = false;
+        for (const k of ks) {
+          if (bars[k][0] < d0 + 8 * 3600000) continue;
+          bajo = bajo || l[k] < al; alto = alto || h[k] > ah;
+          const lado = bajo && !alto && c[k] > ap_ ? 'alcista' : alto && !bajo && c[k] < ap_ ? 'bajista' : null;
+          if (lado) {
+            medir('po3', k, lado === 'alcista');
+            if (d === ult) out.push({ tipo: 'po3', sesgo: lado, t: bars[k][0], t_rompe: null, bajo: al, alto: ah, tocado: false });
+            break;
+          }
+        }
+      });
+    }
+    return [out, stats];
+  }
+  /** El texto de cada concepto (igual que ict_descripcion en Python). */
+  function ictDescripcion(z, stats, horizon, plazoTxt) {
+    const s = stats[z.tipo] || [0, 0];
+    const medido = s[0] ? ` Medido en esta temporalidad: el precio fue para ese lado ${ar(Math.floor(s[1] * 100 / s[0] + 0.5))}% de ${s[0]} veces (${plazoTxt} después).` : '';
+    const al = z.sesgo === 'alcista', zona = `entre ${ap(z.bajo)} y ${ap(z.alto)}`;
+    let txt;
+    if (z.tipo === 'ob') txt = `${zona}: la última vela ${al ? 'bajista antes de una suba' : 'alcista antes de una baja'} fuerte. Si el precio vuelve ahí, suele ${al ? 'rebotar' : 'frenar y bajar'}${z.tocado ? ' (ya la tocó una vez)' : ''}.`;
+    else if (z.tipo === 'breaker') txt = `${zona}: era un order block ${al ? 'bajista' : 'alcista'} y el precio lo rompió; ahora suele hacer de ${al ? 'soporte' : 'resistencia'}.`;
+    else if (z.tipo === 'ifvg') txt = `${zona}: un hueco (FVG) que el precio atravesó con un cierre; ahora suele hacer de ${al ? 'soporte' : 'resistencia'}.`;
+    else if (z.tipo === 'barrida') txt = `la mecha pasó ${al ? 'el mínimo' : 'el máximo'} de las 20 velas anteriores (${ap(z.bajo)}) y cerró de vuelta adentro: barrió los stops y suele ir para ${al ? 'arriba' : 'abajo'}.`;
+    else txt = `barrió ${al ? 'el mínimo' : 'el máximo'} del rango de Asia (${ap(z.bajo)} a ${ap(z.alto)}) y volvió ${al ? 'arriba' : 'abajo'} de la apertura del día: manipulación y reingreso, suele seguir ${al ? 'subiendo' : 'bajando'}.`;
+    return txt + medido;
+  }
+  const ICT_NOMBRE = { ob: 'Order block', breaker: 'Breaker', ifvg: 'IFVG', barrida: 'Barrida de liquidez', po3: 'Power of Three' };
+
   const Ind = {
     ar, rnd, roundEven, sma, ema, rma, wma, hma, vwma, rsi, stoch, stochRsi, cci, williamsR, momentum, macd,
     awesome, bullBearPower, ultimate, dmi, atrW, mfi, cmf, obv, bollinger, keltner, psar, supertrend, ichimoku,
     vwapSession, calificar, ratingTxt, divergencia, fvg, zigzag, elliott, mapaLiquidaciones, patronesVelas,
-    estadisticaVelas, patronGrafico, figuraLineas, wyckoff, divergencias, pivotes,
+    estadisticaVelas, patronGrafico, figuraLineas, wyckoff, divergencias, pivotes, ict, ictDescripcion, ICT_NOMBRE,
   };
   root.Ind = Ind;
   if (typeof module !== 'undefined' && module.exports) module.exports = Ind;

@@ -1202,3 +1202,133 @@ def pivotes(prev_day):
     p = (h + l + c) / 3
     return {"P": p, "R1": 2 * p - l, "S1": 2 * p - h, "R2": p + (h - l), "S2": p - (h - l),
             "R3": h + 2 * (p - l), "S3": l - 2 * (h - p)}
+
+
+# ---------- conceptos ICT / SMC: order blocks, breakers, IFVG, barridas de liquidez y Power of Three ----------
+ICT_NOMBRE = {"ob": "Order block", "breaker": "Breaker", "ifvg": "IFVG", "barrida": "Barrida de liquidez", "po3": "Power of Three"}
+
+
+def ict(bars, atr, tf_min=60, horizon=6, lookback=1000, sigue=400):
+    """Order blocks, breakers, IFVG (FVG dados vuelta), barridas de liquidez y Power of Three, con cuantas veces
+    funciono cada tipo en esta misma historia: el cierre `horizon` velas despues quedo del lado esperado.
+    Devuelve (zonas vivas y eventos recientes, estadistica {tipo: [casos, aciertos]}). Igual que ict() en indicadores.js.
+
+      order block: la ultima vela en contra antes de un desplazamiento (el cierre se aleja 1,5 ATR de su extremo en 3
+                   velas). Si el precio cierra del otro lado de la zona, se da vuelta: breaker (y vale para el otro lado).
+      IFVG: un FVG que el precio atraveso con un cierre: queda como zona del lado contrario.
+      barrida: la mecha pasa el maximo (o minimo) de las 20 velas anteriores y la vela cierra de vuelta adentro.
+      Power of Three (hasta 1 h): despues de las 8 UTC el precio barrio un lado del rango de Asia (0-8 UTC) y cierra del
+                   otro lado de la apertura del dia (manipulacion y reingreso)."""
+    n = len(bars)
+    o, h, l, c = [b[1] for b in bars], [b[2] for b in bars], [b[3] for b in bars], [b[4] for b in bars]
+    start = max(25, n - lookback)
+    stats = {}
+
+    def medir(tipo, k, sube):
+        if k + horizon < n:
+            s = stats.setdefault(tipo, [0, 0])
+            s[0] += 1
+            if (c[k + horizon] > c[k]) if sube else (c[k + horizon] < c[k]):
+                s[1] += 1
+
+    zonas = []
+    for k in range(start, n - 3):
+        a = atr[k]
+        if not a or a <= 0:
+            continue
+        if c[k] < o[k] and max(c[k + 1:k + 4]) - h[k] >= 1.5 * a:
+            zonas.append({"tipo": "ob", "sesgo": "alcista", "k": k, "kd": k + 4, "bajo": l[k], "alto": h[k]})
+        elif c[k] > o[k] and l[k] - min(c[k + 1:k + 4]) >= 1.5 * a:
+            zonas.append({"tipo": "ob", "sesgo": "bajista", "k": k, "kd": k + 4, "bajo": l[k], "alto": h[k]})
+    for k in range(start, n):
+        if l[k] > h[k - 2]:
+            zonas.append({"tipo": "fvg", "sesgo": "alcista", "k": k - 1, "kd": k + 1, "bajo": h[k - 2], "alto": l[k]})
+        elif h[k] < l[k - 2]:
+            zonas.append({"tipo": "fvg", "sesgo": "bajista", "k": k - 1, "kd": k + 1, "bajo": h[k], "alto": l[k - 2]})
+    vivas = []
+    for z in zonas:
+        estado, sesgo, tocado, rompe_k, viva = z["tipo"], z["sesgo"], False, None, True
+        fin = min(n, z["kd"] + sigue)
+        for j in range(z["kd"], fin):
+            rompe = c[j] < z["bajo"] if sesgo == "alcista" else c[j] > z["alto"]
+            if rompe:
+                if estado in ("ob", "fvg"):
+                    estado = "breaker" if estado == "ob" else "ifvg"
+                    sesgo = "bajista" if sesgo == "alcista" else "alcista"
+                    tocado, rompe_k = False, j
+                    continue
+                viva = False
+                break
+            if not tocado and l[j] <= z["alto"] and h[j] >= z["bajo"]:
+                tocado = True
+                if estado != "fvg":
+                    medir(estado, j, sesgo == "alcista")
+        if viva and fin == n and estado != "fvg":
+            vivas.append({"tipo": estado, "sesgo": sesgo, "t": bars[z["k"]][0], "t_rompe": bars[rompe_k][0] if rompe_k is not None else None,
+                          "bajo": z["bajo"], "alto": z["alto"], "tocado": tocado})
+    px = c[-1]
+    out = []
+    for tipo in ("ob", "breaker", "ifvg"):
+        zs = sorted((z for z in vivas if z["tipo"] == tipo), key=lambda z: abs((z["alto"] + z["bajo"]) / 2 - px))
+        out += zs[:3]
+    # barridas de liquidez
+    for k in range(start, n):
+        hh, ll = max(h[k - 20:k]), min(l[k - 20:k])
+        ev = None
+        if h[k] > hh and c[k] < hh:
+            ev = ("bajista", hh)
+        elif l[k] < ll and c[k] > ll:
+            ev = ("alcista", ll)
+        if ev:
+            medir("barrida", k, ev[0] == "alcista")
+            if k >= n - 5:
+                out.append({"tipo": "barrida", "sesgo": ev[0], "t": bars[k][0], "t_rompe": None, "bajo": ev[1], "alto": ev[1], "tocado": False})
+    # Power of Three (hasta 1 h): por dia, la primera vela despues de las 8 UTC en que se cumple
+    if tf_min <= 60:
+        dias = {}
+        for k in range(start, n):
+            dias.setdefault(bars[k][0] // 86400000, []).append(k)
+        ult = max(dias) if dias else None
+        for d, ks in sorted(dias.items()):
+            d0 = d * 86400000
+            asia = [k for k in ks if bars[k][0] < d0 + 8 * 3600000]
+            if len(asia) < 2 or bars[ks[0]][0] != d0:
+                continue
+            ah, al, ap_ = max(h[k] for k in asia), min(l[k] for k in asia), o[ks[0]]
+            bajo_, alto_ = False, False
+            for k in ks:
+                if bars[k][0] < d0 + 8 * 3600000:
+                    continue
+                bajo_ = bajo_ or l[k] < al
+                alto_ = alto_ or h[k] > ah
+                lado = "alcista" if bajo_ and not alto_ and c[k] > ap_ else "bajista" if alto_ and not bajo_ and c[k] < ap_ else None
+                if lado:
+                    medir("po3", k, lado == "alcista")
+                    if d == ult:
+                        out.append({"tipo": "po3", "sesgo": lado, "t": bars[k][0], "t_rompe": None, "bajo": al, "alto": ah, "tocado": False})
+                    break
+    return out, stats
+
+
+def ict_descripcion(z, stats, horizon, plazo_txt):
+    """El texto de cada concepto (igual que ictDescripcion en JS)."""
+    s = stats.get(z["tipo"], [0, 0])
+    medido = (f" Medido en esta temporalidad: el precio fue para ese lado {_ar(int(s[1] * 100 / s[0] + 0.5))}% de {s[0]} veces ({plazo_txt} después)."
+              if s[0] else "")
+    al = z["sesgo"] == "alcista"
+    zona = f"entre {_ap(z['bajo'])} y {_ap(z['alto'])}"
+    if z["tipo"] == "ob":
+        txt = (f"{zona}: la última vela {'bajista antes de una suba' if al else 'alcista antes de una baja'} fuerte. "
+               f"Si el precio vuelve ahí, suele {'rebotar' if al else 'frenar y bajar'}{' (ya la tocó una vez)' if z['tocado'] else ''}.")
+    elif z["tipo"] == "breaker":
+        txt = (f"{zona}: era un order block {'bajista' if al else 'alcista'} y el precio lo rompió; ahora suele hacer de "
+               f"{'soporte' if al else 'resistencia'}.")
+    elif z["tipo"] == "ifvg":
+        txt = (f"{zona}: un hueco (FVG) que el precio atravesó con un cierre; ahora suele hacer de {'soporte' if al else 'resistencia'}.")
+    elif z["tipo"] == "barrida":
+        txt = (f"la mecha pasó {'el mínimo' if al else 'el máximo'} de las 20 velas anteriores ({_ap(z['bajo'])}) y cerró de vuelta adentro: "
+               f"barrió los stops y suele ir para {'arriba' if al else 'abajo'}.")
+    else:
+        txt = (f"barrió {'el mínimo' if al else 'el máximo'} del rango de Asia ({_ap(z['bajo'])} a {_ap(z['alto'])}) y volvió "
+               f"{'arriba' if al else 'abajo'} de la apertura del día: manipulación y reingreso, suele seguir {'subiendo' if al else 'bajando'}.")
+    return txt + medido

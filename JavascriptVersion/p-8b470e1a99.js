@@ -42,7 +42,7 @@
   const LINEA_K = 'ab-grafico-linea';
   const lineaGuardada = (() => { try { return localStorage.getItem(LINEA_K) === '1'; } catch (e) { return false; } })();
   const S = { linea: lineaGuardada, plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
-    layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, fib: true, liq: true, osc: true, plan: true, opc: true, abanico: true, flujo: window.innerWidth >= 600, vp: true }, log: false, medir: false, iman: false };
+    layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, fib: true, liq: true, osc: true, plan: true, opc: true, abanico: true, flujo: window.innerWidth >= 600, vp: true, ict: true }, log: false, medir: false, iman: false };
   const defBars = () => (window.innerWidth < 600 ? 50 : 90);  // en el telefono, menos para que se lean
   S.nbars = defBars();
   // en el celu arranca con lo esencial (velas, medias, patrones y liquidaciones); el resto se prende en "Capas"
@@ -2973,6 +2973,7 @@
       }
     }
     dibAbanico(ctx, w, h, S.tf);
+    if (L.ict) { ctx.save(); ctx.globalAlpha = dimA('ict'); dibIct(ctx, w, h, d.icts, X, Y, P, half, d.narrow); ctx.restore(); }
     if (L.vp) { ctx.save(); ctx.globalAlpha = dimA('vp'); dibPerfil(ctx, w, h, perfilVisible(G.chart, d.all), Y, P, d.narrow); ctx.restore(); }
   }
 
@@ -3672,6 +3673,7 @@
       figs: L.patrones ? pick(R, 'patron', tf).filter((p) => p.clase === 'grafico') : [],
       divs: Object.values(dvg),
       giros: L.ondas ? pick(R, 'giro', tf).map((r) => ({ t: num(r.t), p: num(r.precio), w: r.onda, alto: r.tipo === 'alto' })).filter((g) => byT.has(g.t)) : [],
+      icts: L.ict ? pick(R, 'ict', tf) : [],
     };
     // flechitas de patrones de velas (sin texto: el grafico es mas chico)
     s.marks.setMarkers(L.patrones ? pick(R, 'patron', tf).filter((p) => p.clase === 'vela' && byT.has(num(p.t))).map((p) => ({
@@ -3696,6 +3698,7 @@
         for (let i = c.bb.length - 1; i >= 0; i--) ctx.lineTo(xf(c.bb[i].t), yf(c.bb[i].l));
         ctx.closePath(); ctx.fillStyle = alpha(P.fg, 0.035); ctx.fill();
       }
+      if (S.layers.ict) dibIct(ctx, w, h, c.icts, xf, yf, P, half, true);
       if (S.layers.vp) dibPerfil(ctx, w, h, perfilVisible(s.ch, s.bars), yf, P, true);
       c.fvgs.forEach((z) => {
         const x0 = xf(z.t), yt = yf(z.hi), yb = yf(z.lo); if (x0 === null || yt === null || yb === null || x0 - half > w) return;
@@ -3957,6 +3960,43 @@
   }
 
   const VWAP_COL = '#d946ef';
+  // ---------- conceptos ICT en el grafico: zonas (order blocks, breakers, IFVG), barridas y Power of Three ----------
+  const ICT_CORTO = { ob: 'OB', breaker: 'Breaker', ifvg: 'IFVG', barrida: 'Barrida', po3: 'PO3' };
+  function dibIct(ctx, w, h, items, xf, yf, P, half, chico) {
+    if (!items || !items.length) return;
+    ctx.save();
+    items.forEach((z) => {
+      const col = z.sesgo === 'alcista' ? P.up : P.dn, lo = num(z.bajo), hi = num(z.alto);
+      const yt = yf(hi), yb = yf(lo); if (yt === null || yb === null) return;
+      const pc = z.exito !== null && z.exito !== undefined ? ` ${z.exito}%` : '';
+      if (z.tipo === 'barrida') {
+        const x = xf(num(z.t)); if (x === null || x > w) return;
+        ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]);
+        ctx.beginPath(); ctx.moveTo(Math.max(0, x - 40), yt); ctx.lineTo(Math.min(w, x + 12), yt); ctx.stroke(); ctx.setLineDash([]);
+        pillC(ctx, x, yt + (z.sesgo === 'alcista' ? 14 : -14), `${z.sesgo === 'alcista' ? '↑' : '↓'} Barrida${chico ? '' : pc}`, col, false, 'middle', w);
+        return;
+      }
+      if (z.tipo === 'po3') {
+        const x1 = xf(num(z.t)), x0 = xf(Math.floor(num(z.t) / 864e5) * 864e5);
+        if (x1 === null) return;
+        const xa = x0 === null ? 0 : Math.max(0, x0);
+        ctx.fillStyle = alpha(P.mute, 0.06); ctx.fillRect(xa, yt, x1 - xa, Math.max(2, yb - yt));
+        ctx.strokeStyle = alpha(P.mute, 0.5); ctx.lineWidth = 1; ctx.setLineDash([2, 3]); ctx.strokeRect(xa + 0.5, yt + 0.5, x1 - xa, Math.max(2, yb - yt)); ctx.setLineDash([]);
+        pillC(ctx, x1, z.sesgo === 'alcista' ? yb + 14 : yt - 14, `PO3 ${z.sesgo === 'alcista' ? '↑' : '↓'}${chico ? '' : pc}`, col, true, 'middle', w);
+        return;
+      }
+      const t0 = num(z.t_rompe !== null && z.t_rompe !== undefined ? z.t_rompe : z.t), x0 = xf(t0); if (x0 === null || x0 > w) return;
+      const xa = Math.max(0, x0 - half), alto = Math.max(2, yb - yt);
+      ctx.fillStyle = alpha(col, z.tipo === 'ob' ? 0.13 : 0.07); ctx.fillRect(xa, yt, w - xa, alto);
+      ctx.strokeStyle = alpha(col, 0.7); ctx.lineWidth = 1;
+      if (z.tipo === 'breaker') ctx.setLineDash([5, 4]); else if (z.tipo === 'ifvg') ctx.setLineDash([1.5, 3]);
+      ctx.beginPath(); ctx.moveTo(xa, yt + 0.5); ctx.lineTo(w, yt + 0.5); ctx.moveTo(xa, yt + alto - 0.5); ctx.lineTo(w, yt + alto - 0.5); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = alpha(col, 0.85); ctx.fillRect(xa, yt, 2, alto);
+      if (alto >= 9 || !chico) { ctx.font = `700 9.5px ${P.font}`; ctx.fillStyle = col; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(`${ICT_CORTO[z.tipo]}${chico ? '' : pc}`, xa + 5, yt + alto / 2); }
+    });
+    ctx.restore();
+  }
+
   function buildChart(box, P) {
     if (G.chart) { try { G.chart.remove(); } catch (e) { /* ya no estaba */ } }
     clearInterval(G.cdTimer);
@@ -5026,6 +5066,7 @@
     G.d = { all, lastIdx, t0: all[0].t, tfMs, lastT: lastA.t, lastC: lastA.c, firstT: all[0].t, endT: lastA.t + Math.max(futN, 1) * tfMs, price,
       nowCol: price >= all[all.length - 1].o ? P.up : P.dn, closeAt: all[all.length - 1].t + tfMs, live, futN, ghosts, cone, fvgs, giros, liq, byT,
       figs: L.patrones ? pick(rows, 'patron', tf).filter((p) => p.clase === 'grafico') : [], divs: Object.values(dvg),
+      icts: L.ict ? pick(rows, 'ict', tf) : [],
       bb: all.filter((b) => b.bu !== null).map((b) => ({ t: b.t, u: b.bu, l: b.bl })),
       pz: pzr ? { t: num(pzr.t_hasta), txt: `${S.plazo} · ${pzr.hora.slice(-5)} h` } : null,
       ondaCur: mk ? mk.elliott_curso : null, ondaObj: mk ? num(mk.elliott_objetivo) : null, lastOsc, narrow,
@@ -5186,6 +5227,8 @@
     if (L.fvg && fvgs.length) item('fvg', CC(alpha(P.up, 0.35)), 'Franjas verdes o rojas:', 'huecos (FVG) que el precio dejó sin operar; suele volver a llenarlos.');
     if (L.ema) item('ema', { background: `linear-gradient(90deg, ${P.c0} 50%, ${P.c1} 50%)` }, 'Líneas azul y naranja:', 'medias móviles EMA 20 y EMA 50.');
     if (L.ema && d.all.some((b) => b.e200 !== null && b.e200 !== undefined)) item('ema', { background: alpha(P.fg, 0.7) }, 'Línea gris gruesa:', 'media móvil EMA 200 (la tendencia de fondo de esta temporalidad; en la mensual no hay 200 velas para calcularla).');
+    if (L.ict) pick(rows, 'ict', tf).forEach((z, i) => item(`ict-${i}`, z.tipo === 'barrida' || z.tipo === 'po3' ? DD(colOf(z.sesgo)) : CC(alpha(colOf(z.sesgo), 0.5)),
+      `${z.nombre} ${z.sesgo}:`, z.descripcion));
     if (L.vp) {
       const pr = perfilVisible(G.chart, all), vw = all.length ? vwapSerie(all, TF_MIN[tf]).slice(-1)[0] : null, px = all.length ? all[all.length - 1].c : null;
       item('vp', CC(VWAP_COL), 'Línea fucsia y barras a la izquierda (VWAP y perfil de volumen):',
@@ -5207,16 +5250,17 @@
     // en las otras temporalidades: todas las figuras, divergencias y patrones de velas que encontro el analisis.
     // Tocar uno lleva el grafico a esa temporalidad (ahi se dibuja)
     const otros = [];
-    if (L.patrones) ['5m', '15m', '30m', '1h', '4h', '1d', '1w', '1M'].filter((t2) => t2 !== tf).forEach((t2) => {
-      const ps = pick(rows, 'patron', t2);
+    if (L.patrones || L.ict) ['5m', '15m', '30m', '1h', '4h', '1d', '1w', '1M'].filter((t2) => t2 !== tf).forEach((t2) => {
+      const ps = L.patrones ? pick(rows, 'patron', t2) : [];
       ps.filter((p) => p.clase === 'grafico').forEach((p) => otros.push([t2, p.estado === 'confirmado' ? CC(colOf(p.sesgo)) : DD(colOf(p.sesgo)),
         `${p.estado === 'confirmado' ? '✓' : 'Posible'} ${p.nombre.toLowerCase()}:`, p.descripcion]));
       const dv = {};
-      pick(rows, 'divergencia', t2).forEach((v) => { const k = `${v.t1}-${v.t2}-${v.tipo}`; (dv[k] = dv[k] || { tipo: v.tipo, names: [], p1: num(v.p1), p2: num(v.p2) }).names.push(v.indicador); });
+      (L.patrones ? pick(rows, 'divergencia', t2) : []).forEach((v) => { const k = `${v.t1}-${v.t2}-${v.tipo}`; (dv[k] = dv[k] || { tipo: v.tipo, names: [], p1: num(v.p1), p2: num(v.p2) }).names.push(v.indicador); });
       Object.values(dv).forEach((v) => otros.push([t2, CC(v.tipo === 'alcista' ? P.up : P.dn), `Divergencia ${v.tipo} (${v.names.join(' + ')}):`,
         v.tipo === 'bajista' ? `el precio hizo un máximo más alto (${fp(v.p1)} → ${fp(v.p2)}) pero ${v.names.join(' y ')} no acompañó: la suba pierde fuerza.`
           : `el precio hizo un mínimo más bajo (${fp(v.p1)} → ${fp(v.p2)}) pero ${v.names.join(' y ')} no acompañó: la baja pierde fuerza.`]));
       ps.filter((p) => p.clase === 'vela').forEach((p) => otros.push([t2, CC(colOf(p.sesgo)), `Flechita · ${p.nombre}:`, p.descripcion]));
+      if (L.ict) pick(rows, 'ict', t2).forEach((z) => otros.push([t2, CC(alpha(colOf(z.sesgo), 0.5)), `${z.nombre} ${z.sesgo}:`, z.descripcion]));
     });
     if (otros.length) {
       leg.append(el('p', 'ab-ex-sub', 'En otras temporalidades (tocá para verlo en el gráfico)'));

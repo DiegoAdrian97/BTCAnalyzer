@@ -1104,6 +1104,7 @@ def analisis_largo(d1, tf, price, ultima_en_curso=False):
         rows.append({"tabla": "giro", "tf": tf, "t": bars[k][0], "precio": rp(p), "tipo": kind,
                      "onda": wave_labels[n - offset] if n >= offset else "", "en_curso": n == len(tail) - 1})
     rows += [{"tabla": "fvg", "tf": tf, "tipo": z["tipo"], "t": z["t"], "bajo": rp(z["bajo"]), "alto": rp(z["alto"])} for z in ind.fvg(bars)]
+    rows += ict_filas(tf, bars, tf_min)
     rows += patterns(tf, bars, pivots, e20, 3, tf_min, partial)
     rows += [{"tabla": "divergencia", "tf": tf, **d, "p1": rp(d["p1"]), "p2": rp(d["p2"])} for d in ind.divergencias(bars, pivots)]
     for k in range(max(0, i - CHART_BARS + 1), i + 1):
@@ -1115,6 +1116,23 @@ def analisis_largo(d1, tf, price, ultima_en_curso=False):
                      "macd": round(ml[k], dec_precio(price) + 1), "macd_senal": round(ms[k], dec_precio(price) + 1),
                      "macd_hist": round(mh[k], dec_precio(price) + 1)})
     return rows
+
+
+ICT_HORIZONTE = 6
+
+
+def ict_filas(tf, bars, tf_min):
+    """Order blocks, breakers, IFVG, barridas y Power of Three de esta temporalidad, con lo medido (igual que ictFilas en JS)."""
+    h, l, c = [b[2] for b in bars], [b[3] for b in bars], [b[4] for b in bars]
+    zs, st = ind.ict(bars, ind.atr_w(h, l, c), tf_min, ICT_HORIZONTE)
+    plazo = label(ICT_HORIZONTE * tf_min)
+    out = []
+    for z in zs:
+        n, ok = st.get(z["tipo"], [0, 0])
+        out.append({"tabla": "ict", "tf": tf, "tipo": z["tipo"], "nombre": ind.ICT_NOMBRE[z["tipo"]], "sesgo": z["sesgo"], "t": z["t"],
+                    "t_rompe": z["t_rompe"], "bajo": rp(z["bajo"]), "alto": rp(z["alto"]), "casos": n, "exito": int(ok * 100 / n + 0.5) if n else None,
+                    "plazo": plazo, "descripcion": ind.ict_descripcion(z, st, ICT_HORIZONTE, plazo)})
+    return out
 
 
 def patterns(tf, bars, pivots, e20, horizon, tf_min, partial=False):
@@ -1689,6 +1707,7 @@ def analyze():
                          "onda": wave_labels[n - offset] if n >= offset else "", "en_curso": n == len(tail) - 1})
         rows += [{"tabla": "fvg", "tf": tf, "tipo": z["tipo"], "t": z["t"], "bajo": rp(z["bajo"]),
                   "alto": rp(z["alto"])} for z in ind.fvg(bars)]
+        rows += ict_filas(tf, bars, tf_min)
         rows += patterns(tf, bars, pivots, e20, horizons[0], tf_min, partial)
         rows += [{"tabla": "divergencia", "tf": tf, **d, "p1": rp(d["p1"]), "p2": rp(d["p2"])}
                  for d in ind.divergencias(bars, pivots)]

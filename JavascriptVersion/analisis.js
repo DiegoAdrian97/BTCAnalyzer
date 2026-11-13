@@ -978,6 +978,7 @@
     const tail = pivots.slice(-10), offset = tail.length - waveLabels.length;
     tail.forEach(([kind, k, p], n) => rows.push({ tabla: 'giro', tf, t: bars[k][0], precio: rp(p), tipo: kind, onda: n >= offset ? waveLabels[n - offset] : '', en_curso: n === tail.length - 1 }));
     Ind.fvg(bars).forEach((z) => rows.push({ tabla: 'fvg', tf, tipo: z.tipo, t: z.t, bajo: rp(z.bajo), alto: rp(z.alto) }));
+    ictFilas(tf, bars, tfMin).forEach((r) => rows.push(r));
     patterns(tf, bars, pivots, e20, 3, tfMin, partial).forEach((r) => rows.push(r));
     Ind.divergencias(bars, pivots).forEach((d) => rows.push({ tabla: 'divergencia', tf, ...d, p1: rp(d.p1), p2: rp(d.p2) }));
     for (let k = Math.max(0, i - CHART_BARS + 1); k <= i; k++) {
@@ -987,6 +988,17 @@
         rsi: rnd(rsi[k], 1), macd: rnd(ml[k], decPrecio(price) + 1), macd_senal: rnd(ms[k], decPrecio(price) + 1), macd_hist: rnd(mh[k], decPrecio(price) + 1) });
     }
     return rows;
+  }
+  const ICT_HORIZONTE = 6;
+  /** Order blocks, breakers, IFVG, barridas y Power of Three de esta temporalidad, con lo medido (igual que ict_filas en Python). */
+  function ictFilas(tf, bars, tfMin) {
+    const [zs, st] = Ind.ict(bars, Ind.atrW(bars.map((b) => b[2]), bars.map((b) => b[3]), bars.map((b) => b[4])), tfMin, ICT_HORIZONTE);
+    const plazo = label(ICT_HORIZONTE * tfMin);
+    return zs.map((z) => {
+      const [n, ok] = st[z.tipo] || [0, 0];
+      return { tabla: 'ict', tf, tipo: z.tipo, nombre: Ind.ICT_NOMBRE[z.tipo], sesgo: z.sesgo, t: z.t, t_rompe: z.t_rompe, bajo: rp(z.bajo), alto: rp(z.alto),
+        casos: n, exito: n ? Math.floor(ok * 100 / n + 0.5) : null, plazo, descripcion: Ind.ictDescripcion(z, st, ICT_HORIZONTE, plazo) };
+    });
   }
   function patterns(tf, bars, pivots, e20, horizon, tfMin, partial) {
     const o = bars.map((b) => b[1]), h = bars.map((b) => b[2]), l = bars.map((b) => b[3]), c = bars.map((b) => b[4]);
@@ -1261,6 +1273,7 @@
       tail.forEach(([kind, k, p], n) => rows.push({ tabla: 'giro', tf, t: bars[k][0], precio: rp(p), tipo: kind,
         onda: n >= offset ? waveLabels[n - offset] : '', en_curso: n === tail.length - 1 }));
       Ind.fvg(bars).forEach((z) => rows.push({ tabla: 'fvg', tf, tipo: z.tipo, t: z.t, bajo: rp(z.bajo), alto: rp(z.alto) }));
+      ictFilas(tf, bars, tfMin).forEach((r) => rows.push(r));
       patterns(tf, bars, pivots, e20, horizons[0], tfMin, partial).forEach((r) => rows.push(r));
       Ind.divergencias(bars, pivots).forEach((d) => rows.push({ tabla: 'divergencia', tf, ...d, p1: rp(d.p1), p2: rp(d.p2) }));
 
@@ -1417,7 +1430,7 @@
     return { rows, log };
   }
 
-  const Analisis = { piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, DIAS_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, fibTramo, compresion, perfilHoras, central, liqReales, calificarUltimas };
+  const Analisis = { ictFilas, piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, DIAS_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, fibTramo, compresion, perfilHoras, central, liqReales, calificarUltimas };
   root.Analisis = Analisis;
   if (typeof module !== 'undefined' && module.exports) module.exports = Analisis;
 })(typeof self !== 'undefined' ? self : globalThis);
