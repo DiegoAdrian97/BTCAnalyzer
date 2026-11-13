@@ -5762,7 +5762,7 @@
   const OKX_CT = { BTC: 0.01, ETH: 0.1, SOL: 1, XRP: 100 };
   const CRIPTO_SPOT = new Set(['BTC', 'ETH', 'SOL', 'XRP', 'ZEC']);
   const TR = { abierto: false, gen: 0, mon: null, socks: [], ping: 0, on: new Set(), grupos: [], abiertos: {}, libros: {}, hits: [], niv: [], pend: 0, ult: null,
-    seg: new Map(), ventana: 60, pop: null };
+    seg: new Map(), min1: new Map(), ventana: 60, pop: null };
   try { const v = +localStorage.getItem('ab-tape-ventana'); if ([30, 60, 300, 600].includes(v)) TR.ventana = v; } catch (e) { /* sin almacenamiento */ }
   window.abTR = TR;                                       // para las pruebas
   const TR_MIN = [10000, 25000, 50000, 100000, 250000, 500000, 1000000];
@@ -5784,7 +5784,7 @@
     if (TR.socks.length && TR.mon === MON()) return;
     trCerrar();
     const gen = TR.gen, mon = MON(), sym = `${mon}USDT`, s = sym.toLowerCase();
-    if (TR.mon !== mon) { TR.mon = mon; TR.grupos = []; TR.abiertos = {}; TR.libros = {}; TR.ult = null; TR.seg = new Map(); }
+    if (TR.mon !== mon) { TR.mon = mon; TR.grupos = []; TR.abiertos = {}; TR.libros = {}; TR.ult = null; TR.seg = new Map(); TR.min1 = new Map(); }
     const con = (k, url, alAbrir, alMsg) => {
       if (gen !== TR.gen) return;
       let w; try { w = new WebSocket(url); } catch (e) { return; }
@@ -5828,6 +5828,10 @@
     // todo el dinero (tambien lo chico), por segundo y por lado: para "compras contra ventas" de los ultimos minutos
     const sg = Math.floor(Date.now() / 1000), cu = TR.seg.get(sg) || [0, 0];
     cu[lado > 0 ? 0 : 1] += usd; TR.seg.set(sg, cu);
+    // por minuto (hora del exchange) y por exchange: lo que entro en cada vela, para el detalle al pasar por ella
+    const mi = Math.floor(t / 60000), mm = TR.min1.get(mi) || { c: {}, v: {}, n: 0 }, ld = lado > 0 ? mm.c : mm.v;
+    ld[k] = (ld[k] || 0) + usd; mm.n += 1; TR.min1.set(mi, mm);
+    if (TR.min1.size > 1500) { const lim = mi - 1450; TR.min1.forEach((_, x) => { if (x < lim) TR.min1.delete(x); }); }
     if (TR.seg.size > 700) { const lim = sg - 650; TR.seg.forEach((_, x) => { if (x < lim) TR.seg.delete(x); }); }
     let g = TR.abiertos[lado];
     if (!g || ahora - g.ult > 150) {
@@ -5926,14 +5930,6 @@
     });
     return lista;
   };
-  function trDetalle(g, r, modo = 'toque') {
-    trTarjeta(g, r, modo, () => {
-      const compra = g.lado > 0, por = Object.fromEntries(Object.entries(g.partes).map(([k, v]) => [k, v.usd])), nex = Object.keys(por).length;
-      const top = el('div', `ab-trpop-h ${compra ? 'c' : 'v'}`); top.append(el('span', '', compra ? '▲ Compra a mercado' : '▼ Venta a mercado'), el('time', '', hms(g.t)));
-      const big = el('div', 'ab-trpop-u'); big.append(el('b', '', `${usdK(g.usd)} USD`), el('span', '', ` a ${fp(g.p)}${g.pmax - g.pmin > 0 ? ` (de ${fp(g.pmin)} a ${fp(g.pmax)})` : ''}`));
-      return [top, big, filasPor(por, g.usd), el('p', 'ab-trpop-pie', `${g.n} ${g.n === 1 ? 'operación' : 'operaciones'} en ${nex} ${nex === 1 ? 'exchange' : 'exchanges'}, en ${Math.max(1, g.t1 - g.t)} ms. ${Object.keys(por).some((k) => VX[k].k === 'spot') ? 'Spot es compra real (sin apalancamiento); perpetuo, con apalancamiento.' : 'Todo en perpetuos (con apalancamiento).'}`)];
-    });
-  }
   function trNivelDetalle(n, r, modo) {
     trTarjeta(n, r, modo, () => {
       const top = el('div', `ab-trpop-h ${n.lado === 'b' ? 'c' : 'v'}`);
@@ -5941,6 +5937,44 @@
       const big = el('div', 'ab-trpop-u'); big.append(el('b', '', `${usdK(n.usd)} USD`), el('span', '', ` en ${fp(n.p)}`));
       return [top, big, filasPor(n.por, n.usd), el('p', 'ab-trpop-pie', n.lado === 'b' ? 'Órdenes de compra que esperan en ese precio: si se mantienen, suelen frenar una baja. Se pueden retirar en un segundo.' : 'Órdenes de venta que esperan en ese precio: si se mantienen, suelen frenar una suba. Se pueden retirar en un segundo.')];
     });
+  }
+  // lo que entro en una vela mientras estaba en vivo: compras y ventas a mercado por exchange y las ordenes grandes
+  function trVela(b, r, modo) {
+    const t0 = b.t, t1 = b.t + G.d.tfMs, c = {}, v = {}; let n = 0;
+    TR.min1.forEach((m, mi) => { const t = mi * 60000; if (t < t0 || t >= t1) return; n += m.n;
+      Object.entries(m.c).forEach(([k, x]) => { c[k] = (c[k] || 0) + x; }); Object.entries(m.v).forEach(([k, x]) => { v[k] = (v[k] || 0) + x; }); });
+    if (!n) return false;
+    const sc = Object.values(c).reduce((a, x) => a + x, 0), sv = Object.values(v).reduce((a, x) => a + x, 0), ne = sc - sv;
+    const grandes = TR.grupos.filter((g) => g.t >= t0 && g.t < t1).sort((a, x) => x.usd - a.usd).slice(0, 5);
+    const desde = Math.max(t0, Math.min(...[...TR.min1.keys()].map((x) => x * 60000)));
+    trTarjeta(b, r, modo, () => {
+      const top = el('div', `ab-trpop-h ${ne >= 0 ? 'c' : 'v'}`);
+      top.append(el('span', '', `Vela de las ${horaAR(t0)}`), el('time', '', desde > t0 ? `en vivo desde ${horaAR(desde)}` : 'completa'));
+      const big = el('div', 'ab-trpop-cv');
+      const lado = (cl, tit, x) => { const d = el('div', cl); d.append(el('small', '', tit), el('b', '', `${usdK(x)}`)); return d; };
+      big.append(lado('c', 'Compras a mercado', sc), lado('n', 'Neto', 0), lado('v', 'Ventas a mercado', sv));
+      big.querySelector('.n b').textContent = `${ne >= 0 ? '+' : '−'}${usdK(Math.abs(ne))}`;
+      const bar = el('div', 'ab-vivo-presbar'); const bi = el('i'); bi.style.width = `${sc + sv ? (sc / (sc + sv)) * 100 : 50}%`; bar.append(bi);
+      const out = [top, big, bar];
+      const por = el('div', 'ab-trpop-ex');
+      [...new Set([...Object.keys(c), ...Object.keys(v)])].sort((a, x) => ((c[x] || 0) + (v[x] || 0)) - ((c[a] || 0) + (v[a] || 0))).forEach((k) => {
+        const f = el('div', 'ab-trpop-exf'), nm = el('span', 'n'); const dot = el('i'); dot.style.background = VX[k].c;
+        nm.append(dot, el('b', '', VX[k].n), el('small', '', VX[k].k));
+        f.append(nm, el('span', 'c', usdK(c[k] || 0)), el('span', 'v', usdK(v[k] || 0)));
+        por.append(f);
+      });
+      const hp = el('div', 'ab-trpop-exf ab-trpop-exh'); hp.append(el('span', '', 'Exchange'), el('span', 'c', 'Compras'), el('span', 'v', 'Ventas')); por.prepend(hp);
+      out.push(por);
+      if (grandes.length) {
+        const gl = el('div', 'ab-trpop-gr'); gl.append(el('small', '', `Órdenes grandes (≥ ${usdK(trMin())})`));
+        grandes.forEach((g) => { const f = el('div', g.lado > 0 ? 'c' : 'v');
+          const ex = el('span', 'ex'); Object.entries(g.partes).sort((a, x) => x[1].usd - a[1].usd).forEach(([k, x]) => { const i = el('i'); i.style.background = VX[k].c; i.style.flexGrow = String(x.usd); i.title = `${VX[k].n} ${VX[k].k}: ${usdK(x.usd)}`; ex.append(i); });
+          f.append(el('time', '', hms(g.t)), el('b', '', `${g.lado > 0 ? '▲' : '▼'} ${usdK(g.usd)}`), el('span', 'p', fp(g.p)), ex); gl.append(f); });
+        out.push(gl);
+      }
+      return out;
+    });
+    return true;
   }
   const trPopCerrar = () => { clearTimeout(TR.popT); trPop.hidden = true; trPop.classList.remove('is-in'); TR.pop = null; };
   const trPopSoltar = () => { clearTimeout(TR.popT); TR.popT = setTimeout(() => { if (TR.pop && TR.pop.modo === 'hover') trPopCerrar(); }, 140); };
@@ -5982,37 +6016,29 @@
         });
       }
     }
-    // burbujas: dentro de la vela, a su hora (con logicos fraccionarios despues de la ultima vela el grafico da 0)
-    const xT = (t) => { const k = Math.floor((t - t0) / ms), a = X(t0 + k * ms), b = X(t0 + (k + 1) * ms); return a === null || b === null ? null : a + (b - a) * ((t - t0) / ms - k) - (b - a) / 2; };
-    TR.grupos.forEach((g) => {
-      if (g.t < t0) return;
-      const x = xT(g.t), y = Y(g.p); if (x === null || y === null || x < -30 || x > w + 30 || y < -30 || y > h + 30) return;
-      const r = Math.min(26, 3 + 2.4 * Math.sqrt(g.usd / min)), col = g.lado > 0 ? P.up : P.dn;
-      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fillStyle = alpha(col, g.usd >= min * 10 ? 0.45 : 0.28); ctx.fill();
-      ctx.lineWidth = 1; ctx.strokeStyle = alpha(col, 0.9); ctx.stroke();
-      if (r >= 13) { ctx.fillStyle = P.fg; ctx.font = `600 10px ${P.font}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(usdC2(g.usd), x, y); ctx.textAlign = 'start'; }
-      TR.hits.push({ x, y, r: Math.max(r, 8), g });
-    });
     ctx.restore();
   }
-  // mouse encima (o un toque) de una burbuja o de un escalon del libro: su detalle
+  // mouse encima (o un toque) de una vela o de un escalon del libro: su detalle
   (function () {
     const box = document.getElementById('chart'); let dn = null;
     const pegar = (e) => {
       if (!TR.abierto) return null;
       const rc = box.getBoundingClientRect(), x = e.clientX - rc.left, y = e.clientY - rc.top;
-      const b = TR.hits.filter((q) => Math.hypot(q.x - x, q.y - y) <= q.r + 3).sort((a, c) => c.g.usd - a.g.usd)[0];
-      if (b) return ['g', b.g, { left: rc.left + b.x - b.r, top: rc.top + b.y - b.r, width: b.r * 2, height: b.r * 2, bottom: rc.top + b.y + b.r }];
       const n = TR.niv.find((q) => y >= q.y0 && y <= q.y1 && x >= q.x0);
       if (n) return ['n', n.n, { left: rc.left + n.x0, top: rc.top + n.y0, width: rc.width - n.x0, height: n.y1 - n.y0, bottom: rc.top + n.y1 }];
-      return null;
+      // la vela debajo del mouse (entre su minimo y su maximo, con un margen)
+      if (!G.d || !G.chart) return null;
+      const lg = G.chart.timeScale().coordinateToLogical(x); if (lg === null) return null;
+      const b = G.d.all[Math.round(lg)]; if (!b) return null;
+      const yh = Y(b.h), yl = Y(b.l), xc = X(b.t); if (yh === null || yl === null || xc === null || y < yh - 6 || y > yl + 6) return null;
+      const half = Math.max(3, (X(b.t + G.d.tfMs) - xc) / 2);
+      return ['v', b, { left: rc.left + xc - half, top: rc.top + yh, width: half * 2, height: Math.max(4, yl - yh), bottom: rc.top + yl }];
     };
-    const abrir = (hit, modo) => (hit[0] === 'g' ? trDetalle(hit[1], hit[2], modo) : trNivelDetalle(hit[1], hit[2], modo));
+    const abrir = (hit, modo) => (hit[0] === 'v' ? trVela(hit[1], hit[2], modo) : trNivelDetalle(hit[1], hit[2], modo));
     box.addEventListener('pointermove', (e) => {
       if (e.pointerType !== 'mouse' || e.buttons || (window.abDib && window.abDib.modo)) return;
       const hit = pegar(e);
-      if (hit) { box.style.cursor = 'pointer'; abrir(hit, 'hover'); } else { if (box.style.cursor === 'pointer') box.style.cursor = ''; if (TR.pop && TR.pop.modo === 'hover') trPopSoltar(); }
+      if (hit && abrir(hit, 'hover') !== false) { box.style.cursor = hit[0] === 'n' ? 'pointer' : ''; } else { if (box.style.cursor === 'pointer') box.style.cursor = ''; if (TR.pop && TR.pop.modo === 'hover') trPopSoltar(); }
     });
     box.addEventListener('pointerleave', () => { if (TR.pop && TR.pop.modo === 'hover') trPopSoltar(); });
     box.addEventListener('pointerdown', (e) => { dn = { x: e.clientX, y: e.clientY, t: Date.now() }; }, true);
@@ -6020,7 +6046,7 @@
       if (!dn || (window.abDib && window.abDib.modo)) return;
       if (Math.hypot(e.clientX - dn.x, e.clientY - dn.y) > 6 || Date.now() - dn.t > 500) return;
       const hit = pegar(e);
-      if (hit) { e.stopPropagation(); abrir(hit, 'toque'); } else if (!trPop.hidden) trPopCerrar();
+      if (hit && abrir(hit, 'toque') !== false) e.stopPropagation(); else if (!trPop.hidden) trPopCerrar();
     }, true);
   })();
 
@@ -6048,7 +6074,7 @@
       TR.ventana = +b.dataset.s; try { localStorage.setItem('ab-tape-ventana', String(TR.ventana)); } catch (e) { /* idem */ } trFlujo();
     }));
     const sel = document.getElementById('vivo-min');
-    const llenar = () => { sel.replaceChildren(...TR_MIN.map((v) => { const o = el('option', '', `burbujas ≥ ${usdC2(v)}`); o.value = v; o.selected = v === trMin(); return o; })); };
+    const llenar = () => { sel.replaceChildren(...TR_MIN.map((v) => { const o = el('option', '', `grandes ≥ ${usdC2(v)}`); o.value = v; o.selected = v === trMin(); return o; })); };
     sel.addEventListener('change', () => { try { localStorage.setItem(`ab-tape-min:${MON()}`, sel.value); } catch (e) { /* idem */ } TR.grupos = TR.grupos.filter((g) => g.usd >= +sel.value); if (G.tr) G.tr.update(); });
     llenar();
     let on0 = false; try { on0 = localStorage.getItem('ab-vivo') === '1'; } catch (e) { /* idem */ }
@@ -6221,8 +6247,8 @@
     [/^(Pivote|Pivotes)/, 'app', 'Pivotes', 'Niveles clásicos que salen del máximo, mínimo y cierre del día anterior (P, R1–R3 arriba, S1–S3 abajo).', null, null, 'Muchos traders los miran, por eso a veces frenan al precio.'],
     [/^(Mínimo|Máximo) (24 h|7 días|30 días)/, 'app', 'Mínimos y máximos recientes', 'El precio más bajo y más alto de ese período. Suelen hacer de soporte y resistencia, y debajo y arriba suele haber stops.'],
     [/^(Precio más probable)/, 'app', 'Precio más probable', 'El precio del medio de lo que pasó en los casos parecidos a esa hora: la mitad terminó arriba y la mitad abajo.'],
-    [/^(En vivo: libro y trades|Trades en vivo|Libro y trades)/, 'volu', 'En vivo: libro y trades', 'Todo dentro del gráfico. A la derecha, el libro de órdenes sumado de Binance, Bybit y OKX a la altura de cada precio (los muros, marcados). En las velas, burbujas con las órdenes grandes a mercado que van entrando: más grande, más plata. Arriba, el dinero que entró comprando y vendiendo.',
-      'Burbujas verdes y barras verdes: compras (las que entran y las que esperan).', 'Burbujas rojas y barras rojas: ventas.', 'Pasá el mouse (o tocá) una burbuja o una barra del libro para ver cuánto puso cada exchange.'],
+    [/^(En vivo: libro y trades|Trades en vivo|Libro y trades)/, 'volu', 'En vivo: libro y trades', 'Todo dentro del gráfico. A la derecha, el libro de órdenes sumado de Binance, Bybit y OKX a la altura de cada precio (los muros, marcados). Arriba, el dinero que entró comprando y vendiendo a mercado. Pasando el mouse (o tocando) una vela, lo que entró en ella por exchange y sus órdenes grandes.',
+      'Barras verdes: compras esperando en el libro.', 'Barras rojas: ventas esperando.', 'Lo de cada vela se junta mientras el modo en vivo está prendido: las velas de antes no tienen ese detalle.'],
     [/^(Compras [\d—]|[\d—].* Ventas$)/, 'volu', 'Dinero a mercado', 'Todo lo que se compró y se vendió a mercado (el apurado, que acepta el precio que hay) en el tiempo elegido, sumando Binance, Bybit, OKX y Coinbase. Cuenta también las órdenes chicas.',
       'Más compras que ventas (neto positivo): presión compradora.', 'Más ventas que compras: presión vendedora.', 'Si el precio no sube aunque entren muchas compras, alguien grande está vendiendo en el libro (absorción).'],
     // ----- calendario economico -----
