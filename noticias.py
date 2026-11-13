@@ -553,19 +553,34 @@ NOMBRES = [
     ("Core Inflation Rate MoM", "Inflación núcleo (IPC) mensual"),
     ("Inflation Rate YoY", "Inflación (IPC) anual"),
     ("Inflation Rate MoM", "Inflación (IPC) mensual"),
+    ("Core PCE Price Index MoM", "Inflación PCE núcleo mensual"),
+    ("Core PCE Price Index YoY", "Inflación PCE núcleo anual"),
+    ("PCE Price Index MoM", "Inflación PCE mensual"),
+    ("PCE Price Index YoY", "Inflación PCE anual"),
     ("Core PCE Price Index", "Inflación PCE núcleo"),
     ("PCE Price Index", "Inflación PCE"),
+    ("Core PPI MoM", "Precios mayoristas núcleo (PPI) mensual"),
+    ("Core PPI YoY", "Precios mayoristas núcleo (PPI) anual"),
+    ("PPI MoM", "Precios mayoristas (PPI) mensual"),
+    ("PPI YoY", "Precios mayoristas (PPI) anual"),
     ("PPI", "Precios mayoristas (PPI)"),
     ("Fed Interest Rate Decision", "Decisión de tasas de la Fed"),
     ("Fed Press Conference", "Conferencia de prensa de la Fed"),
     ("FOMC Minutes", "Minutas de la Fed"),
     ("Powell", "Habla Powell (Fed)"),
+    ("Fed Chair", "Habla el presidente de la Fed"),
+    ("Retail Sales Ex Autos", "Ventas minoristas sin autos"),
     ("Retail Sales", "Ventas minoristas"),
     ("GDP", "PIB"),
     ("ISM Manufacturing", "ISM manufacturero"),
     ("ISM Services", "ISM de servicios"),
     ("JOLTs", "Vacantes laborales (JOLTS)"),
+    ("Michigan 5 Year Inflation Expectations", "Expectativa de inflación a 5 años (Michigan)"),
+    ("Michigan Inflation Expectations", "Expectativa de inflación (Michigan)"),
     ("Michigan", "Confianza del consumidor (Michigan)"),
+    ("Average Hourly Earnings", "Salario por hora"),
+    ("CB Consumer Confidence", "Confianza del consumidor (Conference Board)"),
+    ("Philadelphia Fed", "Industria de Filadelfia (Fed)"),
     ("Durable Goods", "Pedidos de bienes durables"),
     ("Personal Income", "Ingresos personales"),
     ("Personal Spending", "Gasto personal"),
@@ -618,15 +633,20 @@ def efecto(titulo, actual, previsto, anterior):
     return "positivo" if d * s > 0 else "negativo"
 
 
-# Los datos que Investing marca con 3 estrellas aunque TradingView los ponga en importancia media (el IPP, los
-# subsidios por desempleo, Michigan...): entran igual. Igual que CLAVES_ALTA en api/contexto.js
-CLAVES_ALTA = re.compile(r"\b(cpi|inflation rate|ppi|pce|non farm|nonfarm|unemployment rate|adp|jolts|jobless claims|average hourly|"
-                         r"retail sales|gdp|ism (manufacturing|services|non-manufacturing)|interest rate decision|fomc|fed chair|powell|"
-                         r"michigan|consumer confidence|durable goods)\b", re.I)
+# Lo que se muestra en el calendario: los datos que Investing marca con 3 estrellas en EE.UU., por nombre exacto y con
+# cualquier importancia de TradingView (ahi el IPC anual o los subsidios por desempleo vienen como baja, y las viviendas
+# como alta). Igual que INVESTING_ALTA en api/contexto.js
+INVESTING_ALTA = re.compile(
+    r"non farm payrolls|unemployment rate|average hourly earnings mom|adp employment change|jolts job openings|"
+    r"initial jobless claims|(core )?inflation rate (mom|yoy)|(core )?ppi mom|core pce price index (mom|yoy)|pce price index yoy|"
+    r"retail sales (mom|ex autos mom)|gdp growth rate qoq( adv| 2nd est| 3rd est| final)?|ism (manufacturing|services) pmi|"
+    r"fed interest rate decision|fomc minutes|fed press conference|fed chair .+|.*powell.*|cb consumer confidence|"
+    r"michigan consumer sentiment( prel| final)?|michigan inflation expectations( prel| final)?|durable goods orders mom|"
+    r"philadelphia fed manufacturing index", re.I)
 
 
 def es_alta(e):
-    return e.get("importance") == 1 or (e.get("importance") == 0 and bool(CLAVES_ALTA.search(e.get("title") or "")))
+    return bool(INVESTING_ALTA.fullmatch((e.get("title") or "").strip()))
 
 
 def parse_calendario(txt, now_ms=None):
@@ -635,15 +655,17 @@ def parse_calendario(txt, now_ms=None):
     efecto del dato)."""
     out, cal = [], []
     for e in json.loads(txt).get("result", []):
-        if not es_alta(e) or not e.get("date"):
+        alta, al_analisis = es_alta(e), e.get("importance") == 1
+        if not (alta or al_analisis) or not e.get("date"):
             continue
         t = int(datetime.fromisoformat(e["date"].replace("Z", "+00:00")).timestamp() * 1000)
         tit, act, prv, ant = e.get("title") or "", e.get("actual"), e.get("forecast"), e.get("previous")
         if e.get("importance") == 1 and (now_ms is None or t >= now_ms - 86400000):   # al analisis: lo de siempre (lo medido)
             out.append({"tabla": "evento", "t": t, "titulo": nombre_es(tit), "original": tit[:80], "previsto": prv, "anterior": ant, "actual": act})
-        cal.append({"tabla": "calendario", "t": t, "titulo": nombre_es(tit), "original": tit[:80], "importancia": 3,
-                    "actual": act, "previsto": prv, "anterior": ant, "unidad": e.get("unit") or "", "escala": e.get("scale") or "",
-                    "periodo": e.get("period") or "", "efecto": efecto(tit, act, prv, ant)})
+        if alta:
+            cal.append({"tabla": "calendario", "t": t, "titulo": nombre_es(tit), "original": tit[:80], "importancia": 3,
+                        "actual": act, "previsto": prv, "anterior": ant, "unidad": e.get("unit") or "", "escala": e.get("scale") or "",
+                        "periodo": e.get("period") or "", "efecto": efecto(tit, act, prv, ant)})
     out.sort(key=lambda r: r["t"])
     cal.sort(key=lambda r: (r["t"], -r["importancia"], r["original"]))
     return out + cal

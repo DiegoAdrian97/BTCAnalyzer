@@ -63,7 +63,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <link rel="preconnect" href="https://fapi.binance.com" crossorigin>
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
-<link rel="stylesheet" href="__CSS__">
+<script>/* si el estilo no llega (falla de red o un despliegue a medias), se pide de nuevo sin cache: antes quedaba la pagina sin estilo */
+window.abCss = function () { try { var n = (window.abCssN = (window.abCssN || 0) + 1); if (n > 3) return;
+  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '__CSS__?r=' + Date.now(); l.onerror = function () { setTimeout(window.abCss, 1500 * n); };
+  document.head.appendChild(l); } catch (e) {} };
+addEventListener('load', function () { try { if (!getComputedStyle(document.documentElement).getPropertyValue('--ab-css')) window.abCss(); } catch (e) {} });</script>
+<link rel="stylesheet" href="__CSS__" onerror="abCss()">
 <script>window.AB_PAGINA = "__PAG__";</script>
 <script defer src="app.js?v=__VER__"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>

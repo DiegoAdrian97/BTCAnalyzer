@@ -165,8 +165,12 @@
   exBox.querySelector('summary').addEventListener('click', () => {
     if (S.fs) return;
     const h = document.documentElement, abrir = !exBox.open;
+    // la escena deja de estar fija (o vuelve a estarlo): se corrige el scroll para que el titulo quede donde se toco
+    // (si no, con la pagina bajada saltaba al final y se veia la columna vacia)
+    const sm = exBox.querySelector('summary'), y0 = sm.getBoundingClientRect().top;
     if (abrir && altoGraf) h.style.setProperty('--graf-fijo', `${Math.round(altoGraf)}px`);
     h.classList.toggle('ab-ex-largo', abrir);
+    requestAnimationFrame(() => { const d = sm.getBoundingClientRect().top - y0; if (Math.abs(d) > 1) window.scrollBy({ top: d, behavior: 'instant' }); });
   });
   const exPanel = (on) => { card.classList.toggle('ab-fs-ex', on); exFsBtn.setAttribute('aria-expanded', String(on)); };
   exFsBtn.addEventListener('click', () => exPanel(!card.classList.contains('ab-fs-ex')));
@@ -2169,9 +2173,10 @@
   const calValor = (v, e) => {
     if (v === null || v === undefined || v === '') return '—';
     const n = Number(v); if (!Number.isFinite(n)) return String(v);
-    const d = Math.abs(n) >= 100 ? 0 : Math.abs(n) >= 10 ? 1 : (String(v).split('.')[1] || '').length > 1 ? 2 : 1;
+    // con los decimales que trae el dato (hasta 3), como Investing: 1,277M y no 1,28M
+    const d = Math.min(3, Math.max((String(v).split('.')[1] || '').length, Math.abs(n) >= 100 ? 0 : 1));
     const u = e.unidad || '';
-    return `${n.toLocaleString('es-AR', { minimumFractionDigits: Math.min(2, d), maximumFractionDigits: Math.min(2, d) })}${e.escala || ''}${u === '%' ? '%' : u ? ` ${u}` : ''}`;
+    return `${n.toLocaleString('es-AR', { minimumFractionDigits: d, maximumFractionDigits: d })}${e.escala || ''}${u === '%' ? '%' : u ? ` ${u}` : ''}`;
   };
   // el calendario en vivo: se pide solo el calendario (api/contexto?solo=calendario, cache de 20 s) cada minuto desde
   // 3 min antes de un dato hasta que sale su valor (o 45 min despues), y cada 10 min el resto del tiempo. Cuando sale el

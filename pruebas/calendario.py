@@ -15,6 +15,10 @@ EV = [  # titulo, importancia, horas desde ahora, actual, previsto, anterior
     ("Michigan Inflation Expectations", 0, -10, 4.0, None, 3.8), ("Crude Oil Inventories", 0, -5, -2.1, 1.0, 0.5),
     ("Fed Interest Rate Decision", 1, 40, None, 3.75, 4.0), ("Retail Sales MoM", 1, 60, None, 0.4, 0.6),
     ("Building Permits", -1, 70, None, 1.4, 1.39), ("GDP Growth Rate QoQ", 1, -100, 2.8, 2.5, 3.0),
+    # como vinieron el 13/11/2026: el IPP núcleo y los subsidios en importancia baja, las viviendas en alta
+    ("Core PPI MoM", -1, -2, 0.2, 0.3, 0.7), ("PPI MoM", 1, -2, 0.3, 0.4, 1.4), ("PPI YoY", -1, -2, 6.4, 6.6, 6.3),
+    ("Existing Home Sales", 1, -40, 3.75, 3.85, 3.97), ("ADP Employment Change Weekly", 0, -60, 19.75, None, 16.75),
+    ("CPI s.a", 0, -60, 337.5, None, 336.3), ("Jobless Claims 4-week Average", 0, -20, 195, None, 195),
 ]
 def fecha(h):
     return datetime.fromtimestamp(AHORA / 1000 + h * 3600, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
@@ -36,11 +40,16 @@ def main():
     for k, v in esperado.items():
         assert ef[k] == v, f"{k}: {ef[k]} (esperado {v})"
     ev = [r for r in py if r["tabla"] == "evento"]
-    assert [r["original"] for r in ev] == ["Fed Interest Rate Decision", "Retail Sales MoM"], [r["original"] for r in ev]   # alta y desde ayer
-    for k in ("Building Permits", "Crude Oil Inventories"):   # media o baja: afuera
+    assert [r["original"] for r in ev] == ["PPI MoM", "Fed Interest Rate Decision", "Retail Sales MoM"], [r["original"] for r in ev]   # alta y desde ayer
+    # lo que Investing no marca con 3 estrellas: afuera, aunque TradingView lo ponga alto
+    for k in ("Building Permits", "Crude Oil Inventories", "Existing Home Sales", "PPI YoY", "ADP Employment Change Weekly",
+              "CPI s.a", "Jobless Claims 4-week Average"):
         assert k not in ef, k
     # media en TradingView pero alta en Investing: entran
     assert ef["Initial Jobless Claims"] == "negativo" and ef["Michigan Consumer Sentiment"] == "positivo" and ef["Michigan Inflation Expectations"] == "negativo"
+    assert ef["Core PPI MoM"] == "positivo" and ef["PPI MoM"] == "positivo"   # de 3 estrellas con importancia baja: entra
+    nom = {r["original"]: r["titulo"] for r in py if r["tabla"] == "calendario"}
+    assert nom["Core PPI MoM"] != nom["PPI MoM"] and nom["Michigan Inflation Expectations"] != nom["Michigan Consumer Sentiment"], nom
     print(f"calendario: todo bien ({len(ef)} datos, {len(ev)} de importancia alta para el análisis)")
 
 

@@ -344,19 +344,34 @@ const NOMBRES = [
   ['Core Inflation Rate MoM', 'Inflación núcleo (IPC) mensual'],
   ['Inflation Rate YoY', 'Inflación (IPC) anual'],
   ['Inflation Rate MoM', 'Inflación (IPC) mensual'],
+  ['Core PCE Price Index MoM', 'Inflación PCE núcleo mensual'],
+  ['Core PCE Price Index YoY', 'Inflación PCE núcleo anual'],
+  ['PCE Price Index MoM', 'Inflación PCE mensual'],
+  ['PCE Price Index YoY', 'Inflación PCE anual'],
   ['Core PCE Price Index', 'Inflación PCE núcleo'],
   ['PCE Price Index', 'Inflación PCE'],
+  ['Core PPI MoM', 'Precios mayoristas núcleo (PPI) mensual'],
+  ['Core PPI YoY', 'Precios mayoristas núcleo (PPI) anual'],
+  ['PPI MoM', 'Precios mayoristas (PPI) mensual'],
+  ['PPI YoY', 'Precios mayoristas (PPI) anual'],
   ['PPI', 'Precios mayoristas (PPI)'],
   ['Fed Interest Rate Decision', 'Decisión de tasas de la Fed'],
   ['Fed Press Conference', 'Conferencia de prensa de la Fed'],
   ['FOMC Minutes', 'Minutas de la Fed'],
   ['Powell', 'Habla Powell (Fed)'],
+  ['Fed Chair', 'Habla el presidente de la Fed'],
+  ['Retail Sales Ex Autos', 'Ventas minoristas sin autos'],
   ['Retail Sales', 'Ventas minoristas'],
   ['GDP', 'PIB'],
   ['ISM Manufacturing', 'ISM manufacturero'],
   ['ISM Services', 'ISM de servicios'],
   ['JOLTs', 'Vacantes laborales (JOLTS)'],
+  ['Michigan 5 Year Inflation Expectations', 'Expectativa de inflación a 5 años (Michigan)'],
+  ['Michigan Inflation Expectations', 'Expectativa de inflación (Michigan)'],
   ['Michigan', 'Confianza del consumidor (Michigan)'],
+  ['Average Hourly Earnings', 'Salario por hora'],
+  ['CB Consumer Confidence', 'Confianza del consumidor (Conference Board)'],
+  ['Philadelphia Fed', 'Industria de Filadelfia (Fed)'],
   ['Durable Goods', 'Pedidos de bienes durables'],
   ['Personal Income', 'Ingresos personales'],
   ['Personal Spending', 'Gasto personal'],
@@ -386,17 +401,25 @@ function efecto(titulo, actual, previsto, anterior) {
   if (Math.abs(d) < 1e-12) return 'neutral';
   return d * s > 0 ? 'positivo' : 'negativo';
 }
-// lo que Investing marca con 3 estrellas aunque TradingView lo ponga en importancia media (igual que en noticias.py)
-const CLAVES_ALTA = /\b(cpi|inflation rate|ppi|pce|non farm|nonfarm|unemployment rate|adp|jolts|jobless claims|average hourly|retail sales|gdp|ism (manufacturing|services|non-manufacturing)|interest rate decision|fomc|fed chair|powell|michigan|consumer confidence|durable goods)\b/i;
-const esAlta = (e) => e.importance === 1 || (e.importance === 0 && CLAVES_ALTA.test(e.title || ''));
+// lo que se muestra en el calendario: lo que Investing marca con 3 estrellas en EE.UU., por nombre exacto y con cualquier
+// importancia de TradingView (igual que INVESTING_ALTA en noticias.py: ahi esta explicado)
+const INVESTING_ALTA = new RegExp('^(?:' + [
+  'non farm payrolls|unemployment rate|average hourly earnings mom|adp employment change|jolts job openings',
+  'initial jobless claims|(core )?inflation rate (mom|yoy)|(core )?ppi mom|core pce price index (mom|yoy)|pce price index yoy',
+  'retail sales (mom|ex autos mom)|gdp growth rate qoq( adv| 2nd est| 3rd est| final)?|ism (manufacturing|services) pmi',
+  'fed interest rate decision|fomc minutes|fed press conference|fed chair .+|.*powell.*|cb consumer confidence',
+  'michigan consumer sentiment( prel| final)?|michigan inflation expectations( prel| final)?|durable goods orders mom',
+  'philadelphia fed manufacturing index'].join('|') + ')$', 'i');
+const esAlta = (e) => INVESTING_ALTA.test((e.title || '').trim());
 /** Igual que parse_calendario en noticias.py. */
 function parseCalendario(txt, nowMs = null) {
   const out = [], cal = [];
   for (const e of JSON.parse(txt).result || []) {
-    if (!esAlta(e) || !e.date) continue;                  // solo importancia alta (o lo que Investing marca alto), de todos los temas
+    const alta = esAlta(e);
+    if (!(alta || e.importance === 1) || !e.date) continue;   // al calendario: lo de 3 estrellas; al analisis: lo de siempre
     const t = Date.parse(e.date), tit = e.title || '', act = e.actual ?? null, prv = e.forecast ?? null, ant = e.previous ?? null;
     if (e.importance === 1 && (nowMs === null || t >= nowMs - 86400000)) out.push({ tabla: 'evento', t, titulo: nombreEs(tit), original: tit.slice(0, 80), previsto: prv, anterior: ant, actual: act });
-    cal.push({ tabla: 'calendario', t, titulo: nombreEs(tit), original: tit.slice(0, 80), importancia: 3,
+    if (alta) cal.push({ tabla: 'calendario', t, titulo: nombreEs(tit), original: tit.slice(0, 80), importancia: 3,
       actual: act, previsto: prv, anterior: ant, unidad: e.unit || '', escala: e.scale || '', periodo: e.period || '', efecto: efecto(tit, act, prv, ant) });
   }
   out.sort((a, b) => a.t - b.t);

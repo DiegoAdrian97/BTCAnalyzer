@@ -4,7 +4,7 @@
  * - Lo que tiene huella o version en el nombre (lib/, p-*.css/js, los .js con ?v=): del telefono, sin preguntar.
  * - Todo lo demas (exchanges, api/, version.txt, los .json): pasa directo, sin cache.
  */
-const CACHE = 'analista-btc-1';
+const CACHE = 'analista-btc-2';   // cambio de nombre: borra lo guardado antes (por si quedo algo roto)
 const FIJO = /^\/(lib\/.+|p-[0-9a-f]+\.(css|js)|icono-\d+\.png|manifest\.json)$/;
 const CON_VERSION = /^\/(app|worker|analisis|datos|indicadores|aprendizaje|fuerte)\.js$/;
 
@@ -39,7 +39,9 @@ async function guardado(req) {
   const c = await caches.open(CACHE), hit = await c.match(req);
   if (hit) return hit;
   const r = await fetch(req);
-  if (r.ok) c.put(req, r.clone());
+  // solo se guarda si es lo que se pidio (un .css que llega como pagina o error no se queda un año en el telefono)
+  const tipo = r.headers.get('content-type') || '';
+  if (r.ok && !(/\.css$/.test(new URL(req.url).pathname) && !/css/.test(tipo))) c.put(req, r.clone());
   return r;
 }
 self.addEventListener('fetch', (e) => {

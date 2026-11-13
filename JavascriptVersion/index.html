@@ -47,12 +47,17 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <link rel="preconnect" href="https://fapi.binance.com" crossorigin>
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
-<link rel="stylesheet" href="p-1a214c5373.css">
-<script>window.AB_PAGINA = "48ec5f41c9";</script>
+<script>/* si el estilo no llega (falla de red o un despliegue a medias), se pide de nuevo sin cache: antes quedaba la pagina sin estilo */
+window.abCss = function () { try { var n = (window.abCssN = (window.abCssN || 0) + 1); if (n > 3) return;
+  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'p-1077477bef.css?r=' + Date.now(); l.onerror = function () { setTimeout(window.abCss, 1500 * n); };
+  document.head.appendChild(l); } catch (e) {} };
+addEventListener('load', function () { try { if (!getComputedStyle(document.documentElement).getPropertyValue('--ab-css')) window.abCss(); } catch (e) {} });</script>
+<link rel="stylesheet" href="p-1077477bef.css" onerror="abCss()">
+<script>window.AB_PAGINA = "f07b0070bb";</script>
 <script defer src="app.js?v=11dfff2f7e"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-51111d804c.js"></script>
+<script defer src="p-34db4112d7.js"></script>
 </head><body><div id="dash-root">
 
 
