@@ -120,7 +120,108 @@ def anotar(entries):
     subir_si_toca()
 
 
+# ---------- libro de ordenes de BTC (para el mapa de calor del libro de la app) ----------
+# Cada LIBRO_CADA s, lo que hay esperando en los libros de Binance y Bybit (perpetuos), sumado en escalones de precio
+# (0,1% redondeado: 50 USD con BTC a 70.000) hasta 4% del precio. Se guardan los escalones con mas plata (los LIBRO_TOP
+# mas grandes de cada lado, en miles de USD) en historial/BTC/libro/<dia>.csv:  t, medio, paso, niveles
+# niveles = "k:miles;k:miles;..." con k = precio / paso (el precio del escalon es k * paso).
+LIBRO_CADA = 300
+LIBRO_TOP = 40
+_libro = {}               # dia -> {t: linea}
+_libro_ult = 0.0
+
+
+def _paso(precio):
+    """Un escalon 'redondo' cerca del 0,1% del precio (1, 2 o 5 por una potencia de 10)."""
+    import math
+    x = precio * 0.001
+    e = 10 ** math.floor(math.log10(x))
+    return next(m * e for m in (1, 2, 5, 10) if m * e >= x * 0.7)
+
+
+def libro_niveles(libros, medio, paso, top=LIBRO_TOP, rango=0.04):
+    """De [(bids, asks), ...] (precio, cantidad en BTC) a {k: miles de USD} con los `top` escalones mas cargados de cada lado."""
+    lados = ({}, {})
+    for bids, asks in libros:
+        for n, filas in enumerate((bids, asks)):
+            for p, q in filas:
+                if abs(p / medio - 1) <= rango and q > 0:
+                    k = int(round(p / paso))
+                    lados[n][k] = lados[n].get(k, 0.0) + p * q
+    out = {}
+    for d in lados:
+        for k, v in sorted(d.items(), key=lambda kv: -kv[1])[:top]:
+            out[k] = out.get(k, 0) + round(v / 1000)        # cerca del precio, compras y ventas pueden caer en el mismo escalon
+    return out
+
+
+def _bajar_libros():
+    import urllib.request
+    get = lambda u: json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"}), timeout=10).read())
+    out = []
+    try:
+        j = get("https://fapi.binance.com/fapi/v1/depth?symbol=BTCUSDT&limit=1000")
+        out.append(([(float(p), float(q)) for p, q in j["bids"]], [(float(p), float(q)) for p, q in j["asks"]]))
+    except Exception:
+        pass
+    try:
+        j = get("https://api.bybit.com/v5/market/orderbook?category=linear&symbol=BTCUSDT&limit=500")["result"]
+        out.append(([(float(p), float(q)) for p, q in j["b"]], [(float(p), float(q)) for p, q in j["a"]]))
+    except Exception:
+        pass
+    return out
+
+
+def anotar_libro(forzar=False):
+    """Una foto del libro cada LIBRO_CADA s (el servidor lo llama en cada vuelta; casi siempre no hace nada)."""
+    global _libro_ult
+    ahora = time.time()
+    if not forzar and ahora - _libro_ult < LIBRO_CADA:
+        return
+    _libro_ult = ahora
+    libros = _bajar_libros()
+    if not libros:
+        return
+    bids = [b[0][0][0] for b in libros if b[0]]
+    asks = [b[1][0][0] for b in libros if b[1]]
+    if not bids or not asks:
+        return
+    medio = (max(bids) + min(asks)) / 2
+    paso = _paso(medio)
+    niv = libro_niveles(libros, medio, paso)
+    t = int(ahora // 60 * 60 * 1000)
+    linea = f"{t},{_txt(medio)},{_txt(paso)}," + ";".join(f"{k}:{v}" for k, v in sorted(niv.items()) if v > 0)
+    dia = _dia(t)
+    with _lock:
+        _traer_libro(dia)
+        _libro.setdefault(dia, {})[str(t)] = linea
+        _sucios.add(("libro", dia))
+        for d in [d for d in _libro if d < _dia(t - DIAS_EN_MEMORIA * 864e5) and ("libro", d) not in _sucios]:
+            _libro.pop(d, None)
+    subir_si_toca()
+
+
+def _traer_libro(dia):
+    if ("libro", dia) in _cargados:
+        return
+    _cargados.add(("libro", dia))
+    try:
+        if _token():
+            texto = _api("GET", f"/contents/{_ruta('libro', dia)}?ref={RAMA}", crudo=True)
+        else:
+            with urllib.request.urlopen(f"https://raw.githubusercontent.com/{REPO}/{RAMA}/{_ruta('libro', dia)}", timeout=15) as r:
+                texto = r.read().decode()
+    except Exception:
+        return
+    filas = _libro.setdefault(dia, {})
+    for linea in texto.splitlines()[1:]:
+        if linea.count(",") >= 3:
+            filas.setdefault(linea.split(",")[0], linea)
+
+
 def _csv(tf, dia):
+    if tf == "libro":
+        return "t,medio,paso,niveles\n" + "".join(_libro.get(dia, {})[k] + "\n" for k in sorted(_libro.get(dia, {}), key=int))
     filas = sorted(_datos.get((tf, dia), {}).values(), key=lambda c: (int(c[0]), int(c[1])))
     return ",".join(COLUMNAS) + "\n" + "".join(",".join(c) + "\n" for c in filas)
 

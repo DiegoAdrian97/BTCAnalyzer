@@ -1633,3 +1633,9 @@
   @media (min-width: 1000px) { html.ab-multi .ab-hoja > .ab-parte { break-inside: avoid; } }
   .ab-ex-sub { grid-column: 1 / -1; margin: 10px 0 2px; font-size: 12.5px; font-weight: 650; color: var(--mute); }
   .ab-ex-tf { font-style: normal; font-size: 11px; font-weight: 700; padding: 1px 6px; margin-right: 6px; border-radius: 6px; background: var(--soft2); color: var(--ink); white-space: nowrap; }
+  .ab-lib { display: grid; gap: 6px; margin: 0 0 14px; font-size: 13px; }
+  .ab-lib[hidden] { display: none; }
+  .ab-lib-t { font-weight: 600; }
+  .ab-lib-bar { position: relative; height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--color-bad) 55%, transparent); overflow: hidden; }
+  .ab-lib-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: color-mix(in srgb, var(--color-ok) 75%, transparent); }
+  .ab-lib-k { color: var(--mute); line-height: 1.45; }

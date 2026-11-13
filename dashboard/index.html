@@ -1634,6 +1634,12 @@
   @media (min-width: 1000px) { html.ab-multi .ab-hoja > .ab-parte { break-inside: avoid; } }
   .ab-ex-sub { grid-column: 1 / -1; margin: 10px 0 2px; font-size: 12.5px; font-weight: 650; color: var(--mute); }
   .ab-ex-tf { font-style: normal; font-size: 11px; font-weight: 700; padding: 1px 6px; margin-right: 6px; border-radius: 6px; background: var(--soft2); color: var(--ink); white-space: nowrap; }
+  .ab-lib { display: grid; gap: 6px; margin: 0 0 14px; font-size: 13px; }
+  .ab-lib[hidden] { display: none; }
+  .ab-lib-t { font-weight: 600; }
+  .ab-lib-bar { position: relative; height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--color-bad) 55%, transparent); overflow: hidden; }
+  .ab-lib-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: color-mix(in srgb, var(--color-ok) 75%, transparent); }
+  .ab-lib-k { color: var(--mute); line-height: 1.45; }
 </style>
 
 <div class="ab ab-first ab-cargando" id="analista" data-source="analisis">
@@ -1725,6 +1731,7 @@
           <button type="button" class="ab-chipbtn" data-layer="fib" aria-pressed="true"><i style="background: var(--ab-c2)"></i>Fibonacci</button>
           <button type="button" class="ab-chipbtn" data-layer="liq" aria-pressed="true"><i style="background: var(--color-bad)"></i>Liquidaciones</button>
           <button type="button" class="ab-chipbtn" data-layer="osc" aria-pressed="true"><i style="background: var(--ab-c2)"></i>RSI · MACD</button>
+          <button type="button" class="ab-chipbtn" data-layer="libro" aria-pressed="true" title="Mapa de calor del libro: dónde había órdenes esperando a cada hora"><i style="background: linear-gradient(90deg, #2878ff, #ffc837)"></i>Libro</button>
           <button type="button" class="ab-chipbtn" data-layer="ict" aria-pressed="true" title="Order blocks, breakers, IFVG, barridas de liquidez y Power of Three"><i style="background: linear-gradient(90deg, var(--color-ok), var(--color-bad))"></i>ICT</button>
           <button type="button" class="ab-chipbtn" data-layer="vp" aria-pressed="true" title="VWAP de la sesión y perfil de volumen de lo que estás viendo (POC, VAH, VAL)"><i style="background: #d946ef"></i>VWAP · Perfil</button>
           <button type="button" class="ab-chipbtn" data-layer="flujo" aria-pressed="true" title="Delta por vela, CVD de perpetuos y de spot, e interés abierto"><i style="background: linear-gradient(90deg, #38bdf8, #f59e0b)"></i>Flujo · CVD</button>
@@ -1936,6 +1943,7 @@
     <details class="ab-more" id="senales" data-source="analisis">
       <summary><span>Qué está pasando ahora: flujo, posicionamiento y libros de órdenes</span></summary>
       <div class="ab-more-body">
+        <div class="ab-lib" id="libro-ahora" hidden></div>
         <div class="ab-tiles" id="tiles"></div>
         <div class="ab-card-head"><span class="ab-kicker">Libros de órdenes ±0,1%</span><span class="ab-kicker">← ventas · compras →</span></div>
         <div class="ab-books" id="books"></div>
@@ -2141,7 +2149,7 @@
   const LINEA_K = 'ab-grafico-linea';
   const lineaGuardada = (() => { try { return localStorage.getItem(LINEA_K) === '1'; } catch (e) { return false; } })();
   const S = { linea: lineaGuardada, plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
-    layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, fib: true, liq: true, osc: true, plan: true, opc: true, abanico: true, flujo: window.innerWidth >= 600, vp: true, ict: true }, log: false, medir: false, iman: false };
+    layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, fib: true, liq: true, osc: true, plan: true, opc: true, abanico: true, flujo: window.innerWidth >= 600, vp: true, ict: true, libro: window.innerWidth >= 600 }, log: false, medir: false, iman: false };
   const defBars = () => (window.innerWidth < 600 ? 50 : 90);  // en el telefono, menos para que se lean
   S.nbars = defBars();
   // en el celu arranca con lo esencial (velas, medias, patrones y liquidaciones); el resto se prende en "Capas"
@@ -2845,7 +2853,7 @@
     });
     $('vista-btn').after(idx);
     const md = $('mas-detalle'); if (md) md.hidden = true;
-    const sn = $('senales'); if (sn) { const sp = sn.querySelector('summary span'); if (sp) sp.textContent = 'Flujo de compras y libros de órdenes'; }
+    const sn = $('senales'); if (sn) { const sp = sn.querySelector('summary span'); if (sp) sp.textContent = 'Flujo de compras y libros de órdenes'; sn.addEventListener('toggle', () => { if (sn.open && typeof libroTic === 'function') libroTic(); }); }
   })();
   // el resumen de una linea de cada parte (lo que se ve con la parte cerrada)
   function drawPartes(rows, c) {
@@ -5018,6 +5026,7 @@
       ctx.restore();
     }
     const half = (X(d.lastT + d.tfMs) - X(d.lastT)) / 2 || 3;
+    if (L.libro) { ctx.save(); ctx.globalAlpha = dimA('libro'); dibLibro(ctx, w, h, d.all, d.tfMs, X, Y, half); ctx.restore(); }
     if (L.bb && d.bb.length > 1) {
       ctx.globalAlpha = dimA('bb'); ctx.beginPath();
       d.bb.forEach((b, i) => { const x = X(b.t), y = Y(b.u); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
@@ -5797,6 +5806,7 @@
         for (let i = c.bb.length - 1; i >= 0; i--) ctx.lineTo(xf(c.bb[i].t), yf(c.bb[i].l));
         ctx.closePath(); ctx.fillStyle = alpha(P.fg, 0.035); ctx.fill();
       }
+      if (S.layers.libro) dibLibro(ctx, w, h, s.bars, MG_MS[MG.tfs[s.i]], xf, yf, half);
       if (S.layers.ict) dibIct(ctx, w, h, c.icts, xf, yf, P, half, true);
       if (S.layers.vp) dibPerfil(ctx, w, h, perfilVisible(s.ch, s.bars), yf, P, true);
       c.fvgs.forEach((z) => {
@@ -6094,6 +6104,140 @@
       if (alto >= 9 || !chico) { ctx.font = `700 9.5px ${P.font}`; ctx.fillStyle = col; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(`${ICT_CORTO[z.tipo]}${chico ? '' : pc}`, xa + 5, yt + alto / 2); }
     });
     ctx.restore();
+  }
+
+  // ---------- libro de ordenes: presion, deslizamiento, profundidad y mapa de calor en el tiempo ----------
+  // Fotos del libro de Binance y Bybit (perpetuos) cada 15 s mientras miras (se guardan en el telefono hasta 3 dias,
+  // una por minuto) y, para BTC, las del servidor cada 5 min las 24 h (historial/BTC/libro). Cada foto: lo que hay
+  // esperando en escalones de ~0,1% del precio hasta 4%; el mapa pinta mas brillante donde habia mas plata.
+  const LIBRO = { fotos: {}, ahora: null, t: null, srv: {}, cargado: {}, corre: false };
+  const libPaso = (p) => { const x = p * 0.001, e = Math.pow(10, Math.floor(Math.log10(x))); return [1, 2, 5, 10].map((m) => m * e).find((v) => v >= x * 0.7); };
+  async function libroBajar(mon) {
+    const sym = `${mon}USDT`, q = (u) => fetch(u, { signal: AbortSignal.timeout(8000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    const [bi, by] = await Promise.all([q(`https://fapi.binance.com/fapi/v1/depth?symbol=${sym}&limit=1000`), q(`https://api.bybit.com/v5/market/orderbook?category=linear&symbol=${sym}&limit=500`)]);
+    const L = [];
+    const par = (a) => (a || []).map((r) => [+r[0], +r[1]]);
+    if (bi && bi.bids) L.push([par(bi.bids), par(bi.asks)]);
+    if (by && by.result && by.result.b) L.push([par(by.result.b), par(by.result.a)]);
+    return L;
+  }
+  /** Presion a ±0,5%, profundidad por distancia y deslizamiento de una compra/venta a mercado (de los libros juntos). */
+  function libroMedir(L) {
+    const bids = L.flatMap((x) => x[0]).sort((a, b) => b[0] - a[0]), asks = L.flatMap((x) => x[1]).sort((a, b) => a[0] - b[0]);
+    if (!bids.length || !asks.length) return null;
+    const medio = (bids[0][0] + asks[0][0]) / 2;
+    const suma = (lado, pct) => lado.reduce((s, [p, qq]) => (Math.abs(p / medio - 1) <= pct ? s + p * qq : s), 0);
+    const prof = [0.0025, 0.005, 0.01, 0.02].map((d) => ({ d, b: suma(bids, d), a: suma(asks, d) }));
+    const b5 = prof[1].b, a5 = prof[1].a, presion = b5 + a5 ? (b5 - a5) / (b5 + a5) * 100 : 0;
+    // deslizamiento: cuanto se aleja el precio promedio al comprar (o vender) ese monto de una
+    const desl = (lado, usd) => { let r = usd, costo = 0, q = 0; for (const [p, qq] of lado) { const v = Math.min(r, p * qq); costo += v; q += v / p; r -= v; if (r <= 0) break; } return r > 0 ? null : Math.abs(costo / q / medio - 1) * 1e4; };
+    return { medio, presion, prof, compra: [1e5, 1e6].map((u) => desl(asks, u)), venta: [1e5, 1e6].map((u) => desl(bids, u)) };
+  }
+  function libroFoto(L, medio, t) {
+    const paso = libPaso(medio), lados = [new Map(), new Map()];
+    L.forEach(([b, a]) => [b, a].forEach((filas, n) => filas.forEach(([p, qq]) => {
+      if (Math.abs(p / medio - 1) > 0.04 || !(qq > 0)) return;
+      const k = Math.round(p / paso); lados[n].set(k, (lados[n].get(k) || 0) + p * qq);
+    })));
+    const niv = new Map();
+    lados.forEach((m) => [...m.entries()].sort((x, y) => y[1] - x[1]).slice(0, 60).forEach(([k, v]) => niv.set(k, (niv.get(k) || 0) + Math.round(v / 1000))));
+    return { t, medio, paso, niv };
+  }
+  function libroGuardar(mon) {
+    const f = LIBRO.fotos[mon] || [], corte = Date.now() - 3 * 864e5, porMin = new Map();
+    f.forEach((x) => { if (x.t >= corte && !x.srv) porMin.set(Math.floor(x.t / 6e4), x); });
+    const arr = [...porMin.values()].map((x) => [x.t, x.medio, x.paso, [...x.niv.entries()]]);
+    try {
+      const req = indexedDB.open('analista-btc', 1);
+      req.onupgradeneeded = () => { try { req.result.createObjectStore('kv'); } catch (e) { /* ya estaba */ } };
+      req.onsuccess = () => { try { const tx = req.result.transaction('kv', 'readwrite'); tx.objectStore('kv').put(arr, `libro:${mon}`); tx.oncomplete = () => req.result.close(); } catch (e) { /* sin lugar */ } };
+    } catch (e) { /* sin almacenamiento */ }
+  }
+  function libroCargar(mon) {
+    if (LIBRO.cargado[mon]) return; LIBRO.cargado[mon] = true;
+    try {
+      const req = indexedDB.open('analista-btc', 1);
+      req.onupgradeneeded = () => { try { req.result.createObjectStore('kv'); } catch (e) { /* ya estaba */ } };
+      req.onsuccess = () => { try { const g = req.result.transaction('kv').objectStore('kv').get(`libro:${mon}`); g.onsuccess = () => {
+        const arr = Array.isArray(g.result) ? g.result : []; const f = LIBRO.fotos[mon] || (LIBRO.fotos[mon] = []);
+        arr.forEach(([t, medio, paso, niv]) => f.push({ t, medio, paso, niv: new Map(niv) })); f.sort((a, b) => a.t - b.t); libroRedibujar(); }; } catch (e) { /* idem */ } };
+    } catch (e) { /* idem */ }
+    // BTC: lo del servidor (cada 5 min, las 24 h) de hoy y ayer
+    if (mon === 'BTC') {
+      const dias = [Date.now() - 864e5, Date.now()].map((t) => new Date(t).toISOString().slice(0, 10));
+      Promise.all(dias.map((d) => fetch(`${HIST_URL}/libro/${d}.csv`, { signal: AbortSignal.timeout(10000) }).then((r) => (r.ok ? r.text() : '')).catch(() => ''))).then((txts) => {
+        const f = LIBRO.fotos.BTC || (LIBRO.fotos.BTC = []);
+        txts.forEach((tx) => tx.split('\n').slice(1).forEach((l) => {
+          const [t, medio, paso, niv] = l.split(','); if (!niv) return;
+          f.push({ t: +t, medio: +medio, paso: +paso, srv: true, niv: new Map(niv.split(';').map((x) => x.split(':').map(Number))) });
+        }));
+        f.sort((a, b) => a.t - b.t); libroRedibujar();
+      });
+    }
+  }
+  let libroRedibujarT = 0;
+  function libroRedibujar() { LIBRO.cols = {}; if (!libroRedibujarT) libroRedibujarT = requestAnimationFrame(() => { libroRedibujarT = 0; if (G.under) G.under.update(); mgVis().forEach((s) => s.capaU && s.capaU.update()); libroPanel(); }); }
+  async function libroTic() {
+    const mon = MON();
+    if (document.hidden || !ES_CRIPTO(mon) || LIBRO.corre) return;
+    const ver = S.layers.libro || (document.getElementById('senales') || {}).open;
+    if (!ver) return;
+    LIBRO.corre = true;
+    try {
+      libroCargar(mon);
+      const L = await libroBajar(mon); if (!L.length || mon !== MON()) return;
+      const m = libroMedir(L); if (!m) return;
+      LIBRO.ahora = m; LIBRO.t = Date.now();
+      const f = LIBRO.fotos[mon] || (LIBRO.fotos[mon] = []); f.push(libroFoto(L, m.medio, Date.now()));
+      if (f.length > 6000) f.splice(0, f.length - 6000);
+      if (!LIBRO.ult || Date.now() - LIBRO.ult > 5 * 6e4) { LIBRO.ult = Date.now(); libroGuardar(mon); }
+      libroRedibujar();
+    } finally { LIBRO.corre = false; }
+  }
+  setInterval(libroTic, 15000); setTimeout(libroTic, 4000);
+  // columnas del mapa: por cada vela, lo mas cargado de cada escalon en las fotos de esa vela
+  function libroColumnas(bars, tfMs) {
+    const f = LIBRO.fotos[MON()] || []; if (!f.length || !bars.length) return null;
+    const k = `${MON()}|${tfMs}|${f.length}|${bars.length}|${bars[0].t}`;
+    LIBRO.cols = LIBRO.cols || {}; if (LIBRO.cols[tfMs] && LIBRO.cols[tfMs].k === k) return LIBRO.cols[tfMs];
+    const cols = new Map(); let mx = 0, j = 0;
+    const t0 = bars[0].t;
+    for (const x of f) {
+      if (x.t < t0) continue;
+      const bt = t0 + Math.floor((x.t - t0) / tfMs) * tfMs;
+      let c = cols.get(bt); if (!c) cols.set(bt, (c = { paso: x.paso, m: new Map() }));
+      x.niv.forEach((v, kk) => { const p = kk * x.paso; const prev = c.m.get(p) || 0; if (v > prev) { c.m.set(p, v); if (v > mx) mx = v; } });
+      j++;
+    }
+    LIBRO.cols[tfMs] = { k, cols, mx, n: j };
+    return LIBRO.cols[tfMs];
+  }
+  function dibLibro(ctx, w, h, bars, tfMs, xf, yf, half) {
+    const L = libroColumnas(bars, tfMs); if (!L || !L.mx) return;
+    ctx.save();
+    L.cols.forEach((c, bt) => {
+      const x = xf(bt); if (x === null || x < -2 * half || x > w + 2 * half) return;
+      c.m.forEach((v, p) => {
+        const y0 = yf(p + c.paso / 2), y1 = yf(p - c.paso / 2); if (y0 === null || y1 === null || y1 < 0 || y0 > h) return;
+        const u = Math.pow(v / L.mx, 0.6); if (u < 0.12) return;
+        ctx.fillStyle = `rgba(${Math.round(40 + 215 * u)},${Math.round(120 + 80 * u)},${Math.round(255 - 200 * u)},${(0.08 + 0.5 * u).toFixed(3)})`;
+        ctx.fillRect(x - half, y0, half * 2, Math.max(1, y1 - y0));
+      });
+    });
+    ctx.restore();
+  }
+  // lo de ahora, en "Flujo de compras y libros de ordenes"
+  function libroPanel() {
+    const box = document.getElementById('libro-ahora'); if (!box) return;
+    const m = LIBRO.ahora; if (!m) { box.hidden = true; return; }
+    box.hidden = false;
+    const bps = (x) => (x === null ? 'más que el libro' : `${f1(x)} pb`);
+    const pr = m.presion;
+    box.replaceChildren(
+      el('div', 'ab-lib-t', `Presión del libro a ±0,5%: ${pr >= 0 ? '+' : ''}${f0(pr)}% ${Math.abs(pr) < 10 ? '(pareja)' : pr > 0 ? '(más compras esperando)' : '(más ventas esperando)'}`),
+      Object.assign(el('div', 'ab-lib-bar'), { innerHTML: `<i style="width:${(50 + pr / 2).toFixed(1)}%"></i>` }),
+      el('div', 'ab-lib-k', `Comprar a mercado mueve el precio: 100 mil USD ${bps(m.compra[0])} · 1 M USD ${bps(m.compra[1])}. Vender: ${bps(m.venta[0])} · ${bps(m.venta[1])} (pb = centésimos de 1%).`),
+      el('div', 'ab-lib-k', `Esperando cerca del precio (compras / ventas): ${m.prof.map((x) => `±${String(x.d * 100).replace('.', ',')}%: ${usdC(x.b).replace('+', '')} / ${usdC(x.a).replace('+', '')}`).join(' · ')}.`));
   }
 
   function buildChart(box, P) {
@@ -7328,6 +7472,11 @@
     if (L.ema && d.all.some((b) => b.e200 !== null && b.e200 !== undefined)) item('ema', { background: alpha(P.fg, 0.7) }, 'Línea gris gruesa:', 'media móvil EMA 200 (la tendencia de fondo de esta temporalidad; en la mensual no hay 200 velas para calcularla).');
     if (L.ict) pick(rows, 'ict', tf).forEach((z, i) => item(`ict-${i}`, z.tipo === 'barrida' || z.tipo === 'po3' ? DD(colOf(z.sesgo)) : CC(alpha(colOf(z.sesgo), 0.5)),
       `${z.nombre} ${z.sesgo}:`, z.descripcion));
+    if (L.libro) {
+      const lc = libroColumnas(all, tfMs);
+      item('libro', { background: 'linear-gradient(90deg, #2878ff, #ffc837)' }, 'Manchas azules y amarillas (mapa de calor del libro):',
+        `dónde había órdenes esperando a cada momento (Binance y Bybit): más amarillo, más plata. Las zonas que se mantienen suelen frenar al precio; si desaparecen cuando el precio llega, eran de mentira.${lc && lc.n ? '' : ' Se va llenando mientras tenés la app abierta'}${MON() === 'BTC' ? ' (en BTC, además, el servidor guarda una foto cada 5 minutos las 24 h).' : '.'}`);
+    }
     if (L.vp) {
       const pr = perfilVisible(G.chart, all), vw = all.length ? vwapSerie(all, TF_MIN[tf]).slice(-1)[0] : null, px = all.length ? all[all.length - 1].c : null;
       item('vp', CC(VWAP_COL), 'Línea fucsia y barras a la izquierda (VWAP y perfil de volumen):',

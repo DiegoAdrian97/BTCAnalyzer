@@ -38,3 +38,17 @@ assert commit["parents"] == ["padre"] and commit["tree"] == "arbol1"
 assert ("PATCH", "/git/refs/heads/historial", {"sha": "nuevo"}) in llamadas
 assert not H._sucios
 print("historial: todo bien")
+
+
+# ---------- libro de ordenes (mapa de calor del libro) ----------
+h = H
+assert h._paso(70_000) == 50 and h._paso(3_500) == 5 and abs(h._paso(150) - 0.2) < 1e-12, (h._paso(70_000), h._paso(3_500), h._paso(150))
+niv = h.libro_niveles([([(69_990.0, 2.0), (69_960.0, 10.0), (60_000.0, 99.0)], [(70_010.0, 1.0), (70_040.0, 5.0)]),
+                       ([(69_975.0, 1.0)], [(70_030.0, 3.0)])], 70_000.0, 50, top=2)
+assert niv == {1400: 210 + 70, 1399: 700, 1401: 560}, niv
+assert all(k * 50 > 60_000 for k in niv), "lo de mas de 4% no entra"
+h._libro.clear(); h._libro["2026-11-12"] = {"1762905600000": "1762905600000,70000,50,1400:140;1401:350"}
+csv = h._csv("libro", "2026-11-12")
+assert csv.splitlines()[0] == "t,medio,paso,niveles" and csv.splitlines()[1].endswith("1401:350"), csv
+assert h._ruta("libro", "2026-11-12") == "historial/BTC/libro/2026-11-12.csv"
+print("historial: libro de ordenes bien")

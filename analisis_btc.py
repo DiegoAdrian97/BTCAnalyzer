@@ -2185,6 +2185,7 @@ def run_live(every, public=False):
                 if public:
                     try:                 # el historial de predicciones para "Reproducir" (rama historial del repo)
                         historial.anotar(getattr(live_mod, "ULTIMAS_PREDICCIONES", None))
+                        historial.anotar_libro()
                     except Exception as e:
                         print(f"(historial: {type(e).__name__}: {e})", flush=True)
                 save_json(OUT_FILE, data)

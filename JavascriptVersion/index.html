@@ -47,12 +47,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <link rel="preconnect" href="https://fapi.binance.com" crossorigin>
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
-<link rel="stylesheet" href="p-a00cf85797.css">
-<script>window.AB_PAGINA = "dd36db23c7";</script>
+<link rel="stylesheet" href="p-4f5ffd0be6.css">
+<script>window.AB_PAGINA = "0cd25dde93";</script>
 <script defer src="app.js?v=c565358b03"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-8b470e1a99.js"></script>
+<script defer src="p-33fd49d8dd.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -145,6 +145,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
           <button type="button" class="ab-chipbtn" data-layer="fib" aria-pressed="true"><i style="background: var(--ab-c2)"></i>Fibonacci</button>
           <button type="button" class="ab-chipbtn" data-layer="liq" aria-pressed="true"><i style="background: var(--color-bad)"></i>Liquidaciones</button>
           <button type="button" class="ab-chipbtn" data-layer="osc" aria-pressed="true"><i style="background: var(--ab-c2)"></i>RSI · MACD</button>
+          <button type="button" class="ab-chipbtn" data-layer="libro" aria-pressed="true" title="Mapa de calor del libro: dónde había órdenes esperando a cada hora"><i style="background: linear-gradient(90deg, #2878ff, #ffc837)"></i>Libro</button>
           <button type="button" class="ab-chipbtn" data-layer="ict" aria-pressed="true" title="Order blocks, breakers, IFVG, barridas de liquidez y Power of Three"><i style="background: linear-gradient(90deg, var(--color-ok), var(--color-bad))"></i>ICT</button>
           <button type="button" class="ab-chipbtn" data-layer="vp" aria-pressed="true" title="VWAP de la sesión y perfil de volumen de lo que estás viendo (POC, VAH, VAL)"><i style="background: #d946ef"></i>VWAP · Perfil</button>
           <button type="button" class="ab-chipbtn" data-layer="flujo" aria-pressed="true" title="Delta por vela, CVD de perpetuos y de spot, e interés abierto"><i style="background: linear-gradient(90deg, #38bdf8, #f59e0b)"></i>Flujo · CVD</button>
@@ -356,6 +357,7 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
     <details class="ab-more" id="senales" data-source="analisis">
       <summary><span>Qué está pasando ahora: flujo, posicionamiento y libros de órdenes</span></summary>
       <div class="ab-more-body">
+        <div class="ab-lib" id="libro-ahora" hidden></div>
         <div class="ab-tiles" id="tiles"></div>
         <div class="ab-card-head"><span class="ab-kicker">Libros de órdenes ±0,1%</span><span class="ab-kicker">← ventas · compras →</span></div>
         <div class="ab-books" id="books"></div>
