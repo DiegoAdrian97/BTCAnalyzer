@@ -726,7 +726,7 @@ Cada una contra un control (lo que daría el azar en la misma situación), BTC 2
 
 ### Libro y trades en vivo, calendario económico y ayudas
 
-- **Libro y trades en vivo** (botón junto al mapa de liquidaciones, o "Libro y trades" en Capas): el libro sumado de Binance,
+- **En vivo: libro y trades, dentro del gráfico** (botón junto al mapa de liquidaciones, o en Capas): a la derecha, el libro sumado de Binance,
   Bybit y OKX con la parte de cada uno, y las órdenes a mercado que entran (Binance perpetuo y spot, Bybit, OKX y Coinbase).
   Lo que llega junto del mismo lado (menos de 150 ms) es una sola orden: al tocarla se ve cuánto entró en cada exchange. La
   capa "Trades en vivo" las dibuja como burbujas en el gráfico. Solo conecta con el panel abierto o la capa prendida.

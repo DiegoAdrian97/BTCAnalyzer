@@ -42,7 +42,7 @@
   const LINEA_K = 'ab-grafico-linea';
   const lineaGuardada = (() => { try { return localStorage.getItem(LINEA_K) === '1'; } catch (e) { return false; } })();
   const S = { linea: lineaGuardada, plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
-    layers: { ema: false, bb: false, fvg: false, patrones: false, ondas: false, fib: false, liq: false, osc: false, plan: true, opc: false, abanico: false, flujo: false, vp: false, ict: false, libro: false, trades: false }, log: false, medir: false, iman: false };
+    layers: { ema: false, bb: false, fvg: false, patrones: false, ondas: false, fib: false, liq: false, osc: false, plan: true, opc: false, abanico: false, flujo: false, vp: false, ict: false, libro: false }, log: false, medir: false, iman: false };
   const defBars = () => (window.innerWidth < 600 ? 50 : 90);  // en el telefono, menos para que se lean
   S.nbars = defBars();
   // en el celu arranca con lo esencial (velas, medias, patrones y liquidaciones); el resto se prende en "Capas"
@@ -212,7 +212,7 @@
   const defRange = () => {
     if (!G.chart || !G.d) return;
     const total = G.d.all.length + G.d.futN, nb = Math.min(total, defBars());
-    G.chart.timeScale().setVisibleLogicalRange({ from: total - nb, to: total + 1 });
+    G.chart.timeScale().setVisibleLogicalRange({ from: total - nb + vivoHueco(nb), to: total + 1 + vivoHueco(nb) });
     G.chart.priceScale('right').applyOptions({ autoScale: true });
   };
   document.querySelectorAll('[data-zoom]').forEach((b) => b.addEventListener('click', () => {
@@ -2958,7 +2958,7 @@
       ctx.restore();
     }
     const half = (X(d.lastT + d.tfMs) - X(d.lastT)) / 2 || 3;
-    if (L.libro) { ctx.save(); ctx.globalAlpha = dimA('libro'); dibLibro(ctx, w, h, d.all, d.tfMs, X, Y, half); ctx.restore(); }
+    if (L.libro || TR.abierto) { ctx.save(); ctx.globalAlpha = dimA('libro'); dibLibro(ctx, w, h, d.all, d.tfMs, X, Y, half); ctx.restore(); }
     if (L.bb && d.bb.length > 1) {
       ctx.globalAlpha = dimA('bb'); ctx.beginPath();
       d.bb.forEach((b, i) => { const x = X(b.t), y = Y(b.u); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
@@ -4094,8 +4094,8 @@
     const [bi, by] = await Promise.all([q(`https://fapi.binance.com/fapi/v1/depth?symbol=${sym}&limit=1000`), q(`https://api.bybit.com/v5/market/orderbook?category=linear&symbol=${sym}&limit=500`)]);
     const L = [];
     const par = (a) => (a || []).map((r) => [+r[0], +r[1]]);
-    if (bi && bi.bids) L.push([par(bi.bids), par(bi.asks)]);
-    if (by && by.result && by.result.b) L.push([par(by.result.b), par(by.result.a)]);
+    if (bi && bi.bids) L.push(Object.assign([par(bi.bids), par(bi.asks)], { k: 'binp' }));
+    if (by && by.result && by.result.b) L.push(Object.assign([par(by.result.b), par(by.result.a)], { k: 'byb' }));
     return L;
   }
   /** Presion a ±0,5%, profundidad por distancia y deslizamiento de una compra/venta a mercado (de los libros juntos). */
@@ -4157,12 +4157,13 @@
   async function libroTic() {
     const mon = MON();
     if (document.hidden || !ES_CRIPTO(mon) || LIBRO.corre) return;
-    const ver = S.layers.libro || (document.getElementById('senales') || {}).open;
+    const ver = S.layers.libro || TR.abierto || (document.getElementById('senales') || {}).open;
     if (!ver) return;
     LIBRO.corre = true;
     try {
       libroCargar(mon);
       const L = await libroBajar(mon); if (!L.length || mon !== MON()) return;
+      LIBRO.L = { mon, L, t: Date.now() }; if (TR.abierto && G.tr) G.tr.update();
       const m = libroMedir(L); if (!m) return;
       LIBRO.ahora = m; LIBRO.t = Date.now();
       const f = LIBRO.fotos[mon] || (LIBRO.fotos[mon] = []); f.push(libroFoto(L, m.medio, Date.now()));
@@ -4171,7 +4172,8 @@
       libroRedibujar();
     } finally { LIBRO.corre = false; }
   }
-  setInterval(libroTic, 15000); setTimeout(libroTic, 4000);
+  // cada 15 s; en vivo, cada 4 s (el libro de mas lejos del precio, para la derecha del grafico)
+  setInterval(() => { const cada = TR.abierto ? 4000 : 15000; if (Date.now() - (LIBRO.tic || 0) >= cada - 300) { LIBRO.tic = Date.now(); libroTic(); } }, 4000); setTimeout(libroTic, 4000);
   // columnas del mapa: por cada vela, lo mas cargado de cada escalon en las fotos de esa vela
   function libroColumnas(bars, tfMs) {
     const f = LIBRO.fotos[MON()] || []; if (!f.length || !bars.length) return null;
@@ -4293,7 +4295,7 @@
     G.nowBtn.addEventListener('click', () => {
       const ts = chart.timeScale(), r = ts.getVisibleLogicalRange(); if (!r || !G.d) return;
       const total = G.d.all.length + G.d.futN, len = r.to - r.from;
-      ts.setVisibleLogicalRange({ from: total + 1 - len, to: total + 1 });
+      ts.setVisibleLogicalRange({ from: total + 1 - len + vivoHueco(len), to: total + 1 + vivoHueco(len) });
     });
     box.append(G.nowBtn);
     chart.timeScale().subscribeVisibleLogicalRangeChange(() => ordenarEtiquetas());
@@ -5390,7 +5392,7 @@
     if (keep) ts.setVisibleLogicalRange(keep);
     else {
       const total = all.length + futN, nb = Math.min(total, defBars());
-      ts.setVisibleLogicalRange({ from: total - nb, to: total + 1 });
+      ts.setVisibleLogicalRange({ from: total - nb + vivoHueco(nb), to: total + 1 + vivoHueco(nb) });
       G.chart.priceScale('right').applyOptions({ autoScale: true });
       if (otroActivo) try { G.chart.panes().forEach((pn) => pn.priceScale('right').applyOptions({ autoScale: true })); } catch (e) { /* sin paneles extra */ }
     }
@@ -5747,27 +5749,31 @@
       tr.append(td); tb.append(tr); });
     tbl.append(th, tb); box.append(tbl, el('p', 'ab-note', 'Brier mide la calidad de las probabilidades: 0,250 es tirar una moneda; menos es mejor. "En rango 80%": cuántas veces el precio terminó dentro del rango que anunció (lo honesto es cerca de 80%).'));
   }
-  // ---------- libro de ordenes y trades en vivo (Binance, Bybit, OKX y Coinbase) ----------
-  // Como una terminal de flujo: el libro sumado de los exchanges (con la parte de cada uno) y las compras y ventas a
-  // mercado que van entrando. Las operaciones que llegan juntas (mismo lado, a menos de 150 ms) son una sola orden
-  // repartida entre exchanges: se agrupan, y al tocarla se ve cuanto entro en cada uno. Las grandes se dibujan como
-  // burbujas en el grafico (capa "Trades"). Solo conecta con el panel abierto o la capa prendida, y con la pestaña a la vista.
+  // ---------- en vivo dentro del grafico: libro de ordenes y trades (Binance, Bybit, OKX y Coinbase) ----------
+  // Como una terminal de flujo, todo sobre el grafico: a la derecha, el libro sumado de los exchanges a la altura de
+  // cada precio (los muros marcados); en las velas, burbujas con las ordenes grandes a mercado que van entrando; arriba,
+  // el dinero que entro comprando y vendiendo en los ultimos minutos. Las operaciones que llegan juntas (mismo lado, a
+  // menos de 150 ms) son una sola orden repartida entre exchanges: al pasarle el mouse (o tocarla) se ve cuanto entro en
+  // cada uno; lo mismo con cada escalon del libro. Solo conecta en modo "En vivo" y con la pestaña a la vista.
   const VX = {
     binp: { n: 'Binance', k: 'perpetuo', c: '#eab308' }, bins: { n: 'Binance', k: 'spot', c: '#a16207' },
     byb: { n: 'Bybit', k: 'perpetuo', c: '#f97316' }, okx: { n: 'OKX', k: 'perpetuo', c: '#64748b' }, cb: { n: 'Coinbase', k: 'spot', c: '#3b82f6' },
   };
   const OKX_CT = { BTC: 0.01, ETH: 0.1, SOL: 1, XRP: 100 };
   const CRIPTO_SPOT = new Set(['BTC', 'ETH', 'SOL', 'XRP', 'ZEC']);
-  const TR = { abierto: false, gen: 0, mon: null, socks: [], ping: 0, on: new Set(), grupos: [], abiertos: {}, libros: {}, hits: [], vista: 'libro', pend: 0, ult: null,
-    seg: new Map(), ventana: 60, pausa: false, pop: null };
+  const TR = { abierto: false, gen: 0, mon: null, socks: [], ping: 0, on: new Set(), grupos: [], abiertos: {}, libros: {}, hits: [], niv: [], pend: 0, ult: null,
+    seg: new Map(), ventana: 60, pop: null };
   try { const v = +localStorage.getItem('ab-tape-ventana'); if ([30, 60, 300, 600].includes(v)) TR.ventana = v; } catch (e) { /* sin almacenamiento */ }
   window.abTR = TR;                                       // para las pruebas
   const TR_MIN = [10000, 25000, 50000, 100000, 250000, 500000, 1000000];
   const trMinDef = () => ({ BTC: 50000, ETH: 25000 }[MON()] || 10000);
   const trMin = () => { try { const v = +localStorage.getItem(`ab-tape-min:${MON()}`); if (TR_MIN.includes(v)) return v; } catch (e) { /* sin almacenamiento */ } return trMinDef(); };
   const usdK = (v) => (v >= 1e6 ? `${f1(v / 1e6)} M` : v >= 1e3 ? `${f0(v / 1e3)} mil` : f0(v));
+  const usdC2 = (v) => (v >= 1e6 ? `${f1(v / 1e6)}M` : v >= 1e3 ? `${f0(v / 1e3)}k` : f0(v));
   const hms = (t) => new Date(t).toLocaleTimeString('es-AR', { ...tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
-  const trActivo = () => (TR.abierto || S.layers.trades) && !document.hidden && MON() !== 'MELI';
+  const trActivo = () => TR.abierto && !document.hidden && MON() !== 'MELI';
+  // lugar a la derecha de la ultima vela para el libro (en velas)
+  const vivoHueco = (nb) => (TR.abierto ? Math.ceil(nb * 0.24) : 0);
 
   function trCerrar() {
     TR.gen++; clearInterval(TR.ping);
@@ -5783,9 +5789,9 @@
       if (gen !== TR.gen) return;
       let w; try { w = new WebSocket(url); } catch (e) { return; }
       TR.socks.push(w);
-      w.onopen = () => { TR.on.add(VX[k].n); trEstado(); if (alAbrir) alAbrir(w); };
+      w.onopen = () => { TR.on.add(k); trEstado(); if (alAbrir) alAbrir(w); };
       w.onmessage = (e) => { if (gen !== TR.gen || typeof e.data !== 'string' || e.data === 'pong') return; try { alMsg(JSON.parse(e.data)); } catch (err) { /* mensaje raro */ } };
-      w.onclose = () => { TR.on.delete(VX[k].n); TR.socks = TR.socks.filter((x) => x !== w); if (gen === TR.gen) { trEstado(); setTimeout(() => { if (gen === TR.gen) con(k, url, alAbrir, alMsg); }, 4000); } };
+      w.onclose = () => { TR.on.delete(k); TR.socks = TR.socks.filter((x) => x !== w); if (gen === TR.gen) { trEstado(); setTimeout(() => { if (gen === TR.gen) con(k, url, alAbrir, alMsg); }, 4000); } };
     };
     // Binance perpetuos: operaciones (m = el comprador puso la orden que esperaba: vendio el apurado) y el libro (20 niveles)
     con('binp', `wss://fstream.binance.com/stream?streams=${s}@aggTrade/${s}@depth20@100ms`, null, (j) => {
@@ -5820,8 +5826,8 @@
     const ahora = performance.now(), usd = p * q;
     TR.ult = p;
     // todo el dinero (tambien lo chico), por segundo y por lado: para "compras contra ventas" de los ultimos minutos
-    const sg = Math.floor(Date.now() / 1000), cu = TR.seg.get(sg) || [0, 0, {}];
-    cu[lado > 0 ? 0 : 1] += usd; cu[2][k] = (cu[2][k] || 0) + usd * lado; TR.seg.set(sg, cu);
+    const sg = Math.floor(Date.now() / 1000), cu = TR.seg.get(sg) || [0, 0];
+    cu[lado > 0 ? 0 : 1] += usd; TR.seg.set(sg, cu);
     if (TR.seg.size > 700) { const lim = sg - 650; TR.seg.forEach((_, x) => { if (x < lim) TR.seg.delete(x); }); }
     let g = TR.abiertos[lado];
     if (!g || ahora - g.ult > 150) {
@@ -5836,215 +5842,219 @@
     clearTimeout(g.timer);
     if (g.usd < trMin()) return;
     g.p = g.pq / g.q;
-    TR.grupos.push(g); if (TR.grupos.length > 600) TR.grupos.splice(0, TR.grupos.length - 600);
+    TR.grupos.push(g); if (TR.grupos.length > 800) TR.grupos.splice(0, TR.grupos.length - 800);
     trPintar();
   }
 
-  // ---- libro: niveles de cada exchange (en monedas), sumados en escalones de precio
+  // ---- libro: lo de cerca del precio al instante (websocket) y lo de mas lejos de la foto completa de cada pocos
+  // segundos (libroBajar: 1.000 niveles de Binance y 500 de Bybit)
   function trLibro(k, bids, asks, foto) {
     const L = TR.libros[k] && !foto ? TR.libros[k] : (TR.libros[k] = { b: new Map(), a: new Map() });
     const pon = (m, xs) => xs.forEach((x) => { const p = +x[0], q = +x[1]; if (q > 0) m.set(p, q); else m.delete(p); });
     pon(L.b, bids); pon(L.a, asks); L.t = Date.now();
     trPintar();
   }
-  function trPaso(p) {
-    const crudo = p * 0.00006, e = Math.pow(10, Math.floor(Math.log10(crudo))), m = crudo / e;
-    return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * e;
-  }
-  function trEscalones(n) {
-    const ks = Object.keys(TR.libros).filter((k) => Date.now() - TR.libros[k].t < 15000);
-    if (!ks.length) return null;
-    const bb = Math.max(...ks.map((k) => Math.max(0, ...TR.libros[k].b.keys()))), ba = Math.min(...ks.map((k) => Math.min(Infinity, ...TR.libros[k].a.keys())));
-    if (!(bb > 0) || !Number.isFinite(ba)) return null;
-    const mid = (bb + ba) / 2, paso = trPaso(mid);
-    const lado = (cual, sgn) => {
-      const out = new Map();
-      ks.forEach((k) => TR.libros[k][cual].forEach((q, p) => {
-        const e = sgn > 0 ? Math.ceil(p / paso - 1e-9) * paso : Math.floor(p / paso + 1e-9) * paso;
-        const o = out.get(e) || { p: e, usd: 0, por: {} }; o.usd += q * p; o.por[k] = (o.por[k] || 0) + q * p; out.set(e, o);
-      }));
-      return [...out.values()].sort((x, y) => (sgn > 0 ? x.p - y.p : y.p - x.p)).slice(0, n);
+  function trNiveles(paso, lo, hi) {
+    const out = { a: new Map(), b: new Map() }, ahora = Date.now();
+    const vivos = Object.keys(TR.libros).filter((k) => ahora - TR.libros[k].t < 15000);
+    const rango = {};
+    vivos.forEach((k) => { const L = TR.libros[k]; rango[k] = [Math.min(...L.b.keys()), Math.max(...L.a.keys())]; });
+    const sumar = (k, lado, p, q) => {
+      if (!(q > 0) || p < lo || p > hi) return;
+      const e = lado === 'a' ? Math.ceil(p / paso - 1e-9) * paso : Math.floor(p / paso + 1e-9) * paso;
+      const o = out[lado].get(e) || { p: e, lado, usd: 0, por: {} }; o.usd += p * q; o.por[k] = (o.por[k] || 0) + p * q; out[lado].set(e, o);
     };
-    return { mid, paso, spread: ba - bb, asks: lado('a', 1), bids: lado('b', -1), ks };
+    vivos.forEach((k) => ['a', 'b'].forEach((lado) => TR.libros[k][lado].forEach((q, p) => sumar(k, lado, p, q))));
+    const F = LIBRO.L && LIBRO.L.mon === MON() && ahora - LIBRO.L.t < 30000 ? LIBRO.L.L : [];
+    F.forEach((x) => {
+      const k = x.k, r = rango[k];
+      x[0].forEach(([p, q]) => { if (!r || p < r[0]) sumar(k, 'b', p, q); });
+      x[1].forEach(([p, q]) => { if (!r || p > r[1]) sumar(k, 'a', p, q); });
+    });
+    return [...out.a.values(), ...out.b.values()];
   }
 
-  // ---- pintar (como mucho 6 veces por segundo)
+  // ---- pintar (como mucho unas 6 veces por segundo)
+  let trUlt = 0;
   function trPintar() {
-    if (TR.pend) return;
-    TR.pend = requestAnimationFrame(() => { TR.pend = 0; trPanel(); if (S.layers.trades && G.tr) G.tr.update(); });
-  }
-  let trUltPanel = 0;
-  function trPanel() {
-    if (!TR.abierto) return;
-    trFlujo();
-    const ahora = performance.now(); if (ahora - trUltPanel < 160) { clearTimeout(TR.tp); TR.tp = setTimeout(trPanel, 170); return; }
-    trUltPanel = ahora;
-    const box = document.getElementById('vivo-cuerpo'); if (!box) return;
-    if (TR.vista === 'libro') {
-      const E = trEscalones(window.innerWidth < 1000 ? 9 : 14), dig = Math.max(0, -Math.floor(Math.log10((E && E.paso) || 1)));
-      if (!E) { box.replaceChildren(el('p', 'ab-vivo-vacio', TR.on.size ? 'Esperando el libro…' : 'Conectando con los exchanges…')); return; }
-      const mx = Math.max(...E.asks.concat(E.bids).map((x) => x.usd)) || 1, fila = (x, cl) => {
-        const r = el('div', `ab-vivo-niv ${cl}${x.usd >= mx * 0.6 ? ' muro' : ''}`), bar = el('span', 'ab-vivo-bar');
-        Object.entries(x.por).sort((a, b) => b[1] - a[1]).forEach(([k, v]) => { const i = el('i'); i.style.width = `${(v / mx) * 100}%`; i.style.background = VX[k].c; bar.append(i); });
-        r.append(bar, el('span', 'p', x.p.toLocaleString('es-AR', { minimumFractionDigits: dig, maximumFractionDigits: dig })), el('span', 'q', usdK(x.usd)));
-        r.title = Object.entries(x.por).map(([k, v]) => `${VX[k].n}: ${usdK(v)} USD`).join(' · ');
-        return r;
-      };
-      const mid = el('div', 'ab-vivo-mid'); mid.append(el('b', '', (TR.ult || E.mid).toLocaleString('es-AR', { maximumFractionDigits: dig })), el('small', '', E.spread > 0 ? `diferencia ${E.spread.toLocaleString('es-AR', { maximumFractionDigits: dig + 1 })}` : ''));
-      const sb = E.bids.reduce((s, x) => s + x.usd, 0), sa = E.asks.reduce((s, x) => s + x.usd, 0), pr = sb + sa ? ((sb - sa) / (sb + sa)) * 100 : 0;
-      const pres = el('div', 'ab-vivo-pres'); pres.append(el('span', '', `Compras ${usdK(sb)}`), el('span', '', `${usdK(sa)} Ventas`));
-      const pb = el('div', 'ab-vivo-presbar'); const pi = el('i'); pi.style.width = `${50 + pr / 2}%`; pb.append(pi);
-      box.replaceChildren(...E.asks.slice().reverse().map((x) => fila(x, 'a')), mid, ...E.bids.map((x) => fila(x, 'b')), pb, pres);
-    } else {
-      if (TR.pausa) return;                 // con el mouse encima la lista no se mueve (para poder leerla y pasar por cada orden)
-      const gs = TR.grupos.slice(-60).reverse(), min = trMin();
-      if (!gs.length) { box.replaceChildren(el('p', 'ab-vivo-vacio', `Todavía no entró ninguna orden de más de ${usdK(min)} USD.`)); return; }
-      box.replaceChildren(...gs.map((g) => {
-        const r = el('button', `ab-vivo-tr ${g.lado > 0 ? 'c' : 'v'}${g.usd >= min * 10 ? ' ballena' : ''}`); r.type = 'button';
-        const ex = el('span', 'ex'); Object.entries(g.partes).sort((a, b) => b[1].usd - a[1].usd).forEach(([k, v]) => { const i = el('i'); i.style.background = VX[k].c; i.style.flexGrow = String(v.usd); ex.append(i); });
-        r.append(el('span', 't', hms(g.t)), el('span', 'u', `${g.lado > 0 ? '▲' : '▼'} ${usdK(g.usd)}`), el('span', 'p', fp(g.p)), ex);
-        r.addEventListener('click', () => trDetalle(g, r.getBoundingClientRect(), 'toque'));
-        r.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') trDetalle(g, r.getBoundingClientRect(), 'hover'); });
-        r.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') trPopSoltar(); });
-        return r;
-      }));
-    }
+    if (TR.pend || !TR.abierto) return;
+    const espera = Math.max(0, 160 - (performance.now() - trUlt));
+    TR.pend = setTimeout(() => { TR.pend = 0; trUlt = performance.now(); if (G.tr) G.tr.update(); }, espera);
   }
   function trFlujo() {
     const box = document.getElementById('vivo-flujo'); if (!box) return;
+    box.hidden = !TR.abierto; if (!TR.abierto) return;
     const desde = Math.floor(Date.now() / 1000) - TR.ventana; let c = 0, v = 0;
     TR.seg.forEach((x, sg) => { if (sg > desde) { c += x[0]; v += x[1]; } });
     const n = c - v, tot = c + v;
-    const sel = box.querySelector('.ab-vivo-ven');
-    box.querySelector('.c b').textContent = usdK(c); box.querySelector('.v b').textContent = usdK(v);
-    const ne = box.querySelector('.n'); ne.textContent = tot ? `neto ${n >= 0 ? '+' : '−'}${usdK(Math.abs(n))}` : 'sin operaciones todavía';
+    box.querySelector('.c b').textContent = tot ? usdK(c) : '—'; box.querySelector('.v b').textContent = tot ? usdK(v) : '—';
+    const ne = box.querySelector('.n'); ne.textContent = tot ? `neto ${n >= 0 ? '+' : '−'}${usdK(Math.abs(n))}` : TR.on.size ? 'esperando operaciones' : 'conectando…';
     ne.className = `n ${n > 0 ? 'up' : n < 0 ? 'dn' : ''}`;
     box.querySelector('.ab-vivo-presbar i').style.width = `${tot ? (c / tot) * 100 : 50}%`;
-    if (sel) sel.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.s === TR.ventana)));
+    box.querySelectorAll('[data-s]').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.s === TR.ventana)));
   }
   function trEstado() {
     const e = document.getElementById('vivo-est'); if (!e) return;
-    const ks = Object.keys(VX).filter((k) => TR.on.has(VX[k].n) && (k !== 'bins' || CRIPTO_SPOT.has(TR.mon)) && (k !== 'okx' || OKX_CT[TR.mon]) && (k !== 'cb' || (CRIPTO_SPOT.has(TR.mon) && TR.mon !== 'ZEC')));
-    if (!ks.length) { e.textContent = TR.socks.length ? 'conectando…' : ''; } else e.replaceChildren(...ks.map((k) => { const sp = el('span'); const i = el('i'); i.style.background = VX[k].c; sp.append(i, `${VX[k].n}${VX[k].k === 'spot' ? ' spot' : ''}`); return sp; }));
-    document.getElementById('vivo-dot').classList.toggle('on', TR.on.size > 0);
+    const ks = Object.keys(VX).filter((k) => TR.on.has(k));
+    e.replaceChildren(...ks.map((k) => { const i = el('i'); i.style.background = VX[k].c; i.title = `${VX[k].n} ${VX[k].k}`; return i; }));
+    e.title = ks.length ? `Conectado: ${ks.map((k) => `${VX[k].n} ${VX[k].k}`).join(', ')}` : 'Conectando…';
   }
 
-  // ---- detalle de una orden: cuanto entro en cada exchange
-  const trPop = document.createElement('div'); trPop.className = 'ab-trpop'; trPop.hidden = true; trPop.setAttribute('role', 'dialog'); trPop.setAttribute('aria-label', 'Detalle de la orden');
+  // ---- la tarjeta con el detalle (de una orden o de un escalon del libro)
+  const trPop = document.createElement('div'); trPop.className = 'ab-trpop'; trPop.hidden = true; trPop.setAttribute('role', 'dialog');
   document.body.append(trPop);
-  function trDetalle(g, r, modo = 'toque') {
+  function trTarjeta(cosa, r, modo, armar) {
     clearTimeout(TR.popT);
-    if (TR.pop && TR.pop.g === g && !trPop.hidden) { TR.pop.modo = modo === 'toque' ? 'toque' : TR.pop.modo; return; }
-    TR.pop = { g, modo };
-    const compra = g.lado > 0, partes = Object.entries(g.partes).sort((a, b) => b[1].usd - a[1].usd);
-    const top = el('div', `ab-trpop-h ${compra ? 'c' : 'v'}`); top.append(el('span', '', compra ? '▲ Compra a mercado' : '▼ Venta a mercado'), el('time', '', `${hms(g.t)}`));
-    const big = el('div', 'ab-trpop-u'); big.append(el('b', '', `${usdK(g.usd)} USD`), el('span', '', ` a ${fp(g.p)}${g.pmax - g.pmin > 0 ? ` (de ${fp(g.pmin)} a ${fp(g.pmax)})` : ''}`));
-    const lista = el('div', 'ab-trpop-l');
-    partes.forEach(([k, v]) => {
-      const f = el('div', 'ab-trpop-f'), nm = el('span', 'n'); const dot = el('i'); dot.style.background = VX[k].c;
-      nm.append(dot, el('b', '', VX[k].n), el('small', '', VX[k].k));
-      const bar = el('span', 'bar'); const bi = el('i'); bi.style.width = `${(v.usd / g.usd) * 100}%`; bi.style.background = VX[k].c; bar.append(bi);
-      f.append(nm, el('span', 'u', `${usdK(v.usd)}`), el('span', 'pc', `${Math.round((v.usd / g.usd) * 100)}%`), bar);
-      lista.append(f);
-    });
-    const pie = el('p', 'ab-trpop-pie', `${g.n} ${g.n === 1 ? 'operación' : 'operaciones'} en ${partes.length} ${partes.length === 1 ? 'exchange' : 'exchanges'}, en ${Math.max(1, g.t1 - g.t)} ms. ${partes.some(([k]) => VX[k].k === 'spot') ? 'Spot es compra real (sin apalancamiento); perpetuo, con apalancamiento.' : 'Todo en perpetuos (con apalancamiento).'}`);
-    trPop.replaceChildren(top, big, lista, pie);
-    trPop.hidden = false;
+    if (TR.pop && TR.pop.cosa === cosa && !trPop.hidden) { if (modo === 'toque') TR.pop.modo = 'toque'; return; }
+    TR.pop = { cosa, modo };
+    trPop.replaceChildren(...armar());
+    trPop.hidden = false; trPop.classList.remove('is-in');
     const vw = document.documentElement.clientWidth, vh = window.innerHeight, w = trPop.offsetWidth, h = trPop.offsetHeight;
-    trPop.style.left = `${Math.max(12, Math.min(vw - w - 12, r.left + r.width / 2 - w / 2))}px`;
-    trPop.style.top = `${r.top - h - 10 > 12 ? r.top - h - 10 : Math.min(vh - h - 12, r.bottom + 10)}px`;
+    const izq = r.left - w - 12 >= 12;                       // al costado (a la izquierda) si hay lugar: no tapa lo que se mira
+    trPop.style.left = `${izq ? r.left - w - 12 : Math.max(12, Math.min(vw - w - 12, r.left + r.width / 2 - w / 2))}px`;
+    trPop.style.top = `${izq ? Math.max(12, Math.min(vh - h - 12, r.top + r.height / 2 - h / 2)) : r.top - h - 10 > 12 ? r.top - h - 10 : Math.min(vh - h - 12, r.bottom + 10)}px`;
     requestAnimationFrame(() => trPop.classList.add('is-in'));
   }
+  const filasPor = (por, total) => {
+    const lista = el('div', 'ab-trpop-l');
+    Object.entries(por).sort((a, b) => b[1] - a[1]).forEach(([k, v]) => {
+      const f = el('div', 'ab-trpop-f'), nm = el('span', 'n'); const dot = el('i'); dot.style.background = VX[k].c;
+      nm.append(dot, el('b', '', VX[k].n), el('small', '', VX[k].k));
+      const bar = el('span', 'bar'); const bi = el('i'); bi.style.width = `${(v / total) * 100}%`; bi.style.background = VX[k].c; bar.append(bi);
+      f.append(nm, el('span', 'u', usdK(v)), el('span', 'pc', `${Math.round((v / total) * 100)}%`), bar);
+      lista.append(f);
+    });
+    return lista;
+  };
+  function trDetalle(g, r, modo = 'toque') {
+    trTarjeta(g, r, modo, () => {
+      const compra = g.lado > 0, por = Object.fromEntries(Object.entries(g.partes).map(([k, v]) => [k, v.usd])), nex = Object.keys(por).length;
+      const top = el('div', `ab-trpop-h ${compra ? 'c' : 'v'}`); top.append(el('span', '', compra ? '▲ Compra a mercado' : '▼ Venta a mercado'), el('time', '', hms(g.t)));
+      const big = el('div', 'ab-trpop-u'); big.append(el('b', '', `${usdK(g.usd)} USD`), el('span', '', ` a ${fp(g.p)}${g.pmax - g.pmin > 0 ? ` (de ${fp(g.pmin)} a ${fp(g.pmax)})` : ''}`));
+      return [top, big, filasPor(por, g.usd), el('p', 'ab-trpop-pie', `${g.n} ${g.n === 1 ? 'operación' : 'operaciones'} en ${nex} ${nex === 1 ? 'exchange' : 'exchanges'}, en ${Math.max(1, g.t1 - g.t)} ms. ${Object.keys(por).some((k) => VX[k].k === 'spot') ? 'Spot es compra real (sin apalancamiento); perpetuo, con apalancamiento.' : 'Todo en perpetuos (con apalancamiento).'}`)];
+    });
+  }
+  function trNivelDetalle(n, r, modo) {
+    trTarjeta(n, r, modo, () => {
+      const top = el('div', `ab-trpop-h ${n.lado === 'b' ? 'c' : 'v'}`);
+      top.append(el('span', '', n.lado === 'b' ? (n.muro ? '■ Muro de compras' : 'Compras esperando') : (n.muro ? '■ Muro de ventas' : 'Ventas esperando')), el('time', '', (() => { const d = Math.abs(n.p / (TR.ult || n.p) - 1) * 100; return `${n.lado === 'b' ? '−' : '+'}${d.toLocaleString('es-AR', { maximumFractionDigits: d < 0.1 ? 3 : d < 1 ? 2 : 1 })}% del precio`; })()));
+      const big = el('div', 'ab-trpop-u'); big.append(el('b', '', `${usdK(n.usd)} USD`), el('span', '', ` en ${fp(n.p)}`));
+      return [top, big, filasPor(n.por, n.usd), el('p', 'ab-trpop-pie', n.lado === 'b' ? 'Órdenes de compra que esperan en ese precio: si se mantienen, suelen frenar una baja. Se pueden retirar en un segundo.' : 'Órdenes de venta que esperan en ese precio: si se mantienen, suelen frenar una suba. Se pueden retirar en un segundo.')];
+    });
+  }
   const trPopCerrar = () => { clearTimeout(TR.popT); trPop.hidden = true; trPop.classList.remove('is-in'); TR.pop = null; };
-  // al salir con el mouse se cierra (salvo que se haya abierto con un clic o que el mouse pase a la tarjeta)
-  const trPopSoltar = () => { clearTimeout(TR.popT); TR.popT = setTimeout(() => { if (TR.pop && TR.pop.modo === 'hover' && !trPop.matches(':hover')) trPopCerrar(); }, 160); };
-  trPop.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') trPopSoltar(); });
-  document.addEventListener('pointerdown', (e) => { if (!trPop.hidden && !trPop.contains(e.target) && !e.target.closest('.ab-vivo-tr')) trPopCerrar(); }, true);
+  const trPopSoltar = () => { clearTimeout(TR.popT); TR.popT = setTimeout(() => { if (TR.pop && TR.pop.modo === 'hover') trPopCerrar(); }, 140); };
+  document.addEventListener('pointerdown', (e) => { if (!trPop.hidden && !trPop.contains(e.target) && !e.target.closest('#chart')) trPopCerrar(); }, true);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') trPopCerrar(); });
   window.addEventListener('scroll', trPopCerrar, { passive: true });
 
-  // ---- burbujas en el grafico (capa "Trades")
+  // ---- dibujo: el libro a la derecha (barras a la altura de su precio) y las burbujas de las ordenes
   function drawTrades(ctx, w, h) {
-    TR.hits = [];
-    if (!S.layers.trades || !G.d || TR.mon !== MON()) return;
+    TR.hits = []; TR.niv = [];
+    if (!TR.abierto || !G.d || TR.mon !== MON()) return;
     const P = G.P, min = trMin(), t0 = G.d.t0, ms = G.d.tfMs;
-    // dentro de la vela: entre su borde y el de la siguiente (con logicos fraccionarios despues de la ultima vela el grafico da 0)
-    const xT = (t) => { const k = Math.floor((t - t0) / ms), a = X(t0 + k * ms), b = X(t0 + (k + 1) * ms); return a === null || b === null ? null : a + (b - a) * ((t - t0) / ms - k) - (b - a) / 2; };
     ctx.save();
+    // libro: escalones de ~5 px; las barras salen del borde derecho y ocupan hasta el 22% del ancho
+    const pTop = G.c.coordinateToPrice(0), pBot = G.c.coordinateToPrice(h);
+    if (pTop !== null && pBot !== null && pTop > pBot) {
+      const crudo = ((pTop - pBot) / h) * 5, e10 = Math.pow(10, Math.floor(Math.log10(crudo))), m = crudo / e10;
+      const paso = (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * e10;
+      const N = trNiveles(paso, pBot, pTop);
+      if (N.length) {
+        const ord = N.map((n) => n.usd).sort((a, b) => a - b), mx = ord[ord.length - 1], tope = ord[Math.max(0, ord.length - 4)];
+        const med = ord[Math.floor(ord.length / 2)] || 1, anchoMax = Math.min(w * 0.22, 240);
+        N.forEach((n) => {
+          const y0 = Y(n.lado === 'a' ? n.p : n.p + paso), y1 = Y(n.lado === 'a' ? n.p - paso : n.p); if (y0 === null || y1 === null) return;
+          const yA = Math.min(y0, y1), alto = Math.max(1, Math.abs(y1 - y0) - 1), ancho = Math.max(1, Math.pow(n.usd / mx, 0.7) * anchoMax);
+          n.muro = n.usd >= tope && n.usd >= med * 4;
+          const col = n.lado === 'a' ? P.dn : P.up;
+          ctx.fillStyle = alpha(col, n.muro ? 0.75 : 0.42); ctx.fillRect(w - ancho, yA, ancho, alto);
+          TR.niv.push({ y0: yA - 1, y1: yA + alto + 1, x0: w - Math.max(ancho, 24), n });
+        });
+        // los muros, con su monto (como etiqueta al costado de la barra)
+        ctx.font = `600 10px ${P.font}`; ctx.textBaseline = 'middle';
+        N.filter((n) => n.muro).forEach((n) => {
+          const y = Y(n.p); if (y === null || y < 8 || y > h - 8) return;
+          const txt = `MURO ${usdC2(n.usd)}`, tw = ctx.measureText(txt).width + 10, ancho = Math.max(1, Math.pow(n.usd / mx, 0.7) * anchoMax), x = Math.max(4, w - ancho - tw - 6);
+          ctx.fillStyle = alpha(P.panel || '#fff', 0.92); ctx.strokeStyle = alpha(n.lado === 'a' ? P.dn : P.up, 0.9); ctx.lineWidth = 1;
+          ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y - 8, tw, 16, 8); else ctx.rect(x, y - 8, tw, 16); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = n.lado === 'a' ? P.dn : P.up; ctx.fillText(txt, x + 5, y + 0.5);
+        });
+      }
+    }
+    // burbujas: dentro de la vela, a su hora (con logicos fraccionarios despues de la ultima vela el grafico da 0)
+    const xT = (t) => { const k = Math.floor((t - t0) / ms), a = X(t0 + k * ms), b = X(t0 + (k + 1) * ms); return a === null || b === null ? null : a + (b - a) * ((t - t0) / ms - k) - (b - a) / 2; };
     TR.grupos.forEach((g) => {
       if (g.t < t0) return;
       const x = xT(g.t), y = Y(g.p); if (x === null || y === null || x < -30 || x > w + 30 || y < -30 || y > h + 30) return;
-      const r = Math.min(26, 3 + 2.4 * Math.sqrt(g.usd / min));
-      const col = g.lado > 0 ? P.up : P.dn;
+      const r = Math.min(26, 3 + 2.4 * Math.sqrt(g.usd / min)), col = g.lado > 0 ? P.up : P.dn;
       ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fillStyle = alpha(col, g.usd >= min * 10 ? 0.42 : 0.26); ctx.fill();
-      ctx.lineWidth = 1; ctx.strokeStyle = alpha(col, 0.85); ctx.stroke();
-      if (r >= 13) { ctx.fillStyle = P.fg; ctx.font = `600 10px ${P.font}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(usdK(g.usd).replace(' mil', 'k').replace(' M', 'M'), x, y); }
+      ctx.fillStyle = alpha(col, g.usd >= min * 10 ? 0.45 : 0.28); ctx.fill();
+      ctx.lineWidth = 1; ctx.strokeStyle = alpha(col, 0.9); ctx.stroke();
+      if (r >= 13) { ctx.fillStyle = P.fg; ctx.font = `600 10px ${P.font}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(usdC2(g.usd), x, y); ctx.textAlign = 'start'; }
       TR.hits.push({ x, y, r: Math.max(r, 8), g });
     });
     ctx.restore();
   }
-  // tocar una burbuja abre su detalle (sin mover el grafico)
+  // mouse encima (o un toque) de una burbuja o de un escalon del libro: su detalle
   (function () {
     const box = document.getElementById('chart'); let dn = null;
-    box.addEventListener('pointerdown', (e) => { dn = { x: e.clientX, y: e.clientY, t: Date.now() }; }, true);
     const pegar = (e) => {
-      if (!S.layers.trades || !TR.hits.length) return null;
+      if (!TR.abierto) return null;
       const rc = box.getBoundingClientRect(), x = e.clientX - rc.left, y = e.clientY - rc.top;
-      const hit = TR.hits.filter((q) => Math.hypot(q.x - x, q.y - y) <= q.r + 3).sort((a, b) => b.g.usd - a.g.usd)[0];
-      return hit ? [hit, { left: rc.left + hit.x - hit.r, top: rc.top + hit.y - hit.r, width: hit.r * 2, height: hit.r * 2, bottom: rc.top + hit.y + hit.r }] : null;
+      const b = TR.hits.filter((q) => Math.hypot(q.x - x, q.y - y) <= q.r + 3).sort((a, c) => c.g.usd - a.g.usd)[0];
+      if (b) return ['g', b.g, { left: rc.left + b.x - b.r, top: rc.top + b.y - b.r, width: b.r * 2, height: b.r * 2, bottom: rc.top + b.y + b.r }];
+      const n = TR.niv.find((q) => y >= q.y0 && y <= q.y1 && x >= q.x0);
+      if (n) return ['n', n.n, { left: rc.left + n.x0, top: rc.top + n.y0, width: rc.width - n.x0, height: n.y1 - n.y0, bottom: rc.top + n.y1 }];
+      return null;
     };
+    const abrir = (hit, modo) => (hit[0] === 'g' ? trDetalle(hit[1], hit[2], modo) : trNivelDetalle(hit[1], hit[2], modo));
     box.addEventListener('pointermove', (e) => {
-      if (e.pointerType !== 'mouse' || e.buttons) return;
-      const h = pegar(e);
-      if (h) { box.style.cursor = 'pointer'; trDetalle(h[0].g, h[1], 'hover'); }
-      else { if (box.style.cursor === 'pointer') box.style.cursor = ''; if (TR.pop && TR.pop.modo === 'hover') trPopSoltar(); }
+      if (e.pointerType !== 'mouse' || e.buttons || (window.abDib && window.abDib.modo)) return;
+      const hit = pegar(e);
+      if (hit) { box.style.cursor = 'pointer'; abrir(hit, 'hover'); } else { if (box.style.cursor === 'pointer') box.style.cursor = ''; if (TR.pop && TR.pop.modo === 'hover') trPopSoltar(); }
     });
+    box.addEventListener('pointerleave', () => { if (TR.pop && TR.pop.modo === 'hover') trPopSoltar(); });
+    box.addEventListener('pointerdown', (e) => { dn = { x: e.clientX, y: e.clientY, t: Date.now() }; }, true);
     box.addEventListener('pointerup', (e) => {
-      if (!dn || !S.layers.trades || !TR.hits.length || (window.abDib && window.abDib.modo)) return;
+      if (!dn || (window.abDib && window.abDib.modo)) return;
       if (Math.hypot(e.clientX - dn.x, e.clientY - dn.y) > 6 || Date.now() - dn.t > 500) return;
-      const rc = box.getBoundingClientRect(), x = e.clientX - rc.left, y = e.clientY - rc.top;
-      const hit = TR.hits.filter((q) => Math.hypot(q.x - x, q.y - y) <= q.r + 3).sort((a, b) => b.g.usd - a.g.usd)[0];
-      if (hit) { e.stopPropagation(); trDetalle(hit.g, { left: rc.left + hit.x - hit.r, top: rc.top + hit.y - hit.r, width: hit.r * 2, height: hit.r * 2, bottom: rc.top + hit.y + hit.r }, 'toque'); }
+      const hit = pegar(e);
+      if (hit) { e.stopPropagation(); abrir(hit, 'toque'); } else if (!trPop.hidden) trPopCerrar();
     }, true);
   })();
 
-  // ---- el panel: abrir y cerrar, pestañas, monto minimo
+  // ---- modo "En vivo": prender y apagar, ventana del dinero y monto minimo de las burbujas
   (function () {
-    const pan = document.getElementById('vivo'), btn = document.getElementById('vivo-btn');
-    const casa = document.getElementById('chart'), raiz = casa.closest('.ab');
-    // en el celu es una hoja desde abajo: va al nivel de la pagina, si no la tapa la hoja del analisis
-    const ubicar = () => { const celu = window.innerWidth < 1000; if (celu && pan.parentElement !== raiz) raiz.append(pan); else if (!celu && pan.previousElementSibling !== casa) casa.after(pan); };
-    window.addEventListener('resize', ubicar);
-    const poner = (on) => {
-      ubicar(); TR.abierto = on; pan.hidden = !on; document.documentElement.classList.toggle('ab-vivo-on', on);
-      [btn, document.getElementById('vivo-chip')].forEach((b) => b && b.setAttribute('aria-pressed', String(on)));
+    const btn = document.getElementById('vivo-btn'), chip = document.getElementById('vivo-chip');
+    const poner = (on, ajustar = true) => {
+      TR.abierto = on; document.documentElement.classList.toggle('ab-vivo-on', on);
+      [btn, chip].forEach((b) => b && b.setAttribute('aria-pressed', String(on)));
       try { localStorage.setItem('ab-vivo', on ? '1' : '0'); } catch (e) { /* sin almacenamiento */ }
-      trConectar(); trPanel();
+      if (!on) trPopCerrar();
+      trConectar(); trFlujo(); if (G.tr) G.tr.update();
+      if (on) libroTic();
+      // lugar a la derecha de la ultima vela para el libro (o devolverlo), si se esta mirando lo ultimo
+      if (ajustar && G.chart && G.d) {
+        const ts = G.chart.timeScale(), r = ts.getVisibleLogicalRange(); if (!r) return;
+        const total = G.d.all.length + G.d.futN, len = r.to - r.from, hu = Math.ceil(len * 0.24);
+        if (r.to >= total - 2) ts.setVisibleLogicalRange(on ? { from: total + 1 + hu - len, to: total + 1 + hu } : { from: total + 1 - len, to: total + 1 });
+      }
     };
     btn.addEventListener('click', () => poner(!TR.abierto));
-    const cuerpo = document.getElementById('vivo-cuerpo');
-    cuerpo.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' && TR.vista === 'trades') { TR.pausa = true; pan.classList.add('pausa'); } });
-    cuerpo.addEventListener('pointerleave', () => { TR.pausa = false; pan.classList.remove('pausa'); trUltPanel = 0; trPanel(); });
-    document.querySelectorAll('#vivo-flujo .ab-vivo-ven button').forEach((b) => b.addEventListener('click', () => {
+    chip.addEventListener('click', () => poner(!TR.abierto));
+    const box = document.getElementById('vivo-flujo');
+    box.querySelectorAll('[data-s]').forEach((b) => b.addEventListener('click', () => {
       TR.ventana = +b.dataset.s; try { localStorage.setItem('ab-tape-ventana', String(TR.ventana)); } catch (e) { /* idem */ } trFlujo();
     }));
-    setInterval(() => { if (TR.abierto) trFlujo(); }, 1000);
-    document.getElementById('vivo-chip').addEventListener('click', () => poner(!TR.abierto));
-    document.getElementById('vivo-x').addEventListener('click', () => poner(false));
-    pan.querySelectorAll('[data-vista]').forEach((b) => b.addEventListener('click', () => {
-      TR.vista = b.dataset.vista; pan.querySelectorAll('[data-vista]').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
-      document.getElementById('vivo-min').hidden = TR.vista !== 'trades'; trUltPanel = 0; trPanel();
-    }));
     const sel = document.getElementById('vivo-min');
-    const llenar = () => { sel.replaceChildren(...TR_MIN.map((v) => { const o = el('option', '', `≥ ${usdK(v)} USD`); o.value = v; o.selected = v === trMin(); return o; })); };
-    sel.addEventListener('change', () => { try { localStorage.setItem(`ab-tape-min:${MON()}`, sel.value); } catch (e) { /* idem */ } TR.grupos = TR.grupos.filter((g) => g.usd >= +sel.value); trUltPanel = 0; trPanel(); if (G.tr) G.tr.update(); });
+    const llenar = () => { sel.replaceChildren(...TR_MIN.map((v) => { const o = el('option', '', `burbujas ≥ ${usdC2(v)}`); o.value = v; o.selected = v === trMin(); return o; })); };
+    sel.addEventListener('change', () => { try { localStorage.setItem(`ab-tape-min:${MON()}`, sel.value); } catch (e) { /* idem */ } TR.grupos = TR.grupos.filter((g) => g.usd >= +sel.value); if (G.tr) G.tr.update(); });
     llenar();
-    let abierto0 = false; try { abierto0 = localStorage.getItem('ab-vivo') === '1'; } catch (e) { /* idem */ }
-    poner(abierto0 && window.innerWidth >= 1000);
+    let on0 = false; try { on0 = localStorage.getItem('ab-vivo') === '1'; } catch (e) { /* idem */ }
+    poner(on0, false);
     document.addEventListener('visibilitychange', () => (document.hidden ? trCerrar() : trConectar()));
-    // al cambiar de activo o de capa: reconectar
-    setInterval(() => { if (trActivo() && TR.mon !== MON()) { llenar(); trConectar(); } else if (!trActivo() && TR.socks.length) trCerrar(); else if (trActivo() && !TR.socks.length) trConectar(); }, 1500);
+    setInterval(() => { trFlujo(); if (trActivo() && TR.mon !== MON()) { llenar(); trConectar(); } else if (!trActivo() && TR.socks.length) trCerrar(); else if (trActivo() && !TR.socks.length) trConectar(); }, 1000);
   })();
 
   dash.onData(draw);   // al final: todo lo de arriba (tambien el grafico) ya esta definido
@@ -6211,12 +6221,10 @@
     [/^(Pivote|Pivotes)/, 'app', 'Pivotes', 'Niveles clásicos que salen del máximo, mínimo y cierre del día anterior (P, R1–R3 arriba, S1–S3 abajo).', null, null, 'Muchos traders los miran, por eso a veces frenan al precio.'],
     [/^(Mínimo|Máximo) (24 h|7 días|30 días)/, 'app', 'Mínimos y máximos recientes', 'El precio más bajo y más alto de ese período. Suelen hacer de soporte y resistencia, y debajo y arriba suele haber stops.'],
     [/^(Precio más probable)/, 'app', 'Precio más probable', 'El precio del medio de lo que pasó en los casos parecidos a esa hora: la mitad terminó arriba y la mitad abajo.'],
-    [/^Libro$/, 'volu', 'Libro en vivo', 'Las órdenes que esperan arriba (ventas, en rojo) y abajo (compras, en verde) del precio, sumando Binance, Bybit y OKX. Cada barra muestra cuánto pone cada exchange con su color.',
-      'Mucha compra esperando cerca y debajo: hay quien sostiene el precio.', 'Mucha venta esperando cerca y arriba: hay quien frena la suba.', 'Los números en negrita son muros (las órdenes más grandes). Se pueden retirar en un segundo: mirá si siguen cuando el precio llega.', '#vivo'],
-    [/^Trades$/, 'volu', 'Trades en vivo', 'Las compras y ventas a mercado que van entrando. Lo que llega junto del mismo lado es una sola orden repartida entre exchanges; tocala para ver cuánto entró en cada uno.',
-      'Muchas compras grandes seguidas: alguien con plata empuja para arriba.', 'Muchas ventas grandes seguidas: empujan para abajo.', 'La barrita de colores muestra en qué exchanges entró. Spot es compra real; perpetuo, con apalancamiento.', '#vivo'],
-    [/^(Trades en vivo|Libro y trades)/, 'volu', 'Libro y trades en vivo', 'El libro de órdenes sumado de varios exchanges y las órdenes a mercado que entran, al instante. La capa "Trades en vivo" las dibuja como burbujas en el gráfico: más grande, más plata.',
-      'Burbujas verdes: compras a mercado.', 'Burbujas rojas: ventas a mercado.', 'Tocá una burbuja para ver de qué exchange vino cada parte.'],
+    [/^(En vivo: libro y trades|Trades en vivo|Libro y trades)/, 'volu', 'En vivo: libro y trades', 'Todo dentro del gráfico. A la derecha, el libro de órdenes sumado de Binance, Bybit y OKX a la altura de cada precio (los muros, marcados). En las velas, burbujas con las órdenes grandes a mercado que van entrando: más grande, más plata. Arriba, el dinero que entró comprando y vendiendo.',
+      'Burbujas verdes y barras verdes: compras (las que entran y las que esperan).', 'Burbujas rojas y barras rojas: ventas.', 'Pasá el mouse (o tocá) una burbuja o una barra del libro para ver cuánto puso cada exchange.'],
+    [/^(Compras [\d—]|[\d—].* Ventas$)/, 'volu', 'Dinero a mercado', 'Todo lo que se compró y se vendió a mercado (el apurado, que acepta el precio que hay) en el tiempo elegido, sumando Binance, Bybit, OKX y Coinbase. Cuenta también las órdenes chicas.',
+      'Más compras que ventas (neto positivo): presión compradora.', 'Más ventas que compras: presión vendedora.', 'Si el precio no sube aunque entren muchas compras, alguien grande está vendiendo en el libro (absorción).'],
     // ----- calendario economico -----
     [/^Calendario económico/, 'macro', 'Calendario económico', 'Los datos de la economía de EE.UU. que mueven a los mercados: lo que viene y lo que salió la última semana. Los puntos son la importancia (3 = alta).',
       null, null, 'Medido en BTC: la hora en que sale un dato fuerte se mueve 1,6–1,8 veces lo normal; la de la Fed, ~3 veces.'],
