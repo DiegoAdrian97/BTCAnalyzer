@@ -69,6 +69,32 @@ OPC_LIBRO = [{"instrument_name": f"BTC-{d}-{k}-{t}", "open_interest": round(1 + 
 OPC_DVOL = [[OPC_AHORA - (720 - k) * 3_600_000, 40 + 5 * math.sin(k / 30)] for k in range(721)]
 
 
+# flujo de compras: velas de 1 h con volumen comprador, armadas para cada caso (divergencias, absorcion, vieja)
+def flujo_casos():
+    t0, H = 1_793_000_000_000 - 1_793_000_000_000 % 3_600_000, 3_600_000
+    casos = []
+    for forma, compra_spot in (("techo", 0.3), ("piso", 0.7), ("baja", 0.7), ("sube", 0.3), ("plano", 0.5)):
+        perp, spot, p = [], [], 60000.0
+        for k in range(26):
+            paso = {"techo": 30 if k < 25 else 80, "piso": -30 if k < 25 else -80, "baja": -30, "sube": 30, "plano": 0}[forma]
+            o, p = p, p + paso
+            v = 100 + k
+            tb = v * (0.7 if k < 12 else 0.35) if forma == "techo" else v * (0.3 if k < 12 else 0.65) if forma == "piso" else v * 0.5
+            perp.append([t0 + k * H, o, max(o, p) + 5, min(o, p) - 5, p, v, round(tb, 3)])
+            spot.append([t0 + k * H, o, max(o, p) + 5, min(o, p) - 5, p, v / 2, round(v / 2 * compra_spot, 3)])
+        casos.append([perp, spot, t0 + 26 * H + 60_000])
+    casos.append([casos[0][0], [], casos[0][2]])                      # sin spot
+    casos.append([casos[0][0], casos[0][1], casos[0][2] + 2 * H])      # vieja
+    return casos
+
+
+FLUJO = flujo_casos()
+_HC = FC["ahora"] // 3_600_000 * 3_600_000 - 3_600_000
+FC_FLUJO = [FC["filas"] + [{"tabla": "flujo", "t": _HC, "cvd_div": cd, "absorcion": ab, "cambio_24h": ch},
+                           {"tabla": "ict", "tf": "1h", "tipo": "barrida", "sesgo": sb, "t": _HC, "bajo": 61234.5, "alto": 61234.5}]
+            for cd, ab, ch, sb in (("alcista", "alcista", -1.8, "alcista"), ("bajista", "bajista", 2.1, "bajista"))]
+
+
 def rango_py():
     """Calibracion del rango del 80% (rango_puntajes / rango_factor) con la volatilidad prevista (vol_escala)."""
     c = [b[4] for b in H1]
@@ -105,6 +131,8 @@ def py():
         "ict_h1": ind.ict(H1, ind.atr_w([b[2] for b in H1], [b[3] for b in H1], [b[4] for b in H1]), 60),
         "ict_h4": ind.ict(H4, ind.atr_w([b[2] for b in H4], [b[3] for b in H4], [b[4] for b in H4]), 240),
         "ict_filas": A.ict_filas("1h", H1, 60),
+        "flujo": [ind.flujo_senales(*c) for c in FLUJO],
+        "central_flujo": [A.central(f, FC["precio"], {"1h": H1, "4h": H4}, FC["ahora"]) for f in FC_FLUJO],
         "base_perp": [A.base_perp(61300, 61234.5, "Bybit"), A.base_perp(61190, 61234.5, "Bybit"), A.base_perp(61240, 61234.5, "Bybit")],
         "_ctx_raw": raw,
     }
@@ -136,6 +164,8 @@ console.log(JSON.stringify({
   ict_h1: Ind.ict(d.H1, Ind.atrW(d.H1.map((b) => b[2]), d.H1.map((b) => b[3]), d.H1.map((b) => b[4])), 60),
   ict_h4: Ind.ict(d.H4, Ind.atrW(d.H4.map((b) => b[2]), d.H4.map((b) => b[3]), d.H4.map((b) => b[4])), 240),
   ict_filas: A.ictFilas('1h', d.H1, 60),
+  flujo: d.FLUJO.map((c) => Ind.flujoSenales(...c)),
+  central_flujo: d.FC_FLUJO.map((f) => A.central(f, d.FC.precio, { "1h": d.H1, "4h": d.H4 }, d.FC.ahora)),
   base_perp: [A.basePerp(61300, 61234.5, 'Bybit'), A.basePerp(61190, 61234.5, 'Bybit'), A.basePerp(61240, 61234.5, 'Bybit')],
   rango: (() => { const c = d.H1.map((b) => b[4]), e50 = Ind.ema(c, 50), e200 = Ind.ema(c, 200), rsi = Ind.rsi(c), mh = Ind.macd(c)[2];
     const st = Apr.estados(Apr.rasgos(d.H1, 60, e50, e200, rsi, mh), 2), F = A.volEscala(d.H1, 60, 4, false);
@@ -172,7 +202,7 @@ def main():
     raw = p.pop("_ctx_raw")
     entrada = {"FC": FC, "H1": H1, "H4": H4, "D1": D1, "ALT": ALT, "AHORA": AHORA, "raw": raw, "LIQ": LIQ,
                "CASOS": CASOS, "SPEC_1H": SPEC_1H, "LOG_ENTRADAS": LOG_ENTRADAS, "LOG_CIERRES": LOG_CIERRES,
-               "OPC_LIBRO": OPC_LIBRO, "OPC_DVOL": OPC_DVOL, "OPC_AHORA": OPC_AHORA}
+               "OPC_LIBRO": OPC_LIBRO, "OPC_DVOL": OPC_DVOL, "OPC_AHORA": OPC_AHORA, "FLUJO": FLUJO, "FC_FLUJO": FC_FLUJO}
     out = subprocess.run(["node", "-e", JS, RAIZ], input=json.dumps(entrada), capture_output=True, text=True)
     if out.returncode:
         raise SystemExit("node fallo:\n" + out.stderr[-2000:])

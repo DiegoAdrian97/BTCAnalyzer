@@ -724,6 +724,24 @@ Cada una contra un control (lo que daría el azar en la misma situación), BTC 2
 | Vencimiento de opciones (dolor máximo) | No hay historia gratuita del interés abierto por precio | No se mide |
 | Nasdaq (QQQ) adelantándose a BTC | Yahoo no le da velas de 1 h a GitHub (429); no hay otra fuente gratuita de intradiario | No se pudo medir |
 
+### Flujo de compras, VWAP, perfil de volumen e ICT medidos (`medir_flujo.py`, nov. 2026)
+
+BTC 1 h 2021–2026 (perpetuos y spot de Binance, con el volumen comprador). Acierto de la dirección; entra solo lo que gana en
+2021-24 y en 2025-26 (z ≥ 2, el mismo lado):
+
+| Señal | 1 h después (21-24 / 25-26) | 4 h después | ¿Entra? |
+|---|---|---|---|
+| Divergencia de CVD bajista (máximo de 24 h sin el CVD) | 56,9% / 56,3% | 56,3% / 53,2% | Sí, plazo 1 hora |
+| Divergencia de CVD alcista | 59,0% / 53,9% | 60,0% / 57,3% | Sí, plazo 4 horas |
+| Spot compra con el precio cayendo > 1% en 24 h | 59,4% / 54,9% | 59,9% / 56,9% | Sí, plazo 4 horas |
+| Spot vende con el precio subiendo > 1% | 52,4% / 51,7% | 53,8% / 52,8% | Sí, plazo 4 horas |
+| Barrida de liquidez en 1 h | 53,8% / 53,2% | 55,4% / 54,3% | Sí, 1 y 4 horas |
+| Precio arriba del VWAP o del POC de 24 h; delta de los perpetuos | 46–49%: cuentan al revés | igual | No: es el mismo "el precio corrige" que ya cuentan los indicadores |
+| Order block, breaker, IFVG, Power of Three (1 h); todo ICT en 4 h | 44–54%, sin repetirse en los dos tramos | igual | No (se dibujan, con su acierto medido) |
+| Perpetuos contra spot (4 h) | 49–52% | 50–51% | No |
+
+En la app el flujo usa solo la última vela de 1 h cerrada (se pide una vez por hora), y solo en BTC (lo medido).
+
 ### Kronos, el modelo de IA de velas (`medir_kronos.py`, nov. 2026)
 
 [Kronos](https://github.com/shiyu-coder/Kronos) es un modelo abierto entrenado con unos 12 mil millones de velas de 45
@@ -877,6 +895,7 @@ python JavascriptVersion/generar_pagina.py
 | `dashboard/index.html` | La página del dashboard |
 | `render.yaml` | Configuración para Render |
 | `JavascriptVersion/` | La versión que corre entera en el teléfono (Vercel): `analisis.js`, `indicadores.js`, `aprendizaje.js`, `datos.js`, `worker.js` |
+| `medir_flujo.py` | Mide el flujo de compras (delta, CVD, spot), el VWAP, el perfil de volumen y los conceptos ICT |
 | `medir_contexto.py` | Mide con años de historia si una señal o idea nueva le gana a la tasa base antes de sumarla |
 | `JavascriptVersion/api/posiciones.js` | Tus posiciones y órdenes de BingX, solo lectura (Vercel) |
 | `JavascriptVersion/vercel.json`, `JavascriptVersion/lib/` | Caché del navegador en Vercel y las librerías del gráfico (d3, Lightweight Charts) alojadas en la app |

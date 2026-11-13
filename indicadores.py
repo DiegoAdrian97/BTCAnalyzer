@@ -1310,6 +1310,38 @@ def ict(bars, atr, tf_min=60, horizon=6, lookback=1000, sigue=400):
     return out, stats
 
 
+def flujo_senales(perp, spot, now_ms):
+    """Senales del flujo de compras con las velas de 1 hora cerradas [t, o, h, l, c, v, volumen comprador] de perpetuos
+    y de spot (Binance). Medido (medir_flujo.py, BTC 2021-2026, en los dos tramos):
+      divergencia de CVD: el precio hace maximo (minimo) de 24 h y el CVD de los perpetuos no. Bajista: la hora
+                          siguiente bajo 56-57% de las veces; alcista: las 4 h siguientes subieron 57-60%.
+      absorcion en spot: en 24 h el precio cayo mas de 1% y en spot se compro mas de lo que se vendio (o al reves):
+                          las 4 h siguientes fueron para el lado del spot 53-60% de las veces.
+    Solo con la ultima vela cerrada (la de la hora que acaba de terminar). Igual que flujoSenales() en indicadores.js."""
+    hora = 3600000
+    perp = [b for b in (perp or []) if b[0] + hora <= now_ms]
+    if len(perp) < 25 or now_ms - (perp[-1][0] + hora) >= hora:
+        return None
+    sp = {b[0]: b for b in (spot or [])}
+    P = perp[-25:]
+    c = [b[4] for b in P]
+    dp = [2 * b[6] - b[5] for b in P]
+    ds = [2 * sp[b[0]][6] - sp[b[0]][5] if b[0] in sp else 0.0 for b in P]
+    cvd, acc = [], 0.0
+    for x in dp[1:]:
+        acc += x
+        cvd.append(acc)
+    ult = c[1:]
+    div = "bajista" if c[-1] >= max(ult) and cvd[-1] < max(cvd) else "alcista" if c[-1] <= min(ult) and cvd[-1] > min(cvd) else None
+    s24, ch = sum(ds[1:]), c[-1] / c[0] - 1
+    con_spot = sum(1 for b in P[1:] if b[0] in sp) >= 20
+    abs_ = None
+    if con_spot:
+        abs_ = "alcista" if ch < -0.01 and s24 > 0 else "bajista" if ch > 0.01 and s24 < 0 else None
+    return {"t": P[-1][0], "cvd_div": div, "absorcion": abs_, "delta_perp_24h": round(sum(dp[1:]), 2),
+            "delta_spot_24h": round(s24, 2) if con_spot else None, "cambio_24h": round(ch * 100, 2)}
+
+
 def ict_descripcion(z, stats, horizon, plazo_txt):
     """El texto de cada concepto (igual que ictDescripcion en JS)."""
     s = stats.get(z["tipo"], [0, 0])

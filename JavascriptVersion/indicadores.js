@@ -1213,6 +1213,27 @@
     }
     return [out, stats];
   }
+  /** Senales del flujo de compras (igual que flujo_senales en Python: ahi esta lo medido). */
+  function flujoSenales(perp, spot, now) {
+    const hora = 3600000;
+    perp = (perp || []).filter((b) => b[0] + hora <= now);
+    if (perp.length < 25 || now - (perp[perp.length - 1][0] + hora) >= hora) return null;
+    const sp = new Map((spot || []).map((b) => [b[0], b]));
+    const P = perp.slice(-25), c = P.map((b) => b[4]);
+    const dp = P.map((b) => 2 * b[6] - b[5]);
+    const ds = P.map((b) => (sp.has(b[0]) ? 2 * sp.get(b[0])[6] - sp.get(b[0])[5] : 0));
+    const cvd = []; let acc = 0;
+    dp.slice(1).forEach((x) => { acc += x; cvd.push(acc); });
+    const ult = c.slice(1), last = c[c.length - 1], cl = cvd[cvd.length - 1];
+    const div = last >= Math.max(...ult) && cl < Math.max(...cvd) ? 'bajista' : last <= Math.min(...ult) && cl > Math.min(...cvd) ? 'alcista' : null;
+    let s24 = 0; ds.slice(1).forEach((x) => { s24 += x; });
+    const ch = last / c[0] - 1;
+    const conSpot = P.slice(1).filter((b) => sp.has(b[0])).length >= 20;
+    const abs = !conSpot ? null : ch < -0.01 && s24 > 0 ? 'alcista' : ch > 0.01 && s24 < 0 ? 'bajista' : null;
+    let d24 = 0; dp.slice(1).forEach((x) => { d24 += x; });
+    return { t: P[P.length - 1][0], cvd_div: div, absorcion: abs, delta_perp_24h: rnd(d24, 2),
+      delta_spot_24h: conSpot ? rnd(s24, 2) : null, cambio_24h: rnd(ch * 100, 2) };
+  }
   /** El texto de cada concepto (igual que ict_descripcion en Python). */
   function ictDescripcion(z, stats, horizon, plazoTxt) {
     const s = stats[z.tipo] || [0, 0];
@@ -1232,7 +1253,7 @@
     ar, rnd, roundEven, sma, ema, rma, wma, hma, vwma, rsi, stoch, stochRsi, cci, williamsR, momentum, macd,
     awesome, bullBearPower, ultimate, dmi, atrW, mfi, cmf, obv, bollinger, keltner, psar, supertrend, ichimoku,
     vwapSession, calificar, ratingTxt, divergencia, fvg, zigzag, elliott, mapaLiquidaciones, patronesVelas,
-    estadisticaVelas, patronGrafico, figuraLineas, wyckoff, divergencias, pivotes, ict, ictDescripcion, ICT_NOMBRE,
+    estadisticaVelas, patronGrafico, figuraLineas, wyckoff, divergencias, pivotes, ict, ictDescripcion, ICT_NOMBRE, flujoSenales,
   };
   root.Ind = Ind;
   if (typeof module !== 'undefined' && module.exports) module.exports = Ind;

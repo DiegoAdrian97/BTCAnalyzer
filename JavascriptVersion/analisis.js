@@ -271,6 +271,8 @@
     const eventos = pick('evento').filter((r) => r.t && r.t > now).map((r) => r.t).sort((a, b) => a - b);
     // decision de tasa de la Fed (medir_fed.py): la hora del anuncio se movio ~3,2 veces lo normal; la direccion, ~50/50
     const fed = pick('evento').filter((r) => r.t && r.t > now && ['interest rate decision', 'fomc decision', 'interest rate fomc'].some((k) => (r.original || '').toLowerCase().includes(k))).map((r) => r.t).sort((a, b) => a - b);
+    const fl = pick('flujo')[0] || null;
+    const barridas = pick('ict').filter((x) => x.tf === '1h' && x.tipo === 'barrida' && x.t);
     const out = [];
     for (const tf of CENTRAL_TF) {
       const marco = pick('marco').find((m) => m.tf === tf);
@@ -339,6 +341,21 @@
       }
       if (p && nombrePlazo === '1 hora' && (p.coinciden === 'alcista' || p.coinciden === 'bajista'))     // medido: 54,0% contra 51,5%
         cf('direccion', p.coinciden === 'alcista' ? 1 : -1, 1, '15 min, 1 hora y 4 horas apuntan para el mismo lado (medido: acierta 54% contra 51,5%)');
+      // flujo de compras y barridas de liquidez (medir_flujo.py; como en Python: solo lo que gano en los dos tramos)
+      if (fl && (tf === '1h' || tf === '4h')) {
+        if (tf === '1h' && fl.cvd_div === 'bajista') cf('direccion', -1, 1, 'Divergencia de CVD: el precio hizo máximo de 24 h pero las compras agresivas no acompañan (medido: la hora siguiente bajó 56–57%)');
+        if (tf === '4h' && fl.cvd_div === 'alcista') cf('direccion', 1, 1, 'Divergencia de CVD: el precio hizo mínimo de 24 h pero las ventas agresivas se agotan (medido: las 4 h siguientes subieron 57–60%)');
+        if (tf === '4h' && fl.absorcion === 'alcista') cf('direccion', 1, 1, `En spot se compra mientras el precio cae (${arp(fl.cambio_24h)} en 24 h): absorción (medido: las 4 h siguientes subieron 57–60%)`);
+        if (tf === '4h' && fl.absorcion === 'bajista') cf('direccion', -1, 1, `En spot se vende mientras el precio sube (${arp(fl.cambio_24h)} en 24 h) (medido: las 4 h siguientes bajaron 53–54%)`);
+      }
+      if (tf === '1h' || tf === '4h') {
+        const bar = barridas.find((x) => now - (x.t + 3600000) >= 0 && now - (x.t + 3600000) < 3600000);
+        if (bar) {
+          const al = bar.sesgo === 'alcista';
+          cf('direccion', al ? 1 : -1, 1, `Barrida de liquidez en 1 h: la mecha pasó el ${al ? 'mínimo' : 'máximo'} de 20 velas (${ap(bar.bajo)}) y cerró adentro `
+            + (tf === '1h' ? '(medido: la hora siguiente fue para ese lado 53–54%)' : '(medido: las 4 h siguientes fueron para ese lado 54–55%)'));
+        }
+      }
       // medido (medir_direccion.py): a 1 y 4 h los indicadores de tendencia aciertan menos que una moneda (46-48%): en 4 h o
       // menos cuentan al reves (peso 1, solo el resumen); en diario o mas, a favor (sin medir)
       const r_ = marco.rating, largoTf = tf === '1d' || tf === '1w' || tf === '1M';
@@ -1416,6 +1433,7 @@
     const explanation = [];
     PLAZOS.forEach((spec) => explain(rows, price, spec).forEach((e) => explanation.push(e)));
     explanation.forEach((e) => rows.push(e));
+    if (input.flujoRaw) { const f = Ind.flujoSenales(input.flujoRaw.perp, input.flujoRaw.spot, now); if (f) rows.push({ tabla: 'flujo', ...f }); }
     central(rows, price, candles, now).forEach((e) => rows.push(e));
     // al registro (para "Reproducir"): lo que decia del movimiento fuerte de la proxima hora. Fuerte = el rango de la
     // hora siguiente pasa el doble del normal (umbral u, en %). Mismo objeto que ya quedo en el registro: solo se completa

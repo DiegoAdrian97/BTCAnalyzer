@@ -1261,6 +1261,30 @@ def _cf(lst, punto, lado, peso, texto):
     lst.append([punto, lado, peso, texto])
 
 
+_FLUJO = {}
+
+
+def flujo_raw(now_ms):
+    """Velas de 1 hora [t, o, h, l, c, v, volumen comprador] de BTCUSDT en perpetuos y spot de Binance (las ultimas 26).
+    Una vez por hora: la senal usa solo velas cerradas."""
+    hora = now_ms // 3600000
+    if _FLUJO.get("hora") == hora and _FLUJO.get("perp"):
+        return _FLUJO["perp"], _FLUJO["spot"]
+
+    import urllib.request
+
+    def bajar(u):
+        j = json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"}), timeout=10).read())
+        return [[int(r[0]), float(r[1]), float(r[2]), float(r[3]), float(r[4]), float(r[5]), float(r[9])] for r in j]
+    perp = bajar("https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=1h&limit=26")
+    try:
+        spot = bajar("https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=26")
+    except Exception:
+        spot = []
+    _FLUJO.update(hora=hora, perp=perp, spot=spot)
+    return perp, spot
+
+
 def central(rows, price, candles, now_ms):
     pick = lambda t: [r for r in rows if r.get("tabla") == t]
     mv = next(iter(pick("movimiento")), None)
@@ -1275,6 +1299,8 @@ def central(rows, price, candles, now_ms):
     # 3,2 veces lo normal y mas del doble el 78%; la direccion despues, ~50/50 (bajara, mantuviera o subiera la tasa)
     fed = sorted(r["t"] for r in pick("evento") if r.get("t") and r["t"] > now_ms and any(k in (r.get("original") or "").lower() for k in ("interest rate decision", "fomc decision", "interest rate fomc")))
     niveles = pick("nivel")
+    fl = next(iter(pick("flujo")), None)
+    barridas = [x for x in pick("ict") if x.get("tf") == "1h" and x.get("tipo") == "barrida" and x.get("t")]
     out = []
     for tf in CENTRAL_TF:
         marco = next((m for m in pick("marco") if m["tf"] == tf), None)
@@ -1365,6 +1391,24 @@ def central(rows, price, candles, now_ms):
         if p and nombre_plazo == "1 hora" and p.get("coinciden") in ("alcista", "bajista"):
             # medido (medir_contexto.py): asi la de 1 hora acerto 54,0% contra 51,5%, en los dos tramos
             _cf(F, "direccion", 1 if p["coinciden"] == "alcista" else -1, 1, "15 min, 1 hora y 4 horas apuntan para el mismo lado (medido: acierta 54% contra 51,5%)")
+        # Flujo de compras y barridas de liquidez. Medido (medir_flujo.py, BTC 1 h 2021-2026): entran solo las que ganaron
+        # en los dos tramos (z >= 2, el mismo lado). El delta, el VWAP y el POC tambien cuentan al reves a 1-4 h, pero
+        # dicen lo mismo que los indicadores de abajo (el precio que corrige): no se suman dos veces.
+        if fl and tf in ("1h", "4h"):
+            if tf == "1h" and fl.get("cvd_div") == "bajista":
+                _cf(F, "direccion", -1, 1, "Divergencia de CVD: el precio hizo máximo de 24 h pero las compras agresivas no acompañan (medido: la hora siguiente bajó 56–57%)")
+            if tf == "4h" and fl.get("cvd_div") == "alcista":
+                _cf(F, "direccion", 1, 1, "Divergencia de CVD: el precio hizo mínimo de 24 h pero las ventas agresivas se agotan (medido: las 4 h siguientes subieron 57–60%)")
+            if tf == "4h" and fl.get("absorcion") == "alcista":
+                _cf(F, "direccion", 1, 1, f"En spot se compra mientras el precio cae ({arp(fl['cambio_24h'])} en 24 h): absorción (medido: las 4 h siguientes subieron 57–60%)")
+            if tf == "4h" and fl.get("absorcion") == "bajista":
+                _cf(F, "direccion", -1, 1, f"En spot se vende mientras el precio sube ({arp(fl['cambio_24h'])} en 24 h) (medido: las 4 h siguientes bajaron 53–54%)")
+        if tf in ("1h", "4h"):
+            bar = next((x for x in barridas if 0 <= now_ms - (x["t"] + 3600000) < 3600000), None)
+            if bar:
+                al = bar["sesgo"] == "alcista"
+                _cf(F, "direccion", 1 if al else -1, 1, f"Barrida de liquidez en 1 h: la mecha pasó el {'mínimo' if al else 'máximo'} de 20 velas ({ap(bar['bajo'])}) y cerró adentro "
+                    + ("(medido: la hora siguiente fue para ese lado 53–54%)" if tf == "1h" else "(medido: las 4 h siguientes fueron para ese lado 54–55%)"))
         # Medido (medir_direccion.py, BTC 1 h 2021-2026): a 1 y 4 horas los indicadores de tendencia aciertan MENOS que una
         # moneda (el resumen 45,6-48,1%; SuperTrend, Ichimoku, VWAP, OBV, Chaikin y SAR 45-49%, en los dos tramos): despues
         # de que marcan fuerte, el precio suele corregir. En 4 h o menos cuentan al reves (peso 1, solo el resumen: los
@@ -1871,6 +1915,12 @@ def analyze():
             r["coinciden"] = lado
     explanation = [e for spec in PLAZOS for e in explain(rows, price, spec)]
     rows += explanation
+    try:                                   # flujo de compras de la ultima hora cerrada (indicadores.flujo_senales)
+        fl = ind.flujo_senales(*flujo_raw(now_ms), now_ms)
+        if fl:
+            rows.append({"tabla": "flujo", **fl})
+    except Exception as e:
+        print(f"(flujo de compras no disponible: {type(e).__name__})")
     rows += central(rows, price, candles, now_ms)
     # al historial (historial.py): lo que decia del movimiento fuerte de la proxima hora (fuerte = el rango de la hora
     # siguiente pasa el doble del normal: umbral u, en %), como la version JS

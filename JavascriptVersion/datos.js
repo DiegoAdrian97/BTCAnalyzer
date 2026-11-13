@@ -339,7 +339,16 @@
       }));
       return got.filter(Boolean);
     }
-    return { updateCandles, lastTwo, contextRaw, liqRaw, booksRaw, opcionesRaw };
+    /** Velas de 1 hora con el volumen comprador (perpetuos y spot de Binance): para el flujo de compras del analisis. */
+    async function flujoRaw() {
+      const num = (j) => j.map((r) => [+r[0], +r[1], +r[2], +r[3], +r[4], +r[5], +r[9]]);
+      const [perp, spot] = await Promise.all([
+        pedir('binance', `${BINANCE}/fapi/v1/klines?symbol=${SYM}&interval=1h&limit=26`).then(num),
+        pedir('binancespot', `https://data-api.binance.vision/api/v3/klines?symbol=${SYM}&interval=1h&limit=26`).then(num).catch(() => []),
+      ]);
+      return { perp, spot };
+    }
+    return { updateCandles, lastTwo, contextRaw, liqRaw, booksRaw, opcionesRaw, flujoRaw };
   }
 
   /** Junta todo lo que necesita el analisis. onProgress recibe textos para la pantalla de espera. */
@@ -351,7 +360,7 @@
    * hace poco o nada. Ese analisis solo se ve un instante al elegir el activo, hasta que llega el completo (1-3 s).
    */
   async function recolectar(onProgress, sym = 'BTCUSDT', { liviano = false } = {}) {
-    const { updateCandles, lastTwo, contextRaw, liqRaw, booksRaw, opcionesRaw } = fuentes(sym), pre = () => prefijo(sym);
+    const { updateCandles, lastTwo, contextRaw, liqRaw, booksRaw, opcionesRaw, flujoRaw } = fuentes(sym), pre = () => prefijo(sym);
     const now = Date.now();
     const src = SOLO_BITGET.has(sym) ? 'bitget' : isBanned('binance') ? 'bybit' : 'binance';
     const mem = memDe(sym, !liviano);
@@ -367,6 +376,9 @@
     }).catch(() => null);
     const liqP = liviano ? Promise.resolve(reciente(`${pre()}liquidaciones`, 30 * 60000, null)) : cached(`${pre()}liquidaciones`, 300000, liqRaw).catch(() => null);
     const opcP = sym !== 'BTCUSDT' ? Promise.resolve(null) : liviano ? Promise.resolve(reciente('opciones', 30 * 60000, null)) : cached('opciones', 600000, opcionesRaw).catch(() => null);
+    // flujo de compras: velas de 1 h, cambia una vez por hora (se pide cada 5 min por si la anterior no habia cerrado)
+    const sinFlujo = sym !== 'BTCUSDT';                       // medido solo en BTC (medir_flujo.py)
+    const fluP = sinFlujo ? Promise.resolve(null) : liviano ? Promise.resolve(reciente(`${pre()}flujo`, 3600000, null)) : cached(`${pre()}flujo`, 300000, flujoRaw).catch(() => null);
     const candles = {};
     let done = 0;
     await Promise.all(Object.entries(TIMEFRAMES).map(async ([tf, [days]]) => {
@@ -389,10 +401,10 @@
     let log = mem.get('log');
     if (!log) { log = (await dbGet(`${pre()}predicciones`)) || []; mem.set('log', log); mem.set('logFirma', firmaLog(log)); }
     // con las velas listas, el resto tiene 3 s mas: lo que falte va con lo ultimo que se tenia
-    const p = pre(), [ctxR, booksR, liqR, extR, opcR] = await Promise.all([aTiempo(ctxP, `${p}contexto`, 3000, null),
+    const p = pre(), [ctxR, booksR, liqR, extR, opcR, fluR] = await Promise.all([aTiempo(ctxP, `${p}contexto`, 3000, null),
       aTiempo(booksP, `${p}libros`, 3000, []), aTiempo(liqP, `${p}liquidaciones`, 3000, null), aTiempo(extP, extK, 3000, null),
-      aTiempo(opcP, 'opciones', 3000, null)]);
-    return { candles, d1Largo, live5m, price, now, ctxRaw: ctxR, booksRaw: booksR, liqRaw: liqR, externo: extR, opcionesRaw: opcR, log, fuente: src };
+      aTiempo(opcP, 'opciones', 3000, null), aTiempo(fluP, `${p}flujo`, 3000, null)]);
+    return { candles, d1Largo, live5m, price, now, ctxRaw: ctxR, booksRaw: booksR, liqRaw: liqR, externo: extR, opcionesRaw: opcR, flujoRaw: fluR, log, fuente: src };
   }
 
   // el ultimo analisis de cada activo, guardado en el telefono: al abrir la app se muestra al toque mientras se calcula
