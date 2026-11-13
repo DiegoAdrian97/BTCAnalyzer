@@ -726,10 +726,12 @@ Cada una contra un control (lo que daría el azar en la misma situación), BTC 2
 
 ### Libro y trades en vivo, calendario económico y ayudas
 
-- **En vivo: libro y trades, dentro del gráfico** (botón junto al mapa de liquidaciones, o en Capas): a la derecha, el libro sumado de Binance,
-  Bybit y OKX con la parte de cada uno, y las órdenes a mercado que entran (Binance perpetuo y spot, Bybit, OKX y Coinbase).
-  Lo que llega junto del mismo lado (menos de 150 ms) es una sola orden: al tocarla se ve cuánto entró en cada exchange. La
-  capa "Trades en vivo" las dibuja como burbujas en el gráfico. Solo conecta con el panel abierto o la capa prendida.
+- **En vivo: libro y trades, dentro del gráfico** (botón junto al mapa de liquidaciones, o en Capas): a la derecha de las
+  velas, el libro sumado de Binance, Bybit y OKX a la altura de cada precio, con los muros marcados (lo cercano por websocket,
+  lo lejano de la foto completa cada 4 s); en las velas, burbujas con las órdenes grandes a mercado (Binance perpetuo y spot,
+  Bybit, OKX y Coinbase); arriba, el dinero que entró comprando y vendiendo en 30 s a 10 min. Lo que llega junto del mismo
+  lado (menos de 150 ms) es una sola orden: pasándole el mouse (o tocándola) se ve cuánto entró en cada exchange; lo mismo
+  con cada barra del libro. Solo conecta en modo en vivo y con la pestaña a la vista.
 - **Calendario económico** (como Investing.com, con datos del calendario de TradingView): lo que viene y lo que salió la
   última semana, con actual, previsión y anterior, y la marca positivo/negativo para el mercado según la sorpresa (la lectura
   habitual de las tasas, no medida). Python = JS: `pruebas/calendario.py`.
