@@ -1,0 +1,23 @@
+name: Medir lo nuevo (calendario, liquidaciones, cuentas)
+# A mano desde Actions (o al cambiar el medidor): corre medir_nuevo.py con datos publicos (data.binance.vision y el
+# calendario de TradingView) y deja el resultado como artefacto. No cambia nada del analisis: solo mide.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/medir_nuevo.yml", "medir_nuevo.py"]
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install numpy
+      - uses: actions/cache@v4
+        with: { path: datos_medicion, key: nuevo-btc-v1 }
+      - run: python -u medir_nuevo.py | tee nuevo.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: medicion-nuevo, path: nuevo.txt }
