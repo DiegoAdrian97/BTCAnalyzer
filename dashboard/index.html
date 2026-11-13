@@ -1337,6 +1337,36 @@
   #grafico.ab-fs .ab-capas .ab-chipbtn { background: var(--vidrio); border: 1px solid var(--vidrio-borde); border-radius: 999px; }
   @media (max-width: 599.98px) { #grafico.ab-fs #tfs button { padding-inline: 2px; } #grafico.ab-fs #tfs { min-width: 0; } }
 
+  /* ---------- ayudas ocultas: la tarjeta que explica cada indicador (al pasar el mouse o mantener apretado) ---------- */
+  .ab-ay { position: fixed; z-index: 90; width: min(320px, calc(100vw - 24px)); pointer-events: none; box-sizing: border-box;
+    padding: 14px 16px 15px; border-radius: 18px; color: var(--color-fg); font-family: var(--font-anthropic-sans); font-size: 13.5px; line-height: 1.45;
+    background: color-mix(in srgb, var(--cds-surface-popover) 88%, transparent); -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%);
+    border: 1px solid color-mix(in srgb, var(--color-fg) 10%, transparent); box-shadow: var(--cds-shadow-popover);
+    opacity: 0; transform: translateY(4px) scale(.985); transition: opacity .14s ease, transform .16s cubic-bezier(.2, .8, .2, 1); }
+  .ab-ay[data-lado="arriba"] { transform-origin: var(--ay-x) 100%; } .ab-ay[data-lado="abajo"] { transform-origin: var(--ay-x) 0; transform: translateY(-4px) scale(.985); }
+  .ab-ay.is-in { opacity: 1; transform: none; }
+  .ab-ay[hidden] { display: none; }
+  .ab-ay::after { content: ""; position: absolute; left: calc(var(--ay-x) - 6px); width: 12px; height: 12px; background: inherit; border: inherit;
+    -webkit-backdrop-filter: none; backdrop-filter: none; transform: rotate(45deg); }
+  .ab-ay[data-lado="arriba"]::after { bottom: -7px; border-top: 0; border-left: 0; }
+  .ab-ay[data-lado="abajo"]::after { top: -7px; border-bottom: 0; border-right: 0; }
+  .ab-ay-cat { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--color-fg-muted); letter-spacing: .01em; }
+  .ab-ay-cat i { width: 7px; height: 7px; border-radius: 50%; flex: none; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 0%, transparent); }
+  .ab-ay-t { margin: 5px 0 6px; font-size: 15.5px; font-weight: 600; letter-spacing: -.012em; line-height: 1.25; text-wrap: balance; }
+  .ab-ay p { margin: 0; text-wrap: pretty; }
+  .ab-ay-q { color: color-mix(in srgb, var(--color-fg) 86%, transparent); }
+  .ab-ay-lee { display: grid; gap: 6px; margin-top: 11px; padding-top: 11px; border-top: 1px solid color-mix(in srgb, var(--color-fg) 8%, transparent); }
+  .ab-ay-lee > div { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 6px; align-items: start; }
+  .ab-ay-lee span { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 6px; font-size: 9px; margin-top: 1px; }
+  .ab-ay-up span { color: var(--color-ok); background: color-mix(in srgb, var(--color-ok) 13%, transparent); }
+  .ab-ay-dn span { color: var(--color-bad); background: color-mix(in srgb, var(--color-bad) 13%, transparent); }
+  .ab-ay-ojo { margin-top: 10px !important; padding: 8px 10px; border-radius: 10px; font-size: 12.5px; color: color-mix(in srgb, var(--color-fg) 78%, transparent);
+    background: color-mix(in srgb, var(--color-fg) 5%, transparent); }
+  [data-ayuda], .ab-ohlc-pane .ab-ohlc-t { cursor: help; }
+  :is(button, a, summary)[data-ayuda] { cursor: pointer; }
+  .ab-ohlc-pane .ab-ohlc-t { pointer-events: auto; }
+  @media (hover: none) { [data-ayuda] { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; } }
+  @media (prefers-reduced-motion: reduce) { .ab-ay, .ab-ay[data-lado] { transition: none; transform: none; } }
   /* ---------- reproducir el dia ---------- */
   .ab-repro-fondo { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, .28); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
   .ab-repro { position: fixed; z-index: 71; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(960px, calc(100vw - 32px));
@@ -2150,7 +2180,7 @@
   const LINEA_K = 'ab-grafico-linea';
   const lineaGuardada = (() => { try { return localStorage.getItem(LINEA_K) === '1'; } catch (e) { return false; } })();
   const S = { linea: lineaGuardada, plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
-    layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, fib: true, liq: true, osc: true, plan: true, opc: true, abanico: true, flujo: window.innerWidth >= 600, vp: true, ict: true, libro: window.innerWidth >= 600 }, log: false, medir: false, iman: false };
+    layers: { ema: false, bb: false, fvg: false, patrones: false, ondas: false, fib: false, liq: false, osc: false, plan: true, opc: false, abanico: false, flujo: false, vp: false, ict: false, libro: false }, log: false, medir: false, iman: false };
   const defBars = () => (window.innerWidth < 600 ? 50 : 90);  // en el telefono, menos para que se lean
   S.nbars = defBars();
   // en el celu arranca con lo esencial (velas, medias, patrones y liquidaciones); el resto se prende en "Capas"
@@ -7816,5 +7846,294 @@
     tbl.append(th, tb); box.append(tbl, el('p', 'ab-note', 'Brier mide la calidad de las probabilidades: 0,250 es tirar una moneda; menos es mejor. "En rango 80%": cuántas veces el precio terminó dentro del rango que anunció (lo honesto es cerca de 80%).'));
   }
   dash.onData(draw);   // al final: todo lo de arriba (tambien el grafico) ya esta definido
+})();
+/* ---------- ayudas ocultas: una tarjeta que explica cada indicador y cada dato ----------
+   Con mouse: pasar por encima (un instante) muestra la tarjeta. Con el dedo: mantener apretado; se cierra al tocar en
+   otro lado. Con teclado: al enfocar. Las etiquetas se reconocen solas por su texto (GLOSARIO), asi alcanza con sumar
+   una entrada para que un indicador nuevo tenga su ayuda en toda la app. Lo de "Que estas viendo" ya se explica solo. */
+(function () {
+  // [patron del texto, categoria, titulo, que es, si apunta a la suba, si apunta a la baja, nota (medido), solo dentro de]
+  const C = { tend: 'Tendencia', osc: 'Oscilador', vol: 'Volatilidad', volu: 'Volumen y flujo', der: 'Derivados', est: 'Estructura del precio',
+    pat: 'Patrón', app: 'Análisis de la app', herr: 'Herramienta', macro: 'Contexto' };
+  const G = [
+    // ----- medias y tendencia -----
+    [/^EMA 20 \/ 50/, 'tend', 'Medias móviles EMA 20, 50 y 200', 'Tres líneas con el precio promedio de las últimas 20, 50 y 200 velas, pesando más las recientes. La 20 sigue lo inmediato, la 50 el tramo medio y la 200 la tendencia de fondo.',
+      'Precio arriba de las tres y la 20 sobre la 50: la tendencia acompaña la suba.', 'Precio debajo y la 20 bajo la 50: la tendencia acompaña la baja.',
+      'Medido en BTC: en 1 a 4 horas, cuando todo marca suba el precio suele corregir un poco. Pesan más en diario y semanal.'],
+    [/^(vs )?EMA ?\d+/, 'tend', 'Media móvil exponencial (EMA)', 'El precio promedio de las últimas velas, dando más peso a las más nuevas. Suaviza el ruido para ver hacia dónde va el precio; el número es cuántas velas promedia.',
+      'Precio arriba de la media: compradores al mando en ese plazo.', 'Precio debajo: vendedores al mando.', 'La EMA 200 diaria es la referencia más mirada del mercado: arriba, mercado sano; abajo, débil.'],
+    [/^(vs )?(SMA ?\d+|media simple)/i, 'tend', 'Media móvil simple (SMA)', 'El promedio común del cierre de las últimas velas, todas con el mismo peso. Es más lenta que la EMA y marca mejor la tendencia larga.',
+      'Precio arriba de la media: tendencia a favor.', 'Precio debajo: tendencia en contra.', 'La media simple de 200 días separa, por costumbre, el mercado alcista del bajista.'],
+    [/^VWMA/, 'tend', 'Media ponderada por volumen (VWMA)', 'Un promedio del precio donde cada vela pesa según cuánto se operó: las velas con mucho volumen mueven más la línea.',
+      'Precio arriba: las compras con volumen sostienen la suba.', 'Precio debajo: las ventas con volumen mandan.'],
+    [/^Hull MA/, 'tend', 'Media de Hull', 'Una media muy rápida y suave, hecha para seguir al precio con poco retraso.', 'Línea que sube y precio arriba: impulso alcista.', 'Línea que baja y precio debajo: impulso bajista.'],
+    [/^Ichimoku l[ií]nea base/, 'tend', 'Ichimoku, línea base (Kijun)', 'El punto medio entre el máximo y el mínimo de las últimas 26 velas: el "precio justo" del tramo.', 'Precio arriba de la línea base: sesgo alcista.', 'Precio debajo: sesgo bajista.'],
+    [/^(Nube de Ichimoku|Ichimoku)/, 'tend', 'Nube de Ichimoku', 'Una franja que proyecta soporte y resistencia hacia adelante, armada con los puntos medios de distintos plazos.',
+      'Precio arriba de la nube: tendencia alcista; la nube hace de piso.', 'Precio debajo: tendencia bajista; la nube hace de techo.', 'Dentro de la nube: zona de indecisión.'],
+    [/^Parabolic SAR/, 'tend', 'Parabolic SAR', 'Puntitos que acompañan al precio y se acercan a medida que la tendencia madura. Sirve para seguir una tendencia y ubicar un stop.',
+      'Puntos debajo del precio: tendencia alcista.', 'Puntos arriba: tendencia bajista. Cuando cambian de lado, la tendencia giró.'],
+    [/^SuperTrend/, 'tend', 'SuperTrend', 'Una línea que sigue al precio a una distancia de 3 veces su movimiento típico (ATR). Solo cambia de lado cuando el precio la cruza con un cierre.',
+      'Línea verde debajo del precio: tendencia alcista.', 'Línea roja arriba: tendencia bajista.'],
+    [/^(ADX|\+DI)/, 'tend', 'ADX y DI (fuerza de la tendencia)', 'El ADX mide qué tan fuerte es la tendencia, sin importar para qué lado (0 a 100). Los DI dicen el lado: +DI compradores, −DI vendedores.',
+      '+DI arriba del −DI con ADX sobre 25: suba con fuerza.', '−DI arriba del +DI con ADX sobre 25: baja con fuerza.', 'ADX debajo de 20: mercado sin tendencia, de rango.'],
+    [/^Donchian/, 'tend', 'Canal de Donchian', 'El máximo y el mínimo de las últimas 20 velas. Romper el borde marca un precio nuevo para ese plazo.', 'Cierre arriba del borde superior: ruptura alcista.', 'Cierre debajo del borde inferior: ruptura bajista.'],
+    // ----- osciladores -----
+    [/^RSI · MACD/, 'osc', 'Paneles RSI y MACD', 'Dos paneles debajo del precio. El RSI mide si la suba o la baja está estirada; el MACD mide el impulso y sus cambios.',
+      'RSI saliendo de abajo de 30, o MACD cruzando arriba de su señal: impulso alcista.', 'RSI cayendo desde arriba de 70, o MACD cruzando abajo: impulso bajista.'],
+    [/^(Stoch RSI|Estoc[aá]stico RSI)/, 'osc', 'Stoch RSI', 'El estocástico aplicado al RSI: un RSI más sensible, de 0 a 100, que reacciona antes.',
+      'Cruce hacia arriba debajo de 20: rebote probable.', 'Cruce hacia abajo arriba de 80: freno probable.'],
+    [/^RSI/, 'osc', 'RSI · Índice de fuerza relativa', 'Compara las subas con las bajas de las últimas 14 velas y lo resume de 0 a 100. Dice si el movimiento está estirado.',
+      'Debajo de 30 (sobreventa): la baja está estirada y suele rebotar.', 'Arriba de 70 (sobrecompra): la suba está estirada y suele frenar.',
+      'Si el precio hace un extremo nuevo y el RSI no, es una divergencia: el movimiento pierde fuerza.'],
+    [/^MACD/, 'osc', 'MACD', 'La diferencia entre dos medias (12 y 26) y su señal (9). Las barras muestran la distancia entre las dos líneas: el impulso.',
+      'MACD cruza arriba de su señal o las barras crecen: el impulso acompaña la suba.', 'Cruza abajo o las barras caen: el impulso acompaña la baja.'],
+    [/^Estoc[aá]stico/, 'osc', 'Estocástico', 'Dónde cerró el precio dentro del rango de las últimas 14 velas, de 0 (en el mínimo) a 100 (en el máximo).',
+      'Debajo de 20 y girando hacia arriba: rebote probable.', 'Arriba de 80 y girando hacia abajo: freno probable.'],
+    [/^CCI/, 'osc', 'CCI · Índice del canal de commodities', 'Cuánto se alejó el precio de su promedio, comparado con lo que suele alejarse.', 'Debajo de −100: estirado a la baja, suele rebotar.', 'Arriba de +100: estirado a la suba, suele frenar.'],
+    [/^Awesome/, 'osc', 'Awesome Oscillator', 'La diferencia entre una media rápida (5) y una lenta (34) del punto medio de cada vela: el impulso del mercado.',
+      'Barras arriba de cero y creciendo: impulso alcista.', 'Barras debajo de cero y cayendo: impulso bajista.'],
+    [/^Momentum/, 'osc', 'Momentum', 'Cuánto cambió el precio contra hace 10 velas.', 'Positivo y creciendo: la suba acelera.', 'Negativo y cayendo: la baja acelera.'],
+    [/^Williams/, 'osc', 'Williams %R', 'Como el estocástico pero invertido: de 0 (en el máximo de 14 velas) a −100 (en el mínimo).', 'Debajo de −80: sobreventa, suele rebotar.', 'Arriba de −20: sobrecompra, suele frenar.'],
+    [/^Bull Bear Power/, 'osc', 'Bull Bear Power', 'La distancia del máximo y del mínimo de la vela a una media de 13: cuánto empujan compradores y vendedores.',
+      'Positivo y creciendo: los compradores empujan.', 'Negativo y cayendo: los vendedores empujan.'],
+    [/^Ultimate/, 'osc', 'Ultimate Oscillator', 'Mezcla la presión compradora de 7, 14 y 28 velas en un solo número de 0 a 100, para no depender de un solo plazo.',
+      'Debajo de 30: sobreventa.', 'Arriba de 70: sobrecompra.'],
+    [/^MFI/, 'osc', 'MFI · Índice de flujo de dinero', 'Un RSI que también mira el volumen: cuánto dinero entra contra cuánto sale.', 'Debajo de 20: salió mucho dinero, suele rebotar.', 'Arriba de 80: entró mucho, suele frenar.'],
+    [/^Osciladores$/, 'osc', 'Osciladores', 'Indicadores que van y vienen entre extremos (RSI, estocástico, CCI…). Sirven para ver si un movimiento está estirado o perdiendo fuerza.',
+      'Mayoría alcista: impulso a favor de la suba.', 'Mayoría bajista: impulso a favor de la baja.'],
+    [/^Medias móviles$/, 'tend', 'Medias móviles', 'El voto de las 15 medias (EMA, SMA, Ichimoku, VWMA, Hull): cuántas tienen al precio arriba y cuántas abajo.',
+      'Mayoría alcista: el precio está arriba de la mayoría de sus promedios.', 'Mayoría bajista: está debajo.',
+      'Medido en BTC: a 1–4 horas, cuando casi todas marcan suba suele venir una corrección.'],
+    // ----- volatilidad -----
+    [/^(Bandas de )?Bollinger( %B)?/, 'vol', 'Bandas de Bollinger', 'Una media de 20 velas con una banda arriba y otra abajo, a 2 desvíos. Encierran el rango normal del precio; %B dice dónde está dentro de ese rango (0 = banda de abajo, 100 = la de arriba).',
+      'Precio debajo de la banda inferior: suele volver adentro (rebote).', 'Precio arriba de la superior: suele volver adentro (freno).',
+      'Medido en BTC: fuera de banda, la hora siguiente volvió hacia adentro el 56–59% de las veces. Bandas muy angostas: suele venir una expansión.'],
+    [/^Bollinger comprimidas/, 'vol', 'Bollinger comprimidas', 'Las bandas están entre las más angostas de sus últimas 720 velas: el mercado se quedó quieto.', null, null, 'Después de una compresión suele venir un movimiento fuerte; la dirección no la dice.'],
+    [/^(Precio (arriba|debajo) de la banda)/, 'vol', 'Precio fuera de las Bollinger', 'El precio salió del rango normal de las últimas 20 velas.', 'Debajo de la banda: suele volver adentro, para arriba.', 'Arriba de la banda: suele volver adentro, para abajo.', 'Medido en BTC: vuelve hacia adentro el 56–59% de las veces en la hora siguiente.'],
+    [/^Canal de Keltner/, 'vol', 'Canal de Keltner', 'Una media con un canal a 2 veces el movimiento típico (ATR) de cada lado. Parecido a Bollinger pero más estable.',
+      'Cierre arriba del canal: impulso alcista fuerte.', 'Cierre debajo: impulso bajista fuerte.'],
+    [/^ATR/, 'vol', 'ATR · Rango verdadero promedio', 'Cuánto se mueve en promedio una vela, de punta a punta (14 velas). No dice dirección: dice cuánto se mueve.', null, null, 'Sirve para poner stops: un stop más cerca que 1 ATR suele saltar por ruido.'],
+    [/^(Mercado (agitado|en calma)|El mercado se despert|Volatilidad (\d|·)|volatilidad \d)/i, 'vol', 'Volatilidad', 'Cuánto se está moviendo el precio comparado con lo habitual de este horario.', null, null, 'Más volatilidad = más chance de movimiento fuerte, para cualquier lado.'],
+    // ----- volumen y flujo -----
+    [/^VWAP · Perfil/, 'volu', 'VWAP y perfil de volumen', 'El VWAP (línea fucsia) es el precio promedio de la sesión pesado por volumen. El perfil (barras a la izquierda) muestra cuánto se operó en cada precio; el POC es el precio con más volumen y VAH–VAL encierran el 70%.',
+      null, null, 'Medido en BTC: arriba del VWAP o del POC el precio suele volver hacia ellos en las horas siguientes; no son señal de seguir. Los bordes del perfil suelen frenar al precio.'],
+    [/^VWAP/, 'volu', 'VWAP · Precio promedio por volumen', 'El precio promedio de la sesión, pesando cada operación por su tamaño. Es la referencia que usan los grandes para saber si compraron caro o barato.',
+      null, null, 'Medido en BTC: estar arriba no es señal de compra; en 1–4 horas el precio suele volver hacia el VWAP.'],
+    [/^OBV/, 'volu', 'OBV · Volumen en balance', 'Suma el volumen de las velas que suben y resta el de las que bajan. Muestra si el volumen acompaña al precio.',
+      'OBV subiendo: el volumen acompaña la suba.', 'OBV bajando: el volumen acompaña la baja.'],
+    [/^Chaikin/, 'volu', 'Chaikin Money Flow', 'Si las velas cierran cerca de su máximo con volumen (entra dinero) o cerca de su mínimo (sale dinero), en 20 velas.',
+      'Positivo: entra dinero.', 'Negativo: sale dinero.'],
+    [/^(Volumen relativo|Volumen [\d,.]+ veces)/, 'volu', 'Volumen relativo', 'El volumen de esta vela comparado con el promedio de las últimas 20.', null, null, 'Volumen muy alto (2 veces o más) confirma que el movimiento tiene participación; suele venir con movimientos fuertes.'],
+    [/^Delta$/, 'volu', 'Delta', 'Cuánto se compró a mercado menos cuánto se vendió a mercado en cada vela (perpetuos de Binance). Comprar "a mercado" es el apurado que acepta el precio que hay.',
+      'Barras verdes: ganaron los compradores apurados.', 'Barras rojas: ganaron los vendedores apurados.', 'Medido en BTC: a 1–4 horas, el delta solo cuenta al revés (el precio suele corregir). Lo útil es compararlo con el precio.'],
+    [/^(CVD$|Flujo · CVD)/, 'volu', 'CVD · Delta acumulado', 'El delta sumado vela tras vela: la línea gris en perpetuos, la celeste en spot (compra real, sin apalancamiento). La naranja es el interés abierto.',
+      'El precio hace un mínimo nuevo y el CVD no: las ventas se agotan.', 'El precio hace un máximo nuevo y el CVD no: la suba no tiene compradores detrás.',
+      'Medido en BTC: esas divergencias aciertan 56–60%. Si en spot se compra mientras el precio cae más de 1% en 24 h, las 4 h siguientes subieron 57–60%.'],
+    [/^Divergencia de CVD/, 'volu', 'Divergencia de CVD', 'El precio hizo un extremo de 24 horas pero las compras (o ventas) agresivas no lo acompañaron.', 'Mínimo nuevo sin ventas detrás: suele rebotar.', 'Máximo nuevo sin compras detrás: suele bajar.', 'Medido en BTC 2021–2026: acierta 56–60%.'],
+    [/^En spot se (compra|vende)/, 'volu', 'Absorción en spot', 'En el mercado spot (compra real, sin apalancamiento) se hace lo contrario de lo que hace el precio.', 'Spot compra mientras el precio cae: alguien absorbe las ventas.', 'Spot vende mientras el precio sube: la suba es apalancada.', 'Medido en BTC: las 4 h siguientes van para el lado del spot 53–60% de las veces.'],
+    [/^Compras vs ventas a mercado/, 'volu', 'Compras contra ventas a mercado', 'Cuánto se compró contra cuánto se vendió a mercado en ese plazo, en los perpetuos.', 'Más compras: presión compradora.', 'Más ventas: presión vendedora.'],
+    [/^(Libro$|Manchas azules)/, 'volu', 'Mapa de calor del libro', 'Las órdenes que esperaban en el libro (Binance y Bybit) a cada momento: más amarillo, más plata esperando en ese precio.',
+      'Una zona grande de compras debajo que se mantiene: suele frenar la baja.', 'Una zona grande de ventas arriba que se mantiene: suele frenar la suba.', 'Si la zona desaparece cuando el precio llega, era de mentira (spoofing).'],
+    [/^(Libros de (órdenes|\d+ exchanges)|Presión del libro)/, 'volu', 'Libro de órdenes', 'Las órdenes de compra y de venta que están esperando cerca del precio, sumando varios exchanges.',
+      'Más compras esperando debajo: hay quien sostiene el precio.', 'Más ventas esperando arriba: hay quien frena la suba.', 'Son órdenes, no posiciones: se pueden retirar en un segundo.'],
+    [/^Comprar a mercado mueve/, 'volu', 'Slippage', 'Cuánto movería el precio una compra o venta a mercado de ese tamaño, comiéndose el libro. En pb: centésimos de 1%.', null, null, 'Si el slippage crece, el libro está flaco y el precio se mueve más fácil.'],
+    // ----- derivados -----
+    [/^(OI$|Open interest)/, 'der', 'Interés abierto (OI)', 'Cuántos contratos de futuros hay abiertos en total. Sube cuando entran posiciones nuevas y baja cuando se cierran o liquidan.',
+      'Precio y OI suben juntos: entran longs nuevos, suba con fuerza.', 'Precio baja y OI sube: entran shorts nuevos, baja con fuerza.', 'Si el precio se mueve y el OI baja, son cierres: el movimiento no tiene dinero nuevo.'],
+    [/^Funding/, 'der', 'Funding (tasa de financiamiento)', 'Lo que pagan los longs a los shorts (o al revés) cada 8 horas en los perpetuos, para que su precio siga al spot.',
+      'Funding negativo: los shorts pagan, el mercado está pesimista y apalancado a la baja.', 'Funding muy positivo: los longs pagan caro, mucho apalancamiento comprado.', 'Medido: los extremos de funding no anticiparon la dirección de forma estable.'],
+    [/^Cuentas long \/ short/, 'der', 'Cuentas long / short', 'Cuántas cuentas están compradas por cada una vendida en futuros de Binance.', 'Muchos shorts: si sube, sus cierres empujan más.', 'Muchos longs: si baja, sus liquidaciones empujan más.', 'La mayoría de las cuentas son chicas: el exceso de un lado suele ir en contra.'],
+    [/^Perpetuo vs spot/, 'der', 'Perpetuo contra spot', 'La diferencia de precio entre el futuro perpetuo y el spot.', 'Perpetuo con descuento: ventas apalancadas o coberturas, miedo.', 'Perpetuo caro: compras apalancadas, calentamiento.'],
+    [/^Prima de Coinbase/, 'der', 'Prima de Coinbase', 'Cuánto más caro (o barato) está BTC en Coinbase contra Binance. Coinbase es donde compran los fondos y las empresas de EE.UU.',
+      'Prima positiva: compran los institucionales de EE.UU.', 'Prima negativa: venden.'],
+    [/^(Liquidaciones$|Mapa de liquidaciones|Barras junto al eje)/, 'der', 'Mapa de liquidaciones', 'Dónde se liquidarían, en forma forzada, las posiciones apalancadas si el precio llega ahí. Se estima con el interés abierto y los apalancamientos más usados.',
+      'Muchos shorts arriba: si el precio sube, sus liquidaciones pueden acelerar la suba.', 'Muchos longs abajo: si baja, pueden acelerar la baja.', 'Medido: como imán no se repite en todos los años; sirve más para saber dónde se puede acelerar.'],
+    [/^(Más|Menos) liquidaciones/, 'der', 'Liquidaciones cerca', 'Hay más posiciones para liquidar de un lado que del otro, a menos de 3%.', 'Más shorts arriba: combustible para una suba.', 'Más longs abajo: combustible para una baja.'],
+    [/^Liquidaciones reales/, 'der', 'Liquidaciones reales', 'Las posiciones que efectivamente se liquidaron en la última hora.', 'Se liquidan shorts: la suba los obligó a comprar.', 'Se liquidan longs: la baja los obligó a vender.', 'Una ola grande de liquidaciones suele marcar el final de un tirón.'],
+    [/^(Volatilidad implícita|Las opciones esperan)/, 'der', 'Volatilidad implícita (DVOL)', 'Cuánto movimiento esperan las opciones de BTC para los próximos 30 días, según lo que se paga por ellas.', null, null,
+      'Medido: con el DVOL en su 20% más alto de 30 días, las 4 h siguientes fueron movimiento fuerte 18–26% de las veces (lo normal 12–13%).'],
+    [/^Opciones: puts \/ calls/, 'der', 'Puts contra calls', 'Cuántas opciones de venta (puts, protección contra bajas) hay por cada opción de compra (calls).', 'Pocos puts: optimismo.', 'Muchos puts: cobertura, miedo.'],
+    [/^Opciones: puts vs calls \(IV\)/, 'der', 'Sesgo de las opciones', 'Cuánto más caras están las puts que las calls. Mide cuánto miedo a una baja hay.', 'Calls más caras: se paga por la suba.', 'Puts más caras: se paga protección contra la baja.'],
+    [/^(Dolor máximo|Opciones$|Línea violeta a rayas)/, 'der', 'Dolor máximo', 'El precio donde, al vencer las opciones del viernes, pierden más los compradores de opciones. Es una referencia, no un imán garantizado.', null, null, 'Algunas semanas el precio se acerca a ese nivel antes del vencimiento.'],
+    [/^Vencen opciones/, 'der', 'Vencimiento de opciones', 'Ese día vencen las opciones de BTC en Deribit. Los días de vencimiento grande el precio puede moverse brusco antes de las 08:00 UTC.'],
+    // ----- estructura y patrones -----
+    [/^(FVG|Zonas FVG|Franjas verdes o rojas)/, 'est', 'FVG · Huecos de precio', 'Un hueco que dejó una vela muy rápida: entre la vela anterior y la siguiente no se operó. El precio suele volver a llenarlo.',
+      'Hueco verde debajo: suele hacer de soporte cuando el precio vuelve.', 'Hueco rojo arriba: suele hacer de resistencia.'],
+    [/^ICT$/, 'est', 'Conceptos ICT', 'Zonas y eventos que miran los traders de "Smart Money": order blocks, breakers, huecos dados vuelta (IFVG), barridas de liquidez y Power of Three. Cada uno muestra cuánto acertó en esta misma historia.',
+      null, null, 'Medido en BTC: las barridas de liquidez en 1 h acertaron 53–55%; el resto no se sostuvo en todos los años, por eso solo se dibujan.'],
+    [/^Order block/, 'est', 'Order block', 'La última vela en contra antes de un movimiento fuerte: ahí se cree que entraron órdenes grandes.', 'Order block alcista: si el precio vuelve, suele rebotar.', 'Order block bajista: si vuelve, suele frenar.', 'Medido en BTC: no se sostuvo en todos los años (≈50%).'],
+    [/^Breaker/, 'est', 'Breaker', 'Un order block que el precio rompió: cambia de función, el soporte pasa a resistencia y al revés.', 'Breaker alcista: soporte.', 'Breaker bajista: resistencia.'],
+    [/^IFVG/, 'est', 'IFVG · Hueco dado vuelta', 'Un hueco (FVG) que el precio atravesó con un cierre: queda como zona del lado contrario.', 'IFVG alcista: soporte.', 'IFVG bajista: resistencia.', 'Medido en BTC a 1 h: acertó menos de la mitad.'],
+    [/^Barrida de liquidez/, 'est', 'Barrida de liquidez', 'La mecha pasa el máximo o el mínimo de las últimas 20 velas, salta los stops que había ahí, y la vela cierra de vuelta adentro.',
+      'Barre el mínimo y cierra adentro: suele subir.', 'Barre el máximo y cierra adentro: suele bajar.', 'Medido en BTC 1 h 2021–2026: acierta 53–55% (lo normal 50%). Entra en la dirección.'],
+    [/^Power of Three/, 'est', 'Power of Three', 'Acumulación en Asia, manipulación (barre un lado del rango de Asia) y distribución hacia el otro lado.', 'Barre el mínimo de Asia y cierra arriba de la apertura: día alcista.', 'Barre el máximo y cierra abajo: día bajista.', 'Medido en BTC: no se sostuvo.'],
+    [/^(Fibonacci|Líneas violetas punteadas)/, 'est', 'Retrocesos de Fibonacci', 'Niveles entre el mínimo y el máximo del último tramo grande (23,6%, 38,2%, 50%, 61,8% y 78,6%), donde el precio suele frenar al retroceder.',
+      null, null, 'Medido en BTC: rebotaron entre 42% y 62% de las veces según el nivel; el porcentaje de cada uno está en su etiqueta.'],
+    [/^(Ondas|Elliott)/, 'est', 'Ondas de Elliott', 'La teoría de que el precio avanza en 5 ondas (1, 3 y 5 a favor; 2 y 4 correcciones) y corrige en 3 (A, B, C).',
+      'En curso una onda 1, 3 o 5 de un impulso alcista: suele seguir subiendo.', 'En curso una onda bajista: suele seguir bajando.', 'Es interpretativo: el conteo puede cambiar con el precio.'],
+    [/^(Patrones$|Flechita)/, 'pat', 'Patrones', 'Figuras de velas y figuras del gráfico (dobles techos, triángulos, hombro-cabeza-hombro…) que el sistema detecta solo, con su objetivo.', null, null, 'Una figura "posible" se confirma recién cuando el precio cierra del otro lado de su línea clave.'],
+    [/^(✓ |Posible )?doble techo/i, 'pat', 'Doble techo', 'Dos máximos parecidos que rechazaron la misma zona, con un piso en el medio (el cuello).', null, 'Si cierra debajo del cuello, se confirma y apunta a bajar tanto como la altura de la figura.'],
+    [/^(✓ |Posible )?doble piso/i, 'pat', 'Doble piso', 'Dos mínimos parecidos que defendieron la misma zona, con un techo en el medio (el cuello).', 'Si cierra arriba del cuello, se confirma y apunta a subir tanto como la altura de la figura.', null],
+    [/^(✓ |Posible )?triple techo/i, 'pat', 'Triple techo', 'Tres máximos parecidos que rechazaron la misma zona.', null, 'Si cierra debajo del cuello, se confirma: apunta a bajar la altura de la figura.'],
+    [/^(✓ |Posible )?triple piso/i, 'pat', 'Triple piso', 'Tres mínimos parecidos que defendieron la misma zona.', 'Si cierra arriba del cuello, se confirma: apunta a subir la altura de la figura.', null],
+    [/^(✓ |Posible )?hombro-cabeza-hombro invertido/i, 'pat', 'Hombro-cabeza-hombro invertido', 'Tres mínimos: el del medio (la cabeza) más bajo que los dos de los costados.', 'Al romper el cuello hacia arriba, apunta a subir la distancia de la cabeza al cuello.', null],
+    [/^(✓ |Posible )?hombro-cabeza-hombro/i, 'pat', 'Hombro-cabeza-hombro', 'Tres máximos: el del medio (la cabeza) más alto que los dos de los costados. Suele marcar el final de una suba.', null, 'Al romper el cuello hacia abajo, apunta a bajar la distancia de la cabeza al cuello.'],
+    [/^(✓ |Posible )?triángulo/i, 'pat', 'Triángulo', 'El precio se va encerrando entre una línea de techos y una de pisos que se juntan.', 'Ascendente (techo plano, pisos que suben): suele romper para arriba.', 'Descendente (piso plano, techos que bajan): suele romper para abajo.'],
+    [/^(✓ |Posible )?cuña/i, 'pat', 'Cuña', 'Dos líneas inclinadas hacia el mismo lado que se van juntando.', 'Cuña descendente: suele romper para arriba.', 'Cuña ascendente: suele romper para abajo.'],
+    [/^(✓ |Posible )?canal/i, 'pat', 'Canal', 'El precio viaja entre dos líneas paralelas.', 'Canal alcista: compra cerca del piso del canal.', 'Canal bajista: venta cerca del techo.', 'Romper el canal con un cierre cambia la lectura.'],
+    [/^Divergencia (alcista|bajista)/, 'osc', 'Divergencia', 'El precio hace un extremo nuevo y el indicador (RSI, MACD…) no lo acompaña.', 'Divergencia alcista: mínimo más bajo en el precio, no en el indicador; la baja pierde fuerza.', 'Divergencia bajista: máximo más alto en el precio, no en el indicador; la suba pierde fuerza.'],
+    [/^Doji/, 'pat', 'Doji', 'Una vela que abrió y cerró casi en el mismo precio: compradores y vendedores quedaron parejos. Indecisión.', null, null, 'Después de un tramo largo, puede anticipar un giro; sola no alcanza.'],
+    // ----- analisis de la app -----
+    [/^(Mov\. fuerte|Movimiento fuerte|Chance de movimiento fuerte|¿Movimiento fuerte\?|Chance \d|Modelo de movimiento fuerte)/, 'app', 'Movimiento fuerte', 'La chance de que la próxima hora se mueva más del doble de lo normal, para cualquier lado. La calcula un modelo entrenado con años de velas, la hora del día y el calendario.',
+      null, null, 'Lo normal ronda el 12%. No dice la dirección: dice si conviene esperar un tirón (stops más anchos, o no entrar).'],
+    [/^(Dirección$|¿Para dónde\?|Sin dirección clara|Señales: \d)/, 'app', 'Dirección', 'El resultado de sumar todas las señales medidas que apuntan a subir o a bajar, cada una con su peso.', 'Más peso a favor de la suba: "sube".', 'Más peso a favor de la baja: "baja".', 'Si quedan parejas, la app dice "sin dirección clara": es lo honesto.'],
+    [/^(Rango$|Rango esperado|8 de cada 10 veces)/, 'app', 'Rango esperado', 'Entre qué precios terminaría 8 de cada 10 veces, según cómo se movió en situaciones parecidas y la volatilidad de ahora.', null, null, 'Se controla solo: si el precio termina adentro más o menos de 8 de cada 10 veces, se ajusta.'],
+    [/^(Soporte–resist|Soporte$|soporte$|piso del rango)/, 'app', 'Soporte', 'Un precio donde, por cómo se movió antes, suele aparecer compra y frenar la baja.', null, null, 'Si el precio lo rompe con un cierre, suele pasar a ser resistencia.'],
+    [/^(Resistencia$|resistencia$|techo del rango)/, 'app', 'Resistencia', 'Un precio donde suele aparecer venta y frenar la suba.', null, null, 'Si el precio lo rompe con un cierre, suele pasar a ser soporte.'],
+    [/^(¿Qué toca primero\?|Toca primero)/, 'app', 'Qué toca primero', 'De los casos parecidos, en qué porcentaje el precio llegó primero al objetivo de arriba antes que al de abajo, a la misma distancia.', 'Más de 50%: suele tocar primero arriba.', 'Menos de 50%: suele tocar primero abajo.'],
+    [/^(\d+ casos parecidos|Casos parecidos)/, 'app', 'Casos parecidos', 'Momentos del pasado con una situación técnica parecida a la de ahora. Lo que pasó después en esos casos alimenta la predicción.', null, null, 'Con pocos casos, la predicción es menos firme.'],
+    [/^Sesgo técnico/, 'app', 'Sesgo técnico', 'El voto de todos los indicadores clásicos en cada temporalidad, como en TradingView.', null, null, 'Medido en BTC: a 1–4 horas cuenta al revés (el precio suele corregir), por eso en el análisis pesa en contra.'],
+    [/^Indicadores /, 'app', 'Voto de los indicadores', 'Qué dicen juntos los indicadores clásicos de esa temporalidad.', null, null, 'Medido en BTC: a 1–4 horas, cuando marcan fuerte el precio suele corregir (aciertan 46–48% a favor); en diario o más, cuentan a favor.'],
+    [/^15 min, 1 hora y 4 horas/, 'app', 'Temporalidades alineadas', '15 minutos, 1 hora y 4 horas apuntan para el mismo lado.', null, null, 'Medido en BTC: así la de 1 hora acierta 54% contra 51,5%.'],
+    [/^(Termómetro|Ciclo$|Ciclo \(meses\)|Ciclo de BTC)/, 'app', 'Termómetro del ciclo', 'Dónde está BTC en su ciclo de varios años, mirando cuán lejos está de sus promedios largos, el miedo del mercado y el funding.',
+      'Zona de compra: históricamente, buen momento para comprar a meses.', 'Zona de venta: históricamente cerca de techos de ciclo.', 'Es para semanas o meses, no para las próximas horas.'],
+    [/^(Ventaja sobre lo normal|Ventaja$)/, 'app', 'Ventaja sobre lo normal', 'Cuánto mejor acierta la app que una regla tonta (decir siempre lo que pasa más seguido), medido en predicciones ya cerradas.', null, null, '0% = igual que lo normal. Lo positivo es ventaja real.'],
+    [/^Acierta qué toca primero/, 'app', 'Acierto de "qué toca primero"', 'De las veces que la app dijo qué lado tocaba primero, en cuántas acertó.'],
+    [/^Cuando se anima/, 'app', 'Cuando se anima', 'Cómo le va cuando se anima a dar una dirección clara (no "sin dirección").'],
+    [/^(Equipo que aprende|Método original)/, 'app', 'Equipo que aprende y método original', 'El método original busca casos parecidos; el equipo que aprende es un modelo que se reentrena solo con lo que va pasando. Se usa el que viene acertando más.'],
+    [/^Confianza ahora/, 'app', 'Confianza', 'Cuánto conviene creerle a la predicción de ahora, según cómo viene acertando en situaciones así.'],
+    [/^(Dijo \d+%)/, 'app', 'Calibración', 'Cuando la app dijo ese porcentaje, qué pasó de verdad. Si dice 60% y pasa 60% de las veces, está bien calibrada.'],
+    [/^(Hora (de mucho movimiento|tranquila)|Cuándo suele moverse)/, 'app', 'Hora del día', 'Cada hora del día se mueve distinto: las de apertura de EE.UU. suelen moverse mucho más que la madrugada.', null, null, 'Ayuda a esperar un movimiento fuerte, no la dirección.'],
+    [/^(Decisión de la Fed|Dato fuerte de EE\.UU\.)/, 'macro', 'Dato o decisión de EE.UU.', 'Se publica un dato económico fuerte o la Fed decide la tasa.', null, null, 'Medido: la hora de la decisión de la Fed se mueve ~3 veces lo normal; la dirección, 50/50.'],
+    [/^Fear & Greed/, 'macro', 'Miedo y codicia', 'Un índice de 0 (miedo extremo) a 100 (codicia extrema) que resume el ánimo del mercado.', 'Miedo extremo: muchas veces cerca de pisos.', 'Codicia extrema: muchas veces cerca de techos.', 'Es para semanas, no para horas.'],
+    [/^(Pivote|Pivotes)/, 'app', 'Pivotes', 'Niveles clásicos que salen del máximo, mínimo y cierre del día anterior (P, R1–R3 arriba, S1–S3 abajo).', null, null, 'Muchos traders los miran, por eso a veces frenan al precio.'],
+    [/^(Mínimo|Máximo) (24 h|7 días|30 días)/, 'app', 'Mínimos y máximos recientes', 'El precio más bajo y más alto de ese período. Suelen hacer de soporte y resistencia, y debajo y arriba suele haber stops.'],
+    [/^(Precio más probable)/, 'app', 'Precio más probable', 'El precio del medio de lo que pasó en los casos parecidos a esa hora: la mitad terminó arriba y la mitad abajo.'],
+    // ----- capas y herramientas -----
+    [/^Abanico$/, 'herr', 'Abanico de caminos', 'Los caminos que siguió el precio después de situaciones realmente iguales a la de ahora. Solo aparece si hay suficientes casos.'],
+    [/^Mi plan$/, 'herr', 'Mi plan', 'Las líneas de tu plan de compras y tus posiciones en el gráfico.'],
+    [/^Log$/, 'herr', 'Escala logarítmica', 'Muestra los movimientos en porcentaje en vez de en dólares: una suba de 10% ocupa lo mismo a 20.000 que a 100.000. Sirve para ver años.'],
+    [/^Imán$/, 'herr', 'Imán', 'Al dibujar o medir, la punta se pega al máximo, mínimo, apertura o cierre de la vela más cercana.'],
+    [/^Medir$/, 'herr', 'Medir', 'Arrastrá en el gráfico para ver cuánto se movió entre dos puntos: precio, porcentaje y tiempo.'],
+    [/^Típico$/, 'herr', 'Escenario típico', 'Las velas transparentes muestran el camino más común en los casos parecidos.', null, null, null, '#scens'],
+    [/^Alcista$/, 'herr', 'Escenario alcista', 'El camino de los casos parecidos que terminaron subiendo (uno de cada cuatro mejores).', null, null, null, '#scens'],
+    [/^Bajista$/, 'herr', 'Escenario bajista', 'El camino de los casos parecidos que terminaron bajando (uno de cada cuatro peores).', null, null, null, '#scens'],
+  ];
+  const CAT_COL = { tend: '#3b82f6', osc: '#8b5cf6', vol: '#64748b', volu: '#0ea5e9', der: '#f59e0b', est: '#14b8a6', pat: '#ec4899', app: 'var(--color-fg)', herr: 'var(--color-fg-muted)', macro: '#c97a12' };
+  const PANEL = { rsi: 'RSI', macd: 'MACD', delta: 'Delta', cvd: 'CVD' };
+
+  // ----- reconocer las etiquetas -----
+  const CAND = 'td:first-child, th, b, strong, small, h2, h3, summary, button, li, .ab-tile-t, .ab-kicker, .ab-pill, span';
+  const FUERA = '#legend, .ab-ay, .ab-ohlc, input, textarea, select, #act-list, .ab-nt-pop, .ab-dib-bar, #tfs, .ab-tm-anios, script, style';
+  const memo = new Map();
+  const buscar = (txt, n) => {
+    const k = txt; let i = memo.get(k);
+    if (i === undefined) { i = G.findIndex((g) => g[0].test(txt)); memo.set(k, i); }
+    if (i >= 0 && G[i][7] && !n.closest(G[i][7])) return -1;
+    return i;
+  };
+  function etiquetar(raiz) {
+    if (!raiz || raiz.nodeType !== 1) return;
+    const nodos = raiz.matches && raiz.matches(CAND) ? [raiz, ...raiz.querySelectorAll(CAND)] : raiz.querySelectorAll(CAND);
+    nodos.forEach((n) => {
+      if (n.closest(FUERA)) return;
+      const txt = n.textContent.replace(/\s+/g, ' ').trim();
+      if (n.dataset.ayudaTxt === txt) return;
+      n.dataset.ayudaTxt = txt;
+      const arriba = n.parentElement && n.parentElement.closest('[data-ayuda]');
+      const i = txt.length && txt.length <= 160 && !arriba ? buscar(txt, n) : -1;
+      if (i >= 0) n.dataset.ayuda = i; else delete n.dataset.ayuda;
+    });
+  }
+  let pend = new Set(), prog = 0;
+  const raizApp = document.getElementById('dash-root') || document.body;
+  new MutationObserver((ms) => {
+    ms.forEach((m) => {
+      const t = m.target.nodeType === 1 ? m.target : m.target.parentElement;
+      if (!t || t.closest('.ab-ohlc, .ab-ay, #legend, canvas')) return;
+      pend.add(t.closest('li, tr, .ab-card, section, details') || t);
+    });
+    if (!prog) prog = setTimeout(() => { prog = 0; const p = pend; pend = new Set(); p.forEach((t) => { if (t.isConnected) etiquetar(t); }); }, 350);
+  }).observe(raizApp, { childList: true, subtree: true, characterData: true });
+  etiquetar(raizApp);
+
+  // ----- la tarjeta -----
+  const card = document.createElement('div');
+  card.className = 'ab-ay'; card.setAttribute('role', 'tooltip'); card.id = 'ab-ay'; card.hidden = true;
+  document.body.append(card);
+  const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
+  let actual = null, tShow = 0, tHide = 0, caliente = 0;
+  const claveDe = (n) => {
+    if (!n || !n.closest) return null;
+    const t = n.closest('.ab-ohlc-pane .ab-ohlc-t');
+    if (t) { const k = PANEL[t.closest('.ab-ohlc-pane').dataset.k]; const i = k ? G.findIndex((g) => g[0].test(k)) : -1; return i >= 0 ? [t, i] : null; }
+    const e = n.closest('[data-ayuda]');
+    return e ? [e, +e.dataset.ayuda] : null;
+  };
+  function armar(i) {
+    const [, cat, tit, que, alza, baja, ojo] = G[i];
+    const top = mk('div', 'ab-ay-cat'); const dot = mk('i'); dot.style.background = CAT_COL[cat]; top.append(dot, C[cat]);
+    const out = [top, mk('div', 'ab-ay-t', tit), mk('p', 'ab-ay-q', que)];
+    if (alza || baja) {
+      const lee = mk('div', 'ab-ay-lee');
+      if (alza) { const r = mk('div', 'ab-ay-up'); r.append(mk('span', '', '▲'), mk('p', '', alza)); lee.append(r); }
+      if (baja) { const r = mk('div', 'ab-ay-dn'); r.append(mk('span', '', '▼'), mk('p', '', baja)); lee.append(r); }
+      out.push(lee);
+    }
+    if (ojo) out.push(mk('p', 'ab-ay-ojo', ojo));
+    card.replaceChildren(...out);
+  }
+  function mostrar(el, i) {
+    clearTimeout(tHide);
+    if (actual && actual[0] === el && !card.hidden) return;
+    actual = [el, i]; armar(i);
+    card.hidden = false; card.classList.remove('is-in');
+    const r = el.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = window.innerHeight;
+    const w = card.offsetWidth, h = card.offsetHeight, m = 12;
+    const arriba = r.top - h - 10 >= m && (r.bottom + h + 10 > vh - m || r.top > vh / 2);
+    const x = Math.max(m, Math.min(vw - w - m, r.left + r.width / 2 - w / 2));
+    const y = arriba ? r.top - h - 10 : Math.min(vh - h - m, r.bottom + 10);
+    card.style.left = `${x}px`; card.style.top = `${Math.max(m, y)}px`;
+    card.dataset.lado = arriba ? 'arriba' : 'abajo';
+    card.style.setProperty('--ay-x', `${Math.max(16, Math.min(w - 16, r.left + r.width / 2 - x))}px`);
+    el.setAttribute('aria-describedby', 'ab-ay');
+    requestAnimationFrame(() => card.classList.add('is-in'));
+  }
+  function ocultar(ya) {
+    clearTimeout(tShow);
+    const fin = () => { if (actual) actual[0].removeAttribute('aria-describedby'); actual = null; card.hidden = true; card.classList.remove('is-in'); caliente = Date.now(); };
+    if (ya) fin(); else { clearTimeout(tHide); tHide = setTimeout(fin, 120); }
+  }
+  // mouse
+  document.addEventListener('pointerover', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    const k = claveDe(e.target);
+    if (!k) { if (actual) ocultar(); return; }
+    clearTimeout(tShow); clearTimeout(tHide);
+    const espera = !card.hidden || Date.now() - caliente < 400 ? 60 : 450;
+    tShow = setTimeout(() => mostrar(k[0], k[1]), espera);
+  });
+  document.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse' && actual) ocultar(true); }, true);
+  // dedo: mantener apretado
+  let hold = null, sinClick = 0;
+  document.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse') return;
+    if (!card.hidden && !card.contains(e.target)) ocultar(true);
+    const k = claveDe(e.target); if (!k) return;
+    hold = { x: e.clientX, y: e.clientY, t: setTimeout(() => { hold = null; sinClick = Date.now(); mostrar(k[0], k[1]); if (navigator.vibrate) try { navigator.vibrate(8); } catch (er) { /* sin vibracion */ } }, 450) };
+  }, true);
+  const corta = () => { if (hold) { clearTimeout(hold.t); hold = null; } };
+  document.addEventListener('pointermove', (e) => { if (hold && Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > 8) corta(); }, true);
+  document.addEventListener('pointerup', corta, true); document.addEventListener('pointercancel', corta, true);
+  // el toque largo no activa lo que esta debajo (un boton de capa, un plazo…)
+  document.addEventListener('click', (e) => { if (Date.now() - sinClick < 700) { e.preventDefault(); e.stopPropagation(); sinClick = 0; } }, true);
+  document.addEventListener('contextmenu', (e) => { if (claveDe(e.target) && (e.pointerType === 'touch' || Date.now() - sinClick < 900)) e.preventDefault(); }, true);
+  // teclado
+  document.addEventListener('focusin', (e) => { const k = claveDe(e.target); if (k && e.target.matches(':focus-visible')) mostrar(k[0], k[1]); });
+  document.addEventListener('focusout', () => { if (actual) ocultar(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && actual) ocultar(true); });
+  window.addEventListener('scroll', () => { if (actual) ocultar(true); }, { passive: true, capture: true });
+  window.addEventListener('resize', () => { if (actual) ocultar(true); });
+  window.abAyuda = { glosario: G, etiquetar };          // para las pruebas
 })();
 </script>
