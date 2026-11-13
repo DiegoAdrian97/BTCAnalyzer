@@ -42,7 +42,7 @@
   const LINEA_K = 'ab-grafico-linea';
   const lineaGuardada = (() => { try { return localStorage.getItem(LINEA_K) === '1'; } catch (e) { return false; } })();
   const S = { linea: lineaGuardada, plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
-    layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, fib: true, liq: true, osc: true, plan: true, opc: true, abanico: true }, log: false, medir: false, iman: false };
+    layers: { ema: true, bb: true, fvg: true, patrones: true, ondas: true, fib: true, liq: true, osc: true, plan: true, opc: true, abanico: true, flujo: window.innerWidth >= 600 }, log: false, medir: false, iman: false };
   const defBars = () => (window.innerWidth < 600 ? 50 : 90);  // en el telefono, menos para que se lean
   S.nbars = defBars();
   // en el celu arranca con lo esencial (velas, medias, patrones y liquidaciones); el resto se prende en "Capas"
@@ -3569,7 +3569,7 @@
     }
   }
   function mgArmar(s) {
-    const P = G.P || pal(), tema = `${P.up}${P.dn}${P.mute}|${!!S.layers.osc}`;
+    const P = G.P || pal(), tema = `${P.up}${P.dn}${P.mute}|${!!S.layers.osc}|${!!S.layers.flujo}`;
     if (s.ch && s.tema === tema) return;
     if (s.ch) s.ch.remove();
     s.tema = tema; s.key = '';
@@ -3602,6 +3602,8 @@
       s.sig = s.ch.addSeries(LW.LineSeries, { priceFormat: mf, color: P.c1, lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false }, 2);
       try { const pn = s.ch.panes(); pn[0].setStretchFactor(3); pn[1].setStretchFactor(1); pn[2].setStretchFactor(1); } catch (e) { /* sin paneles */ }
     }
+    s.fl = S.layers.flujo ? flujoPaneles(s.ch, S.layers.osc ? 3 : 1, P) : null;
+    if (s.fl) try { const pn = s.ch.panes(); pn[0].setStretchFactor(3); pn.slice(1).forEach((p, i) => p.setStretchFactor(S.layers.osc && i < 2 ? 1 : 0.85)); } catch (e) { /* idem */ }
     s.ch.subscribeCrosshairMove((q) => {
       mgLeyenda(s, q && q.time !== undefined ? q.time : null);
       if (!q || !q.sourceEvent) return;
@@ -3645,6 +3647,7 @@
       s.hist.setData(rows.filter((b) => b.hist !== null).map((b) => ({ time: T2(b.t), value: b.hist, color: alpha(b.hist >= 0 ? G.P.up : G.P.dn, 0.45) })));
     }
     mgDatos(s, rows, tf); mgAbanico(s);
+    if (s.fl) flujoSet(s.fl, flujoSeries(flujoDe(MON(), tf, () => { s.key = ''; mgPintarUno(s, false); }), rows, G.P));
     s.ch.timeScale().applyOptions({ rightOffset: S.layers.abanico ? 14 : 3 });
     s.capa.update(); s.capaU.update();
     if (nuevo || ajustar) { const n = rows.length, nb = Math.min(n, window.innerWidth < 600 ? 50 : 90); s.ch.timeScale().setVisibleLogicalRange({ from: n - nb, to: n + 2 }); }
@@ -3824,6 +3827,74 @@
     G.nowBtn.hidden = !lejos;
   }
 
+  // ---------- flujo: delta por vela, CVD de perpetuos y de spot, e interes abierto (paneles debajo del grafico) ----------
+  // Delta = lo que se compro a mercado menos lo que se vendio a mercado en esa vela (en USD), de las velas de Binance
+  // (traen el volumen comprador); el CVD es la suma desde la primera vela del grafico. Perpetuos y spot por separado: si
+  // sube el precio con el CVD spot subiendo, compran de verdad; si solo empujan los perpetuos, es apalancamiento.
+  // Se pide por activo y temporalidad, se guarda en memoria y se refresca la ultima parte cada 30 s (sin trabar el dibujo).
+  const FLUJO = { cache: {}, corre: {} };
+  const FL_OI_TF = new Set(['5m', '15m', '30m', '1h', '4h', '1d']);
+  const usdC = (x) => { const a = Math.abs(x), s = x < 0 ? '−' : x > 0 ? '+' : ''; return a >= 1e9 ? `${s}${f1(a / 1e9)} mil M` : a >= 1e6 ? `${s}${f1(a / 1e6)} M` : a >= 1e3 ? `${s}${f0(a / 1e3)} mil` : `${s}${f0(a)}`; };
+  async function flujoBajar(mon, tf) {
+    const sym = `${mon}USDT`, k = `${mon}|${tf}`, previo = FLUJO.cache[k];
+    const lim = previo ? 3 : 1000;
+    const kl = (url) => fetch(url, { signal: AbortSignal.timeout(9000) }).then((r) => (r.ok ? r.json() : [])).catch(() => []);
+    const [fu, sp, oi] = await Promise.all([
+      kl(`https://fapi.binance.com/fapi/v1/klines?symbol=${sym}&interval=${tf}&limit=${lim}`),
+      kl(`https://api.binance.com/api/v3/klines?symbol=${sym}&interval=${tf}&limit=${lim}`),
+      FL_OI_TF.has(tf) ? kl(`https://fapi.binance.com/futures/data/openInterestHist?symbol=${sym}&period=${tf}&limit=${previo ? 3 : 500}`) : Promise.resolve([]),
+    ]);
+    const e = previo || { dp: new Map(), ds: new Map(), oi: new Map() };
+    // delta en USD: (comprado - vendido) * cierre; comprado = volumen comprador (r[9]), vendido = volumen - comprado
+    const delta = (r) => (2 * +r[9] - +r[5]) * +r[4];
+    (Array.isArray(fu) ? fu : []).forEach((r) => e.dp.set(+r[0], delta(r)));
+    (Array.isArray(sp) ? sp : []).forEach((r) => e.ds.set(+r[0], delta(r)));
+    (Array.isArray(oi) ? oi : []).forEach((x) => { const m = TF_MIN[tf] * 6e4; e.oi.set(Math.floor(+x.timestamp / m) * m, +x.sumOpenInterestValue); });
+    e.t = Date.now(); e.hayPerp = e.dp.size > 0; e.haySpot = e.ds.size > 0; e.hayOi = e.oi.size > 0;
+    FLUJO.cache[k] = e;
+    return e;
+  }
+  /** Lo guardado (puede ser null); si esta viejo, lo pide y llama a listo() cuando llega. */
+  function flujoDe(mon, tf, listo) {
+    if (!ES_CRIPTO(mon)) return null;
+    const k = `${mon}|${tf}`, e = FLUJO.cache[k];
+    if ((!e || Date.now() - e.t > 30000) && !FLUJO.corre[k]) {
+      FLUJO.corre[k] = flujoBajar(mon, tf).then(() => { if (listo) listo(); }).catch(() => {}).finally(() => { delete FLUJO.corre[k]; });
+    }
+    return e || null;
+  }
+  /** Las series del panel para unas velas: delta por vela y CVD desde la primera (perp y spot), e interes abierto. */
+  function flujoSeries(e, bars, P) {
+    const out = { delta: [], cvdP: [], cvdS: [], oi: [], ult: null };
+    if (!e) return out;
+    let cp = 0, cs = 0;
+    bars.forEach((b) => {
+      const time = T2(b.t), dp = e.dp.get(b.t), ds = e.ds.get(b.t), oi = e.oi.get(b.t);
+      if (dp !== undefined) { out.delta.push({ time, value: dp, color: alpha(dp >= 0 ? P.up : P.dn, 0.6) }); cp += dp; out.cvdP.push({ time, value: cp }); }
+      if (ds !== undefined) { cs += ds; out.cvdS.push({ time, value: cs }); }
+      if (oi !== undefined) out.oi.push({ time, value: oi });
+      if (dp !== undefined || ds !== undefined) out.ult = { t: b.t, dp: dp ?? null, ds: ds ?? null, cp, cs, oi: oi ?? (out.oi.length ? out.oi[out.oi.length - 1].value : null) };
+    });
+    return out;
+  }
+  const FL_SPOT = '#38bdf8', FL_OI = '#f59e0b';
+  /** Agrega los dos paneles a un grafico (el principal o uno de los otros). base = indice del primer panel. */
+  function flujoPaneles(chart, base, P) {
+    const fmt = { type: 'custom', formatter: (v) => usdC(v), minMove: 1 }, q = { lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false, priceFormat: fmt };
+    const s = {
+      delta: chart.addSeries(LW.HistogramSeries, { ...q }, base),
+      cvdP: chart.addSeries(LW.LineSeries, { ...q, color: alpha(P.fg, 0.85), lineWidth: 1.5 }, base + 1),
+      cvdS: chart.addSeries(LW.LineSeries, { ...q, color: FL_SPOT, lineWidth: 1.5, priceScaleId: 'cvds' }, base + 1),
+      oi: chart.addSeries(LW.LineSeries, { ...q, color: FL_OI, lineWidth: 1.5, priceScaleId: 'oi' }, base + 1),
+    };
+    try { s.cvdS.priceScale().applyOptions({ visible: false, scaleMargins: { top: 0.12, bottom: 0.12 } }); s.oi.priceScale().applyOptions({ visible: false, scaleMargins: { top: 0.12, bottom: 0.12 } }); } catch (e) { /* idem */ }
+    return s;
+  }
+  function flujoSet(s, f) {
+    if (!s) return;
+    s.delta.setData(f.delta); s.cvdP.setData(f.cvdP); s.cvdS.setData(f.cvdS); s.oi.setData(f.oi);
+  }
+
   function buildChart(box, P) {
     if (G.chart) { try { G.chart.remove(); } catch (e) { /* ya no estaba */ } }
     clearInterval(G.cdTimer);
@@ -3881,9 +3952,12 @@
       G.macd.attachPrimitive(new Capa(drawOsc('MACD', G.macd), 'top'));
       const pn = chart.panes(); pn[0].setStretchFactor(3.2); pn[1].setStretchFactor(1); pn[2].setStretchFactor(1);
     }
+    G.fl = S.layers.flujo ? flujoPaneles(chart, S.layers.osc ? 3 : 1, P) : null;
+    if (G.fl) { const pn = chart.panes(); pn[0].setStretchFactor(3.2); pn.slice(1).forEach((p, i) => p.setStretchFactor(S.layers.osc && i < 2 ? 1 : 0.85)); }
     // leyendas arriba a la izquierda de cada panel, como en TradingView
     G.leg = el('div', 'ab-ohlc'); G.legO = []; box.append(G.leg);
-    if (S.layers.osc) ['rsi', 'macd'].forEach(() => { const e = el('div', 'ab-ohlc ab-ohlc-pane'); box.append(e); G.legO.push(e); });
+    if (S.layers.osc) ['rsi', 'macd'].forEach((k) => { const e = el('div', 'ab-ohlc ab-ohlc-pane'); e.dataset.k = k; box.append(e); G.legO.push(e); });
+    if (S.layers.flujo) ['delta', 'cvd'].forEach((k) => { const e = el('div', 'ab-ohlc ab-ohlc-pane'); e.dataset.k = k; box.append(e); G.legO.push(e); });
     G.tip = el('div', 'ab-tip'); G.tip.hidden = true; box.append(G.tip);
     chart.subscribeCrosshairMove(onCross);
     chart.subscribeCrosshairMove((q) => m2DesdeMain(q));
@@ -3952,11 +4026,12 @@
     if (G.legO.length) {
       const ob = fut ? null : b.rsi !== null && b.rsi !== undefined ? b : d.lastOsc;
       // arriba de cada panel: la suma de los altos de los paneles de arriba (y 1 px por cada separador)
-      const hgt = [0, 1, 2].map((k) => { try { return G.chart.paneSize(k).height; } catch (e) { return 0; } });
-      [1, 2].forEach((k, j) => {
-        const e = G.legO[j];
+      const hgt = G.legO.map((_, k) => { try { return G.chart.paneSize(k).height; } catch (e) { return 0; } }).concat(0);
+      G.legO.forEach((e, j) => {
+        const k = j + 1;
         e.style.top = `${hgt.slice(0, k).reduce((a, b) => a + b, 0) + k + 5}px`;
-        if (k === 1) {
+        if (e.dataset.k === 'delta' || e.dataset.k === 'cvd') { legendFlujo(e, b, fut); return; }
+        if (e.dataset.k === 'rsi') {
           const rv = ob ? ob.rsi : null;
           e.replaceChildren(el('span', 'ab-ohlc-t', 'RSI 14'), kv('', rv === null ? '—' : f1(rv), P.c2),
             el('span', '', rv === null ? '' : rv >= 70 ? 'sobrecompra' : rv <= 30 ? 'sobreventa' : ''));
@@ -3971,6 +4046,21 @@
     }
   }
 
+  // leyendas de los paneles de flujo: el valor de la vela que se mira (o el ultimo)
+  function legendFlujo(e, b, fut) {
+    const f = G.flS, P = G.P; if (!f) return;
+    const kv = (k, v, c) => { const sp = el('span'); const bb = el('b', '', v); bb.style.color = c; sp.append(k, bb); return sp; };
+    const en = (arr) => { if (!arr.length) return null; if (fut || !b) return arr[arr.length - 1].value; const t = T2(b.t), x = arr.find((q) => q.time === t); return x ? x.value : null; };
+    if (e.dataset.k === 'delta') {
+      const v = en(f.delta);
+      e.replaceChildren(el('span', 'ab-ohlc-t', 'Delta'), kv('', v === null ? '—' : `${usdC(v)} USD`, v === null ? P.mute : v >= 0 ? P.up : P.dn),
+        el('span', '', v === null ? 'sin datos de Binance' : v >= 0 ? 'compraron más a mercado' : 'vendieron más a mercado'));
+    } else {
+      const cp = en(f.cvdP), cs = en(f.cvdS), oi = en(f.oi);
+      e.replaceChildren(el('span', 'ab-ohlc-t', 'CVD'), kv('perp ', cp === null ? '—' : usdC(cp), alpha(P.fg, 0.9)), kv('spot ', cs === null ? '—' : usdC(cs), FL_SPOT),
+        kv('OI ', oi === null ? '—' : usdC(oi).replace('+', ''), FL_OI));
+    }
+  }
   function onCross(p) {
     const d = G.d; if (!d) return;
     G.hover = !!(p && p.point);
@@ -4686,6 +4776,22 @@
       if (ct) con('OKX', 'wss://ws.okx.com:8443/ws/v5/public', (w) => w.send(JSON.stringify({ op: 'subscribe', args: [{ channel: 'liquidation-orders', instType: 'SWAP' }] })), (j) => {
         (j.data || []).forEach((x) => { if (x.instId === `${mon}-USDT-SWAP`) (x.details || []).forEach((dd) => nueva(+dd.ts, dd.posSide === 'long' || (dd.posSide === 'net' && dd.side === 'sell') ? 'l' : 's', +dd.bkPx, +dd.sz * ct * +dd.bkPx, 'OKX')); });
       });
+      // BitMEX (solo BTC: el XBTUSD va en contratos de 1 USD): la orden de liquidacion; "Buy" = se liquido un corto
+      if (mon === 'BTC') con('BitMEX', 'wss://ws.bitmex.com/realtime?subscribe=liquidation:XBTUSD', null, (j) => {
+        if (j.table !== 'liquidation' || j.action !== 'insert') return;
+        (j.data || []).forEach((x) => nueva(Date.now(), x.side === 'Buy' ? 's' : 'l', +x.price, +x.leavesQty, 'BitMEX'));
+      });
+      // Deribit (BTC y ETH perpetuos, montos en USD): las operaciones marcadas como liquidacion. T = la liquidada es la
+      // que tomo (su lado es "direction"); M = la que esperaba (el lado contrario); MT = las dos
+      if (mon === 'BTC' || mon === 'ETH') con('Deribit', 'wss://www.deribit.com/ws/api/v2', (w) => w.send(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'public/subscribe', params: { channels: [`trades.${mon}-PERPETUAL.100ms`] } })), (j) => {
+        const tr = j.params && j.params.data; if (!Array.isArray(tr)) return;
+        tr.forEach((x) => {
+          if (!x.liquidation) return;
+          const lado = (dir) => (dir === 'buy' ? 's' : 'l'), otro = x.direction === 'buy' ? 'sell' : 'buy';
+          if (/T/.test(x.liquidation)) nueva(+x.timestamp, lado(x.direction), +x.price, +x.amount, 'Deribit');
+          if (/M/.test(x.liquidation)) nueva(+x.timestamp, lado(otro), +x.price, +x.amount, 'Deribit');
+        });
+      });
       // que no se corten por inactividad (Bybit y OKX piden ping)
       // el open interest de ahora (Binance), cada minuto: lo que entra mientras miras tambien suma zonas nuevas
       const oiAhora = async () => {
@@ -4697,7 +4803,7 @@
         } catch (e) { /* sin open interest en vivo: el mapa sigue con las velas */ }
       };
       clearInterval(VIVO.oiT); VIVO.oiT = setInterval(oiAhora, 60000); oiAhora();
-      VIVO.ping = setInterval(() => VIVO.socks.forEach((w) => { if (w.readyState !== 1) return; if (/bybit/.test(w.url)) w.send('{"op":"ping"}'); else if (/okx/.test(w.url)) w.send('ping'); }), 20000);
+      VIVO.ping = setInterval(() => VIVO.socks.forEach((w) => { if (w.readyState !== 1) return; if (/bybit/.test(w.url)) w.send('{"op":"ping"}'); else if (/okx|bitmex/.test(w.url)) w.send('ping'); else if (/deribit/.test(w.url)) w.send('{"jsonrpc":"2.0","id":9,"method":"public/test"}'); }), 20000);
     }
     // la vela en curso: se mueve al instante y el mapa se rehace cada pocos segundos con ella (lo que cruza se borra)
     function vela(t, o, h, l, c) {
@@ -4815,7 +4921,7 @@
     if (!LW) { box.replaceChildren(); const f = el('div', 'ab-fail'); f.append(el('i'), 'No se pudo cargar el gráfico'); box.append(f); return; }
     box.classList.toggle('ab-with-osc', !!S.layers.osc);
     const P = pal(), L = S.layers, tf = S.tf, tfMs = TF_MIN[tf] * 60000;
-    const key = `${!!L.osc}|${P.panel}|${P.up}|${P.c0}`;
+    const key = `${!!L.osc}|${!!L.flujo}|${P.panel}|${P.up}|${P.c0}`;
     if (!G.chart || G.key !== key || G.box !== box || !box.firstChild) { buildChart(box, P); G.key = key; }
     G.P = P;
     G.chart.applyOptions({ handleScroll: { vertTouchDrag: !!S.fs } });
@@ -4881,6 +4987,10 @@
     const line = (k) => all.filter((b) => b[k] !== null).map((b) => ({ time: T2(b.t), value: b[k] }));
     G.e20.setData(L.ema ? line('e20') : []); G.e50.setData(L.ema ? line('e50') : []); G.e200.setData(L.ema ? line('e200') : []);
     G.bbU.setData(L.bb ? line('bu') : []); G.bbL.setData(L.bb ? line('bl') : []);
+    if (G.fl) {
+      const fe = flujoDe(MON(), tf, () => { if (S.rows && S.layers.flujo) drawChart(S.rows, S.sum); });
+      G.flS = flujoSeries(fe, all, P); flujoSet(G.fl, G.flS);
+    }
     if (G.rsi) {
       G.rsi.setData(line('rsi'));
       G.hist.setData(all.filter((b) => b.hist !== null).map((b) => ({ time: T2(b.t), value: b.hist, color: alpha(b.hist >= 0 ? P.up : P.dn, 0.45) })));
