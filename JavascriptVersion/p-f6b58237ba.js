@@ -42,7 +42,7 @@
   const LINEA_K = 'ab-grafico-linea';
   const lineaGuardada = (() => { try { return localStorage.getItem(LINEA_K) === '1'; } catch (e) { return false; } })();
   const S = { linea: lineaGuardada, plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
-    layers: { ema: false, bb: false, fvg: false, patrones: false, ondas: false, fib: false, liq: false, osc: false, plan: true, opc: false, abanico: false, flujo: false, vp: false, ict: false, libro: false }, log: false, medir: false, iman: false };
+    layers: { ema: false, bb: false, fvg: false, patrones: false, ondas: false, fib: false, liq: false, osc: false, plan: true, opc: false, abanico: false, flujo: false, vp: false, ict: false, libro: false, trades: false }, log: false, medir: false, iman: false };
   const defBars = () => (window.innerWidth < 600 ? 50 : 90);  // en el telefono, menos para que se lean
   S.nbars = defBars();
   // en el celu arranca con lo esencial (velas, medias, patrones y liquidaciones); el resto se prende en "Capas"
@@ -457,7 +457,8 @@
     }
     const abierto = () => !panel.hidden;
     // en la compu: fijo a la derecha, siempre visible y con los precios en vivo (se cortan con la pestaña oculta)
-    const MQ = window.matchMedia('(min-width: 1100px) and (pointer: fine)');
+    // siempre oculto (como una terminal: el grafico y el analisis usan todo el ancho); se abre con el selector de activo
+    const MQ = window.matchMedia('not all');
     let fijo = false;
     function ponerFijo() {
       const quiere = MQ.matches;
@@ -4262,6 +4263,7 @@
     });
     G.c.attachPrimitive(G.under); G.c.attachPrimitive(G.over);
     G.dib = new Capa(drawDib, 'top'); G.c.attachPrimitive(G.dib);
+    G.tr = new Capa(drawTrades, 'top'); G.c.attachPrimitive(G.tr);
     G.rsi = G.hist = G.macd = G.sig = null;
     if (S.layers.osc) {
       G.rsi = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => f1(v), minMove: 0.1 }, color: P.c2, lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false,
@@ -5745,6 +5747,259 @@
       tr.append(td); tb.append(tr); });
     tbl.append(th, tb); box.append(tbl, el('p', 'ab-note', 'Brier mide la calidad de las probabilidades: 0,250 es tirar una moneda; menos es mejor. "En rango 80%": cuántas veces el precio terminó dentro del rango que anunció (lo honesto es cerca de 80%).'));
   }
+  // ---------- libro de ordenes y trades en vivo (Binance, Bybit, OKX y Coinbase) ----------
+  // Como una terminal de flujo: el libro sumado de los exchanges (con la parte de cada uno) y las compras y ventas a
+  // mercado que van entrando. Las operaciones que llegan juntas (mismo lado, a menos de 150 ms) son una sola orden
+  // repartida entre exchanges: se agrupan, y al tocarla se ve cuanto entro en cada uno. Las grandes se dibujan como
+  // burbujas en el grafico (capa "Trades"). Solo conecta con el panel abierto o la capa prendida, y con la pestaña a la vista.
+  const VX = {
+    binp: { n: 'Binance', k: 'perpetuo', c: '#eab308' }, bins: { n: 'Binance', k: 'spot', c: '#a16207' },
+    byb: { n: 'Bybit', k: 'perpetuo', c: '#f97316' }, okx: { n: 'OKX', k: 'perpetuo', c: '#64748b' }, cb: { n: 'Coinbase', k: 'spot', c: '#3b82f6' },
+  };
+  const OKX_CT = { BTC: 0.01, ETH: 0.1, SOL: 1, XRP: 100 };
+  const CRIPTO_SPOT = new Set(['BTC', 'ETH', 'SOL', 'XRP', 'ZEC']);
+  const TR = { abierto: false, gen: 0, mon: null, socks: [], ping: 0, on: new Set(), grupos: [], abiertos: {}, libros: {}, hits: [], vista: 'libro', pend: 0, ult: null };
+  window.abTR = TR;                                       // para las pruebas
+  const TR_MIN = [10000, 25000, 50000, 100000, 250000, 500000, 1000000];
+  const trMinDef = () => ({ BTC: 50000, ETH: 25000 }[MON()] || 10000);
+  const trMin = () => { try { const v = +localStorage.getItem(`ab-tape-min:${MON()}`); if (TR_MIN.includes(v)) return v; } catch (e) { /* sin almacenamiento */ } return trMinDef(); };
+  const usdK = (v) => (v >= 1e6 ? `${f1(v / 1e6)} M` : v >= 1e3 ? `${f0(v / 1e3)} mil` : f0(v));
+  const hms = (t) => new Date(t).toLocaleTimeString('es-AR', { ...tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+  const trActivo = () => (TR.abierto || S.layers.trades) && !document.hidden && MON() !== 'MELI';
+
+  function trCerrar() {
+    TR.gen++; clearInterval(TR.ping);
+    TR.socks.forEach((w) => { try { w.close(); } catch (e) { /* ya cerrado */ } }); TR.socks = []; TR.on.clear(); trEstado();
+  }
+  function trConectar() {
+    if (!trActivo()) { if (TR.socks.length) trCerrar(); return; }
+    if (TR.socks.length && TR.mon === MON()) return;
+    trCerrar();
+    const gen = TR.gen, mon = MON(), sym = `${mon}USDT`, s = sym.toLowerCase();
+    if (TR.mon !== mon) { TR.mon = mon; TR.grupos = []; TR.abiertos = {}; TR.libros = {}; TR.ult = null; }
+    const con = (k, url, alAbrir, alMsg) => {
+      if (gen !== TR.gen) return;
+      let w; try { w = new WebSocket(url); } catch (e) { return; }
+      TR.socks.push(w);
+      w.onopen = () => { TR.on.add(VX[k].n); trEstado(); if (alAbrir) alAbrir(w); };
+      w.onmessage = (e) => { if (gen !== TR.gen || typeof e.data !== 'string' || e.data === 'pong') return; try { alMsg(JSON.parse(e.data)); } catch (err) { /* mensaje raro */ } };
+      w.onclose = () => { TR.on.delete(VX[k].n); TR.socks = TR.socks.filter((x) => x !== w); if (gen === TR.gen) { trEstado(); setTimeout(() => { if (gen === TR.gen) con(k, url, alAbrir, alMsg); }, 4000); } };
+    };
+    // Binance perpetuos: operaciones (m = el comprador puso la orden que esperaba: vendio el apurado) y el libro (20 niveles)
+    con('binp', `wss://fstream.binance.com/stream?streams=${s}@aggTrade/${s}@depth20@100ms`, null, (j) => {
+      const d = j.data || {};
+      if (d.e === 'aggTrade') trTrade('binp', d.m ? -1 : 1, +d.p, +d.q, +d.T);
+      else if (d.b && d.a) trLibro('binp', d.b, d.a, true);
+    });
+    if (CRIPTO_SPOT.has(mon)) con('bins', `wss://stream.binance.com:9443/ws/${s}@aggTrade`, null, (d) => { if (d.e === 'aggTrade') trTrade('bins', d.m ? -1 : 1, +d.p, +d.q, +d.T); });
+    // Bybit: operaciones y libro (foto y despues cambios)
+    con('byb', 'wss://stream.bybit.com/v5/public/linear', (w) => w.send(JSON.stringify({ op: 'subscribe', args: [`publicTrade.${sym}`, `orderbook.50.${sym}`] })), (j) => {
+      if (/^publicTrade/.test(j.topic || '')) (j.data || []).forEach((x) => trTrade('byb', x.S === 'Buy' ? 1 : -1, +x.p, +x.v, +x.T));
+      else if (/^orderbook/.test(j.topic || '') && j.data) trLibro('byb', j.data.b || [], j.data.a || [], j.type === 'snapshot');
+    });
+    // OKX (contratos con el tamaño de cada moneda)
+    const ct = OKX_CT[mon];
+    if (ct) con('okx', 'wss://ws.okx.com:8443/ws/v5/public', (w) => w.send(JSON.stringify({ op: 'subscribe', args: [{ channel: 'trades', instId: `${mon}-USDT-SWAP` }, { channel: 'books5', instId: `${mon}-USDT-SWAP` }] })), (j) => {
+      const ch = j.arg && j.arg.channel;
+      if (ch === 'trades') (j.data || []).forEach((x) => trTrade('okx', x.side === 'buy' ? 1 : -1, +x.px, +x.sz * ct, +x.ts));
+      else if (ch === 'books5' && j.data && j.data[0]) trLibro('okx', j.data[0].bids.map((b) => [b[0], +b[1] * ct]), j.data[0].asks.map((a) => [a[0], +a[1] * ct]), true);
+    });
+    // Coinbase (spot en dolares): en "matches" el lado es el de la orden que esperaba; el apurado es el contrario
+    if (CRIPTO_SPOT.has(mon) && mon !== 'ZEC') con('cb', 'wss://ws-feed.exchange.coinbase.com', (w) => w.send(JSON.stringify({ type: 'subscribe', product_ids: [`${mon}-USD`], channels: ['matches'] })), (d) => {
+      if (d.type === 'match') trTrade('cb', d.side === 'sell' ? 1 : -1, +d.price, +d.size, Date.parse(d.time));
+    });
+    TR.ping = setInterval(() => TR.socks.forEach((w) => { if (w.readyState !== 1) return; if (/bybit/.test(w.url)) w.send('{"op":"ping"}'); else if (/okx/.test(w.url)) w.send('ping'); }), 20000);
+    trEstado();
+  }
+
+  // ---- operaciones: se juntan las que llegan juntas del mismo lado (una orden grande repartida entre exchanges)
+  function trTrade(k, lado, p, q, t) {
+    if (!(p > 0) || !(q > 0)) return;
+    const ahora = performance.now(), usd = p * q;
+    TR.ult = p;
+    let g = TR.abiertos[lado];
+    if (!g || ahora - g.ult > 150) {
+      if (g) trFin(g);
+      g = TR.abiertos[lado] = { lado, t, t1: t, ult: ahora, usd: 0, q: 0, pq: 0, n: 0, pmin: p, pmax: p, partes: {} };
+    }
+    g.ult = ahora; g.t1 = Math.max(g.t1, t); g.usd += usd; g.q += q; g.pq += p * q; g.n += 1; g.pmin = Math.min(g.pmin, p); g.pmax = Math.max(g.pmax, p);
+    const pa = g.partes[k] || (g.partes[k] = { usd: 0, q: 0, n: 0 }); pa.usd += usd; pa.q += q; pa.n += 1;
+    clearTimeout(g.timer); g.timer = setTimeout(() => { if (TR.abiertos[lado] === g) { delete TR.abiertos[lado]; trFin(g); } }, 170);
+  }
+  function trFin(g) {
+    clearTimeout(g.timer);
+    if (g.usd < trMin()) return;
+    g.p = g.pq / g.q;
+    TR.grupos.push(g); if (TR.grupos.length > 600) TR.grupos.splice(0, TR.grupos.length - 600);
+    trPintar();
+  }
+
+  // ---- libro: niveles de cada exchange (en monedas), sumados en escalones de precio
+  function trLibro(k, bids, asks, foto) {
+    const L = TR.libros[k] && !foto ? TR.libros[k] : (TR.libros[k] = { b: new Map(), a: new Map() });
+    const pon = (m, xs) => xs.forEach((x) => { const p = +x[0], q = +x[1]; if (q > 0) m.set(p, q); else m.delete(p); });
+    pon(L.b, bids); pon(L.a, asks); L.t = Date.now();
+    trPintar();
+  }
+  function trPaso(p) {
+    const crudo = p * 0.00006, e = Math.pow(10, Math.floor(Math.log10(crudo))), m = crudo / e;
+    return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * e;
+  }
+  function trEscalones(n) {
+    const ks = Object.keys(TR.libros).filter((k) => Date.now() - TR.libros[k].t < 15000);
+    if (!ks.length) return null;
+    const bb = Math.max(...ks.map((k) => Math.max(0, ...TR.libros[k].b.keys()))), ba = Math.min(...ks.map((k) => Math.min(Infinity, ...TR.libros[k].a.keys())));
+    if (!(bb > 0) || !Number.isFinite(ba)) return null;
+    const mid = (bb + ba) / 2, paso = trPaso(mid);
+    const lado = (cual, sgn) => {
+      const out = new Map();
+      ks.forEach((k) => TR.libros[k][cual].forEach((q, p) => {
+        const e = sgn > 0 ? Math.ceil(p / paso - 1e-9) * paso : Math.floor(p / paso + 1e-9) * paso;
+        const o = out.get(e) || { p: e, usd: 0, por: {} }; o.usd += q * p; o.por[k] = (o.por[k] || 0) + q * p; out.set(e, o);
+      }));
+      return [...out.values()].sort((x, y) => (sgn > 0 ? x.p - y.p : y.p - x.p)).slice(0, n);
+    };
+    return { mid, paso, spread: ba - bb, asks: lado('a', 1), bids: lado('b', -1), ks };
+  }
+
+  // ---- pintar (como mucho 6 veces por segundo)
+  function trPintar() {
+    if (TR.pend) return;
+    TR.pend = requestAnimationFrame(() => { TR.pend = 0; trPanel(); if (S.layers.trades && G.tr) G.tr.update(); });
+  }
+  let trUltPanel = 0;
+  function trPanel() {
+    if (!TR.abierto) return;
+    const ahora = performance.now(); if (ahora - trUltPanel < 160) { clearTimeout(TR.tp); TR.tp = setTimeout(trPanel, 170); return; }
+    trUltPanel = ahora;
+    const box = document.getElementById('vivo-cuerpo'); if (!box) return;
+    if (TR.vista === 'libro') {
+      const E = trEscalones(window.innerWidth < 1000 ? 9 : 14), dig = Math.max(0, -Math.floor(Math.log10((E && E.paso) || 1)));
+      if (!E) { box.replaceChildren(el('p', 'ab-vivo-vacio', TR.on.size ? 'Esperando el libro…' : 'Conectando con los exchanges…')); return; }
+      const mx = Math.max(...E.asks.concat(E.bids).map((x) => x.usd)) || 1, fila = (x, cl) => {
+        const r = el('div', `ab-vivo-niv ${cl}${x.usd >= mx * 0.6 ? ' muro' : ''}`), bar = el('span', 'ab-vivo-bar');
+        Object.entries(x.por).sort((a, b) => b[1] - a[1]).forEach(([k, v]) => { const i = el('i'); i.style.width = `${(v / mx) * 100}%`; i.style.background = VX[k].c; bar.append(i); });
+        r.append(bar, el('span', 'p', x.p.toLocaleString('es-AR', { minimumFractionDigits: dig, maximumFractionDigits: dig })), el('span', 'q', usdK(x.usd)));
+        r.title = Object.entries(x.por).map(([k, v]) => `${VX[k].n}: ${usdK(v)} USD`).join(' · ');
+        return r;
+      };
+      const mid = el('div', 'ab-vivo-mid'); mid.append(el('b', '', (TR.ult || E.mid).toLocaleString('es-AR', { maximumFractionDigits: dig })), el('small', '', E.spread > 0 ? `diferencia ${E.spread.toLocaleString('es-AR', { maximumFractionDigits: dig + 1 })}` : ''));
+      const sb = E.bids.reduce((s, x) => s + x.usd, 0), sa = E.asks.reduce((s, x) => s + x.usd, 0), pr = sb + sa ? ((sb - sa) / (sb + sa)) * 100 : 0;
+      const pres = el('div', 'ab-vivo-pres'); pres.append(el('span', '', `Compras ${usdK(sb)}`), el('span', '', `${usdK(sa)} Ventas`));
+      const pb = el('div', 'ab-vivo-presbar'); const pi = el('i'); pi.style.width = `${50 + pr / 2}%`; pb.append(pi);
+      box.replaceChildren(...E.asks.slice().reverse().map((x) => fila(x, 'a')), mid, ...E.bids.map((x) => fila(x, 'b')), pb, pres);
+    } else {
+      const gs = TR.grupos.slice(-60).reverse(), min = trMin();
+      if (!gs.length) { box.replaceChildren(el('p', 'ab-vivo-vacio', `Todavía no entró ninguna orden de más de ${usdK(min)} USD.`)); return; }
+      box.replaceChildren(...gs.map((g) => {
+        const r = el('button', `ab-vivo-tr ${g.lado > 0 ? 'c' : 'v'}${g.usd >= min * 10 ? ' ballena' : ''}`); r.type = 'button';
+        const ex = el('span', 'ex'); Object.entries(g.partes).sort((a, b) => b[1].usd - a[1].usd).forEach(([k, v]) => { const i = el('i'); i.style.background = VX[k].c; i.style.flexGrow = String(v.usd); ex.append(i); });
+        r.append(el('span', 't', hms(g.t)), el('span', 'u', `${g.lado > 0 ? '▲' : '▼'} ${usdK(g.usd)}`), el('span', 'p', fp(g.p)), ex);
+        r.addEventListener('click', () => trDetalle(g, r.getBoundingClientRect()));
+        return r;
+      }));
+    }
+  }
+  function trEstado() {
+    const e = document.getElementById('vivo-est'); if (!e) return;
+    const ks = Object.keys(VX).filter((k) => TR.on.has(VX[k].n) && (k !== 'bins' || CRIPTO_SPOT.has(TR.mon)) && (k !== 'okx' || OKX_CT[TR.mon]) && (k !== 'cb' || (CRIPTO_SPOT.has(TR.mon) && TR.mon !== 'ZEC')));
+    if (!ks.length) { e.textContent = TR.socks.length ? 'conectando…' : ''; } else e.replaceChildren(...ks.map((k) => { const sp = el('span'); const i = el('i'); i.style.background = VX[k].c; sp.append(i, `${VX[k].n}${VX[k].k === 'spot' ? ' spot' : ''}`); return sp; }));
+    document.getElementById('vivo-dot').classList.toggle('on', TR.on.size > 0);
+  }
+
+  // ---- detalle de una orden: cuanto entro en cada exchange
+  const trPop = document.createElement('div'); trPop.className = 'ab-trpop'; trPop.hidden = true; trPop.setAttribute('role', 'dialog'); trPop.setAttribute('aria-label', 'Detalle de la orden');
+  document.body.append(trPop);
+  function trDetalle(g, r) {
+    const compra = g.lado > 0, partes = Object.entries(g.partes).sort((a, b) => b[1].usd - a[1].usd);
+    const top = el('div', `ab-trpop-h ${compra ? 'c' : 'v'}`); top.append(el('span', '', compra ? '▲ Compra a mercado' : '▼ Venta a mercado'), el('time', '', `${hms(g.t)}`));
+    const big = el('div', 'ab-trpop-u'); big.append(el('b', '', `${usdK(g.usd)} USD`), el('span', '', ` a ${fp(g.p)}${g.pmax - g.pmin > 0 ? ` (de ${fp(g.pmin)} a ${fp(g.pmax)})` : ''}`));
+    const lista = el('div', 'ab-trpop-l');
+    partes.forEach(([k, v]) => {
+      const f = el('div', 'ab-trpop-f'), nm = el('span', 'n'); const dot = el('i'); dot.style.background = VX[k].c;
+      nm.append(dot, el('b', '', VX[k].n), el('small', '', VX[k].k));
+      const bar = el('span', 'bar'); const bi = el('i'); bi.style.width = `${(v.usd / g.usd) * 100}%`; bi.style.background = VX[k].c; bar.append(bi);
+      f.append(nm, el('span', 'u', `${usdK(v.usd)}`), el('span', 'pc', `${Math.round((v.usd / g.usd) * 100)}%`), bar);
+      lista.append(f);
+    });
+    const pie = el('p', 'ab-trpop-pie', `${g.n} ${g.n === 1 ? 'operación' : 'operaciones'} en ${partes.length} ${partes.length === 1 ? 'exchange' : 'exchanges'}, en ${Math.max(1, g.t1 - g.t)} ms. ${partes.some(([k]) => VX[k].k === 'spot') ? 'Spot es compra real (sin apalancamiento); perpetuo, con apalancamiento.' : 'Todo en perpetuos (con apalancamiento).'}`);
+    trPop.replaceChildren(top, big, lista, pie);
+    trPop.hidden = false;
+    const vw = document.documentElement.clientWidth, vh = window.innerHeight, w = trPop.offsetWidth, h = trPop.offsetHeight;
+    trPop.style.left = `${Math.max(12, Math.min(vw - w - 12, r.left + r.width / 2 - w / 2))}px`;
+    trPop.style.top = `${r.top - h - 10 > 12 ? r.top - h - 10 : Math.min(vh - h - 12, r.bottom + 10)}px`;
+    requestAnimationFrame(() => trPop.classList.add('is-in'));
+  }
+  const trPopCerrar = () => { trPop.hidden = true; trPop.classList.remove('is-in'); };
+  document.addEventListener('pointerdown', (e) => { if (!trPop.hidden && !trPop.contains(e.target) && !e.target.closest('.ab-vivo-tr')) trPopCerrar(); }, true);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') trPopCerrar(); });
+  window.addEventListener('scroll', trPopCerrar, { passive: true });
+
+  // ---- burbujas en el grafico (capa "Trades")
+  function drawTrades(ctx, w, h) {
+    TR.hits = [];
+    if (!S.layers.trades || !G.d || TR.mon !== MON()) return;
+    const P = G.P, min = trMin(), t0 = G.d.t0, ms = G.d.tfMs;
+    // dentro de la vela: entre su borde y el de la siguiente (con logicos fraccionarios despues de la ultima vela el grafico da 0)
+    const xT = (t) => { const k = Math.floor((t - t0) / ms), a = X(t0 + k * ms), b = X(t0 + (k + 1) * ms); return a === null || b === null ? null : a + (b - a) * ((t - t0) / ms - k) - (b - a) / 2; };
+    ctx.save();
+    TR.grupos.forEach((g) => {
+      if (g.t < t0) return;
+      const x = xT(g.t), y = Y(g.p); if (x === null || y === null || x < -30 || x > w + 30 || y < -30 || y > h + 30) return;
+      const r = Math.min(26, 3 + 2.4 * Math.sqrt(g.usd / min));
+      const col = g.lado > 0 ? P.up : P.dn;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = alpha(col, g.usd >= min * 10 ? 0.42 : 0.26); ctx.fill();
+      ctx.lineWidth = 1; ctx.strokeStyle = alpha(col, 0.85); ctx.stroke();
+      if (r >= 13) { ctx.fillStyle = P.fg; ctx.font = `600 10px ${P.font}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(usdK(g.usd).replace(' mil', 'k').replace(' M', 'M'), x, y); }
+      TR.hits.push({ x, y, r: Math.max(r, 8), g });
+    });
+    ctx.restore();
+  }
+  // tocar una burbuja abre su detalle (sin mover el grafico)
+  (function () {
+    const box = document.getElementById('chart'); let dn = null;
+    box.addEventListener('pointerdown', (e) => { dn = { x: e.clientX, y: e.clientY, t: Date.now() }; }, true);
+    box.addEventListener('pointerup', (e) => {
+      if (!dn || !S.layers.trades || !TR.hits.length || (window.abDib && window.abDib.modo)) return;
+      if (Math.hypot(e.clientX - dn.x, e.clientY - dn.y) > 6 || Date.now() - dn.t > 500) return;
+      const rc = box.getBoundingClientRect(), x = e.clientX - rc.left, y = e.clientY - rc.top;
+      const hit = TR.hits.filter((q) => Math.hypot(q.x - x, q.y - y) <= q.r + 3).sort((a, b) => b.g.usd - a.g.usd)[0];
+      if (hit) { e.stopPropagation(); trDetalle(hit.g, { left: rc.left + hit.x - hit.r, top: rc.top + hit.y - hit.r, width: hit.r * 2, height: hit.r * 2, bottom: rc.top + hit.y + hit.r }); }
+    }, true);
+  })();
+
+  // ---- el panel: abrir y cerrar, pestañas, monto minimo
+  (function () {
+    const pan = document.getElementById('vivo'), btn = document.getElementById('vivo-btn');
+    const casa = document.getElementById('chart'), raiz = casa.closest('.ab');
+    // en el celu es una hoja desde abajo: va al nivel de la pagina, si no la tapa la hoja del analisis
+    const ubicar = () => { const celu = window.innerWidth < 1000; if (celu && pan.parentElement !== raiz) raiz.append(pan); else if (!celu && pan.previousElementSibling !== casa) casa.after(pan); };
+    window.addEventListener('resize', ubicar);
+    const poner = (on) => {
+      ubicar(); TR.abierto = on; pan.hidden = !on; document.documentElement.classList.toggle('ab-vivo-on', on);
+      [btn, document.getElementById('vivo-chip')].forEach((b) => b && b.setAttribute('aria-pressed', String(on)));
+      try { localStorage.setItem('ab-vivo', on ? '1' : '0'); } catch (e) { /* sin almacenamiento */ }
+      trConectar(); trPanel();
+    };
+    btn.addEventListener('click', () => poner(!TR.abierto));
+    document.getElementById('vivo-chip').addEventListener('click', () => poner(!TR.abierto));
+    document.getElementById('vivo-x').addEventListener('click', () => poner(false));
+    pan.querySelectorAll('[data-vista]').forEach((b) => b.addEventListener('click', () => {
+      TR.vista = b.dataset.vista; pan.querySelectorAll('[data-vista]').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+      document.getElementById('vivo-min').hidden = TR.vista !== 'trades'; trUltPanel = 0; trPanel();
+    }));
+    const sel = document.getElementById('vivo-min');
+    const llenar = () => { sel.replaceChildren(...TR_MIN.map((v) => { const o = el('option', '', `≥ ${usdK(v)} USD`); o.value = v; o.selected = v === trMin(); return o; })); };
+    sel.addEventListener('change', () => { try { localStorage.setItem(`ab-tape-min:${MON()}`, sel.value); } catch (e) { /* idem */ } TR.grupos = TR.grupos.filter((g) => g.usd >= +sel.value); trUltPanel = 0; trPanel(); if (G.tr) G.tr.update(); });
+    llenar();
+    let abierto0 = false; try { abierto0 = localStorage.getItem('ab-vivo') === '1'; } catch (e) { /* idem */ }
+    poner(abierto0 && window.innerWidth >= 1000);
+    document.addEventListener('visibilitychange', () => (document.hidden ? trCerrar() : trConectar()));
+    // al cambiar de activo o de capa: reconectar
+    setInterval(() => { if (trActivo() && TR.mon !== MON()) { llenar(); trConectar(); } else if (!trActivo() && TR.socks.length) trCerrar(); else if (trActivo() && !TR.socks.length) trConectar(); }, 1500);
+  })();
+
   dash.onData(draw);   // al final: todo lo de arriba (tambien el grafico) ya esta definido
 })();
 /* ---------- ayudas ocultas: una tarjeta que explica cada indicador y cada dato ----------
@@ -5909,6 +6164,12 @@
     [/^(Pivote|Pivotes)/, 'app', 'Pivotes', 'Niveles clásicos que salen del máximo, mínimo y cierre del día anterior (P, R1–R3 arriba, S1–S3 abajo).', null, null, 'Muchos traders los miran, por eso a veces frenan al precio.'],
     [/^(Mínimo|Máximo) (24 h|7 días|30 días)/, 'app', 'Mínimos y máximos recientes', 'El precio más bajo y más alto de ese período. Suelen hacer de soporte y resistencia, y debajo y arriba suele haber stops.'],
     [/^(Precio más probable)/, 'app', 'Precio más probable', 'El precio del medio de lo que pasó en los casos parecidos a esa hora: la mitad terminó arriba y la mitad abajo.'],
+    [/^Libro$/, 'volu', 'Libro en vivo', 'Las órdenes que esperan arriba (ventas, en rojo) y abajo (compras, en verde) del precio, sumando Binance, Bybit y OKX. Cada barra muestra cuánto pone cada exchange con su color.',
+      'Mucha compra esperando cerca y debajo: hay quien sostiene el precio.', 'Mucha venta esperando cerca y arriba: hay quien frena la suba.', 'Los números en negrita son muros (las órdenes más grandes). Se pueden retirar en un segundo: mirá si siguen cuando el precio llega.', '#vivo'],
+    [/^Trades$/, 'volu', 'Trades en vivo', 'Las compras y ventas a mercado que van entrando. Lo que llega junto del mismo lado es una sola orden repartida entre exchanges; tocala para ver cuánto entró en cada uno.',
+      'Muchas compras grandes seguidas: alguien con plata empuja para arriba.', 'Muchas ventas grandes seguidas: empujan para abajo.', 'La barrita de colores muestra en qué exchanges entró. Spot es compra real; perpetuo, con apalancamiento.', '#vivo'],
+    [/^(Trades en vivo|Libro y trades)/, 'volu', 'Libro y trades en vivo', 'El libro de órdenes sumado de varios exchanges y las órdenes a mercado que entran, al instante. La capa "Trades en vivo" las dibuja como burbujas en el gráfico: más grande, más plata.',
+      'Burbujas verdes: compras a mercado.', 'Burbujas rojas: ventas a mercado.', 'Tocá una burbuja para ver de qué exchange vino cada parte.'],
     // ----- calendario economico -----
     [/^Calendario económico/, 'macro', 'Calendario económico', 'Los datos de la economía de EE.UU. que mueven a los mercados: lo que viene y lo que salió la última semana. Los puntos son la importancia (3 = alta).',
       null, null, 'Medido en BTC: la hora en que sale un dato fuerte se mueve 1,6–1,8 veces lo normal; la de la Fed, ~3 veces.'],
