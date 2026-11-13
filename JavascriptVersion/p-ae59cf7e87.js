@@ -705,7 +705,8 @@
       bar.innerHTML = `<i class="r" style="left:${x(lo)};width:calc(${x(hi)} - ${x(lo)})"></i>${okv(so) ? `<i class="s" style="left:${x(so)}"></i>` : ''}${okv(re) ? `<i class="e" style="left:${x(re)}"></i>` : ''}${ahora ? `<i class="a" style="left:${x(ahora)}"></i>` : ''}`;
       const et = el('div', 'ab-rs-rlbl');
       const lab = (cls, k, v) => { const s = el('span', cls); s.append(el('small', '', k), el('b', '', fp(v))); return s; };
-      et.append(okv(so) ? lab('s', 'Soporte', so) : el('span'), lab('r', '8 de cada 10 veces entre', lo), lab('r2', 'y', hi), okv(re) ? lab('e', 'Resistencia', re) : el('span'));
+      const mid = el('span', 'm'); mid.append(el('small', '', '8 de cada 10 veces termina entre'), el('b', '', `${fp(lo)} y ${fp(hi)}`));
+      et.append(okv(so) ? lab('s', 'Soporte', so) : el('span'), mid, okv(re) ? lab('e', 'Resistencia', re) : el('span'));
       rg.replaceChildren(bar, et); rg.hidden = false;
     } else rg.hidden = true;
     // la frase que lo junta (la de la conclusion) y el aviso si hay riesgo
@@ -765,6 +766,8 @@
   }
 
   // ---------- vista simple / completa ----------
+  // la entrada de la pagina: una sola vez, al abrirla (con los esqueletos, sin esperar los datos)
+  document.documentElement.classList.add('ab-entrada'); setTimeout(() => document.documentElement.classList.remove('ab-entrada'), 1400);
   const VISTA_BTN = document.getElementById('vista-btn');
   function vista(completa, guardar) {
     document.documentElement.classList.toggle('ab-simple', !completa);
