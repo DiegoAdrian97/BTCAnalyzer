@@ -749,7 +749,7 @@ Coinbase, y el open interest de Gate, Bitget, Hyperliquid y MEXC de más de unas
   Bybit, OKX y Coinbase); arriba, el dinero que entró comprando y vendiendo en 30 s a 10 min. Lo que llega junto del mismo
   lado (menos de 150 ms) es una sola orden: pasándole el mouse (o tocándola) se ve cuánto entró en cada exchange; lo mismo
   con cada barra del libro. Solo conecta en modo en vivo y con la pestaña a la vista.
-- **Calendario económico** (como Investing.com, con datos del calendario de TradingView): lo que viene y lo que salió la
+- **Calendario económico** (como Investing.com, con datos del calendario de TradingView; solo EE.UU., importancia alta, todos los temas): lo que viene y lo que salió la
   última semana, con actual, previsión y anterior, y la marca positivo/negativo para el mercado según la sorpresa (la lectura
   habitual de las tasas, no medida). Python = JS: `pruebas/calendario.py`.
 - **Ayudas ocultas**: pasar el mouse (o mantener apretado en el celu) sobre un indicador o dato abre una tarjeta con qué es,

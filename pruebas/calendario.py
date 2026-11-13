@@ -32,13 +32,13 @@ def main():
     assert json.loads(json.dumps(py)) == js, "Python y JS difieren:\n" + json.dumps(py, ensure_ascii=False)[:800] + "\n" + json.dumps(js, ensure_ascii=False)[:800]
     ef = {r["original"]: r["efecto"] for r in py if r["tabla"] == "calendario"}
     esperado = {"Inflation Rate YoY": "negativo", "Core Inflation Rate MoM": "positivo", "Non Farm Payrolls": "neutral", "Unemployment Rate": "positivo",
-                "Initial Jobless Claims": "negativo", "Michigan Consumer Sentiment": "positivo", "Michigan Inflation Expectations": "negativo",
-                "Crude Oil Inventories": None, "Fed Interest Rate Decision": None, "GDP Growth Rate QoQ": "negativo"}
+                "Fed Interest Rate Decision": None, "GDP Growth Rate QoQ": "negativo"}
     for k, v in esperado.items():
         assert ef[k] == v, f"{k}: {ef[k]} (esperado {v})"
     ev = [r for r in py if r["tabla"] == "evento"]
     assert [r["original"] for r in ev] == ["Fed Interest Rate Decision", "Retail Sales MoM"], [r["original"] for r in ev]   # alta y desde ayer
-    assert "Building Permits" not in ef                                                                                 # importancia baja: afuera
+    for k in ("Building Permits", "Initial Jobless Claims", "Michigan Consumer Sentiment", "Crude Oil Inventories"):   # media o baja: afuera
+        assert k not in ef, k
     print(f"calendario: todo bien ({len(ef)} datos, {len(ev)} de importancia alta para el análisis)")
 
 

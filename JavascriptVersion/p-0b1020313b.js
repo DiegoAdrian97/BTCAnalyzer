@@ -2176,8 +2176,8 @@
     if (!cal.length) cal = pick(rows, 'evento').map((e) => ({ ...e, importancia: 3 }));
     const datos = cal.map((e) => ({ ...e, t: num(e.t), fed: FED.test(e.original || '') }));
     const futuros = datos.filter((e) => e.t > now);
-    const hasta = futuros.length ? Math.max(now + 7 * 864e5, ...futuros.map((e) => e.t)) : now + 7 * 864e5;
-    const viene = futuros.concat(eventosCripto(now, hasta).map((e) => ({ ...e, cripto: true, importancia: e.fuerte ? 3 : 1 }))).sort((a, b) => a.t - b.t);
+    // solo los datos de EE.UU. de importancia alta (de todos los temas: los trae asi api/contexto)
+    const viene = futuros.sort((a, b) => a.t - b.t);
     const salio = datos.filter((e) => e.t <= now && e.t >= now - 7 * 864e5).sort((a, b) => b.t - a.t || b.importancia - a.importancia);
     const box = document.getElementById('cal-list'), prox = document.getElementById('cal-prox');
     const p0 = viene[0];
@@ -6316,7 +6316,7 @@
     [/^(Compras [\d—]|[\d—].* Ventas$)/, 'volu', 'Dinero a mercado', 'Todo lo que se compró y se vendió a mercado (el apurado, que acepta el precio que hay) en el tiempo elegido, sumando Binance, Bybit, OKX y Coinbase. Cuenta también las órdenes chicas.',
       'Más compras que ventas (neto positivo): presión compradora.', 'Más ventas que compras: presión vendedora.', 'Si el precio no sube aunque entren muchas compras, alguien grande está vendiendo en el libro (absorción).'],
     // ----- calendario economico -----
-    [/^Calendario económico/, 'macro', 'Calendario económico', 'Los datos de la economía de EE.UU. que mueven a los mercados: lo que viene y lo que salió la última semana. Los puntos son la importancia (3 = alta).',
+    [/^Calendario económico/, 'macro', 'Calendario económico', 'Los datos de la economía de EE.UU. de importancia alta, de todos los temas (inflación, empleo, tasas, actividad, consumo…): lo que viene y lo que salió la última semana.',
       null, null, 'Medido en BTC: la hora en que sale un dato fuerte se mueve 1,6–1,8 veces lo normal; la de la Fed, ~3 veces.'],
     [/^(Actual|Previsión|Anterior)$/, 'macro', 'Actual, previsión y anterior', 'Actual es el dato que salió; previsión, lo que esperaban los analistas; anterior, el del período pasado. Lo que mueve al precio es la sorpresa: la diferencia entre el actual y la previsión.'],
     [/(▲ positivo|▼ negativo|= lo previsto)$/, 'macro', 'Positivo o negativo para el mercado', 'Cómo suele leer el mercado la sorpresa del dato. Una economía más caliente de lo previsto (más inflación, más empleo, más crecimiento) aleja los recortes de tasa de la Fed y suele pesar sobre BTC y las acciones; más desempleo o menos inflación los acercan.',
