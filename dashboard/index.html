@@ -8016,6 +8016,7 @@
   const VX = {
     binp: { n: 'Binance', k: 'perpetuo', c: '#eab308' }, bins: { n: 'Binance', k: 'spot', c: '#a16207' },
     byb: { n: 'Bybit', k: 'perpetuo', c: '#f97316' }, okx: { n: 'OKX', k: 'perpetuo', c: '#64748b' }, cb: { n: 'Coinbase', k: 'spot', c: '#3b82f6' },
+    gate: { n: 'Gate', k: 'perpetuo', c: '#a855f7' },
   };
   const OKX_CT = { BTC: 0.01, ETH: 0.1, SOL: 1, XRP: 100 };
   const CRIPTO_SPOT = new Set(['BTC', 'ETH', 'SOL', 'XRP', 'ZEC']);
@@ -8197,17 +8198,53 @@
     });
   }
   // lo que entro en una vela mientras estaba en vivo: compras y ventas a mercado por exchange y las ordenes grandes
+  // la historia de cada vela (las que no se vieron en vivo): compras y ventas a mercado de Binance perpetuo y spot (volumen
+  // comprador de sus velas) y de Gate (sus estadisticas por periodo). Bybit, OKX y Coinbase no lo publican (o no lo dejan
+  // leer desde una pagina): esos, solo en vivo. Se pide una vez por moneda y temporalidad, y se renueva cada minuto
+  const HIST = {}, HIST_IV = { '5m': '5m', '15m': '15m', '30m': '30m', '1h': '1h', '4h': '4h', '1d': '1d', '1w': '1w', '1M': '1M' };
+  const HIST_GATE = { '5m': '5m', '15m': '15m', '30m': '30m', '1h': '1h', '4h': '4h', '1d': '1d' };
+  function trHist(mon, tf, listo) {
+    const k = `${mon}|${tf}`, h = HIST[k];
+    if (h && (h.pend || Date.now() - h.t < 60000)) { if (h.pend && listo) h.cb.push(listo); return h.m; }
+    const nuevo = HIST[k] = { t: Date.now(), m: h ? h.m : new Map(), pend: true, cb: listo ? [listo] : [] };
+    const sym = `${mon}USDT`, j = (u) => fetch(u, { signal: AbortSignal.timeout(9000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    Promise.all([
+      HIST_IV[tf] ? j(`https://fapi.binance.com/fapi/v1/klines?symbol=${sym}&interval=${HIST_IV[tf]}&limit=500`) : null,
+      HIST_IV[tf] && CRIPTO_SPOT.has(mon) ? j(`https://api.binance.com/api/v3/klines?symbol=${sym}&interval=${HIST_IV[tf]}&limit=500`) : null,
+      HIST_GATE[tf] ? j(`https://api.gateio.ws/api/v4/futures/usdt/contract_stats?contract=${mon}_USDT&interval=${HIST_GATE[tf]}&limit=500`) : null,
+      HIST_GATE[tf] ? j(`https://api.gateio.ws/api/v4/futures/usdt/contracts/${mon}_USDT`) : null,
+    ]).then(([fp, sp, gs, gc]) => {
+      const m = new Map(), en = (t) => m.get(t) || (m.set(t, { c: {}, v: {} }), m.get(t));
+      [[fp, 'binp'], [sp, 'bins']].forEach(([xs, ex]) => (Array.isArray(xs) ? xs : []).forEach((r) => { const q = +r[7], tb = +r[10]; if (q > 0) { const o = en(+r[0]); o.c[ex] = tb; o.v[ex] = Math.max(0, q - tb); } }));
+      const mult = gc ? +gc.quanto_multiplier : 0;
+      if (mult && Array.isArray(gs)) gs.forEach((x) => { const px = +x.mark_price; if (px > 0) { const o = en(x.time * 1000); o.c.gate = +x.long_taker_size * mult * px; o.v.gate = +x.short_taker_size * mult * px; } });
+      nuevo.m = m; nuevo.pend = false; nuevo.cb.forEach((f) => f()); nuevo.cb = [];
+    });
+    return nuevo.m;
+  }
   function trVela(b, r, modo) {
-    const t0 = b.t, t1 = b.t + G.d.tfMs, c = {}, v = {}; let n = 0;
+    const t0 = b.t, t1 = b.t + G.d.tfMs; let c = {}, v = {}, n = 0;
     TR.min1.forEach((m, mi) => { const t = mi * 60000; if (t < t0 || t >= t1) return; n += m.n;
       Object.entries(m.c).forEach(([k, x]) => { c[k] = (c[k] || 0) + x; }); Object.entries(m.v).forEach(([k, x]) => { v[k] = (v[k] || 0) + x; }); });
-    if (!n) return false;
+    // vista entera en vivo: lo de todos los exchanges; si no, la historia (y se rehace al llegar)
+    const vivoDesde = TR.min1.size ? Math.min(...TR.min1.keys()) * 60000 : Infinity;
+    let hist = false;
+    if (!n || vivoDesde > t0) {
+      const tf = S.tf, mon = MON();
+      const H = trHist(mon, tf, () => { if (TR.pop && TR.pop.cosa === b && !trPop.hidden && MON() === mon && S.tf === tf) { const md = TR.pop.modo; TR.pop = null; trVela(b, r, md); } });
+      const o = H.get(t0);
+      if (o) { c = o.c; v = o.v; n = 1; hist = true; }
+      else if (!n) {
+        if (HIST[`${mon}|${tf}`] && HIST[`${mon}|${tf}`].pend) { trTarjeta(b, r, modo, () => [el('div', 'ab-trpop-h', `Vela de las ${horaAR(t0)}`), el('p', 'ab-trpop-pie', 'Buscando las compras y ventas de esta vela…')]); return true; }
+        return false;
+      }
+    }
     const sc = Object.values(c).reduce((a, x) => a + x, 0), sv = Object.values(v).reduce((a, x) => a + x, 0), ne = sc - sv;
-    const grandes = TR.grupos.filter((g) => g.t >= t0 && g.t < t1).sort((a, x) => x.usd - a.usd).slice(0, 5);
+    const grandes = hist ? [] : TR.grupos.filter((g) => g.t >= t0 && g.t < t1).sort((a, x) => x.usd - a.usd).slice(0, 5);
     const desde = Math.max(t0, Math.min(...[...TR.min1.keys()].map((x) => x * 60000)));
     trTarjeta(b, r, modo, () => {
       const top = el('div', `ab-trpop-h ${ne >= 0 ? 'c' : 'v'}`);
-      top.append(el('span', '', `Vela de las ${horaAR(t0)}`), el('time', '', desde > t0 ? `en vivo desde ${horaAR(desde)}` : 'completa'));
+      top.append(el('span', '', `Vela de las ${horaAR(t0)}`), el('time', '', hist ? 'historia' : desde > t0 ? `en vivo desde ${horaAR(desde)}` : 'en vivo, completa'));
       const big = el('div', 'ab-trpop-cv');
       const lado = (cl, tit, x) => { const d = el('div', cl); d.append(el('small', '', tit), el('b', '', `${usdK(x)}`)); return d; };
       big.append(lado('c', 'Compras a mercado', sc), lado('n', 'Neto', 0), lado('v', 'Ventas a mercado', sv));
@@ -8230,6 +8267,7 @@
           f.append(el('time', '', hms(g.t)), el('b', '', `${g.lado > 0 ? '▲' : '▼'} ${usdK(g.usd)}`), el('span', 'p', fp(g.p)), ex); gl.append(f); });
         out.push(gl);
       }
+      if (hist) out.push(el('p', 'ab-trpop-pie', 'De la historia de cada exchange: Binance y Gate publican cuánto se compró y vendió a mercado en cada vela. Bybit, OKX y Coinbase, y las órdenes grandes, se ven en las velas que pasan con el modo en vivo prendido.'));
       return out;
     });
     return true;
