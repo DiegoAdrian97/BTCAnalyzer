@@ -47,12 +47,12 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 </style>
 <link rel="preconnect" href="https://fapi.binance.com" crossorigin>
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
-<link rel="stylesheet" href="p-37f183cd58.css">
-<script>window.AB_PAGINA = "93181343a0";</script>
+<link rel="stylesheet" href="p-0e0122202d.css">
+<script>window.AB_PAGINA = "f527ece5e5";</script>
 <script defer src="app.js?v=793d877d15"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-f6b58237ba.js"></script>
+<script defer src="p-c2557b8c25.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -175,6 +175,11 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
           <div class="ab-vivo-tabs" role="tablist"><button type="button" role="tab" data-vista="libro" aria-selected="true">Libro</button><button type="button" role="tab" data-vista="trades" aria-selected="false">Trades</button></div>
           <select id="vivo-min" hidden aria-label="Mostrar órdenes desde"></select>
           <button type="button" class="ab-iconbtn" id="vivo-x" aria-label="Cerrar el libro y los trades">✕</button>
+        </div>
+        <div class="ab-vivo-flujo" id="vivo-flujo">
+          <div class="ab-vivo-ven" role="group" aria-label="Ventana de tiempo"><span>Dinero a mercado, últimos</span><button type="button" data-s="30">30 s</button><button type="button" data-s="60" aria-pressed="true">1 min</button><button type="button" data-s="300">5 min</button><button type="button" data-s="600">10 min</button></div>
+          <div class="ab-vivo-cv"><span class="c">Compras <b>—</b></span><span class="n">conectando…</span><span class="v"><b>—</b> Ventas</span></div>
+          <div class="ab-vivo-presbar"><i></i></div>
         </div>
         <div class="ab-vivo-cuerpo" id="vivo-cuerpo"></div>
         <div class="ab-vivo-pie"><b id="vivo-dot"></b><span id="vivo-est"></span></div>

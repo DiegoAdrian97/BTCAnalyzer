@@ -5758,7 +5758,9 @@
   };
   const OKX_CT = { BTC: 0.01, ETH: 0.1, SOL: 1, XRP: 100 };
   const CRIPTO_SPOT = new Set(['BTC', 'ETH', 'SOL', 'XRP', 'ZEC']);
-  const TR = { abierto: false, gen: 0, mon: null, socks: [], ping: 0, on: new Set(), grupos: [], abiertos: {}, libros: {}, hits: [], vista: 'libro', pend: 0, ult: null };
+  const TR = { abierto: false, gen: 0, mon: null, socks: [], ping: 0, on: new Set(), grupos: [], abiertos: {}, libros: {}, hits: [], vista: 'libro', pend: 0, ult: null,
+    seg: new Map(), ventana: 60, pausa: false, pop: null };
+  try { const v = +localStorage.getItem('ab-tape-ventana'); if ([30, 60, 300, 600].includes(v)) TR.ventana = v; } catch (e) { /* sin almacenamiento */ }
   window.abTR = TR;                                       // para las pruebas
   const TR_MIN = [10000, 25000, 50000, 100000, 250000, 500000, 1000000];
   const trMinDef = () => ({ BTC: 50000, ETH: 25000 }[MON()] || 10000);
@@ -5776,7 +5778,7 @@
     if (TR.socks.length && TR.mon === MON()) return;
     trCerrar();
     const gen = TR.gen, mon = MON(), sym = `${mon}USDT`, s = sym.toLowerCase();
-    if (TR.mon !== mon) { TR.mon = mon; TR.grupos = []; TR.abiertos = {}; TR.libros = {}; TR.ult = null; }
+    if (TR.mon !== mon) { TR.mon = mon; TR.grupos = []; TR.abiertos = {}; TR.libros = {}; TR.ult = null; TR.seg = new Map(); }
     const con = (k, url, alAbrir, alMsg) => {
       if (gen !== TR.gen) return;
       let w; try { w = new WebSocket(url); } catch (e) { return; }
@@ -5817,6 +5819,10 @@
     if (!(p > 0) || !(q > 0)) return;
     const ahora = performance.now(), usd = p * q;
     TR.ult = p;
+    // todo el dinero (tambien lo chico), por segundo y por lado: para "compras contra ventas" de los ultimos minutos
+    const sg = Math.floor(Date.now() / 1000), cu = TR.seg.get(sg) || [0, 0, {}];
+    cu[lado > 0 ? 0 : 1] += usd; cu[2][k] = (cu[2][k] || 0) + usd * lado; TR.seg.set(sg, cu);
+    if (TR.seg.size > 700) { const lim = sg - 650; TR.seg.forEach((_, x) => { if (x < lim) TR.seg.delete(x); }); }
     let g = TR.abiertos[lado];
     if (!g || ahora - g.ult > 150) {
       if (g) trFin(g);
@@ -5870,6 +5876,7 @@
   let trUltPanel = 0;
   function trPanel() {
     if (!TR.abierto) return;
+    trFlujo();
     const ahora = performance.now(); if (ahora - trUltPanel < 160) { clearTimeout(TR.tp); TR.tp = setTimeout(trPanel, 170); return; }
     trUltPanel = ahora;
     const box = document.getElementById('vivo-cuerpo'); if (!box) return;
@@ -5889,16 +5896,31 @@
       const pb = el('div', 'ab-vivo-presbar'); const pi = el('i'); pi.style.width = `${50 + pr / 2}%`; pb.append(pi);
       box.replaceChildren(...E.asks.slice().reverse().map((x) => fila(x, 'a')), mid, ...E.bids.map((x) => fila(x, 'b')), pb, pres);
     } else {
+      if (TR.pausa) return;                 // con el mouse encima la lista no se mueve (para poder leerla y pasar por cada orden)
       const gs = TR.grupos.slice(-60).reverse(), min = trMin();
       if (!gs.length) { box.replaceChildren(el('p', 'ab-vivo-vacio', `Todavía no entró ninguna orden de más de ${usdK(min)} USD.`)); return; }
       box.replaceChildren(...gs.map((g) => {
         const r = el('button', `ab-vivo-tr ${g.lado > 0 ? 'c' : 'v'}${g.usd >= min * 10 ? ' ballena' : ''}`); r.type = 'button';
         const ex = el('span', 'ex'); Object.entries(g.partes).sort((a, b) => b[1].usd - a[1].usd).forEach(([k, v]) => { const i = el('i'); i.style.background = VX[k].c; i.style.flexGrow = String(v.usd); ex.append(i); });
         r.append(el('span', 't', hms(g.t)), el('span', 'u', `${g.lado > 0 ? '▲' : '▼'} ${usdK(g.usd)}`), el('span', 'p', fp(g.p)), ex);
-        r.addEventListener('click', () => trDetalle(g, r.getBoundingClientRect()));
+        r.addEventListener('click', () => trDetalle(g, r.getBoundingClientRect(), 'toque'));
+        r.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') trDetalle(g, r.getBoundingClientRect(), 'hover'); });
+        r.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') trPopSoltar(); });
         return r;
       }));
     }
+  }
+  function trFlujo() {
+    const box = document.getElementById('vivo-flujo'); if (!box) return;
+    const desde = Math.floor(Date.now() / 1000) - TR.ventana; let c = 0, v = 0;
+    TR.seg.forEach((x, sg) => { if (sg > desde) { c += x[0]; v += x[1]; } });
+    const n = c - v, tot = c + v;
+    const sel = box.querySelector('.ab-vivo-ven');
+    box.querySelector('.c b').textContent = usdK(c); box.querySelector('.v b').textContent = usdK(v);
+    const ne = box.querySelector('.n'); ne.textContent = tot ? `neto ${n >= 0 ? '+' : '−'}${usdK(Math.abs(n))}` : 'sin operaciones todavía';
+    ne.className = `n ${n > 0 ? 'up' : n < 0 ? 'dn' : ''}`;
+    box.querySelector('.ab-vivo-presbar i').style.width = `${tot ? (c / tot) * 100 : 50}%`;
+    if (sel) sel.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.s === TR.ventana)));
   }
   function trEstado() {
     const e = document.getElementById('vivo-est'); if (!e) return;
@@ -5910,7 +5932,10 @@
   // ---- detalle de una orden: cuanto entro en cada exchange
   const trPop = document.createElement('div'); trPop.className = 'ab-trpop'; trPop.hidden = true; trPop.setAttribute('role', 'dialog'); trPop.setAttribute('aria-label', 'Detalle de la orden');
   document.body.append(trPop);
-  function trDetalle(g, r) {
+  function trDetalle(g, r, modo = 'toque') {
+    clearTimeout(TR.popT);
+    if (TR.pop && TR.pop.g === g && !trPop.hidden) { TR.pop.modo = modo === 'toque' ? 'toque' : TR.pop.modo; return; }
+    TR.pop = { g, modo };
     const compra = g.lado > 0, partes = Object.entries(g.partes).sort((a, b) => b[1].usd - a[1].usd);
     const top = el('div', `ab-trpop-h ${compra ? 'c' : 'v'}`); top.append(el('span', '', compra ? '▲ Compra a mercado' : '▼ Venta a mercado'), el('time', '', `${hms(g.t)}`));
     const big = el('div', 'ab-trpop-u'); big.append(el('b', '', `${usdK(g.usd)} USD`), el('span', '', ` a ${fp(g.p)}${g.pmax - g.pmin > 0 ? ` (de ${fp(g.pmin)} a ${fp(g.pmax)})` : ''}`));
@@ -5930,7 +5955,10 @@
     trPop.style.top = `${r.top - h - 10 > 12 ? r.top - h - 10 : Math.min(vh - h - 12, r.bottom + 10)}px`;
     requestAnimationFrame(() => trPop.classList.add('is-in'));
   }
-  const trPopCerrar = () => { trPop.hidden = true; trPop.classList.remove('is-in'); };
+  const trPopCerrar = () => { clearTimeout(TR.popT); trPop.hidden = true; trPop.classList.remove('is-in'); TR.pop = null; };
+  // al salir con el mouse se cierra (salvo que se haya abierto con un clic o que el mouse pase a la tarjeta)
+  const trPopSoltar = () => { clearTimeout(TR.popT); TR.popT = setTimeout(() => { if (TR.pop && TR.pop.modo === 'hover' && !trPop.matches(':hover')) trPopCerrar(); }, 160); };
+  trPop.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') trPopSoltar(); });
   document.addEventListener('pointerdown', (e) => { if (!trPop.hidden && !trPop.contains(e.target) && !e.target.closest('.ab-vivo-tr')) trPopCerrar(); }, true);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') trPopCerrar(); });
   window.addEventListener('scroll', trPopCerrar, { passive: true });
@@ -5960,12 +5988,24 @@
   (function () {
     const box = document.getElementById('chart'); let dn = null;
     box.addEventListener('pointerdown', (e) => { dn = { x: e.clientX, y: e.clientY, t: Date.now() }; }, true);
+    const pegar = (e) => {
+      if (!S.layers.trades || !TR.hits.length) return null;
+      const rc = box.getBoundingClientRect(), x = e.clientX - rc.left, y = e.clientY - rc.top;
+      const hit = TR.hits.filter((q) => Math.hypot(q.x - x, q.y - y) <= q.r + 3).sort((a, b) => b.g.usd - a.g.usd)[0];
+      return hit ? [hit, { left: rc.left + hit.x - hit.r, top: rc.top + hit.y - hit.r, width: hit.r * 2, height: hit.r * 2, bottom: rc.top + hit.y + hit.r }] : null;
+    };
+    box.addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'mouse' || e.buttons) return;
+      const h = pegar(e);
+      if (h) { box.style.cursor = 'pointer'; trDetalle(h[0].g, h[1], 'hover'); }
+      else { if (box.style.cursor === 'pointer') box.style.cursor = ''; if (TR.pop && TR.pop.modo === 'hover') trPopSoltar(); }
+    });
     box.addEventListener('pointerup', (e) => {
       if (!dn || !S.layers.trades || !TR.hits.length || (window.abDib && window.abDib.modo)) return;
       if (Math.hypot(e.clientX - dn.x, e.clientY - dn.y) > 6 || Date.now() - dn.t > 500) return;
       const rc = box.getBoundingClientRect(), x = e.clientX - rc.left, y = e.clientY - rc.top;
       const hit = TR.hits.filter((q) => Math.hypot(q.x - x, q.y - y) <= q.r + 3).sort((a, b) => b.g.usd - a.g.usd)[0];
-      if (hit) { e.stopPropagation(); trDetalle(hit.g, { left: rc.left + hit.x - hit.r, top: rc.top + hit.y - hit.r, width: hit.r * 2, height: hit.r * 2, bottom: rc.top + hit.y + hit.r }); }
+      if (hit) { e.stopPropagation(); trDetalle(hit.g, { left: rc.left + hit.x - hit.r, top: rc.top + hit.y - hit.r, width: hit.r * 2, height: hit.r * 2, bottom: rc.top + hit.y + hit.r }, 'toque'); }
     }, true);
   })();
 
@@ -5983,6 +6023,13 @@
       trConectar(); trPanel();
     };
     btn.addEventListener('click', () => poner(!TR.abierto));
+    const cuerpo = document.getElementById('vivo-cuerpo');
+    cuerpo.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' && TR.vista === 'trades') { TR.pausa = true; pan.classList.add('pausa'); } });
+    cuerpo.addEventListener('pointerleave', () => { TR.pausa = false; pan.classList.remove('pausa'); trUltPanel = 0; trPanel(); });
+    document.querySelectorAll('#vivo-flujo .ab-vivo-ven button').forEach((b) => b.addEventListener('click', () => {
+      TR.ventana = +b.dataset.s; try { localStorage.setItem('ab-tape-ventana', String(TR.ventana)); } catch (e) { /* idem */ } trFlujo();
+    }));
+    setInterval(() => { if (TR.abierto) trFlujo(); }, 1000);
     document.getElementById('vivo-chip').addEventListener('click', () => poner(!TR.abierto));
     document.getElementById('vivo-x').addEventListener('click', () => poner(false));
     pan.querySelectorAll('[data-vista]').forEach((b) => b.addEventListener('click', () => {
