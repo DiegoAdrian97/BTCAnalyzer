@@ -6069,8 +6069,10 @@
         });
         // los muros, con su monto (como etiqueta al costado de la barra)
         ctx.font = `600 10px ${P.font}`; ctx.textBaseline = 'middle';
-        N.filter((n) => n.muro).forEach((n) => {
-          const y = Y(n.p); if (y === null || y < 8 || y > h - 8) return;
+        const usados = [];
+        N.filter((n) => n.muro).sort((a, b) => b.usd - a.usd).forEach((n) => {
+          const y = Y(n.p); if (y === null || y < 8 || y > h - 8 || usados.some((u) => Math.abs(u - y) < 18)) return;
+          usados.push(y);
           const txt = `MURO ${usdC2(n.usd)}`, tw = ctx.measureText(txt).width + 10, ancho = Math.max(1, Math.pow(n.usd / mx, 0.7) * anchoMax), x = Math.max(4, w - ancho - tw - 6);
           ctx.fillStyle = alpha(P.panel || '#fff', 0.92); ctx.strokeStyle = alpha(n.lado === 'a' ? P.dn : P.up, 0.9); ctx.lineWidth = 1;
           ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y - 8, tw, 16, 8); else ctx.rect(x, y - 8, tw, 16); ctx.fill(); ctx.stroke();
@@ -6309,8 +6311,8 @@
     [/^(Pivote|Pivotes)/, 'app', 'Pivotes', 'Niveles clásicos que salen del máximo, mínimo y cierre del día anterior (P, R1–R3 arriba, S1–S3 abajo).', null, null, 'Muchos traders los miran, por eso a veces frenan al precio.'],
     [/^(Mínimo|Máximo) (24 h|7 días|30 días)/, 'app', 'Mínimos y máximos recientes', 'El precio más bajo y más alto de ese período. Suelen hacer de soporte y resistencia, y debajo y arriba suele haber stops.'],
     [/^(Precio más probable)/, 'app', 'Precio más probable', 'El precio del medio de lo que pasó en los casos parecidos a esa hora: la mitad terminó arriba y la mitad abajo.'],
-    [/^(En vivo: libro y trades|Trades en vivo|Libro y trades)/, 'volu', 'En vivo: libro y trades', 'Todo dentro del gráfico. A la derecha, el libro de órdenes sumado de Binance, Bybit y OKX a la altura de cada precio (los muros, marcados). Arriba, el dinero que entró comprando y vendiendo a mercado. Pasando el mouse (o tocando) una vela, lo que entró en ella por exchange y sus órdenes grandes.',
-      'Barras verdes: compras esperando en el libro.', 'Barras rojas: ventas esperando.', 'Lo de cada vela se junta mientras el modo en vivo está prendido: las velas de antes no tienen ese detalle.'],
+    [/^(En vivo: libro y trades|Trades en vivo|Libro y trades)/, 'volu', 'En vivo: libro y trades', 'Todo dentro del gráfico. A la derecha, el libro de órdenes sumado de Binance, Bybit y OKX a la altura de cada precio (los muros, marcados). En el recuadro, el dinero que entró comprando y vendiendo a mercado. Pasando el mouse (o tocando) una vela, lo que entró en ella por exchange y sus órdenes grandes.',
+      'Barras verdes: compras esperando en el libro.', 'Barras rojas: ventas esperando.', 'Las velas que pasan con el modo en vivo prendido tienen todos los exchanges y las órdenes grandes; las de antes, la historia de Binance y Gate.'],
     [/^(Compras [\d—]|[\d—].* Ventas$)/, 'volu', 'Dinero a mercado', 'Todo lo que se compró y se vendió a mercado (el apurado, que acepta el precio que hay) en el tiempo elegido, sumando Binance, Bybit, OKX y Coinbase. Cuenta también las órdenes chicas.',
       'Más compras que ventas (neto positivo): presión compradora.', 'Más ventas que compras: presión vendedora.', 'Si el precio no sube aunque entren muchas compras, alguien grande está vendiendo en el libro (absorción).'],
     // ----- calendario economico -----

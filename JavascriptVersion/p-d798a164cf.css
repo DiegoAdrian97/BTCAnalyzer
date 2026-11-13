@@ -1376,6 +1376,7 @@
   #grafico.ab-fs > .ab-vivo-flujo { position: absolute; top: 64px; right: 76px; margin: 0; }
   .ab-vivo-ven { display: flex; align-items: center; gap: 1px; }
   .ab-vivo-est { display: inline-flex; gap: 3px; margin-right: auto; } .ab-vivo-est i { width: 6px; height: 6px; border-radius: 2px; }
+  .ab-vivo-flujo :is(button, span, b) { white-space: nowrap; }
   .ab-vivo-ven button { font: inherit; font-size: 10.5px; font-weight: 600; color: var(--mute); background: none; border: 0; border-radius: 6px; padding: 2px 5px; cursor: pointer; }
   .ab-vivo-ven button[aria-pressed="true"] { color: var(--ink); background: var(--soft2); }
   .ab-vivo-cv { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
@@ -1387,7 +1388,8 @@
   .ab-vivo-pie2 select { font: inherit; font-size: 10.5px; color: var(--mute); background: transparent; border: 0; padding: 0; max-width: 104px; cursor: pointer; }
   @media (max-width: 999.98px) {
     #vivo-btn { display: none; }
-    .ab-vivo-flujo { width: 172px; margin: 52px 58px 0 0; padding: 6px 8px 7px; }
+    .ab-vivo-flujo { width: 200px; justify-self: start; align-self: end; margin: 0 0 30px 2px; padding: 6px 8px 7px; gap: 4px; }   /* abajo a la izquierda: arriba tapaba el precio */
+    .ab-vivo-cv { font-size: 10.5px; }
     .ab-vivo-cv b { font-size: 12.5px; }
   }
   /* el detalle de una orden: cuanto entro en cada exchange */
