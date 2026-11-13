@@ -1,0 +1,22 @@
+name: Medir flujo, VWAP e ICT
+# A mano desde Actions (o al cambiar el medidor): corre medir_flujo.py con datos publicos de Binance (data.binance.vision)
+# y deja el resultado como artefacto. No cambia nada del analisis: solo mide.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/medir_flujo.yml", "medir_flujo.py"]
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/cache@v4
+        with: { path: datos_medicion, key: flujo-btc-v1 }
+      - run: python -u medir_flujo.py | tee flujo.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: medicion-flujo, path: flujo.txt }
