@@ -1247,6 +1247,9 @@ PLAZOS = [
     ("1 semana", "1d", 7, ("1d", "1w"), (), "1 día"),
     ("1 mes", "1d", 30, ("1w", "1M"), (), "1 semana"),
 ]
+# (plazo, temporalidad) -> (que hacer con la sobrecompra, con la sobreventa): medir_rsi.py
+RSI_MEDIDO = {("1 hora", "15m"): ("revierte", "revierte"), ("1 hora", "1h"): ("revierte", "revierte"),
+              ("4 horas", "1h"): (None, "revierte"), ("1 semana", "1d"): ("sigue", None)}
 CTX_MEDIDO = ("oi_1h", "oi_4h", "oi_24h", "long_short")   # su senal solo marca lo que gano en las mediciones
 SHORT_CTX = {"flujo_1 h": "Compras a mercado 1 h", "flujo_4 h": "Compras a mercado 4 h", "oi_1h": "Open interest 1 h",
              "oi_4h": "Open interest 4 h", "oi_24h": "Open interest 24 h", "long_short": "Long/short",
@@ -1585,18 +1588,21 @@ def explain(rows, price, spec):
                 signals.append((pr, "alcista" if al else "bajista", f"Indicadores de {TF_TXT[tf]}: {m['rating_txt'].lower()}"))
             else:
                 signals.append((pr, "bajista" if al else "alcista", f"Indicadores de {TF_TXT[tf]}: {m['rating_txt'].lower()}, suele corregir (medido)"))
-    # RSI y MACD de cada temporalidad, como los mira un trader. Medido (medir_senales.py, BTC 2021-2026, velas de 15 min,
-    # 1 h y 4 h): el RSI extremo y el cruce del MACD aciertan ~50% a 1, 4 y 24 h en los dos tramos: no entran en 4 h o
-    # menos (antes sumaban +-1 a la direccion). En el diario o mas, como antes (sin medir)
+    # RSI en sobrecompra y sobreventa: solo donde se midio que anticipa (medir_rsi.py, cada vela, BTC 2021-2026 y
+    # diario 2011-2026, en los dos tramos con z >= 2). Revierte la hora siguiente en velas de 15 min y de 1 h (+3 a +6
+    # puntos sobre lo normal) y, en 1 h, la sobreventa tambien a 4 h; el RSI diario en sobrecompra, al reves: la semana
+    # siguiente suele seguir subiendo (-13 a -14 puntos de reversion). En el resto (4 h, diario a 1 y 30 dias, semanal)
+    # da ~50%: no entra. El cruce del MACD da ~50% en 4 h o menos: solo en el diario o mas, como antes (sin medir)
     for tf in sig_tfs:
         m = get("marco", tf=tf)[0]
-        if tf not in ("1d", "1w", "1M"):
-            continue
-        if m["rsi"] >= 70:
-            signals.append((4, "bajista", f"RSI de {TF_TXT[tf]} en sobrecompra ({ar(m['rsi'])})"))
-        elif m["rsi"] <= 30:
-            signals.append((4, "alcista", f"RSI de {TF_TXT[tf]} en sobreventa ({ar(m['rsi'])})"))
-        if m["macd_cruce"]:
+        sc, sv = RSI_MEDIDO.get((name, tf), (None, None))
+        if sc == "revierte" and m["rsi"] >= 70:
+            signals.append((4, "bajista", f"RSI de {TF_TXT[tf]} en sobrecompra ({ar(m['rsi'])}): suele corregir (medido)"))
+        elif sc == "sigue" and m["rsi"] >= 70:
+            signals.append((4, "alcista", f"RSI de {TF_TXT[tf]} en sobrecompra ({ar(m['rsi'])}): la semana siguiente suele seguir (medido)"))
+        elif sv == "revierte" and m["rsi"] <= 30:
+            signals.append((4, "alcista", f"RSI de {TF_TXT[tf]} en sobreventa ({ar(m['rsi'])}): suele rebotar (medido)"))
+        if tf in ("1d", "1w", "1M") and m["macd_cruce"]:
             signals.append((4, m["macd_cruce"], f"MACD de {TF_TXT[tf]} cruzó {'al alza' if m['macd_cruce'] == 'alcista' else 'a la baja'}"))
     for p in get("patron"):
         if p["tf"] not in sig_tfs or p["sesgo"] == "neutral":

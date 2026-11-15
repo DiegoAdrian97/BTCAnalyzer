@@ -739,12 +739,27 @@ BTC 2021–2026, velas de 15 min, 1 h y 4 h (cada 4 horas, ~12.000 momentos por 
 | Medias (EMA/SMA 10 a 50, VWMA), Ichimoku, VWAP, OBV, Bull Bear Power, SuperTrend | **Al revés** a 4 h en casi todas (47–48%; EMA y SMA 10 a 30 también a 1 h): después de marcar, el precio corrige | Ya contaban al revés en el resumen. La tabla muestra una columna "Medido" (▼ corrige / ▲ rebota) |
 | Osciladores (RSI, estocástico, CCI, Williams, MACD, Stoch RSI, Ultimate, MFI), ADX, Bollinger %B, Keltner, Donchian, SAR | ~50% | "~50%" en la tabla |
 | Resumen (medias y osciladores) | Al revés: 1 h 46–48%, 4 h 46–48%, en 4 h también a 24 h | Como estaba (al revés, peso 1). La lista de señales ahora lo muestra para ese lado (antes decía "alcista" mientras la predicción lo contaba bajista) |
-| RSI ≥ 70 / ≤ 30 y cruce del MACD (sumaban ±1 en la explicación) | ~50% en 15 min, 1 h y 4 h | Fuera de la predicción en 4 h o menos |
+| Cruce del MACD (sumaba ±1 en la explicación) | ~50% en 15 min, 1 h y 4 h | Fuera de la predicción en 4 h o menos |
 | Reglas alternativas: ADX con +DI/−DI, Momentum con signo, MACD con el cero, RSI contra 50 | ~50% o al revés | No se cambian las reglas: ninguna anticipa a favor |
 | Divergencia RSI en 15 min | A favor a 4 h | Ya suma (divergencias) |
 
 Además: el flujo de compras/ventas a mercado, los libros de órdenes y el funding entraban a la explicación y sumaban ±1,
 aunque las mediciones decían "quedan como contexto, sin peso": ya no suman (solo el open interest y las cuentas, medidos).
+
+### RSI en sobrecompra y sobreventa (`medir_rsi.py`, nov. 2026)
+
+Cada vela (15 min, 1 h y 4 h de Binance 2021–2026; diario y semanal de CoinMetrics 2011–2026), a los plazos que mira
+cada gráfico, en dos tramos (z ≥ 2 en los dos, contando las señales que se pisan una sola vez por horizonte):
+
+| Temporalidad | Qué pasa | Qué se hizo |
+|---|---|---|
+| 15 min y 1 h, RSI ≥ 70 / ≤ 30 | **Revierte la hora siguiente**: +3 a +6 puntos sobre lo normal | Suma en el plazo de 1 hora ("suele corregir / rebotar") y la tabla lo marca "a favor" |
+| 1 h, RSI ≤ 30 | Rebota también a 4 h (+5 puntos) | Suma en el plazo de 4 horas |
+| Diario, RSI ≥ 70 | **Al revés**: la semana siguiente suele seguir subiendo (−13 a −14 puntos de reversión) | Suma a favor de la suba en el plazo de 1 semana |
+| 4 h; diario a 1 y 30 días; semanal; ≥ 80 / ≤ 20; la salida de la zona (cruce de 70 o 30) | ~50%: no anticipa | No entra |
+
+Antes (`medir_senales.py`, cada 4 horas) el RSI extremo había dado ~50%: con cada vela hay muchos más casos y aparece
+la reversión de la hora siguiente, chica pero pareja.
 
 ### Zonas del ciclo (`medir_zonas.py` y `zonas_ciclo.py`, nov. 2026)
 
