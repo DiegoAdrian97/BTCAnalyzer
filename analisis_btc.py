@@ -1248,7 +1248,7 @@ PLAZOS = [
     ("1 mes", "1d", 30, ("1w", "1M"), (), "1 semana"),
 ]
 # (plazo, temporalidad) -> (que hacer con la sobrecompra, con la sobreventa): medir_rsi.py
-DIV_MEDIDO = {("4 horas", "1h"), ("1 día", "4h")}     # (plazo, temporalidad) donde la divergencia cuenta: medir_estructura.py
+DIV_MEDIDO = {("15 min", "5m"), ("1 hora", "15m"), ("4 horas", "1h"), ("1 día", "4h")}     # (plazo, temporalidad) donde la divergencia cuenta: medir_estructura.py
 RSI_MEDIDO = {("1 hora", "15m"): ("revierte", "revierte"), ("1 hora", "1h"): ("revierte", "revierte"),
               ("4 horas", "1h"): (None, "revierte"), ("1 semana", "1d"): ("sigue", None)}
 CTX_MEDIDO = ("oi_1h", "oi_4h", "oi_24h", "long_short")   # su senal solo marca lo que gano en las mediciones
@@ -1599,8 +1599,10 @@ def explain(rows, price, spec):
     # 46-49% (z -8 a -2). Los patrones de velas que "habian funcionado 55%+" acertaron 44-48% despues. Wyckoff y el
     # cruce del MACD: ~50%. En el diario nada llega a z 2. Siguen dibujados en el grafico y en su seccion, con
     # objetivos y niveles: dicen donde mirar, no para donde va.
-    # Las divergencias quedan solo donde estuvieron cerca: las de 1 h para las proximas 4 horas (51,7% / 52,1%, z +2,1 /
-    # +1,7; RSI 52,9% / 52,1%) y las de 4 h para el dia (54,3% / 52,2%, z +2,1 / +0,8). En el resto ~50%
+    # Las divergencias son lo unico que anticipa a favor: las de 5 min para los proximos 15 min pasan (51,5% / 51,6%, z
+    # +6,4 / +5,0) y las de 15 min para la proxima hora tambien (52,1% / 51,4%, z +4,9
+    # / +2,3; en RSI y MACD a la vez 53,4% / 52,1%); las de 1 h para las proximas 4 horas (51,7% / 52,1%, z +2,1 / +1,7;
+    # RSI 52,9% / 52,1%) y las de 4 h para el dia (54,3% / 52,2%, z +2,1 / +0,8) quedan cerca y siguen. En el resto ~50%
     divs = {}
     for d in get("divergencia"):
         if d["tf"] in sig_tfs and (name, d["tf"]) in DIV_MEDIDO:

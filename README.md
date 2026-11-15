@@ -794,6 +794,11 @@ Eran lo último que el análisis sumaba sin medir (1 punto cada una, a favor). C
 velas que tendría en cada momento, cada vela de BTC 2021–2026 (5 min, 15 min, 1 h, 4 h; tramos 2021–24 y 2025–26) y
 diarias 2017–2026: cuando la señal está, ¿el precio fue para ese lado? (% de acierto en cada tramo; lo normal ≈ 50%)
 
+En velas de 15 min todo dio igual que en 1 h pero más marcado (figura confirmada 46,6% / 47,8% a 15 min, z −11,5 / −5,4;
+Elliott 48%; cruce del MACD 47,0% / 47,3%; patrones de velas 47–48%), salvo las divergencias, que **pasan**: a 1 hora
+52,1% / 51,4% (z +4,9 / +2,3) y, con RSI y MACD a la vez, 53,4% / 52,1%. En velas de 5 min, lo mismo: las divergencias a 15 min 51,5% / 51,6% (z +6,4 / +5,0)
+y el resto al revés o ~50%. (A la vela siguiente también pasan, pero con menos de 1 punto de ventaja: no suman.)
+
 | Señal | Velas de 1 h | Velas de 4 h | Diario | Qué se hizo |
 |---|---|---|---|---|
 | Figura confirmada (rompió su línea) | a 1 h 46,7% / 47,6% (z −5,5 / −2,8); a 4 h 47,1% / 46,6% | a 4 h 47,5% / 45,9% (z −2,0 / −2,4) | a 30 días 63% / 59% (z +1,3 / +1,0) | No suma más. Después de romper suele retroceder (lo mismo que "el precio estirado corrige", que ya cuenta) |
@@ -803,7 +808,7 @@ diarias 2017–2026: cuando la señal está, ¿el precio fue para ese lado? (% d
 | Elliott: onda en curso | 48,0% / 48,9% (z −5,3 / −2,0) | 48,7% / 48,1% | a 7 días 51% / 40% | No suma más |
 | Elliott: hacia el objetivo | 46,4% / 48,2% (z −8,1 / −2,6) | 47,7% / 48,9% | ~50% | No suma más |
 | Cruce del MACD | 45,2% / 49,4% | 48,5% / 46,1% | a 1 día 42,9% / 45,9%; a 7 y 30 días ~50% | No suma más (antes solo en diario o más, "sin medir") |
-| Divergencia (RSI o MACD) | a 1 h 50,5% / 50,4%; **a 4 h 51,7% / 52,1%** (z +2,1 / +1,7; solo RSI 52,9% / 52,1%) | a 4 h ~50%; **a 24 h 54,3% / 52,2%** (z +2,1 / +0,8) | a 1 día 45,5% / 51,9% | Queda donde estuvo cerca: las de 1 h para las próximas 4 horas y las de 4 h para el día. En el resto no suma |
+| Divergencia (RSI o MACD) | a 1 h 50,5% / 50,4%; **a 4 h 51,7% / 52,1%** (z +2,1 / +1,7; solo RSI 52,9% / 52,1%) | a 4 h ~50%; **a 24 h 54,3% / 52,2%** (z +2,1 / +0,8) | a 1 día 45,5% / 51,9% | Suman las de 5 min para los próximos 15 min y las de 15 min para la próxima hora (pasan), las de 1 h para las próximas 4 horas y las de 4 h para el día (cerca). En el resto no suma |
 
 Todo sigue dibujado en el gráfico y en su sección, con objetivos y niveles (dicen dónde mirar, no para dónde va); la
 sección y el glosario lo aclaran. **El ciclo** (medidor) tampoco suma ya a la dirección de 4 horas a 1 mes
