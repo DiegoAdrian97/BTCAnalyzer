@@ -4180,7 +4180,7 @@
     return 1; };
   function pisoProb(m, precio, nivel) {          // probabilidad (0-1) de que el minimo de 6 meses quede debajo de 'nivel'
     if (!PISO || !PISO.vol[m] || !(precio > 0) || !(nivel > 0)) return null;
-    const x = Math.log(nivel / precio), pz = pisoCdf(x / PISO.vol[m], PISO.z, PISO.grid), own = PISO.own[m];
+    const x = Math.log(nivel / precio), pz = pisoCdf(x / PISO.vol[m], PISO.zc || PISO.z, PISO.grid), own = PISO.own[m];   // zc: zona del ciclo de hoy
     return own ? 0.5 * pz + 0.5 * pisoCdf(x, own, PISO.grid) : pz;
   }
   function pisoNivel(m, precio, conf) {          // precio que no se rompe en 6 meses con 'conf' % de confianza
@@ -4220,6 +4220,7 @@
           rg.append(vMedidor(pp * 100, 5, 'chance de tocar tu liquidación', e.liq_plan ? `contando las compras que faltan (liq. ${fp(e.liq_plan)})` : 'meta: 5% o menos', pp > 0.2 ? 'dn' : pp > 0.05 ? 'warn' : 'up'));
           det.push(`Chance de tocar tu liquidación en los próximos 6 meses: ${pp < 0.01 ? 'menos de 1' : f0(pp * 100)}%${e.liq_plan ? ` (contando las compras que faltan, que se ejecutarían en la bajada: liquidación en ${fp(e.liq_plan)})` : ''}.`);
         } else { rg.append(vFicha('✓ esta posición no se liquida', 'up')); det.push('Esta posición no se liquida.'); }
+        if (PISO.zc && PISO.zona) det.push(`Ajustado al ciclo de hoy (BTC ${PISO.zona}): se usa cuánto cayó en 6 meses estando en esta zona, no el promedio de siempre.`);
         det.push(`En 6 meses ${m} no baja de ${fp(n90)} con 90% de confianza, ni de ${fp(n95)} con 95%. Para que el riesgo sea de 5% o menos, la liquidación tiene que quedar debajo de ${fp(n95)}.`);
         const bj = ((PISO.anteriores || {})[m] || []).filter((a) => a[1] === 'bajista');
         let lv = null;

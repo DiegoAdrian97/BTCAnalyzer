@@ -66,10 +66,19 @@ PISO_GRID = [0.005] + [k / 100 for k in range(1, 100)] + [0.995]
 PISO_DESDE = {"BTC": 1325376000000, "ZEC": 1483228800000}       # BTC desde 2012; ZEC desde 2017 (antes, velas raras)
 
 
-def piso_modelo(series):
+PISO_ZONAS = ((0, 40, "barato"), (40, 60, "medio"), (60, 101, "caro"))     # temperatura del ciclo de BTC
+
+
+def piso_modelo(series, t_btc=None, T_btc=None):
     """series: {moneda: [[t, o, h, l, c, v], ...]} diarias. Cuantiles del minimo a 180 dias (log del minimo / cierre)
-    de cada moneda y, juntando todas, en unidades de su volatilidad de 365 dias; y la volatilidad de hoy."""
+    de cada moneda y, juntando todas, en unidades de su volatilidad de 365 dias; y la volatilidad de hoy.
+    Con la temperatura del ciclo de BTC de cada dia (sin mirar el futuro) tambien por zona del ciclo: 'zc' son los
+    cuantiles de la zona de hoy, si en los dos tramos (hasta 2019 y desde 2020) esa zona tuvo mas o menos caidas
+    fuertes que lo normal para el mismo lado; si no, no se usa (queda 'z')."""
     own, zs, vol_hoy = {}, [], {}
+    temp = {int(a): float(b) for a, b in zip(t_btc, T_btc) if np.isfinite(b)} if t_btc is not None else {}
+    zona_de = lambda x: next(k for k, (lo, hi, _) in enumerate(PISO_ZONAS) if lo <= x < hi)
+    cond = []                                    # (z, zona, tramo)
     for m, rows in series.items():
         rows = [r for r in rows if r[0] >= PISO_DESDE.get(m, 0)]
         c = np.array([r[4] for r in rows], float); lo = np.array([r[3] for r in rows], float); n = len(c)
@@ -82,8 +91,34 @@ def piso_modelo(series):
         own[m] = [round(float(x), 6) for x in np.quantile(y[ok], PISO_GRID)]
         ok2 = ok & np.isfinite(vol); zs.append(y[ok2] / vol[ok2])
         vol_hoy[m] = round(float(vol[-1]), 6)
-    z = [round(float(x), 6) for x in np.quantile(np.concatenate(zs), PISO_GRID)]
-    return {"dias": PISO_H, "grid": PISO_GRID, "z": z, "own": own, "vol": vol_hoy, "analogos": analogos(series)}
+        for i in np.where(ok2)[0]:
+            tt = temp.get(int(rows[i][0]))
+            if tt is not None:
+                cond.append((y[i] / vol[i], zona_de(tt), 0 if rows[i][0] < 1577836800000 else 1))
+    todos = np.concatenate(zs)
+    z = [round(float(x), 6) for x in np.quantile(todos, PISO_GRID)]
+    out = {"dias": PISO_H, "grid": PISO_GRID, "z": z, "own": own, "vol": vol_hoy, "analogos": analogos(series)}
+    if cond and temp:
+        C = np.array(cond); hoy = zona_de(temp[max(temp)])
+        print("\n===== mínimo a 180 días según la zona del ciclo de BTC (en volatilidades; % de días que cayó más que el 10% y el 5% peor de siempre) =====")
+        q10, q05 = np.quantile(todos, 0.10), np.quantile(todos, 0.05)
+        usar = {}
+        for k, (_, _, nom) in enumerate(PISO_ZONAS):
+            txt, lados = f"  {nom:<7}", []
+            for tr, tn in ((0, "hasta 2019"), (1, "2020-26")):
+                s = C[(C[:, 1] == k) & (C[:, 2] == tr), 0]
+                if len(s) < 200:
+                    txt += f" | {tn}: pocos ({len(s)})"; lados.append(0); continue
+                p10 = float(np.mean(s < q10)) * 100
+                txt += f" | {tn}: {len(s)} días · mediana {np.median(s):+.2f} · peor que el 10%: {p10:.1f}% · peor que el 5%: {float(np.mean(s < q05)) * 100:.1f}%"
+                lados.append(-1 if p10 <= 8 else 1 if p10 >= 12.5 else 0)
+            usar[k] = lados[0] != 0 and lados[0] == lados[1]
+            print(txt + ("  → se usa" if usar[k] else "  → no se usa (no repite en los dos tramos)"), flush=True)
+        out["zona"] = PISO_ZONAS[hoy][2]
+        if usar.get(hoy):
+            out["zc"] = [round(float(x), 6) for x in np.quantile(C[C[:, 1] == hoy, 0], PISO_GRID)]
+        print(f"  hoy: zona {out['zona']} (temperatura {temp[max(temp)]:.0f}) → {'cuantiles de la zona' if 'zc' in out else 'cuantiles de siempre'}")
+    return out
 
 
 def analogos(series):
@@ -338,7 +373,7 @@ def main():
         A = json.load(open(sys.argv[3]))
         out["alts"] = {m: alt(A[m], cs, t, Pc) for m, cs in ALTS.items() if len(A.get(m) or []) > 1500}
         json.dump(out, open("JavascriptVersion/termometro.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-        out["piso"] = piso_modelo({"BTC": B, **{m: A[m] for m in ("SOL", "XRP", "ZEC") if len(A.get(m) or []) > 600}})
+        out["piso"] = piso_modelo({"BTC": B, **{m: A[m] for m in ("SOL", "XRP", "ZEC") if len(A.get(m) or []) > 600}}, t, T)
         json.dump(out, open("JavascriptVersion/termometro.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
         print("piso: vol de hoy", out["piso"]["vol"])
         for m, v in out["alts"].items():

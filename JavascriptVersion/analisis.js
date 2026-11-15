@@ -114,7 +114,7 @@
   }
   /** Probabilidad de que el minimo de los proximos 180 dias quede debajo de exp(x) veces el precio de hoy. */
   function pisoProb(P, moneda, x, vol) {
-    const own = P.own[moneda], pz = interpCdf(x / vol, P.z, P.grid);
+    const own = P.own[moneda], pz = interpCdf(x / vol, P.zc || P.z, P.grid);   // zc: la zona del ciclo de hoy (si se midio que cambia)
     return own ? 0.5 * pz + 0.5 * interpCdf(x, own, P.grid) : pz;
   }
   const decPiso = (v) => (v >= 1000 ? 0 : v >= 10 ? 2 : 4);
@@ -146,7 +146,7 @@
     const todas = {}; Object.keys(P.analogos || {}).sort().forEach((m) => { todas[m] = anterioresDe(m); });
     const anteriores = todas[moneda] || [];
     return { tabla: 'piso', moneda, dias: P.dias, precio: price, vol: rnd(vol * 100, 1), niveles, anteriores,
-      modelo: { grid: P.grid, z: P.z, own: P.own, vol: { ...P.vol, [moneda]: rnd(vol, 6) }, anteriores: todas } };
+      modelo: { grid: P.grid, z: P.z, zc: P.zc || null, zona: P.zona || null, own: P.own, vol: { ...P.vol, [moneda]: rnd(vol, 6) }, anteriores: todas } };
   }
   /** Medidor de XRP o SOL (como termometro_alt de termometro.py): su barato o caro y el ciclo de BTC. */
   function termometroAlt(moneda, velasD, price, T, nowMs = Date.now()) {

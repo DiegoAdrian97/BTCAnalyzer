@@ -56,7 +56,7 @@ def _interp(x, xs, ys):
 def piso_prob(P, moneda, x, vol):
     """Probabilidad de que el minimo de los proximos 180 dias quede por debajo de exp(x) veces el precio de hoy."""
     own = P["own"].get(moneda)
-    pz = _interp(x / vol, P["z"], P["grid"])
+    pz = _interp(x / vol, P.get("zc") or P["z"], P["grid"])      # zc: cuantiles de la zona del ciclo de hoy, si se midio que cambia
     return pz if own is None else 0.5 * pz + 0.5 * _interp(x, own, P["grid"])
 
 
@@ -103,7 +103,7 @@ def piso(moneda, closes_d, price, T=None, now_ms=None):
     anteriores = todas.get(moneda, [])
     return {"tabla": "piso", "moneda": moneda, "dias": P["dias"], "precio": price, "vol": round(vol * 100, 1), "niveles": niveles,
             "anteriores": anteriores,
-            "modelo": {"grid": P["grid"], "z": P["z"], "own": P["own"], "vol": {**P["vol"], moneda: round(vol, 6)}, "anteriores": todas}}
+            "modelo": {"grid": P["grid"], "z": P["z"], "zc": P.get("zc"), "zona": P.get("zona"), "own": P["own"], "vol": {**P["vol"], moneda: round(vol, 6)}, "anteriores": todas}}
 
 
 def termometro_alt(moneda, velas_d, price, T=None, now_ms=None):
