@@ -319,13 +319,10 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
   Contents: Read and write solo sobre este repositorio. La rama no despliega Vercel (`vercel.json`, `git`) ni Render.
   Desde nov 2026 cada predicción guarda también los objetivos (registro del teléfono y del servidor; las de antes, solo
   chance y rango). Prueba: `python pruebas/historial.py`.
+- Las funciones de `api/` corren en Frankfurt (`vercel.json`, `regions`): desde EE.UU. Binance no responde.
 - **Pantalla siempre prendida** (el ícono de pantalla de arriba): Wake Lock para que no se apague sola, y solo el precio
   grande, el gráfico y el fondo vivo. Bloquear el teléfono con el botón la apaga igual (eso ninguna app lo evita); al
   volver se pide de nuevo. Sin Wake Lock (iOS viejo), un video mudo de 1 s en bucle.
-- **Atajo de Siri** ("¿Cómo está Bitcoin?"): `api/siri` devuelve en texto el precio, el cambio de 24 h, la dirección de la
-  próxima hora y el nivel más cercano. Corre el mismo análisis que el teléfono (los mismos .js, en un contexto aparte),
-  liviano y en Frankfurt (`vercel.json`, `regions`: desde EE.UU. Binance no responde), con 60 s de caché. Cómo armar el
-  atajo: en la app, "Más detalle" → "Atajo de Siri". Prueba: `node pruebas/siri.js`.
 - **Estilo "color por estado"** (nov 2026): fondo liso blanco o negro, sin tarjetas, y el color del mercado (verde si
   BTC sube en 24 h, rojo si baja) como único acento. El gráfico arranca en velas; el botón de la línea (abajo a la
   derecha en el celu) la muestra con área en ese color, y la elección queda guardada en el navegador. Paneles y hoja

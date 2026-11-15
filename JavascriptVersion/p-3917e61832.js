@@ -770,7 +770,7 @@
     ['parte-niv', 'Niveles: hasta dónde', ['ce-mapa', 'niveles', 'probabilidades']],
     ['parte-ctx', 'Qué está pasando', ['que-pasa', 'fed-line', 'news-line', 'calendario', 'senales']],
     ['parte-conf', 'Cuánto le creo', ['apr-line', 'aprendizaje', 'aciertos']],
-    ['parte-herr', 'Herramientas', ['lm-abrir', 'ondas', 'indicadores', 'siri-atajo']],
+    ['parte-herr', 'Herramientas', ['lm-abrir', 'ondas', 'indicadores']],
   ];
   (function armarPartes() {
     const hoja = document.getElementById('hoja'), $ = (id) => document.getElementById(id);
@@ -815,7 +815,7 @@
     res('parte-ctx', [qp, cal ? cal.textContent.trim() : ''].filter(Boolean).join(' · '));
     const al = document.getElementById('apr-line');
     res('parte-conf', al && al.dataset.pc ? [vFicha(`✓ acierta ${al.dataset.pc}%`, +al.dataset.pc >= 55 ? 'up' : +al.dataset.pc < 45 ? 'dn' : '', al.dataset.res || '')] : txt('apr-line').replace(/^Confianza ahora:?\s*/i, ''));
-    res('parte-herr', 'Mapa de liquidaciones, figuras, todos los indicadores y Siri');
+    res('parte-herr', 'Mapa de liquidaciones, figuras y todos los indicadores');
   }
 
   // ---------- vista simple / completa ----------
@@ -1106,16 +1106,6 @@
     });
     mira();
   })();
-  // ---------- atajo de Siri: la direccion para pegar en Atajos ----------
-  (function () {
-    const url = `${location.origin}${location.pathname.replace(/[^/]*$/, '')}api/siri`, code = document.getElementById('siri-url');
-    code.textContent = url;
-    document.getElementById('siri-copiar').addEventListener('click', async (e) => {
-      try { await navigator.clipboard.writeText(url); e.target.textContent = 'Copiada'; } catch (err) { e.target.textContent = 'Copiala de abajo'; }
-      setTimeout(() => { e.target.textContent = 'Copiar la dirección'; }, 2500);
-    });
-  })();
-
   // ---------- barra con el precio al bajar ----------
   function miniPintar() {
     const pe = root.querySelector('.ab-price'), c = document.getElementById('c24');

@@ -1487,10 +1487,6 @@
   .ab-vigilia-bar { position: fixed; z-index: 72; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 10px;
     padding: 6px 6px 6px 14px; border-radius: 999px; background: var(--vidrio); -webkit-backdrop-filter: var(--vidrio-fx); backdrop-filter: var(--vidrio-fx);
     border: 1px solid var(--vidrio-borde); font-size: 13px; color: var(--mute); font-family: var(--font-anthropic-sans); }
-  /* el atajo de Siri */
-  .ab-siri ol { padding-left: 1.2em; display: grid; gap: 8px; margin: 8px 0; }
-  .ab-siri code { display: block; margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: var(--soft); font-size: 12.5px; word-break: break-all; }
-  .ab-siri .ab-foot code { display: inline; padding: 1px 4px; }
 
   /* ---------- volver arriba: aparece despues de bajar una pantalla y media ---------- */
   .ab-arriba { position: fixed; z-index: 60; right: max(16px, env(safe-area-inset-right)); bottom: max(18px, calc(env(safe-area-inset-bottom) + 10px));
@@ -2386,20 +2382,6 @@
       <summary><span>¿Viene acertando?</span></summary>
       <div class="ab-more-body"><div id="hits"></div></div>
     </details>
-    <details class="ab-more" id="siri-atajo">
-      <summary><span>Atajo de Siri: “¿Cómo está Bitcoin?”</span></summary>
-      <div class="ab-more-body ab-siri">
-        <p>Le decís a Siri <b>“Cómo está Bitcoin”</b> y te lee el precio, cómo viene en 24 h, la dirección que ve la app para la próxima hora y el nivel más cercano. Se arma una vez en la app Atajos (viene con el iPhone):</p>
-        <ol>
-          <li>Abrí <b>Atajos</b> y tocá <b>+</b> para crear uno nuevo.</li>
-          <li>Agregá la acción <b>Obtener contenido de URL</b> y pegá esta dirección: <button type="button" class="ab-iconbtn" id="siri-copiar">Copiar la dirección</button><code id="siri-url"></code></li>
-          <li>Agregá la acción <b>Mostrar resultado</b> (toma el contenido de la URL solo). Cuando lo pedís por voz, Siri lo lee en voz alta; si lo tocás, lo muestra.</li>
-          <li>Tocá el nombre de arriba y ponele <b>Cómo está Bitcoin</b>: esa es la frase que escucha Siri.</li>
-          <li>Probalo: <b>“Oye Siri, cómo está Bitcoin”</b>.</li>
-        </ol>
-        <p class="ab-foot">Para otra cripto, agregale al final de la dirección <code>?moneda=SOL</code> (o XRP, ZEC) y ponele otro nombre al atajo.</p>
-      </div>
-    </details>
   </div>
   <button type="button" class="ab-orden-btn" id="orden-btn"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M4 7h11M4 12h16M4 17h8M18 4v6m0 0-2.5-2.5M18 10l2.5-2.5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Ordenar secciones</button>
 
@@ -3278,7 +3260,7 @@
     ['parte-niv', 'Niveles: hasta dónde', ['ce-mapa', 'niveles', 'probabilidades']],
     ['parte-ctx', 'Qué está pasando', ['que-pasa', 'fed-line', 'news-line', 'calendario', 'senales']],
     ['parte-conf', 'Cuánto le creo', ['apr-line', 'aprendizaje', 'aciertos']],
-    ['parte-herr', 'Herramientas', ['lm-abrir', 'ondas', 'indicadores', 'siri-atajo']],
+    ['parte-herr', 'Herramientas', ['lm-abrir', 'ondas', 'indicadores']],
   ];
   (function armarPartes() {
     const hoja = document.getElementById('hoja'), $ = (id) => document.getElementById(id);
@@ -3323,7 +3305,7 @@
     res('parte-ctx', [qp, cal ? cal.textContent.trim() : ''].filter(Boolean).join(' · '));
     const al = document.getElementById('apr-line');
     res('parte-conf', al && al.dataset.pc ? [vFicha(`✓ acierta ${al.dataset.pc}%`, +al.dataset.pc >= 55 ? 'up' : +al.dataset.pc < 45 ? 'dn' : '', al.dataset.res || '')] : txt('apr-line').replace(/^Confianza ahora:?\s*/i, ''));
-    res('parte-herr', 'Mapa de liquidaciones, figuras, todos los indicadores y Siri');
+    res('parte-herr', 'Mapa de liquidaciones, figuras y todos los indicadores');
   }
 
   // ---------- vista simple / completa ----------
@@ -3614,16 +3596,6 @@
     });
     mira();
   })();
-  // ---------- atajo de Siri: la direccion para pegar en Atajos ----------
-  (function () {
-    const url = `${location.origin}${location.pathname.replace(/[^/]*$/, '')}api/siri`, code = document.getElementById('siri-url');
-    code.textContent = url;
-    document.getElementById('siri-copiar').addEventListener('click', async (e) => {
-      try { await navigator.clipboard.writeText(url); e.target.textContent = 'Copiada'; } catch (err) { e.target.textContent = 'Copiala de abajo'; }
-      setTimeout(() => { e.target.textContent = 'Copiar la dirección'; }, 2500);
-    });
-  })();
-
   // ---------- barra con el precio al bajar ----------
   function miniPintar() {
     const pe = root.querySelector('.ab-price'), c = document.getElementById('c24');

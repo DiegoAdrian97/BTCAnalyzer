@@ -1088,6 +1088,7 @@
     const [a, b] = ih > il ? [[w[il][0], w[il][3]], [w[ih][0], w[ih][2]]] : [[w[ih][0], w[ih][2]], [w[il][0], w[il][3]]];
     return { t_inicio: a[0], p_inicio: a[1], t_fin: b[0], p_fin: b[1] };
   }
+  const CTX_MEDIDO = ['oi_1h', 'oi_4h', 'oi_24h', 'long_short'];
   const SHORT_CTX = { 'flujo_1 h': 'Compras a mercado 1 h', 'flujo_4 h': 'Compras a mercado 4 h', oi_1h: 'Open interest 1 h',
     oi_4h: 'Open interest 4 h', oi_24h: 'Open interest 24 h', long_short: 'Long/short', libros: 'Libros de órdenes', funding: 'Funding' };
 
@@ -1109,7 +1110,11 @@
     const signals = [];      // [prioridad, sesgo, texto corto]
     sigTfs.forEach((tf, n) => {
       const m = get('marco', { tf })[0];
-      if (Math.abs(m.rating) > 0.1) signals.push([[2, 3][n], m.rating > 0 ? 'alcista' : 'bajista', `Indicadores de ${TF_TXT[tf]}: ${m.rating_txt.toLowerCase()}`]);
+      if (Math.abs(m.rating) > 0.1) {   // en 4 h o menos, para el lado que cuenta central (medido: corrige); igual que en Python
+        const al = m.rating > 0;
+        if (['1d', '1w', '1M'].includes(tf)) signals.push([[2, 3][n], al ? 'alcista' : 'bajista', `Indicadores de ${TF_TXT[tf]}: ${m.rating_txt.toLowerCase()}`]);
+        else signals.push([[2, 3][n], al ? 'bajista' : 'alcista', `Indicadores de ${TF_TXT[tf]}: ${m.rating_txt.toLowerCase()}, suele corregir (medido)`]);
+      }
     });
     // RSI y MACD de cada temporalidad, como los mira un trader
     sigTfs.forEach((tf) => {
@@ -1133,7 +1138,7 @@
     });
     divs.forEach(([tf, tipo, names]) => signals.push([3, tipo, `Divergencia ${tipo} en ${names.join(' y ')} (${TF_TXT[tf]})`]));
     get('contexto').forEach((c) => {
-      if ((c.senal === 'alcista' || c.senal === 'bajista') && ctxKeys.includes(c.clave)) {
+      if ((c.senal === 'alcista' || c.senal === 'bajista') && ctxKeys.includes(c.clave) && CTX_MEDIDO.includes(c.clave)) {   // solo el contexto medido
         signals.push([3, c.senal, `${SHORT_CTX[c.clave]}: ${lc1(c.detalle.split('.')[0].split(':')[0])}`]);
       }
     });

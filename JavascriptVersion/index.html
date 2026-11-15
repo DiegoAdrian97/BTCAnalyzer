@@ -49,15 +49,15 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
 <script>/* si el estilo no llega (falla de red o un despliegue a medias), se pide de nuevo sin cache: antes quedaba la pagina sin estilo */
 window.abCss = function () { try { var n = (window.abCssN = (window.abCssN || 0) + 1); if (n > 3) return;
-  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'p-ba2d6b2fa5.css?r=' + Date.now(); l.onerror = function () { setTimeout(window.abCss, 1500 * n); };
+  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'p-b077fb1be3.css?r=' + Date.now(); l.onerror = function () { setTimeout(window.abCss, 1500 * n); };
   document.head.appendChild(l); } catch (e) {} };
 addEventListener('load', function () { try { if (!getComputedStyle(document.documentElement).getPropertyValue('--ab-css')) window.abCss(); } catch (e) {} });</script>
-<link rel="stylesheet" href="p-ba2d6b2fa5.css" onerror="abCss()">
-<script>window.AB_PAGINA = "37d7b3f09b";</script>
-<script defer src="app.js?v=11dfff2f7e"></script>
+<link rel="stylesheet" href="p-b077fb1be3.css" onerror="abCss()">
+<script>window.AB_PAGINA = "b449fa5f7f";</script>
+<script defer src="app.js?v=89b644de42"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-543eb4c895.js"></script>
+<script defer src="p-3917e61832.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -410,20 +410,6 @@ addEventListener('load', function () { try { if (!getComputedStyle(document.docu
     <details class="ab-more" id="aciertos" data-source="analisis">
       <summary><span>¿Viene acertando?</span></summary>
       <div class="ab-more-body"><div id="hits"></div></div>
-    </details>
-    <details class="ab-more" id="siri-atajo">
-      <summary><span>Atajo de Siri: “¿Cómo está Bitcoin?”</span></summary>
-      <div class="ab-more-body ab-siri">
-        <p>Le decís a Siri <b>“Cómo está Bitcoin”</b> y te lee el precio, cómo viene en 24 h, la dirección que ve la app para la próxima hora y el nivel más cercano. Se arma una vez en la app Atajos (viene con el iPhone):</p>
-        <ol>
-          <li>Abrí <b>Atajos</b> y tocá <b>+</b> para crear uno nuevo.</li>
-          <li>Agregá la acción <b>Obtener contenido de URL</b> y pegá esta dirección: <button type="button" class="ab-iconbtn" id="siri-copiar">Copiar la dirección</button><code id="siri-url"></code></li>
-          <li>Agregá la acción <b>Mostrar resultado</b> (toma el contenido de la URL solo). Cuando lo pedís por voz, Siri lo lee en voz alta; si lo tocás, lo muestra.</li>
-          <li>Tocá el nombre de arriba y ponele <b>Cómo está Bitcoin</b>: esa es la frase que escucha Siri.</li>
-          <li>Probalo: <b>“Oye Siri, cómo está Bitcoin”</b>.</li>
-        </ol>
-        <p class="ab-foot">Para otra cripto, agregale al final de la dirección <code>?moneda=SOL</code> (o XRP, ZEC) y ponele otro nombre al atajo.</p>
-      </div>
     </details>
   </div>
   <button type="button" class="ab-orden-btn" id="orden-btn"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M4 7h11M4 12h16M4 17h8M18 4v6m0 0-2.5-2.5M18 10l2.5-2.5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Ordenar secciones</button>

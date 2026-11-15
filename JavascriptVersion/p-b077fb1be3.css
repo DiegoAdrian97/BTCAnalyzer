@@ -1486,10 +1486,6 @@
   .ab-vigilia-bar { position: fixed; z-index: 72; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 10px;
     padding: 6px 6px 6px 14px; border-radius: 999px; background: var(--vidrio); -webkit-backdrop-filter: var(--vidrio-fx); backdrop-filter: var(--vidrio-fx);
     border: 1px solid var(--vidrio-borde); font-size: 13px; color: var(--mute); font-family: var(--font-anthropic-sans); }
-  /* el atajo de Siri */
-  .ab-siri ol { padding-left: 1.2em; display: grid; gap: 8px; margin: 8px 0; }
-  .ab-siri code { display: block; margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: var(--soft); font-size: 12.5px; word-break: break-all; }
-  .ab-siri .ab-foot code { display: inline; padding: 1px 4px; }
 
   /* ---------- volver arriba: aparece despues de bajar una pantalla y media ---------- */
   .ab-arriba { position: fixed; z-index: 60; right: max(16px, env(safe-area-inset-right)); bottom: max(18px, calc(env(safe-area-inset-bottom) + 10px));

@@ -1241,6 +1241,7 @@ PLAZOS = [
     ("4 horas", "30m", 8, ("1h", "4h"), ("flujo_4 h", "oi_24h", "long_short"), "1 hora"),
     ("1 día", "4h", 6, ("4h", "1d"), ("oi_24h", "long_short", "funding"), "4 horas"),
 ]
+CTX_MEDIDO = ("oi_1h", "oi_4h", "oi_24h", "long_short")   # su senal solo marca lo que gano en las mediciones
 SHORT_CTX = {"flujo_1 h": "Compras a mercado 1 h", "flujo_4 h": "Compras a mercado 4 h", "oi_1h": "Open interest 1 h",
              "oi_4h": "Open interest 4 h", "oi_24h": "Open interest 24 h", "long_short": "Long/short",
              "libros": "Libros de órdenes", "funding": "Funding"}
@@ -1568,7 +1569,14 @@ def explain(rows, price, spec):
     for pr, tf in zip((2, 3), sig_tfs):
         m = get("marco", tf=tf)[0]
         if abs(m["rating"]) > 0.1:
-            signals.append((pr, "alcista" if m["rating"] > 0 else "bajista", f"Indicadores de {TF_TXT[tf]}: {m['rating_txt'].lower()}"))
+            # medido (medir_direccion.py): en 4 h o menos el resumen acierta menos que una moneda (el precio corrige):
+            # se muestra para el lado que cuenta central(); en el diario o mas, a favor. Antes la lista decia "alcista"
+            # mientras la prediccion lo contaba como bajista
+            al = m["rating"] > 0
+            if tf in ("1d", "1w", "1M"):
+                signals.append((pr, "alcista" if al else "bajista", f"Indicadores de {TF_TXT[tf]}: {m['rating_txt'].lower()}"))
+            else:
+                signals.append((pr, "bajista" if al else "alcista", f"Indicadores de {TF_TXT[tf]}: {m['rating_txt'].lower()}, suele corregir (medido)"))
     # RSI y MACD de cada temporalidad, como los mira un trader
     for tf in sig_tfs:
         m = get("marco", tf=tf)[0]
@@ -1593,7 +1601,9 @@ def explain(rows, price, spec):
     for (tf, tipo), names in divs.items():
         signals.append((3, tipo, f"Divergencia {tipo} en {' y '.join(names)} ({TF_TXT[tf]})"))
     for c in get("contexto"):
-        if c["senal"] in ("alcista", "bajista") and c["clave"] in ctx_keys:
+        # solo el contexto medido (open interest, cuentas): el flujo a mercado, los libros y el funding no ganaron o no
+        # se pueden medir ("quedan como contexto, sin peso"), pero entraban aca y central() los sumaba
+        if c["senal"] in ("alcista", "bajista") and c["clave"] in ctx_keys and c["clave"] in CTX_MEDIDO:
             signals.append((3, c["senal"], f"{SHORT_CTX[c['clave']]}: {lc1(c['detalle'].split('.')[0].split(':')[0])}"))
     if main["veredicto"] != "Casi moneda":
         signals.append((2, "alcista" if main["veredicto"] == "Sesgo alcista" else "bajista",

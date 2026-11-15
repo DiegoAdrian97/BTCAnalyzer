@@ -3,6 +3,10 @@ import os, sys, time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 os.environ["HISTORIAL_GITHUB_TOKEN"] = "token-de-prueba"
 import historial as H
+# el reloj queda fijo en el dia de los datos de prueba (11/11/2026): historial guarda en memoria solo los ultimos dias y
+# con el reloj de verdad la prueba empezaba a fallar sola a los 3 dias
+_t_real = time.time
+time.time = lambda: 1794402000.0
 
 llamadas = []
 def api(metodo, ruta, cuerpo=None, crudo=False):
