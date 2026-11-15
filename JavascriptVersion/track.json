@@ -1,0 +1,134 @@
+{
+ "actualizado": 1794786794808,
+ "desde": 1794769200000,
+ "hasta": 1794783600000,
+ "plazos": [
+  {
+   "plazo": "5 min",
+   "n": 0,
+   "acierto": null,
+   "n_fuerte": 0,
+   "acierto_fuerte": null,
+   "retorno_pb": null,
+   "laterales": 5
+  },
+  {
+   "plazo": "15 min",
+   "n": 0,
+   "acierto": null,
+   "n_fuerte": 0,
+   "acierto_fuerte": null,
+   "retorno_pb": null,
+   "laterales": 5
+  },
+  {
+   "plazo": "1 hora",
+   "n": 1,
+   "acierto": 100.0,
+   "n_fuerte": 0,
+   "acierto_fuerte": null,
+   "retorno_pb": 39.5,
+   "laterales": 3
+  },
+  {
+   "plazo": "4 horas",
+   "n": 0,
+   "acierto": null,
+   "n_fuerte": 0,
+   "acierto_fuerte": null,
+   "retorno_pb": null,
+   "laterales": 1
+  }
+ ],
+ "senales": [
+  {
+   "plazo": "5 min",
+   "clave": "indicadores",
+   "nombre": "Resumen de indicadores, al revés (4 h o menos)",
+   "n": 5,
+   "acierto": 20.0,
+   "esperado": 53,
+   "estado": "pocos"
+  },
+  {
+   "plazo": "15 min",
+   "clave": "indicadores",
+   "nombre": "Resumen de indicadores, al revés (4 h o menos)",
+   "n": 4,
+   "acierto": 75.0,
+   "esperado": 53,
+   "estado": "pocos"
+  },
+  {
+   "plazo": "15 min",
+   "clave": "divergencia",
+   "nombre": "divergencia",
+   "n": 2,
+   "acierto": 50.0,
+   "esperado": 50,
+   "estado": "pocos"
+  },
+  {
+   "plazo": "1 hora",
+   "clave": "divergencia",
+   "nombre": "divergencia",
+   "n": 2,
+   "acierto": 100.0,
+   "esperado": 50,
+   "estado": "pocos"
+  },
+  {
+   "plazo": "1 hora",
+   "clave": "indicadores",
+   "nombre": "Resumen de indicadores, al revés (4 h o menos)",
+   "n": 2,
+   "acierto": 50.0,
+   "esperado": 53,
+   "estado": "pocos"
+  },
+  {
+   "plazo": "1 hora",
+   "clave": "oi",
+   "nombre": "Open interest",
+   "n": 2,
+   "acierto": 100.0,
+   "esperado": 50,
+   "estado": "pocos"
+  },
+  {
+   "plazo": "1 hora",
+   "clave": "liquidaciones",
+   "nombre": "Liquidaciones, al revés",
+   "n": 1,
+   "acierto": 100.0,
+   "esperado": 52.5,
+   "estado": "pocos"
+  },
+  {
+   "plazo": "4 horas",
+   "clave": "cuentas",
+   "nombre": "Cuentas long/short",
+   "n": 1,
+   "acierto": 100.0,
+   "esperado": 50,
+   "estado": "pocos"
+  },
+  {
+   "plazo": "4 horas",
+   "clave": "indicadores",
+   "nombre": "Resumen de indicadores, al revés (4 h o menos)",
+   "n": 1,
+   "acierto": 100.0,
+   "esperado": 53,
+   "estado": "pocos"
+  }
+ ],
+ "calibracion": [
+  {
+   "plazo": "1 hora",
+   "puntos": "2,5 a 3,5",
+   "n": 1,
+   "acierto": 100.0
+  }
+ ]
+}
