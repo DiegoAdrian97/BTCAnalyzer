@@ -49,15 +49,15 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
 <script>/* si el estilo no llega (falla de red o un despliegue a medias), se pide de nuevo sin cache: antes quedaba la pagina sin estilo */
 window.abCss = function () { try { var n = (window.abCssN = (window.abCssN || 0) + 1); if (n > 3) return;
-  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'p-9c50133a0f.css?r=' + Date.now(); l.onerror = function () { setTimeout(window.abCss, 1500 * n); };
+  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'p-0b4d4d8e5e.css?r=' + Date.now(); l.onerror = function () { setTimeout(window.abCss, 1500 * n); };
   document.head.appendChild(l); } catch (e) {} };
 addEventListener('load', function () { try { if (!getComputedStyle(document.documentElement).getPropertyValue('--ab-css')) window.abCss(); } catch (e) {} });</script>
-<link rel="stylesheet" href="p-9c50133a0f.css" onerror="abCss()">
-<script>window.AB_PAGINA = "34d5b7afff";</script>
+<link rel="stylesheet" href="p-0b4d4d8e5e.css" onerror="abCss()">
+<script>window.AB_PAGINA = "5f197f5239";</script>
 <script defer src="app.js?v=0d6fc84ec2"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-008af85caa.js"></script>
+<script defer src="p-31c2de458e.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -123,14 +123,14 @@ addEventListener('load', function () { try { if (!getComputedStyle(document.docu
       <div class="ab-tools">
         <nav class="ab-seg ab-small" id="tfs" aria-label="Velas del gráfico">
           <span class="ab-seg-thumb"></span>
-          <button type="button" data-tf="5m" aria-pressed="true">5m</button>
+          <button type="button" data-tf="5m" aria-pressed="false">5m</button>
           <button type="button" data-tf="15m" aria-pressed="false">15m</button>
           <button type="button" data-tf="30m" aria-pressed="false">30m</button>
-          <button type="button" data-tf="1h" aria-pressed="false">1h</button>
+          <button type="button" data-tf="1h" aria-pressed="true">1h</button>
           <button type="button" data-tf="4h" aria-pressed="false">4h</button>
           <button type="button" data-tf="1d" aria-pressed="false">1D</button>
-          <button type="button" data-tf="1w" aria-pressed="false" title="Semanal (sin predicción: pocas velas para medirla)">1S</button>
-          <button type="button" data-tf="1M" aria-pressed="false" title="Mensual (sin predicción: pocas velas para medirla)">1M</button>
+          <button type="button" data-tf="1w" aria-pressed="false" title="Semanal: análisis de la próxima semana">1S</button>
+          <button type="button" data-tf="1M" aria-pressed="false" title="Mensual: análisis del próximo mes">1M</button>
         </nav>
         <nav class="ab-seg ab-small" id="scens" aria-label="Escenario" style="display: none">
           <span class="ab-seg-thumb"></span>
@@ -201,11 +201,9 @@ addEventListener('load', function () { try { if (!getComputedStyle(document.docu
     <div class="ab-rs-rango" id="rs-rango" hidden></div>
     <div class="ab-rs-txt" id="rs-txt"></div>
     <div class="ab-ce-riesgo" id="rs-riesgo" hidden></div>
-    <div class="ab-rs-plazos" id="rs-plazos" role="group" aria-label="Plazo"></div>
   </section>
   <section class="ab-card ab-centro" id="centro" aria-labelledby="ce-t" data-source="analisis" hidden>
     <div class="ab-card-head"><h2 id="ce-t">Análisis</h2><span class="ab-kicker" id="ce-k"></span></div>
-    <div class="ab-ce-tfs" id="ce-tfs" role="group" aria-label="Temporalidad del análisis"></div>
     <!-- las cuatro respuestas en una fila: es lo que se ve con la hoja abajo -->
     <div class="ab-ce-tira" id="ce-tira" role="list"></div>
     <div class="ab-ce-grid">

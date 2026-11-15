@@ -502,9 +502,6 @@
   .ab-conclu[hidden] { display: none; }
   /* ---------- analisis central ---------- */
   .ab-centro[hidden] { display: none; }
-  .ab-ce-tfs { display: flex; gap: 4px; flex-wrap: wrap; margin: 2px 0 12px; }
-  .ab-ce-tfs button { font: inherit; font-size: 12.5px; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--mute); cursor: pointer; }
-  .ab-ce-tfs button[aria-pressed="true"] { color: var(--ink); background: var(--soft2); border-color: transparent; font-weight: 600; }
   .ab-ce-p summary::-webkit-details-marker { display: none; }   /* el resto, en "analisis: fila de respuestas" */
   .ab-ce-f { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 5px; }
   .ab-ce-f li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; line-height: 1.4; }
@@ -888,9 +885,8 @@
     .ab-top-r, .ab-top-price { width: 100%; min-width: 0; }
     .ab-top .ab-spark { flex: 1 1 auto; width: auto; min-width: 48px; height: 44px; } }
   /* senal: el acento de la app (seleccion y foco), aparte del verde y rojo que dicen sube o baja */
-  .ab-seg button[aria-pressed="true"], .ab-ce-tfs button[aria-pressed="true"] { color: var(--senal); }
+  .ab-seg button[aria-pressed="true"] { color: var(--senal); }
   .ab-seg-thumb { background: color-mix(in srgb, var(--senal) 16%, var(--panel)) !important; }
-  .ab-ce-tfs button[aria-pressed="true"] { background: color-mix(in srgb, var(--senal) 16%, transparent); }
   .ab button:focus-visible, .ab :is(a, summary, [tabindex="0"], select, input):focus-visible, .ab-plegable:focus-visible,
   .ab-ex-link:focus-visible, .ab-more summary:focus-visible { outline-color: var(--senal); }
   #mini-p { font-family: var(--font-cifras); font-weight: 800; font-size: 1.25rem; letter-spacing: .01em; }
@@ -961,7 +957,6 @@
   .ab-hoja .ab-range-ends { flex-wrap: wrap; gap: 2px 8px; }
   .ab-hoja .ab-range-ends span:nth-child(2) { order: 3; width: 100%; text-align: center; }
   .ab-hoja > .ab-hero .ab-hero-side { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: var(--cds-gap-md); }
-  .ab-hoja .ab-ce-tfs { display: none; }   /* el plazo se elige en el grafico: es el mismo */
   .ab-hoja > .ab-conclu, .ab-hoja > .ab-plazos, .ab-hoja > .ab-vista-btn, .ab-hoja > .ab-more-list { margin-block: 12px; }
   .ab-hoja > .ab-foot { margin: 18px 0 0; padding-top: 16px; border-top: 1px solid var(--line); }
   /* que pasa con movimiento fuerte: una raya a la izquierda en vez del recuadro rojo */
@@ -1165,7 +1160,6 @@
   /* seleccion: tinta invertida (se lee sin depender del color) */
   .ab-seg button[aria-pressed="true"] { color: var(--senal) !important; font-weight: 700; }
   .ab-seg-thumb { background: var(--sel) !important; box-shadow: none; }
-  .ab-ce-tfs button[aria-pressed="true"] { color: var(--senal); background: var(--sel); box-shadow: none; }
   .ab-chipbtn[aria-pressed="true"] { color: var(--senal); background: var(--sel); }
   /* la tira de respuestas: sin rejilla de lineas, con aire */
   /* 2x2: con cifras de ancho normal las 4 columnas cortaban los valores */
@@ -1720,9 +1714,6 @@
   .ab-rs-rlbl .r { text-align: right; } .ab-rs-rlbl .r2 { text-align: left; }
   .ab-rs-rlbl .e { text-align: right; } .ab-rs-rlbl .s b { color: var(--color-ok); } .ab-rs-rlbl .e b { color: var(--color-bad); }
   .ab-rs-txt { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink); }
-  .ab-rs-plazos { display: flex; gap: 6px; flex-wrap: wrap; }
-  .ab-rs-pl { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--mute); cursor: pointer; }
-  .ab-rs-pl[aria-pressed="true"] { color: var(--sobre-senal); background: var(--senal); border-color: transparent; font-weight: 600; }
   @media (max-width: 420px) { .ab-rs-top { grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr); gap: 10px; } .ab-rs-dial { width: 56px; height: 32px; }
     .ab-rs-rlbl { grid-template-columns: auto 1fr auto; gap: 2px 8px; } .ab-rs-rlbl b { font-size: 13px; } }
   /* indice y partes */
@@ -1885,9 +1876,6 @@
   .ab-rs-bar { height: 5px !important; background: color-mix(in srgb, var(--t2-ink) 9%, transparent) !important; }
   .ab-rs-rango { padding: 12px 16px 14px; border-radius: 14px; border: 1px solid var(--t2-line); }
   .ab-rs-txt { font-size: 14.5px; line-height: 1.55; color: color-mix(in srgb, var(--t2-ink) 86%, var(--t2-mute)); margin: 0; }
-  .ab-rs-plazos { display: grid !important; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px !important; padding: 3px; border-radius: 12px; background: var(--t2-sunk); border: 1px solid var(--t2-line); }
-  .ab-rs-pl { border: 0 !important; border-radius: 9px !important; padding: 7px 4px !important; color: var(--t2-mute) !important; background: transparent !important; font-weight: 550; white-space: nowrap; }
-  .ab-rs-pl[aria-pressed="true"] { background: var(--t2-panel) !important; color: var(--t2-ink) !important; box-shadow: var(--t2-sh-btn); font-weight: 650 !important; }
   .ab-vista-btn { background: var(--t2-ink) !important; color: var(--t2-panel) !important; border: 0 !important; border-radius: 14px !important; padding: 14px 16px !important;
     box-shadow: 0 1px 2px rgba(0, 0, 0, .12), 0 10px 24px -14px rgba(0, 0, 0, .5) !important; }
   .ab-vista-btn small { color: color-mix(in srgb, var(--t2-panel) 68%, transparent) !important; }
@@ -2137,14 +2125,14 @@
       <div class="ab-tools">
         <nav class="ab-seg ab-small" id="tfs" aria-label="Velas del gráfico">
           <span class="ab-seg-thumb"></span>
-          <button type="button" data-tf="5m" aria-pressed="true">5m</button>
+          <button type="button" data-tf="5m" aria-pressed="false">5m</button>
           <button type="button" data-tf="15m" aria-pressed="false">15m</button>
           <button type="button" data-tf="30m" aria-pressed="false">30m</button>
-          <button type="button" data-tf="1h" aria-pressed="false">1h</button>
+          <button type="button" data-tf="1h" aria-pressed="true">1h</button>
           <button type="button" data-tf="4h" aria-pressed="false">4h</button>
           <button type="button" data-tf="1d" aria-pressed="false">1D</button>
-          <button type="button" data-tf="1w" aria-pressed="false" title="Semanal (sin predicción: pocas velas para medirla)">1S</button>
-          <button type="button" data-tf="1M" aria-pressed="false" title="Mensual (sin predicción: pocas velas para medirla)">1M</button>
+          <button type="button" data-tf="1w" aria-pressed="false" title="Semanal: análisis de la próxima semana">1S</button>
+          <button type="button" data-tf="1M" aria-pressed="false" title="Mensual: análisis del próximo mes">1M</button>
         </nav>
         <nav class="ab-seg ab-small" id="scens" aria-label="Escenario" style="display: none">
           <span class="ab-seg-thumb"></span>
@@ -2215,11 +2203,9 @@
     <div class="ab-rs-rango" id="rs-rango" hidden></div>
     <div class="ab-rs-txt" id="rs-txt"></div>
     <div class="ab-ce-riesgo" id="rs-riesgo" hidden></div>
-    <div class="ab-rs-plazos" id="rs-plazos" role="group" aria-label="Plazo"></div>
   </section>
   <section class="ab-card ab-centro" id="centro" aria-labelledby="ce-t" data-source="analisis" hidden>
     <div class="ab-card-head"><h2 id="ce-t">Análisis</h2><span class="ab-kicker" id="ce-k"></span></div>
-    <div class="ab-ce-tfs" id="ce-tfs" role="group" aria-label="Temporalidad del análisis"></div>
     <!-- las cuatro respuestas en una fila: es lo que se ve con la hoja abajo -->
     <div class="ab-ce-tira" id="ce-tira" role="list"></div>
     <div class="ab-ce-grid">
@@ -2607,19 +2593,19 @@
     if (pe.closest('.ab-top')) try { ambPulso(dir); } catch (e) { /* el fondo todavia no esta listo */ }   // en el mismo cuadro que ruedan las cifras
   }
   const later = (fn) => (reduce ? fn() : requestAnimationFrame(() => requestAnimationFrame(fn)));
-  // cada plazo se mira con las velas que mejor lo muestran
-  // el grafico que mirás decide el plazo de la prediccion (unas velas por delante): 5 min → la proxima hora, 15 min →
-  // 4 horas, 1 hora → el dia, 4 horas y diario → la semana, semanal y mensual → el mes. Elegir un plazo lleva al grafico
-  // que le corresponde
-  const VIEW_PLAZO = { '5m': '1 hora', '15m': '4 horas', '30m': '4 horas', '1h': '1 día', '4h': '1 semana', '1d': '1 semana', '1w': '1 mes', '1M': '1 mes' };
-  const PLAZO_VIEW = { '5 min': '5m', '15 min': '5m', '1 hora': '5m', '4 horas': '15m', '1 día': '1h', '1 semana': '1d', '1 mes': '1w' };
+  // un solo selector de temporalidad: el del grafico (Diego, nov. 2026). Cada temporalidad muestra SU analisis, el de la
+  // vela que viene: 5m → proximos 5 min ... 1S → proxima semana, 1M → proximo mes. 30m no tiene plazo propio en el
+  // analisis: usa la proxima hora. Elegir un plazo en la tira de plazos o en una tabla mueve el grafico: nunca quedan
+  // el grafico en una temporalidad y el analisis en otra
+  const VIEW_PLAZO = { '5m': '5 min', '15m': '15 min', '30m': '1 hora', '1h': '1 hora', '4h': '4 horas', '1d': '1 día', '1w': '1 semana', '1M': '1 mes' };
+  const PLAZO_VIEW = { '5 min': '5m', '15 min': '15m', '1 hora': '1h', '4 horas': '4h', '1 día': '1d', '1 semana': '1w', '1 mes': '1M' };
   const plazoTxt = (p) => ({ '1 hora': 'la próxima hora', '4 horas': 'las próximas 4 horas', '1 día': 'el próximo día', '1 semana': 'la próxima semana', '1 mes': 'el próximo mes' }[p] || `los próximos ${p}`);
   // "hasta las 13:00 h" o, en los plazos de dias, "hasta el 22/11" (hasta viene como "dd/mm hh:mm")
   const hastaTxt = (c) => (!c.hasta ? '' : ['1 semana', '1 mes'].includes(c.plazo) ? ` · hasta el ${c.hasta.slice(0, 5)}` : c.plazo === '1 día' ? ` · hasta el ${c.hasta.slice(0, 5)}, ${c.hasta.slice(-5)}\u00a0h` : ` · hasta las ${c.hasta.slice(-5)}\u00a0h`);
   // grafico de velas (por defecto) o de linea: se recuerda en este navegador
   const LINEA_K = 'ab-grafico-linea';
   const lineaGuardada = (() => { try { return localStorage.getItem(LINEA_K) === '1'; } catch (e) { return false; } })();
-  const S = { linea: lineaGuardada, plazo: '1 hora', tf: '5m', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
+  const S = { linea: lineaGuardada, plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
     layers: { ema: false, bb: false, fvg: false, patrones: false, ondas: false, fib: false, liq: false, osc: false, plan: true, opc: false, abanico: false, flujo: false, vp: false, ict: false, libro: false, mvrv: false }, log: false, medir: false, iman: false };
   const defBars = () => (window.innerWidth < 600 ? 50 : 90);  // en el telefono, menos para que se lean
   S.nbars = defBars();
@@ -2650,7 +2636,8 @@
   try {
     const saved = JSON.parse(sessionStorage.getItem('ab-vista') || 'null');
     if (saved) {
-      Object.assign(S, { plazo: saved.plazo, tf: saved.tf, scen: saved.scen, fs: !!saved.fs, log: !!saved.log, iman: !!saved.iman });
+      Object.assign(S, { tf: VIEW_PLAZO[saved.tf] ? saved.tf : S.tf, scen: saved.scen, fs: !!saved.fs, log: !!saved.log, iman: !!saved.iman });
+      S.plazo = VIEW_PLAZO[S.tf];                       // el plazo siempre es el del grafico
       Object.assign(S.layers, saved.layers || {});
       document.querySelectorAll('#scens button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.scen === S.scen)));
     }
@@ -2675,14 +2662,14 @@
   window.addEventListener('pagehide', () => {
     try { sessionStorage.setItem('ab-vista', JSON.stringify({ plazo: S.plazo, tf: S.tf, scen: S.scen, layers: S.layers, fs: S.fs, log: S.log, iman: S.iman })); } catch (e) { /* idem */ }
   });
-  const placeTf = seg(document.getElementById('tfs'), 'data-tf', (v) => { S.tf = v; S.hz = null; S.offset = 0; if (VIEW_PLAZO[v]) S.plazo = VIEW_PLAZO[v]; draw(); });
+  const placeTf = seg(document.getElementById('tfs'), 'data-tf', (v) => { S.tf = v; S.hz = null; S.offset = 0; S.plazo = VIEW_PLAZO[v] || S.plazo; draw(); });
   const placeSc = seg(document.getElementById('scens'), 'data-scen', (v) => { S.scen = v; draw(); });
   document.getElementById('layers').addEventListener('click', (e) => {
     const b = e.target.closest('[data-layer]'); if (!b) return;
     const k = b.dataset.layer; S.layers[k] = !S.layers[k]; syncLayers(); draw();
   });
   document.getElementById('replay').addEventListener('click', () => { ghostK += 1; draw(); });
-  function setPlazo(name) { S.plazo = name; S.offset = 0; setTf(PLAZO_VIEW[name]); }
+  function setPlazo(name) { S.offset = 0; setTf(S.tf === '30m' && name === '1 hora' ? '30m' : PLAZO_VIEW[name] || S.tf); }
   // ---------- bandas de desvio del MVRV (capa del grafico, solo 1D, 1S y 1M) ----------
   // termometro.json trae la media y el desvio del MVRV de toda la historia y el precio realizado de cada semana
   // (armar_termometro.py). Cada vela usa el precio realizado de su dia (interpolado); despues del ultimo dato sigue su
@@ -2787,7 +2774,7 @@
     MVRV_K.forEach(([k], i) => G.mvrv[i].setData(rps.map(([b, rp]) => ({ time: T2(b.t), value: rp * (o.mvrv_media + k * o.mvrv_desvio) }))));
   }
   function setTf(tf) {
-    S.tf = tf; S.hz = null;
+    S.tf = tf; S.hz = null; S.plazo = VIEW_PLAZO[tf] || S.plazo;
     document.querySelectorAll('#tfs button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.tf === tf)));
     placeTf(); draw();
   }
@@ -3262,8 +3249,6 @@
   // En resumen: la prediccion de la proxima hora, los indicadores del marco elegido y el termometro (ciclo), juntos y
   // con su plazo. Si apuntan para lados distintos se dice por que, en vez de dejar que parezcan contradecirse.
   // ---------- analisis central (fila 'central' de analisis.js): 5 puntos en la temporalidad elegida ----------
-  // los botones del analisis central son plazos (cada uno sale de su temporalidad: 1 semana de las velas semanales)
-  const CE_TFS = [['5m', '5 min'], ['15m', '15 min'], ['1h', '1 hora'], ['4h', '4 horas'], ['1d', '1 día'], ['1w', '1 semana'], ['1M', '1 mes']];
   const CE_PLAZO = { '5m': '5 min', '15m': '15 min', '1h': '1 hora', '4h': '4 horas', '1d': '1 día', '1w': '1 semana', '1M': '1 mes' };
   const okv = (x) => x !== null && x !== undefined;
   function drawCentro(rows, sum) {
@@ -3271,12 +3256,6 @@
     const c = todas.find((x) => x.plazo === S.plazo) || todas.find((x) => x.tf === S.tf) || todas.find((x) => x.tf === '1h');
     drawRespuesta(rows, sum, c); drawPartes(rows, c);
     sec.hidden = !c; if (!c) return;
-    const tfs = document.getElementById('ce-tfs');
-    tfs.replaceChildren(...CE_TFS.filter(([tf]) => todas.some((x) => x.tf === tf)).map(([tf, txt]) => {
-      const b = el('button', '', txt); b.type = 'button'; b.setAttribute('aria-pressed', String(tf === c.tf));
-      b.addEventListener('click', () => (CE_PLAZO[tf] ? setPlazo(CE_PLAZO[tf]) : setTf(tf)));
-      return b;
-    }));
     document.getElementById('ce-k').textContent = `${MON()} · ${TF_TXT[c.tf] || c.tf}${hastaTxt(c)}`;
     const lista = (punto) => {
       const fs = c.factores.filter((f) => f[0] === punto).slice().sort((a, b) => b[2] - a[2]);
@@ -3350,19 +3329,12 @@
   // ---------- la respuesta: el resultado final del analisis, una sola vez y arriba de todo ----------
   // Sale de la fila 'central' (donde convergen todos los calculos). El detalle de como se llego va en el analisis
   // completo, en 6 partes (ver PARTES), sin repetir la conclusion.
-  const PLZ_CORTO = { '5 min': '5 min', '15 min': '15 min', '1 hora': '1 hora', '4 horas': '4 horas', '1 día': '1 día', '1 semana': '1 semana', '1 mes': '1 mes' };
   function drawRespuesta(rows, sum, c) {
     const sec = document.getElementById('respuesta'); sec.hidden = !c; if (!c) return;
     const ahora = sum && okv(sum.precio) ? num(sum.precio) : null;
     const plazo = CE_PLAZO[c.tf];
     document.getElementById('rs-t').textContent = plazo ? `En ${plazoTxt(plazo)}` : `Velas de ${TF_TXT[c.tf] || c.tf}`;
     document.getElementById('rs-k').textContent = `${MON()}${hastaTxt(c)}`;
-    // los plazos: cambian la respuesta (y el grafico)
-    const pl = document.getElementById('rs-plazos');
-    pl.replaceChildren(...pick(rows, 'plazo').map((p) => {
-      const b = el('button', 'ab-rs-pl', PLZ_CORTO[p.plazo] || p.plazo); b.type = 'button';
-      b.setAttribute('aria-pressed', String(plazo === p.plazo)); b.addEventListener('click', () => setPlazo(p.plazo)); return b;
-    }));
     // direccion: palabra grande y un dial con cuanta fuerza tiene (a favor menos en contra)
     const af = num(c.a_favor) || 0, ec = num(c.en_contra) || 0, sc = af + ec > 0 ? (af - ec) / (af + ec) : 0;
     const dir = c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '';

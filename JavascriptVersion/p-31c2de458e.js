@@ -73,19 +73,19 @@
     if (pe.closest('.ab-top')) try { ambPulso(dir); } catch (e) { /* el fondo todavia no esta listo */ }   // en el mismo cuadro que ruedan las cifras
   }
   const later = (fn) => (reduce ? fn() : requestAnimationFrame(() => requestAnimationFrame(fn)));
-  // cada plazo se mira con las velas que mejor lo muestran
-  // el grafico que mirás decide el plazo de la prediccion (unas velas por delante): 5 min → la proxima hora, 15 min →
-  // 4 horas, 1 hora → el dia, 4 horas y diario → la semana, semanal y mensual → el mes. Elegir un plazo lleva al grafico
-  // que le corresponde
-  const VIEW_PLAZO = { '5m': '1 hora', '15m': '4 horas', '30m': '4 horas', '1h': '1 día', '4h': '1 semana', '1d': '1 semana', '1w': '1 mes', '1M': '1 mes' };
-  const PLAZO_VIEW = { '5 min': '5m', '15 min': '5m', '1 hora': '5m', '4 horas': '15m', '1 día': '1h', '1 semana': '1d', '1 mes': '1w' };
+  // un solo selector de temporalidad: el del grafico (Diego, nov. 2026). Cada temporalidad muestra SU analisis, el de la
+  // vela que viene: 5m → proximos 5 min ... 1S → proxima semana, 1M → proximo mes. 30m no tiene plazo propio en el
+  // analisis: usa la proxima hora. Elegir un plazo en la tira de plazos o en una tabla mueve el grafico: nunca quedan
+  // el grafico en una temporalidad y el analisis en otra
+  const VIEW_PLAZO = { '5m': '5 min', '15m': '15 min', '30m': '1 hora', '1h': '1 hora', '4h': '4 horas', '1d': '1 día', '1w': '1 semana', '1M': '1 mes' };
+  const PLAZO_VIEW = { '5 min': '5m', '15 min': '15m', '1 hora': '1h', '4 horas': '4h', '1 día': '1d', '1 semana': '1w', '1 mes': '1M' };
   const plazoTxt = (p) => ({ '1 hora': 'la próxima hora', '4 horas': 'las próximas 4 horas', '1 día': 'el próximo día', '1 semana': 'la próxima semana', '1 mes': 'el próximo mes' }[p] || `los próximos ${p}`);
   // "hasta las 13:00 h" o, en los plazos de dias, "hasta el 22/11" (hasta viene como "dd/mm hh:mm")
   const hastaTxt = (c) => (!c.hasta ? '' : ['1 semana', '1 mes'].includes(c.plazo) ? ` · hasta el ${c.hasta.slice(0, 5)}` : c.plazo === '1 día' ? ` · hasta el ${c.hasta.slice(0, 5)}, ${c.hasta.slice(-5)}\u00a0h` : ` · hasta las ${c.hasta.slice(-5)}\u00a0h`);
   // grafico de velas (por defecto) o de linea: se recuerda en este navegador
   const LINEA_K = 'ab-grafico-linea';
   const lineaGuardada = (() => { try { return localStorage.getItem(LINEA_K) === '1'; } catch (e) { return false; } })();
-  const S = { linea: lineaGuardada, plazo: '1 hora', tf: '5m', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
+  const S = { linea: lineaGuardada, plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
     layers: { ema: false, bb: false, fvg: false, patrones: false, ondas: false, fib: false, liq: false, osc: false, plan: true, opc: false, abanico: false, flujo: false, vp: false, ict: false, libro: false, mvrv: false }, log: false, medir: false, iman: false };
   const defBars = () => (window.innerWidth < 600 ? 50 : 90);  // en el telefono, menos para que se lean
   S.nbars = defBars();
@@ -116,7 +116,8 @@
   try {
     const saved = JSON.parse(sessionStorage.getItem('ab-vista') || 'null');
     if (saved) {
-      Object.assign(S, { plazo: saved.plazo, tf: saved.tf, scen: saved.scen, fs: !!saved.fs, log: !!saved.log, iman: !!saved.iman });
+      Object.assign(S, { tf: VIEW_PLAZO[saved.tf] ? saved.tf : S.tf, scen: saved.scen, fs: !!saved.fs, log: !!saved.log, iman: !!saved.iman });
+      S.plazo = VIEW_PLAZO[S.tf];                       // el plazo siempre es el del grafico
       Object.assign(S.layers, saved.layers || {});
       document.querySelectorAll('#scens button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.scen === S.scen)));
     }
@@ -141,14 +142,14 @@
   window.addEventListener('pagehide', () => {
     try { sessionStorage.setItem('ab-vista', JSON.stringify({ plazo: S.plazo, tf: S.tf, scen: S.scen, layers: S.layers, fs: S.fs, log: S.log, iman: S.iman })); } catch (e) { /* idem */ }
   });
-  const placeTf = seg(document.getElementById('tfs'), 'data-tf', (v) => { S.tf = v; S.hz = null; S.offset = 0; if (VIEW_PLAZO[v]) S.plazo = VIEW_PLAZO[v]; draw(); });
+  const placeTf = seg(document.getElementById('tfs'), 'data-tf', (v) => { S.tf = v; S.hz = null; S.offset = 0; S.plazo = VIEW_PLAZO[v] || S.plazo; draw(); });
   const placeSc = seg(document.getElementById('scens'), 'data-scen', (v) => { S.scen = v; draw(); });
   document.getElementById('layers').addEventListener('click', (e) => {
     const b = e.target.closest('[data-layer]'); if (!b) return;
     const k = b.dataset.layer; S.layers[k] = !S.layers[k]; syncLayers(); draw();
   });
   document.getElementById('replay').addEventListener('click', () => { ghostK += 1; draw(); });
-  function setPlazo(name) { S.plazo = name; S.offset = 0; setTf(PLAZO_VIEW[name]); }
+  function setPlazo(name) { S.offset = 0; setTf(S.tf === '30m' && name === '1 hora' ? '30m' : PLAZO_VIEW[name] || S.tf); }
   // ---------- bandas de desvio del MVRV (capa del grafico, solo 1D, 1S y 1M) ----------
   // termometro.json trae la media y el desvio del MVRV de toda la historia y el precio realizado de cada semana
   // (armar_termometro.py). Cada vela usa el precio realizado de su dia (interpolado); despues del ultimo dato sigue su
@@ -253,7 +254,7 @@
     MVRV_K.forEach(([k], i) => G.mvrv[i].setData(rps.map(([b, rp]) => ({ time: T2(b.t), value: rp * (o.mvrv_media + k * o.mvrv_desvio) }))));
   }
   function setTf(tf) {
-    S.tf = tf; S.hz = null;
+    S.tf = tf; S.hz = null; S.plazo = VIEW_PLAZO[tf] || S.plazo;
     document.querySelectorAll('#tfs button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.tf === tf)));
     placeTf(); draw();
   }
@@ -728,8 +729,6 @@
   // En resumen: la prediccion de la proxima hora, los indicadores del marco elegido y el termometro (ciclo), juntos y
   // con su plazo. Si apuntan para lados distintos se dice por que, en vez de dejar que parezcan contradecirse.
   // ---------- analisis central (fila 'central' de analisis.js): 5 puntos en la temporalidad elegida ----------
-  // los botones del analisis central son plazos (cada uno sale de su temporalidad: 1 semana de las velas semanales)
-  const CE_TFS = [['5m', '5 min'], ['15m', '15 min'], ['1h', '1 hora'], ['4h', '4 horas'], ['1d', '1 día'], ['1w', '1 semana'], ['1M', '1 mes']];
   const CE_PLAZO = { '5m': '5 min', '15m': '15 min', '1h': '1 hora', '4h': '4 horas', '1d': '1 día', '1w': '1 semana', '1M': '1 mes' };
   const okv = (x) => x !== null && x !== undefined;
   function drawCentro(rows, sum) {
@@ -737,12 +736,6 @@
     const c = todas.find((x) => x.plazo === S.plazo) || todas.find((x) => x.tf === S.tf) || todas.find((x) => x.tf === '1h');
     drawRespuesta(rows, sum, c); drawPartes(rows, c);
     sec.hidden = !c; if (!c) return;
-    const tfs = document.getElementById('ce-tfs');
-    tfs.replaceChildren(...CE_TFS.filter(([tf]) => todas.some((x) => x.tf === tf)).map(([tf, txt]) => {
-      const b = el('button', '', txt); b.type = 'button'; b.setAttribute('aria-pressed', String(tf === c.tf));
-      b.addEventListener('click', () => (CE_PLAZO[tf] ? setPlazo(CE_PLAZO[tf]) : setTf(tf)));
-      return b;
-    }));
     document.getElementById('ce-k').textContent = `${MON()} · ${TF_TXT[c.tf] || c.tf}${hastaTxt(c)}`;
     const lista = (punto) => {
       const fs = c.factores.filter((f) => f[0] === punto).slice().sort((a, b) => b[2] - a[2]);
@@ -816,19 +809,12 @@
   // ---------- la respuesta: el resultado final del analisis, una sola vez y arriba de todo ----------
   // Sale de la fila 'central' (donde convergen todos los calculos). El detalle de como se llego va en el analisis
   // completo, en 6 partes (ver PARTES), sin repetir la conclusion.
-  const PLZ_CORTO = { '5 min': '5 min', '15 min': '15 min', '1 hora': '1 hora', '4 horas': '4 horas', '1 día': '1 día', '1 semana': '1 semana', '1 mes': '1 mes' };
   function drawRespuesta(rows, sum, c) {
     const sec = document.getElementById('respuesta'); sec.hidden = !c; if (!c) return;
     const ahora = sum && okv(sum.precio) ? num(sum.precio) : null;
     const plazo = CE_PLAZO[c.tf];
     document.getElementById('rs-t').textContent = plazo ? `En ${plazoTxt(plazo)}` : `Velas de ${TF_TXT[c.tf] || c.tf}`;
     document.getElementById('rs-k').textContent = `${MON()}${hastaTxt(c)}`;
-    // los plazos: cambian la respuesta (y el grafico)
-    const pl = document.getElementById('rs-plazos');
-    pl.replaceChildren(...pick(rows, 'plazo').map((p) => {
-      const b = el('button', 'ab-rs-pl', PLZ_CORTO[p.plazo] || p.plazo); b.type = 'button';
-      b.setAttribute('aria-pressed', String(plazo === p.plazo)); b.addEventListener('click', () => setPlazo(p.plazo)); return b;
-    }));
     // direccion: palabra grande y un dial con cuanta fuerza tiene (a favor menos en contra)
     const af = num(c.a_favor) || 0, ec = num(c.en_contra) || 0, sc = af + ec > 0 ? (af - ec) / (af + ec) : 0;
     const dir = c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '';

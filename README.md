@@ -289,9 +289,11 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
   operación"). El velocímetro de indicadores aclara que es la regla clásica y cómo la cuenta la predicción. Lo que no
   ganó en las mediciones (libros de órdenes, funding, RSI extremo como "riesgo") ya no suma ni avisa por su cuenta. El
   ciclo mira meses a un año: se muestra con su plazo y la frase dice si está sumado (de 4 horas en adelante) o no.
-- **El gráfico elige el plazo** (nov. 2026): la predicción mira unas velas por delante de lo que estás viendo. 5 min →
-  la próxima hora, 15 y 30 min → 4 horas, 1 hora → el día, 4 horas y diario → la semana, semanal y mensual → el mes. Los
-  botones de plazo siguen (y llevan al gráfico que les toca). **1 semana** y **1 mes** son plazos nuevos: casos
+- **Un solo selector de temporalidad** (nov. 2026): el del gráfico. Cada temporalidad muestra su propio análisis, el
+  de la vela que viene: 5m → próximos 5 min, 15m → 15 min, 1h → próxima hora, 4h → 4 horas, 1D → próximo día, 1S →
+  próxima semana, 1M → próximo mes (30m usa la próxima hora: no hay plazo de 30 min). Se sacaron las dos filas de
+  plazos del panel, que se podían mover aparte y dejaban el gráfico en una temporalidad y el análisis en otra. La tira
+  de plazos y las tablas siguen mostrando todos juntos; tocar uno mueve el gráfico. **1 semana** y **1 mes** son plazos nuevos: casos
   parecidos de velas diarias a 7 y 30 días (con su repaso: si no le ganan a lo normal, quedan en "Casi moneda", como
   los demás) y el análisis central de las velas semanales y mensuales. La zona de las bandas del MVRV va al lado del
   ciclo (medida: a un año sí; a 7, 30 y 90 días no anticipa de forma significativa, z entre −1 y +1, así que no suma a
