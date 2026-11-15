@@ -1391,6 +1391,48 @@ def ict(bars, atr, tf_min=60, horizon=6, lookback=1000, sigue=400):
     return out, stats
 
 
+def hueco_cme(h1, now_ms):
+    """El hueco del CME del ultimo fin de semana, si sigue abierto: {"precio": cierre del viernes, "hueco": %} o None.
+    Los futuros de BTC del CME cierran el viernes y reabren el domingo; el precio de cripto se sigue moviendo y deja un
+    hueco. Medido (medir_complementos.py, velas de 1 h 2021-2026, huecos de 0,5% o mas): se rellenan en 24 h el 43-51%
+    de las veces, en 3 dias el 67-76% y en 7 dias el 73-87%; un movimiento igual en cualquier otro momento, 29-32%, 53%
+    y 66-67%. No dice para donde cierra el precio (a 24 h, 46-49%): es un nivel que atrae, no una direccion.
+    Referencias como en la medicion: la vela de 1 h que abre el viernes 21 UTC (de abril a octubre; 22 UTC el resto) y
+    la que abre el domingo 22 / 23 UTC, 49 horas despues. Vale hasta 7 dias. Igual que huecoCme() en indicadores.js."""
+    H = 3_600_000
+    for i in range(len(h1) - 1, 48, -1):
+        t = h1[i][0]
+        if t + H > now_ms:
+            continue                                   # vela en curso
+        if now_ms - t > 7 * 24 * H:
+            return None
+        dia = (t // 86_400_000 + 4) % 7                # 0 = domingo (el 1/1/1970 fue jueves)
+        hora = (t // H) % 24
+        mes = _mes_utc(t)
+        if dia == 0 and hora == (22 if 4 <= mes <= 10 else 23):
+            if h1[i - 49][0] != t - 49 * H:
+                return None
+            ref = h1[i - 49][4]
+            g = h1[i][4] / ref - 1
+            if abs(g) < 0.005:
+                return None
+            for b in h1[i + 1:]:
+                if (b[3] <= ref) if g > 0 else (b[2] >= ref):
+                    return None
+            return {"precio": ref, "hueco": round(g * 100, 2)}
+    return None
+
+
+def _mes_utc(t_ms):
+    """Mes (1-12) de un instante en UTC, sin librerias (igual que getUTCMonth() + 1)."""
+    z = t_ms // 86_400_000 + 719468
+    era = z // 146097
+    doe = z - era * 146097
+    yoe = (doe - doe // 1460 + doe // 36524 - doe // 146096) // 365
+    doy = doe - (365 * yoe + yoe // 4 - yoe // 100)
+    mp = (5 * doy + 2) // 153
+    return mp + 3 if mp < 10 else mp - 9
+
 def flujo_senales(perp, spot, now_ms):
     """Senales del flujo de compras con las velas de 1 hora cerradas [t, o, h, l, c, v, volumen comprador] de perpetuos
     y de spot (Binance). Medido (medir_flujo.py, BTC 2021-2026, en los dos tramos):

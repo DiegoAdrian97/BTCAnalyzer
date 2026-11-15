@@ -1896,6 +1896,9 @@ def analyze():
     sma200d = sum(closes_d[-200:]) / 200
     ema200d = ind.ema(closes_d, 200)[-1]
     levels += [("Media simple 200 días", sma200d), ("EMA 200 diaria", ema200d)]
+    cme = ind.hueco_cme(h1, now_ms) if SYMBOL.startswith("BTC") else None     # nivel que atrae (medido); no suma a la direccion
+    if cme:
+        levels.append((f"Hueco del CME ({'+' if cme['hueco'] > 0 else '−'}{ar(abs(cme['hueco']), 1)}%) · en 3 días se rellenó 67–76%", cme["precio"]))
     for name, v in levels:
         rows.append({"tabla": "nivel", "nombre": name, "precio": rp(v),
                      "tipo": "resistencia" if v > price else "soporte", "distancia": round(pct(v, price), 2)})

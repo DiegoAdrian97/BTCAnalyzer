@@ -768,6 +768,14 @@ revés, fuera de Bollinger, RSI extremo, open interest que cae con el precio, cu
 - **Pesos aprendidos** (regresión logística con 2022–24, probada en 2025–26) no le ganaron a los pesos iguales
   (52,5% contra 52,7% a 1 hora; 53,1% contra 54,3% a 4 horas): se quedan los pesos simples.
 
+### Huecos del CME (`medir_complementos.py --cme`, nov. 2026)
+
+Los futuros de BTC del CME cierran el viernes y reabren el domingo; el precio de cripto sigue y deja un hueco. Con velas
+de 1 hora 2021–2026 (232 huecos de 0,5% o más; tamaño medio 2,2–2,4%): se rellenaron en 24 horas el 43–51%, en 3 días el
+67–76% y en 7 días el 73–87%; un movimiento igual en cualquier otro momento, 29–32%, 53% y 66–67%. Pero el precio no
+cierra más seguido hacia el hueco (a 24 horas, 46–49%): es un **nivel que atrae, no una dirección**. Entra como nivel
+("Hueco del CME · en 3 días se rellenó 67–76%", solo BTC, mientras siga abierto y hasta 7 días) y no suma puntos.
+
 ### Candidatos nuevos que no pasaron (`medir_complementos.py`, nov. 2026)
 
 Tendencia para la semana y el mes (precio contra las medias de 50 y 200 días, cruce dorado, retorno de 7, 30 y 90 días,

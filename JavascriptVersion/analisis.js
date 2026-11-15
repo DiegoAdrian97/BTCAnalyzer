@@ -1377,6 +1377,8 @@
     const sma200d = closesD.slice(-200).reduce((s, x) => s + x, 0) / 200;
     const ema200d = Ind.ema(closesD, 200);
     levels.push(['Media simple 200 días', sma200d], ['EMA 200 diaria', ema200d[ema200d.length - 1]]);
+    const cme = (input.moneda || 'BTC') === 'BTC' ? Ind.huecoCme(h1, now) : null;     // nivel que atrae (medido); no suma a la direccion
+    if (cme) levels.push([`Hueco del CME (${cme.hueco > 0 ? '+' : '−'}${ar(Math.abs(cme.hueco), 1)}%) · en 3 días se rellenó 67–76%`, cme.precio]);
     levels.forEach(([name, v]) => rows.push({ tabla: 'nivel', nombre: name, precio: rp(v), tipo: v > price ? 'resistencia' : 'soporte', distancia: rnd(pct(v, price), 2) }));
     fibonacci(candles['4h']).forEach(([f, v]) => rows.push({ tabla: 'nivel', nombre: `Fibonacci ${ar(f * 100, 1)}% (90 d) · rebotó ${FIB_REBOTE[f]}%`, precio: rp(v),
       tipo: v > price ? 'resistencia' : 'soporte', distancia: rnd(pct(v, price), 2), fib: f, rebote: FIB_REBOTE[f] }));

@@ -89,6 +89,29 @@ def flujo_casos():
 
 
 FLUJO = flujo_casos()
+
+
+def cme_casos():
+    """Velas de 1 h con un hueco del CME armado: arriba abierto, abajo abierto, rellenado, chico, de verano y vencido."""
+    import calendar
+    HH = 3_600_000
+    def serie(reapertura, hueco, despues, baja_a=None):
+        r = calendar.timegm(reapertura) * 1000                    # apertura de la vela del domingo
+        out = []
+        for k in range(-120, despues + 1):
+            t = r + k * HH
+            p = 60000.0 if k <= -49 else 60000.0 * (1 + hueco * min(1.0, (k + 49) / 49)) if k <= 0 else 60000.0 * (1 + hueco)
+            lo, hi = p * 0.999, p * 1.001
+            if baja_a is not None and k == despues - 1:
+                lo, hi = min(lo, baja_a), max(hi, baja_a)
+            out.append([t, p, hi, lo, p, 10.0])
+        return out, r + (despues + 1) * HH - 60_000
+    inv, ver = (2026, 11, 8, 23, 0, 0), (2026, 6, 14, 22, 0, 0)
+    return [serie(inv, 0.015, 20), serie(inv, -0.02, 30), serie(inv, 0.015, 20, 59990.0), serie(inv, 0.003, 20), serie(ver, 0.012, 40),
+            serie(inv, 0.015, 24 * 7 + 5), serie((2026, 11, 8, 22, 0, 0), 0.015, 20)]
+
+
+CME = [list(c) for c in cme_casos()]
 # open interest inventado de dos exchanges (sube y baja) y la parte larga de las cuentas, para el mapa de liquidaciones
 LIQ_OI = [[[b[0], round(8e9 + 4e8 * math.sin(i / 9) + 2e6 * i, 2)] for i, b in enumerate(H1[-400:])],
           [[b[0] + 60_000, round(3e9 + 2e8 * math.cos(i / 7), 2)] for i, b in enumerate(H1[-400:]) if i % 5]]
@@ -136,6 +159,7 @@ def py():
         "ict_h4": ind.ict(H4, ind.atr_w([b[2] for b in H4], [b[3] for b in H4], [b[4] for b in H4]), 240),
         "ict_filas": A.ict_filas("1h", H1, 60),
         "flujo": [ind.flujo_senales(*c) for c in FLUJO],
+        "cme": [ind.hueco_cme(*c) for c in CME],
         "liq_perfil": ind.liq_perfil([b[:5] for b in H1[-400:]], LIQ_OI, LIQ_LS, 3_600_000, 5 * 86_400_000, H1[-1][4],
                                      escala=ind.liq_escala(LIQ_OI, {"bitget": 1.2e9, "hyperliquid": 2.6e9, "mexc": 0, "x": None})),
         "central_flujo": [A.central(f, FC["precio"], {"1h": H1, "4h": H4}, FC["ahora"]) for f in FC_FLUJO],
@@ -171,6 +195,7 @@ console.log(JSON.stringify({
   ict_h4: Ind.ict(d.H4, Ind.atrW(d.H4.map((b) => b[2]), d.H4.map((b) => b[3]), d.H4.map((b) => b[4])), 240),
   ict_filas: A.ictFilas('1h', d.H1, 60),
   flujo: d.FLUJO.map((c) => Ind.flujoSenales(...c)),
+  cme: d.CME.map((c) => Ind.huecoCme(...c)),
   liq_perfil: Ind.liqPerfil(d.H1.slice(-400).map((b) => b.slice(0, 5)), d.LIQ_OI, d.LIQ_LS, 3600000, 5 * 86400000, d.H1[d.H1.length - 1][4], 0.12, 0.0025, Ind.LIQ_NIVELES, Ind.LIQ_MANT,
     Ind.liqEscala(d.LIQ_OI, { bitget: 1.2e9, hyperliquid: 2.6e9, mexc: 0, x: null })),
   central_flujo: d.FC_FLUJO.map((f) => A.central(f, d.FC.precio, { "1h": d.H1, "4h": d.H4 }, d.FC.ahora)),
@@ -210,7 +235,7 @@ def main():
     raw = p.pop("_ctx_raw")
     entrada = {"FC": FC, "H1": H1, "H4": H4, "D1": D1, "ALT": ALT, "AHORA": AHORA, "raw": raw, "LIQ": LIQ,
                "CASOS": CASOS, "SPEC_1H": SPEC_1H, "LOG_ENTRADAS": LOG_ENTRADAS, "LOG_CIERRES": LOG_CIERRES,
-               "OPC_LIBRO": OPC_LIBRO, "OPC_DVOL": OPC_DVOL, "OPC_AHORA": OPC_AHORA, "FLUJO": FLUJO, "FC_FLUJO": FC_FLUJO, "LIQ_OI": LIQ_OI, "LIQ_LS": LIQ_LS}
+               "OPC_LIBRO": OPC_LIBRO, "OPC_DVOL": OPC_DVOL, "OPC_AHORA": OPC_AHORA, "FLUJO": FLUJO, "CME": CME, "FC_FLUJO": FC_FLUJO, "LIQ_OI": LIQ_OI, "LIQ_LS": LIQ_LS}
     out = subprocess.run(["node", "-e", JS, RAIZ], input=json.dumps(entrada), capture_output=True, text=True)
     if out.returncode:
         raise SystemExit("node fallo:\n" + out.stderr[-2000:])

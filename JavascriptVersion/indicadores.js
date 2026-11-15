@@ -1256,6 +1256,25 @@
     return [out, stats];
   }
   /** Senales del flujo de compras (igual que flujo_senales en Python: ahi esta lo medido). */
+  // El hueco del CME del ultimo fin de semana, si sigue abierto (hueco_cme en indicadores.py: ahi esta lo medido)
+  function huecoCme(h1, now) {
+    const H = 3600000;
+    for (let i = h1.length - 1; i > 48; i--) {
+      const t = h1[i][0];
+      if (t + H > now) continue;
+      if (now - t > 7 * 24 * H) return null;
+      const d = new Date(t), mes = d.getUTCMonth() + 1;
+      if (d.getUTCDay() === 0 && d.getUTCHours() === (mes >= 4 && mes <= 10 ? 22 : 23)) {
+        if (h1[i - 49][0] !== t - 49 * H) return null;
+        const ref = h1[i - 49][4], g = h1[i][4] / ref - 1;
+        if (Math.abs(g) < 0.005) return null;
+        for (let k = i + 1; k < h1.length; k++) if (g > 0 ? h1[k][3] <= ref : h1[k][2] >= ref) return null;
+        return { precio: ref, hueco: Math.round(g * 10000) / 100 };
+      }
+    }
+    return null;
+  }
+
   function flujoSenales(perp, spot, now) {
     const hora = 3600000;
     perp = (perp || []).filter((b) => b[0] + hora <= now);
@@ -1295,7 +1314,7 @@
     ar, rnd, roundEven, sma, ema, rma, wma, hma, vwma, rsi, stoch, stochRsi, cci, williamsR, momentum, macd,
     awesome, bullBearPower, ultimate, dmi, atrW, mfi, cmf, obv, bollinger, keltner, psar, supertrend, ichimoku,
     vwapSession, calificar, ratingTxt, divergencia, fvg, zigzag, elliott, mapaLiquidaciones, liqPerfil, liqEscala, LIQ_NIVELES, LIQ_MANT, patronesVelas,
-    estadisticaVelas, patronGrafico, figuraLineas, wyckoff, divergencias, pivotes, ict, ictDescripcion, ICT_NOMBRE, flujoSenales,
+    estadisticaVelas, patronGrafico, figuraLineas, wyckoff, divergencias, pivotes, ict, ictDescripcion, ICT_NOMBRE, flujoSenales, huecoCme,
   };
   root.Ind = Ind;
   if (typeof module !== 'undefined' && module.exports) module.exports = Ind;
