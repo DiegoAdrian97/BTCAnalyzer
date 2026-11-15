@@ -746,6 +746,31 @@ BTC 2021–2026, velas de 15 min, 1 h y 4 h (cada 4 horas, ~12.000 momentos por 
 Además: el flujo de compras/ventas a mercado, los libros de órdenes y el funding entraban a la explicación y sumaban ±1,
 aunque las mediciones decían "quedan como contexto, sin peso": ya no suman (solo el open interest y las cuentas, medidos).
 
+### Zonas del ciclo (`medir_zonas.py` y `zonas_ciclo.py`, nov. 2026)
+
+Criterio: que marquen **zonas** (aunque duren meses), no el punto exacto. Cada día dentro de la zona, ¿BTC estaba más
+arriba un año después? Zonas por percentil de su propia historia (sin mirar el futuro) y las clásicas de cada uno; sirve
+si en 2012–19 y en 2020–25 la zona de compra sube 10 puntos o más que un día cualquiera (78% y 60%) y la de venta 10 o
+menos. CoinMetrics y Fear & Greed, gratis.
+
+| Indicador | Zona de compra (a 1 año subió) | Zona de venta (a 1 año subió) |
+|---|---|---|
+| MVRV (bandas: −0,5 y +2 desvíos) | 85–100% | 16–47% |
+| Puell (≤ 0,5 / percentil ≥ 85) | 96–99% | 30–50% |
+| Mayer (≥ 2,4) | no sirvió | 38–47% |
+| Media de 2 años (≤ 1 / percentil ≥ 85) | 94–100% | 10–49% |
+| Media de 200 semanas (≤ 1 / ≥ 4) | 100% | 21–39% |
+| Golden Ratio, media de 350 días (≤ 0,8 / ≥ 3) | 83–89% | 19–45% |
+| Pi Cycle (≤ 0,35 / percentil ≥ 85) | 100% | 0% |
+| Ley de potencia (percentil ≤ 15 / ≥ 85) | 89–100% | 15–33% |
+| Metcalfe (percentil ≥ 85) | un solo tramo | 39–48% |
+| Delta Price, hash ribbons, Fear & Greed, RSI semanal (venta) | no separaron | no separaron |
+
+NUPL da lo mismo que el MVRV (es el MVRV escrito de otra forma): no se repite. NVT, velocidad, oferta activa en el último
+año y Thermocap no están gratis en CoinMetrics. Se muestran en el ciclo ("Zonas del ciclo": una barra por indicador con
+su zona y la marca de hoy) y en la ficha del ciclo de la respuesta ("Zonas ▲4 ▼1"). Los umbrales y lo que necesita la
+página salen con el reentrenamiento semanal (`armar_termometro.py`); el valor de hoy se termina con el precio de ahora.
+
 ### Bandas de desvío extremo del MVRV (`medir_mvrv_bandas.py`, nov. 2026)
 
 Precio realizado (costo promedio de todos los BTC) × (media del MVRV de toda la historia ± desvíos): media 1,81, desvío

@@ -231,6 +231,12 @@ def onchain(t, c, path):
     hist = [m_mvrv[d] for d in sorted(m_mvrv) if d >= 14975]
     vivo["mvrv_media"], vivo["mvrv_desvio"] = float(np.mean(hist)), float(np.std(hist))
     vivo["rp_sem"] = [[d, round(rp(d), 2)] for d in sorted(m_mvrv) if d >= 17167 and (d - 17167) % 7 == 0 and d in m_cap and d in m_sup] + [[u, round(rp(u), 2)]]
+    # zonas de compra y de venta del ciclo (zonas_ciclo.py, medidas): con toda la historia diaria de CoinMetrics
+    import zonas_ciclo
+    _, m_adr = serie("cm_AdrActCnt")
+    ds = sorted(d for d in m_cap if d in m_sup and m_sup[d] > 0 and d >= 14809)        # desde el 18/7/2010
+    vivo["zonas"] = zonas_ciclo.calcular(np.array(ds), np.array([m_cap[d] / m_sup[d] for d in ds]), np.array([m_sup[d] for d in ds]),
+                                         np.array([m_iss.get(d, np.nan) for d in ds]), np.array([m_adr.get(d, np.nan) for d in ds]))
     return M, vivo
 
 

@@ -2046,4 +2046,20 @@
   .ab-tm-mvrv { padding: 1px 8px; border-radius: 999px; font-weight: 600; background: var(--t2-sunk); border: 1px solid var(--vidrio-borde); white-space: nowrap; }
   .ab-tm-mvrv.up { color: var(--color-ok); } .ab-tm-mvrv.dn { color: var(--color-bad); }
 
+  /* zonas del ciclo: una fila por indicador */
+  .ab-zonas-l { display: grid; gap: 9px; margin: 6px 0 4px; }
+  .ab-zona { display: grid; grid-template-columns: minmax(0, 11em) minmax(70px, 1fr) 4.4em; gap: 10px; align-items: center; font-size: 12.5px; cursor: help; }
+  .ab-zona-n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--t2-ink); }
+  .ab-zona-b { position: relative; height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--t2-ink) 8%, transparent); overflow: visible; }
+  .ab-zona-b i { position: absolute; top: 0; bottom: 0; }
+  .ab-zona-b i.c { background: color-mix(in srgb, var(--color-ok) 55%, transparent); border-radius: 4px 0 0 4px; }
+  .ab-zona-b i.v { background: color-mix(in srgb, var(--color-bad) 55%, transparent); border-radius: 0 4px 4px 0; }
+  .ab-zona-b b { position: absolute; top: -4px; width: 3px; height: 16px; margin-left: -1.5px; border-radius: 2px; background: var(--t2-ink); box-shadow: 0 0 0 1.5px var(--t2-panel, #fff); }
+  .ab-zona-z { text-align: right; font-weight: 650; color: var(--t2-mute); }
+  .ab-zona-z.compra { color: var(--color-ok); } .ab-zona-z.venta { color: var(--color-bad); }
+  @media (max-width: 420px) { .ab-zona { grid-template-columns: minmax(0, 8.5em) minmax(60px, 1fr) 3.8em; font-size: 12px; } }
+
+  /* la ficha del ciclo: si no entra, las zonas bajan a otro renglon (antes se salian en celus) */
+  .ab-hoja .ab-tm-tab { flex-wrap: wrap; row-gap: 6px; }
+
   :root { --ab-css: 1; }   /* marca: la pagina comprueba con esto que el estilo cargo */

@@ -159,9 +159,64 @@
   function mvrvDatos() {
     if (MVRV_T || mvrvPidiendo) return MVRV_T;
     mvrvPidiendo = true;
-    fetch('termometro.json').then((r) => r.json()).then((j) => { MVRV_T = (j && j.onchain && j.onchain.mvrv_desvio) ? j.onchain : { sin: true }; draw(); })
+    fetch('termometro.json').then((r) => r.json()).then((j) => { MVRV_T = (j && j.onchain && j.onchain.mvrv_desvio) ? j.onchain : { sin: true }; draw(); pintarZonas(); })
       .catch(() => { MVRV_T = { sin: true }; }).finally(() => { mvrvPidiendo = false; });
     return null;
+  }
+  // ---------- zonas del ciclo (zonas_ciclo.py, medidas con medir_zonas.py) ----------
+  // cada indicador: el valor de hoy (con el precio de ahora), su zona de compra y de venta, y lo medido. Marcan zonas
+  // (pueden durar meses), no el punto exacto
+  let ZONAS_TM = null;
+  function zonasHoy() {
+    const o = MVRV_T, t = ZONAS_TM, precio = (G.d && G.d.price) || (t && num(t.precio));
+    if (!o || o.sin || !precio) return null;
+    const hoy = Math.floor(Date.now() / 86400000), out = [];
+    if (t && t.mvrv_z !== null && t.mvrv_z !== undefined) {
+      const z = num(t.mvrv_z);
+      out.push({ nombre: 'MVRV (bandas de desvío)', v: z, compra: -0.5, venta: 2, min: -1.5, max: 3, log: false, fmt: (x) => `${ar.format('+.2f')(x)} σ`,
+        compra_medido: '85–88%', venta_medido: '22–40%' });
+    }
+    (o.zonas || []).forEach((e) => {
+      const v = e.k ? precio * e.k : e.valor !== undefined ? e.valor : e.a !== undefined ? Math.log10(precio) - (e.a + e.b * Math.log10(hoy - e.gen)) : null;
+      if (v === null || !isFinite(v)) return;
+      out.push({ ...e, v, fmt: e.id === 'potencia' ? (x) => `${x >= 0 ? '+' : ''}${f0((Math.pow(10, x) - 1) * 100)}%` : (x) => f2(x) });
+    });
+    out.forEach((e) => { e.zona = e.compra !== null && e.compra !== undefined && e.v <= e.compra ? 'compra' : e.venta !== null && e.venta !== undefined && e.v >= e.venta ? 'venta' : 'neutral'; });
+    return out;
+  }
+  function pintarZonas() {
+    const box = document.getElementById('tm-zonas'), Z = zonasHoy();
+    const chip = document.getElementById('tm-mvrv');
+    if (!Z || !Z.length) { if (box) box.replaceChildren(); return; }
+    const nc = Z.filter((e) => e.zona === 'compra').length, nv = Z.filter((e) => e.zona === 'venta').length;
+    if (chip) {   // la ficha del ciclo en la respuesta: cuantos marcan zona
+      chip.hidden = false;
+      chip.textContent = nc || nv ? `Zonas ${nc ? `▲${nc}` : ''}${nc && nv ? ' ' : ''}${nv ? `▼${nv}` : ''}` : 'Zonas: —';
+      chip.className = `ab-tm-mvrv ${nc > nv ? 'up' : nv > nc ? 'dn' : ''}`.trim();
+      chip.title = `De ${Z.length} indicadores de ciclo medidos: ${nc} en zona de compra, ${nv} en zona de venta`;
+    }
+    if (!box) return;
+    const cab = el('div', 'ab-mvrv-cab');
+    cab.append(vFicha(`▲ ${nc} de ${Z.length} en zona de compra`, nc ? 'up' : ''), vFicha(`▼ ${nv} en zona de venta`, nv ? 'dn' : ''));
+    const lista = el('div', 'ab-zonas-l');
+    Z.forEach((e) => {
+      const lo = Math.min(e.min, e.compra ?? e.min), hi = Math.max(e.max, e.venta ?? e.max);
+      const tr = (x) => (e.log ? Math.log(Math.max(x, 1e-12)) : x), pos = (x) => `${Math.max(0, Math.min(100, ((tr(x) - tr(lo)) / (tr(hi) - tr(lo) || 1)) * 100))}%`;
+      const row = el('div', `ab-zona ${e.zona}`), bar = el('span', 'ab-zona-b');
+      if (e.compra !== null && e.compra !== undefined) { const z = el('i', 'c'); z.style.left = '0'; z.style.width = pos(e.compra); bar.append(z); }
+      if (e.venta !== null && e.venta !== undefined) { const z = el('i', 'v'); z.style.left = pos(e.venta); z.style.right = '0'; bar.append(z); }
+      const mk = el('b'); mk.style.left = pos(e.v); bar.append(mk);
+      const nom = el('span', 'ab-zona-n', e.nombre.replace(/ \(.*\)$/, '')); nom.title = e.nombre;
+      row.append(nom, bar, el('span', `ab-zona-z ${e.zona}`, e.zona === 'compra' ? 'compra' : e.zona === 'venta' ? 'venta' : '—'));
+      row.title = `${e.nombre}: hoy ${e.fmt(e.v)}.`
+        + (e.compra_medido ? ` Zona de compra (hasta ${e.fmt(e.compra)}): a un año subió ${e.compra_medido} de las veces.` : ' Su zona de compra no sirvió (no se muestra).')
+        + (e.venta_medido ? ` Zona de venta (desde ${e.fmt(e.venta)}): a un año subió ${e.venta_medido}.` : ' Su zona de venta no sirvió.')
+        + ' Un día cualquiera: 60–78%.';
+      lista.append(row);
+    });
+    const nota = el('p', 'ab-note', 'Indicadores de ciclo que marcan zonas (no el punto exacto: pueden durar meses). Medidos con toda la historia de BTC (2012–2019 y 2020–2025, sin mirar el futuro): estando en la zona de compra, un año después BTC estaba más arriba el 83–100% de las veces; en la de venta, el 0–50%; un día cualquiera, el 60–78%. Verde: zona de compra · rojo: de venta · la marca: hoy. Quedaron afuera porque no separaron: Delta Price, hash ribbons, Fear & Greed y el RSI semanal. Pasá el dedo o el mouse por cada uno para ver lo medido.');
+    const det = el('details', 'ab-pos-det'); det.append(el('summary', '', 'ⓘ Cómo se lee'), nota);
+    box.replaceChildren(el('p', 'ab-tm-sec', 'Zonas del ciclo'), cab, lista, det);
   }
   function mvrvCapa(all, tf, on) {
     const vacio = () => G.mvrv.forEach((se) => se.setData([]));
@@ -2104,6 +2159,7 @@
       const det = el('details', 'ab-pos-det'); det.append(el('summary', '', 'ⓘ Cómo se lee'), nota);
       mvrvEls.push(el('p', 'ab-tm-sec', 'Bandas de desvío del MVRV'), cab, esc, ley, bandas, det);
     }
+    if (MON() === 'BTC') { const zc = el('div', 'ab-zonas'); zc.id = 'tm-zonas'; mvrvEls.push(zc); ZONAS_TM = t; mvrvDatos(); requestAnimationFrame(pintarZonas); }
     const escala = el('p', 'ab-note', 'Escala: 0 = el mejor momento para comprar · 100 = para vender. Mira el ciclo (semanas o meses), no la próxima hora.');
     body.append(big, escala, sc, pasado, ...mvrvEls, ...pisoEls, el('p', 'ab-tm-sec', 'Qué lo forma'), comp,
       el('p', 'ab-tm-sec', 'Momento del ciclo (la otra mitad)'), el('p', 'ab-hero-sub', `${t.año}, ${(FASE[t.fase] || (() => t.fase))(t.avance)}.`),
