@@ -1,0 +1,1 @@
+Datos archivados cada 4 horas (archivar.py en main).
