@@ -278,12 +278,16 @@ def onchain(t, c, path):
     return M, vivo
 
 
-def medir_cortos(S, c, t):
+def _ms(año):
+    return (np.datetime64(f"{año}-01-01") - np.datetime64("1970-01-01")).astype("timedelta64[ms]").astype(float)
+
+
+def medir_cortos(S, c, t, tramos=None):
     """¿La zona del medidor anticipa el dia, la semana y el mes? (el analisis la sumaba a la direccion de 4 horas a 1
     mes). Cada dia en cada zona, con el medidor sin mirar el futuro (desde 2019): % de veces que BTC fue para el lado
     de la zona a 1, 7 y 30 dias contra lo normal de ese tramo. Los dias se pisan: n efectivo = dias / horizonte."""
     print("\n===== ¿La zona del medidor anticipa el día, la semana y el mes? =====")
-    tramos = (("2019-22", 1546300800000, 1672531200000), ("2023-26", 1672531200000, 4102444800000))
+    tramos = tramos or (("2019-22", 1546300800000, 1672531200000), ("2023-26", 1672531200000, 4102444800000))
     grupos = [("COMPRA (las dos zonas)", S >= 0.60, 1), ("CARO O VENTA (las dos zonas)", S < 0.60, -1)]
     grupos += [(nom, (S >= lo) & (S < hi), 1 if lo >= 0.60 else -1) for lo, hi, nom in ZONAS_S]
     for hz in (1, 7, 30):
@@ -347,6 +351,15 @@ def main():
             z[f"dias_{hz}"] = int(m.sum())
         zonas_s.append(z)
     medir_cortos(S, c, t)
+    # lo mismo con el ciclo entrenado año por año desde 2015 (mas ciclos: 2015-18, 2019-22 y 2023-26)
+    Pl = np.full(len(c), np.nan)
+    for Y in range(2015, int(años[-1]) + 1):
+        tr = okc & (años < Y) & np.isfinite(fut365) & (t + 365 * 86400000 < _ms(Y))
+        te = okc & (años == Y)
+        if tr.sum() > 300 and te.sum() and len(set((fut365[tr] > 0).tolist())) == 2:
+            Pl[te] = LogisticRegression(max_iter=4000).fit(Xc[tr], fut365[tr] > 0).predict_proba(Xc[te])[:, 1]
+    medir_cortos(PESO_VALUACION * (1 - T / 100) + (1 - PESO_VALUACION) * Pl, c, t,
+                 (("2015-18", _ms(2015), _ms(2019)), ("2019-22", _ms(2019), _ms(2023)), ("2023-26", _ms(2023), _ms(2100))))
     trf = okc & np.isfinite(fut365)
     fin = LogisticRegression(max_iter=4000).fit(Xc[trf], fut365[trf] > 0)
     modelo = {"intercepto": round(float(fin.intercept_[0]), 6), "pesos": [round(float(w), 6) for w in fin.coef_[0]],
