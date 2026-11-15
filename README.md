@@ -787,6 +787,25 @@ de 1 hora 2021–2026 (232 huecos de 0,5% o más; tamaño medio 2,2–2,4%): se 
 cierra más seguido hacia el hueco (a 24 horas, 46–49%): es un **nivel que atrae, no una dirección**. Entra como nivel
 ("Hueco del CME · en 3 días se rellenó 67–76%", solo BTC, mientras siga abierto y hasta 7 días) y no suma puntos.
 
+### Vela en formación, estructura al revés y retorno en plata (`medir_formacion.py`, nov. 2026)
+
+Tres dudas que quedaban sobre lo que el análisis ya cuenta (BTC 2021–2026, tramos 2021–24 y 2025–26):
+
+1. **Vela a medio formar.** Todo se midió con velas cerradas, pero la app calcula con la de ahora. Las señales de
+   1 hora calculadas a los 0, 15, 30 y 45 min de la hora, contra la hora siguiente desde ese momento: el resumen de
+   indicadores al revés acierta 53,9 / 53,0 / 52,1 / 53,3% (2021–24) y 52,5 / 52,2 / 51,7 / 51,9% (2025–26), z ≥ 2,8
+   siempre; el RSI extremo 53–56% siempre (z ≥ 2,5). Rinden igual a mitad de vela. Bollinger fuera de banda rinde
+   al cierre (58,2% / 54,2%) y menos a mitad de vela (54–57% / 51–52%, z ~1 en 2025–26).
+2. **Estructura al revés.** Figura confirmada, cruce del MACD y patrones de velas "al revés" aciertan 52–54%... pero
+   solo cuando el precio estirado (resumen al revés, Bollinger, RSI) ya marca ese lado (53–56%). Cuando no lo marca:
+   ~50% o peor. No agregan nada: no se suman. **Lo mismo las divergencias**: con el precio estirado del mismo lado
+   54–56%; sin eso, 46–47% (z −6,5 / −2,0 en 15 min; −5,7 / −2,7 en 1 h). Lo que acertaba era el precio estirado.
+   Las divergencias dejaron de sumar (`DIV_MEDIDO` vacío).
+3. **En plata.** Siguiendo cada grupo de señales (entrar para ese lado y salir a 1 o 4 velas), el retorno medio por
+   operación es **entre −3 y +4 puntos básicos, nunca distinto de cero** (z < 1,3), aun con 55–57% de aciertos: cuando
+   falla pierde más de lo que gana cuando acierta. La comisión de ida y vuelta son 10 pb. La dirección de 15 min a
+   4 horas es contexto, no una ventaja operable; la página lo dice en la conclusión.
+
 ### Figuras, velas, divergencias y Elliott, medidos (`medir_estructura.py`, nov. 2026)
 
 Eran lo último que el análisis sumaba sin medir (1 punto cada una, a favor). Con las mismas funciones de la app

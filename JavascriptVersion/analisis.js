@@ -1078,7 +1078,7 @@
     return { t_inicio: a[0], p_inicio: a[1], t_fin: b[0], p_fin: b[1] };
   }
   // (plazo|temporalidad) -> [sobrecompra, sobreventa]: medir_rsi.py (igual que RSI_MEDIDO en Python)
-  const DIV_MEDIDO = ['15 min|5m', '1 hora|15m', '4 horas|1h', '1 día|4h'];     // plazo|temporalidad donde la divergencia cuenta: medir_estructura.py
+  const DIV_MEDIDO = [];     // plazo|temporalidad donde la divergencia cuenta: medir_estructura.py
   const RSI_MEDIDO = { '1 hora|15m': ['revierte', 'revierte'], '1 hora|1h': ['revierte', 'revierte'], '4 horas|1h': [null, 'revierte'], '1 semana|1d': ['sigue', null] };
   const CTX_MEDIDO = ['oi_1h', 'oi_4h', 'oi_24h', 'long_short'];
   const SHORT_CTX = { 'flujo_1 h': 'Compras a mercado 1 h', 'flujo_4 h': 'Compras a mercado 4 h', oi_1h: 'Open interest 1 h',

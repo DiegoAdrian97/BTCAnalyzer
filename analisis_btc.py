@@ -1248,7 +1248,10 @@ PLAZOS = [
     ("1 mes", "1d", 30, ("1w", "1M"), (), "1 semana"),
 ]
 # (plazo, temporalidad) -> (que hacer con la sobrecompra, con la sobreventa): medir_rsi.py
-DIV_MEDIDO = {("15 min", "5m"), ("1 hora", "15m"), ("4 horas", "1h"), ("1 día", "4h")}     # (plazo, temporalidad) donde la divergencia cuenta: medir_estructura.py
+# (plazo, temporalidad) donde la divergencia cuenta. Vacio desde medir_formacion.py: la divergencia solo acierta cuando
+# el "precio estirado" (resumen al reves, Bollinger, RSI) marca el mismo lado (54-56%); cuando no, va al reves (46-47%,
+# z -6 / -2). No dice nada propio: lo que acierta es el precio estirado, que ya cuenta
+DIV_MEDIDO = set()
 RSI_MEDIDO = {("1 hora", "15m"): ("revierte", "revierte"), ("1 hora", "1h"): ("revierte", "revierte"),
               ("4 horas", "1h"): (None, "revierte"), ("1 semana", "1d"): ("sigue", None)}
 CTX_MEDIDO = ("oi_1h", "oi_4h", "oi_24h", "long_short")   # su senal solo marca lo que gano en las mediciones

@@ -1312,6 +1312,8 @@
     fr.push(`Para ${plazoTxt(plz)}: ${dTxt.toLowerCase()}.`
       + (mas.length ? ` A favor de la suba pesa más: ${min1(corto_(mas[0][3]))}` : '')
       + (menos.length ? `${mas.length ? '; a' : ' A'} favor de la baja${mas.length ? '' : ' pesa'}: ${min1(corto_(menos[0][3]))}` : '') + (mas.length || menos.length ? '.' : ''));
+    // medir_formacion.py: en plata, seguir estas señales rinde ~0 pb por operacion (la comision son 10 pb)
+    if (c.direccion !== 'neutral' && !['1 día', '1 semana', '1 mes'].includes(plz)) fr.push('Ojo: medido, estas señales aciertan 52–56% pero cuando fallan pierden más de lo que ganan cuando aciertan: el retorno medio es ~0 antes de comisiones. Es contexto, no alcanza sola para operar.');
     if (lc) fr.push(`El ciclo mira meses a un año (${zona.toLowerCase()}): va aparte, no suma a esta dirección.`);
     const cc = document.getElementById('cc-txt');
     cc.replaceChildren(fr[0], ...fr.slice(1).map((x) => el('span', 'ab-cc-mas', ` ${x}`)));
@@ -6609,7 +6611,7 @@
     [/^(✓ |Posible )?triángulo/i, 'pat', 'Triángulo', 'El precio se va encerrando entre una línea de techos y una de pisos que se juntan.', 'Ascendente (techo plano, pisos que suben): suele romper para arriba.', 'Descendente (piso plano, techos que bajan): suele romper para abajo.'],
     [/^(✓ |Posible )?cuña/i, 'pat', 'Cuña', 'Dos líneas inclinadas hacia el mismo lado que se van juntando.', 'Cuña descendente: suele romper para arriba.', 'Cuña ascendente: suele romper para abajo.'],
     [/^(✓ |Posible )?canal/i, 'pat', 'Canal', 'El precio viaja entre dos líneas paralelas.', 'Canal alcista: compra cerca del piso del canal.', 'Canal bajista: venta cerca del techo.', 'Romper el canal con un cierre cambia la lectura.'],
-    [/^Divergencia (alcista|bajista)/, 'osc', 'Divergencia', 'El precio hace un extremo nuevo y el indicador (RSI, MACD…) no lo acompaña.', 'Divergencia alcista: mínimo más bajo en el precio, no en el indicador; la baja pierde fuerza.', 'Divergencia bajista: máximo más alto en el precio, no en el indicador; la suba pierde fuerza.', 'Medido en BTC: las de 5 min acertaron 51,5% a 15 min, las de 15 min 51–53% a una hora, las de 1 h 52–53% a 4 horas y las de 4 h 52–54% a un día; ahí suman. En el resto ~50%: no suman.'],
+    [/^Divergencia (alcista|bajista)/, 'osc', 'Divergencia', 'El precio hace un extremo nuevo y el indicador (RSI, MACD…) no lo acompaña.', 'Divergencia alcista: mínimo más bajo en el precio, no en el indicador; la baja pierde fuerza.', 'Divergencia bajista: máximo más alto en el precio, no en el indicador; la suba pierde fuerza.', 'Medido en BTC: solo aciertan (54–56%) cuando el precio además está estirado para ese lado; sin eso van al revés (46–47%). No dicen nada propio: no suman a la predicción.'],
     [/^Doji/, 'pat', 'Doji', 'Una vela que abrió y cerró casi en el mismo precio: compradores y vendedores quedaron parejos. Indecisión.', null, null, 'Después de un tramo largo, puede anticipar un giro; sola no alcanza.'],
     // ----- analisis de la app -----
     [/^(Mov\. fuerte|Movimiento fuerte|Chance de movimiento fuerte|¿Movimiento fuerte\?|Chance \d|Modelo de movimiento fuerte)/, 'app', 'Movimiento fuerte', 'La chance de que la próxima hora se mueva más del doble de lo normal, para cualquier lado. La calcula un modelo entrenado con años de velas, la hora del día y el calendario.',
