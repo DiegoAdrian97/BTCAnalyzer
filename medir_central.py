@@ -7,7 +7,7 @@ historial/BTC/central/<dia>.csv). Aca se cruza con lo que hizo el precio despues
 Con pocos dias no dice nada: sirve desde unas semanas (100 casos o mas por fila; se marca con * lo que no llega).
 Uso: python medir_central.py
 """
-import json, math, urllib.request
+import json, math, os, sys, time, urllib.request
 from collections import defaultdict
 
 REPO, RAMA = "DiegoAdrian97/BTCAnalyzer", "historial"
@@ -58,6 +58,7 @@ def main():
     print(f"{len(F)} conclusiones, del {F[0]['t']} al {F[-1]['t']} ({(F[-1]['t'] - F[0]['t']) / 864e5:.1f} días)")
     z = lambda ok, n: (ok / n - 0.5) / math.sqrt(0.25 / n) if n else 0.0
     por, sen = defaultdict(lambda: [0, 0]), defaultdict(lambda: [0, 0])
+    plata, cal = defaultdict(list), defaultdict(lambda: [0, 0])
     for r in F:
         hz = int(HORAS.get(r["plazo"], 0) * 3600000)
         fin = r["t"] + hz
@@ -71,6 +72,8 @@ def main():
             ok = (r["dir"] == "sube") == sube
             for k in ("todas",) + (("3 puntos o más",) if abs(r["pts"]) >= 3.5 else ()):
                 a = por[(r["plazo"], k)]; a[0] += ok; a[1] += 1
+            plata[r["plazo"]].append((1 if r["dir"] == "sube" else -1) * (c / r["precio"] - 1) * 1e4)
+            a = cal[(r["plazo"], "3,5 o más" if abs(r["pts"]) >= 3.5 else "2,5 a 3,5")]; a[0] += ok; a[1] += 1
         a = por[(r["plazo"], "lateral: ¿subió?")] if r["dir"] == "neutral" else None
         if a is not None:
             a[0] += sube; a[1] += 1
@@ -83,6 +86,35 @@ def main():
     print("\n=== por señal: cuando sumó para un lado, ¿el precio fue para ahí? ===")
     for (pl, k), (ok, n) in sorted(sen.items(), key=lambda kv: (HORAS[kv[0][0]], -kv[1][1])):
         print(f"  {pl:<9} {k:<14} {n:>5} casos · acierta {100 * ok / n:5.1f}% (z {z(ok, n):+.1f}){'' if n >= 100 else '  *pocos'}")
+
+    if len(sys.argv) > 1:
+        escribir(sys.argv[1], F, por, sen, plata, cal)
+
+
+def escribir(ruta, F, por, sen, plata, cal):
+    """track.json: lo que muestra la pagina (aciertos reales) y la deriva de cada señal contra lo medido (mediciones.json)."""
+    try:
+        M = json.load(open(os.path.join(os.path.dirname(ruta), "mediciones.json")))["senales"]
+    except Exception:
+        M = {}
+    pl = []
+    for p in HORAS:
+        ok, n = por.get((p, "todas"), (0, 0)); okf, nf = por.get((p, "3 puntos o más"), (0, 0)); sl, nl = por.get((p, "lateral: ¿subió?"), (0, 0))
+        if n or nl:
+            r = plata.get(p, [])
+            pl.append({"plazo": p, "n": n, "acierto": round(100 * ok / n, 1) if n else None, "n_fuerte": nf, "acierto_fuerte": round(100 * okf / nf, 1) if nf else None,
+                       "retorno_pb": round(sum(r) / len(r), 1) if r else None, "laterales": nl})
+    se = []
+    for (p, k), (ok, n) in sen.items():
+        esp = (M.get(k) or {}).get("esperado") or 50
+        zz = (ok / n - esp / 100) / math.sqrt(0.25 / n)
+        se.append({"plazo": p, "clave": k, "nombre": (M.get(k) or {}).get("nombre", k), "n": n, "acierto": round(100 * ok / n, 1), "esperado": esp,
+                   "estado": "pocos" if n < 100 else "deriva" if zz <= -2.5 or (ok / n - 0.5) / math.sqrt(0.25 / n) <= -2 else "ok"})
+    out = {"actualizado": int(time.time() * 1000), "desde": F[0]["t"], "hasta": F[-1]["t"], "plazos": pl,
+           "senales": sorted(se, key=lambda x: (HORAS[x["plazo"]], -x["n"])),
+           "calibracion": [{"plazo": p, "puntos": k, "n": n, "acierto": round(100 * ok / n, 1)} for (p, k), (ok, n) in sorted(cal.items(), key=lambda kv: (HORAS[kv[0][0]], kv[0][1]))]}
+    json.dump(out, open(ruta, "w"), ensure_ascii=False, indent=1)
+    print(f"\n{ruta}: {len(pl)} plazos, {len(se)} señales; en deriva: {[x['clave'] + ' (' + x['plazo'] + ')' for x in se if x['estado'] == 'deriva'] or 'ninguna'}")
 
 
 if __name__ == "__main__":

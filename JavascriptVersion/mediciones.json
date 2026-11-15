@@ -1,0 +1,21 @@
+{
+  "nota": "Registro unico de lo que suma a la direccion y cuanto acerto al medirlo (dos tramos; ver README). medir_central.py compara esto con lo que la app acierta en vivo y avisa si una señal rinde menos (deriva).",
+  "regla": "Suma solo lo que dio z >= 2 del mismo lado en los dos tramos. 'esperado' = % de aciertos medido; null = medido con otro criterio (se compara contra 50%).",
+  "senales": {
+    "casos": {"nombre": "Casos parecidos", "esperado": null, "fuente": "repaso propio en cada análisis"},
+    "indicadores": {"nombre": "Resumen de indicadores, al revés (4 h o menos)", "esperado": 53, "fuente": "medir_senales.py, medir_formacion.py"},
+    "bollinger": {"nombre": "Fuera de Bollinger: vuelve adentro (4 h o menos)", "esperado": 56, "fuente": "medir_senales.py, medir_formacion.py"},
+    "rsi": {"nombre": "RSI extremo: posible reversión (15 min y 1 h)", "esperado": 54.5, "fuente": "medir_rsi.py, medir_formacion.py"},
+    "rsi_sigue": {"nombre": "RSI diario en sobrecompra: sigue (1 semana)", "esperado": null, "fuente": "medir_rsi.py"},
+    "coinciden": {"nombre": "15 min, 1 hora y 4 horas coinciden", "esperado": null, "fuente": "medir_nuevo.py"},
+    "cvd": {"nombre": "Divergencia de CVD", "esperado": null, "fuente": "medir_flujo.py"},
+    "absorcion": {"nombre": "Absorción en spot", "esperado": null, "fuente": "medir_flujo.py"},
+    "barrida": {"nombre": "Barrida de liquidez", "esperado": 53.5, "fuente": "medir_conjunto.py"},
+    "liquidaciones": {"nombre": "Liquidaciones, al revés", "esperado": 52.5, "fuente": "medir_liquidaciones"},
+    "oi": {"nombre": "Open interest", "esperado": null, "fuente": "medir_contexto.py"},
+    "cuentas": {"nombre": "Cuentas long/short", "esperado": null, "fuente": "medir_contexto.py"}
+  },
+  "descartadas": ["figuras del gráfico", "Wyckoff", "patrones de velas", "Elliott", "cruce del MACD", "divergencias RSI/MACD", "indicadores del diario y semanal", "media de 200 días", "ciclo (a 1, 7 y 30 días)", "libros de órdenes", "funding"],
+  "direccion": {"nota": "acierto medido de la dirección según los puntos netos (medir_conjunto.py, 2022-2026, a 1 y 4 horas)", "tramos": [[2.5, 53], [3.5, 55]]},
+  "plata": {"nota": "retorno medio por operación siguiendo las señales de 15 min a 4 h (medir_formacion.py)", "pb": 0, "comision_pb": 10}
+}

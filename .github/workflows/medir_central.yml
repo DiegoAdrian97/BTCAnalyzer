@@ -1,10 +1,16 @@
 name: Medir cuánto acierta el análisis (con lo que la app fue diciendo)
-# Cada lunes y a mano: cruza las conclusiones guardadas por el servidor (rama historial) con lo que hizo el precio.
-# No cambia nada del analisis: solo mide.
+# Cada día y a mano: cruza las conclusiones guardadas por el servidor (rama historial) con lo que hizo el precio y deja
+# JavascriptVersion/track.json, que la página muestra ("En vivo") y donde se marca la señal que rinde menos que lo medido.
 on:
   workflow_dispatch:
   schedule:
-    - cron: "17 11 * * 1"
+    - cron: "17 11 * * *"
+  push:
+    branches: [main]
+    paths: [".github/workflows/medir_central.yml", "medir_central.py", "JavascriptVersion/mediciones.json"]
+permissions:
+  contents: write
+concurrency: medir-central
 jobs:
   medir:
     runs-on: ubuntu-latest
@@ -13,7 +19,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - run: set -o pipefail; python -u medir_central.py | tee central.txt
+      - run: set -o pipefail; python -u medir_central.py JavascriptVersion/track.json | tee central.txt
+      - name: Subir track.json
+        run: |
+          git config user.name "github-actions[bot]"; git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add JavascriptVersion/track.json 2>/dev/null || exit 0
+          git diff --cached --quiet || { git commit -qm "track.json: aciertos reales del análisis"; git pull -q --rebase; git push -q; }
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: medicion-central, path: central.txt }
