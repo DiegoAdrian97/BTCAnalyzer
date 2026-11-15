@@ -1,0 +1,19 @@
+name: Medir señales diarias en un panel de 30 monedas
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/medir_panel.yml", "medir_panel.py"]
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install numpy
+      - run: set -o pipefail; python -u medir_panel.py | tee panel.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: medicion-panel, path: panel.txt }
