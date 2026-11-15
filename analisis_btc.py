@@ -1858,6 +1858,14 @@ def analyze():
         rows.append({"tabla": "plazo", "plazo": name, **prob})
         rows += learning_rows(name, tf, h, fit)
         rows += [{"tabla": "objetivo_plazo", "plazo": name, **t} for t in tg]
+    # coherencia entre plazos: el rango de un plazo mas largo no puede ser mas angosto que el del anterior (cada plazo se
+    # calcula aparte con sus casos parecidos y a veces 4 horas quedaba adentro de 1 hora). Solo ensancha
+    ant = None
+    for r in rows:
+        if r.get("tabla") == "plazo" and r.get("min") is not None and r.get("max") is not None:
+            if ant:
+                r["min"], r["max"] = min(r["min"], ant[0]), max(r["max"], ant[1])
+            ant = (r["min"], r["max"])
         if not any(e[1] == tf and e[2] == h for e in entries):
             entries.append((series[tf]["bars"][-1][0] + series[tf]["tf_ms"], tf, h, series[tf]["closes"][-1], prob["sube"],
                             prob["min"], prob["max"], {c: prob.get(k) for c, k in (("m", "mediana"), ("a", "obj_arriba"), ("b", "obj_abajo"), ("ta", "toca_arriba"), ("tb", "toca_abajo"), ("pa", "primero_arriba"))}))

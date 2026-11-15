@@ -1326,6 +1326,13 @@
       learningRows(name, tf, h, fit).forEach((r) => rows.push(r));
       tg.forEach((t) => rows.push({ tabla: 'objetivo_plazo', plazo: name, ...t }));
       if (!entries.some((e) => e[1] === tf && e[2] === h)) {
+    // coherencia entre plazos: el rango de un plazo mas largo no puede ser mas angosto que el del anterior. Solo ensancha
+    { let ant = null;
+      rows.forEach((r) => {
+        if (r.tabla !== 'plazo' || r.min === null || r.min === undefined || r.max === null || r.max === undefined) return;
+        if (ant) { r.min = Math.min(r.min, ant[0]); r.max = Math.max(r.max, ant[1]); }
+        ant = [r.min, r.max];
+      }); }
         const s = series[tf];
         entries.push([s.bars[s.bars.length - 1][0] + s.tfMs, tf, h, s.closes[s.closes.length - 1], prob.sube, prob.min, prob.max, { m: prob.mediana, a: prob.obj_arriba, b: prob.obj_abajo, ta: prob.toca_arriba, tb: prob.toca_abajo, pa: prob.primero_arriba }]);
       }
