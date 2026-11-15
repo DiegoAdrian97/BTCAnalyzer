@@ -753,6 +753,28 @@ BTC 2021–2026, velas de 15 min, 1 h y 4 h (cada 4 horas, ~12.000 momentos por 
 Además: el flujo de compras/ventas a mercado, los libros de órdenes y el funding entraban a la explicación y sumaban ±1,
 aunque las mediciones decían "quedan como contexto, sin peso": ya no suman (solo el open interest y las cuentas, medidos).
 
+### Cómo trabajan juntas las señales (`medir_conjunto.py`, nov. 2026)
+
+Seis señales del análisis central reconstruidas cada 2 horas (25.000 momentos, 2022–2026): resumen de indicadores al
+revés, fuera de Bollinger, RSI extremo, open interest que cae con el precio, cuentas muy compradas y barridas.
+
+- **Cada una sola** sigue acertando del lado que se cuenta: 52–56% a 1 y 4 horas (las cuentas muy compradas, de 4 horas
+  en adelante). A 24 horas, casi nada.
+- **Se repetían:** indicadores al revés, Bollinger y RSI dicen lo mismo (el precio estirado corrige). Con 1 o 2 de las
+  tres acierta igual (52–54%); las tres juntas, 55–56% a 1 hora. Sumaban hasta 3 puntos y alcanzaban solas para marcar
+  dirección. Ahora, por lado, cuentan juntas: 2 → 1 punto, 3 → 1,5. Así, 2 puntos netos o más acertó 54,7–55,7% a 4 horas
+  (antes 54,3–54,6%) y 54,2–56,3% a 24 horas (antes 53,0–54,3%).
+- **Más acuerdo, más acierto** (a 1 hora: 1 punto neto 52–53%, 2 puntos 53–54%, 3 puntos 53,5–55%).
+- **Pesos aprendidos** (regresión logística con 2022–24, probada en 2025–26) no le ganaron a los pesos iguales
+  (52,5% contra 52,7% a 1 hora; 53,1% contra 54,3% a 4 horas): se quedan los pesos simples.
+
+### Candidatos nuevos que no pasaron (`medir_complementos.py`, nov. 2026)
+
+Tendencia para la semana y el mes (precio contra las medias de 50 y 200 días, cruce dorado, retorno de 7, 30 y 90 días,
+rupturas de 20 y 55 días): funcionó en 2012–19 (hasta 68% las rupturas) y no en 2020–26 (~50%). Día de la semana y hora
+del día: nada parejo. Prima del perpetuo contra el spot en su extremo: 51–52%, no pasa en los dos tramos. Funding de
+cada pago (alto o negativo): ~50%. ETH/BTC: nada. Nasdaq y dólar: sin datos desde GitHub. Quedan afuera.
+
 ### RSI en sobrecompra y sobreventa (`medir_rsi.py`, nov. 2026)
 
 Cada vela (15 min, 1 h y 4 h de Binance 2021–2026; diario y semanal de CoinMetrics 2011–2026), a los plazos que mira

@@ -245,7 +245,8 @@ def horario():
             fut = B[i + 1:i + 169]
             def toca(h, ref=c[ref_i], g=g, fut=fut):
                 return any((b[3] <= ref) if g > 0 else (b[2] >= ref) for b in fut[:h])
-            fila = [toca(24), toca(72), toca(168)]
+            hacia = lambda k: (c[i + k] < c[i]) == (g > 0)          # ¿el cierre k horas despues fue hacia el hueco?
+            fila = [toca(24), toca(72), toca(168), hacia(24), hacia(72), g]
             ctrl.append(fila)
             # domingo a la reapertura (22 UTC en verano, 23 en invierno): 49 h despues del cierre del viernes (21 / 22 UTC)
             if d.weekday() == 6 and d.hour == (22 if verano else 23):
@@ -254,10 +255,14 @@ def horario():
             f = lambda L, k: 100 * sum(x[k] for x in L) / len(L)
             print(f"  tramo {tramo + 1}: {len(gaps)} huecos de 0,5% o más · se rellenó en 24 h {f(gaps, 0):.0f}%, 72 h {f(gaps, 1):.0f}%, 7 días {f(gaps, 2):.0f}%"
                   f"  | un movimiento igual en cualquier otro momento ({len(ctrl)}): {f(ctrl, 0):.0f}%, {f(ctrl, 1):.0f}%, {f(ctrl, 2):.0f}%", flush=True)
+            print(f"           ¿el precio cerró hacia el hueco? a 24 h {f(gaps, 3):.0f}% (cualquier otro momento {f(ctrl, 3):.0f}%), a 72 h {f(gaps, 4):.0f}% ({f(ctrl, 4):.0f}%)"
+                  f"  · tamaño medio del hueco {100 * sum(abs(x[5]) for x in gaps) / len(gaps):.2f}%", flush=True)
 
 
 def main():
-    diario()
+    import sys
+    if "--cme" not in sys.argv:
+        diario()
     horario()
     print("\n=== resumen: lo que pasó la prueba (los dos tramos, z >= 2) ===")
     for g, nom, h, ver in RES:

@@ -271,6 +271,7 @@
   const CENTRAL_HORAS = { '5m': 1, '15m': 1, '30m': 2, '1h': 2, '4h': 8, '1d': 24, '1w': 72, '1M': 168 };
   const nz = (x) => (x === undefined ? null : x);
   const ok = (x) => x !== null && x !== undefined;
+  const ESTIRADO = ['Indicadores ', 'Precio arriba de la banda', 'Precio debajo de la banda', 'Posible reversión', 'Posible rebote'];
   function central(rows, price, candles, now) {
     const pick = (t) => rows.filter((r) => r.tabla === t);
     const mv = pick('movimiento')[0] || null, hs = pick('horas')[0] || null, tm = pick('termometro')[0] || null;
@@ -404,6 +405,13 @@
         const z = tm.medidor_zona, zl = z.toLowerCase();
         if (zl.includes('compra')) cf('direccion', 1, 1, `Ciclo: ${zl}`);
         else if (zl.includes('venta') || zl.includes('caro')) cf('direccion', -1, 1, `Ciclo: ${zl}`);
+      }
+      // precio estirado (indicadores al reves, fuera de Bollinger, RSI extremo): dicen lo mismo, cuentan juntas (_estirado en Python)
+      if (!(tf === '1d' || tf === '1w' || tf === '1M')) {
+        [1, -1].forEach((ld) => {
+          const g = F.filter((f) => f[0] === 'direccion' && f[1] === ld && ESTIRADO.some((x) => f[3].startsWith(x)) && (f[3].includes('suele corregir') || !f[3].startsWith('Indicadores ')));
+          if (g.length >= 2) g.forEach((f) => { f[2] = 0.5; f[3] += ' · mismo motivo (precio estirado): cuentan juntas'; });
+        });
       }
       // ----- totales -----
       let fz = 0, dr = 0, aFavor = 0, enContra = 0;

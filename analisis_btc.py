@@ -1322,6 +1322,27 @@ def _cf(lst, punto, lado, peso, texto):
     lst.append([punto, lado, peso, texto])
 
 
+_ESTIRADO = ("Indicadores ", "Precio arriba de la banda", "Precio debajo de la banda", "Posible reversión", "Posible rebote")
+
+
+def _estirado(F, largo_tf):
+    """El resumen de indicadores al reves, el precio fuera de Bollinger y el RSI extremo dicen lo mismo: el precio esta
+    estirado y suele corregir. Medido (medir_conjunto.py, 25.000 momentos 2022-2026): con 1 o 2 de las tres acierta
+    igual (52-54%) y contarlas como una sola mejora el acuerdo con el resto (netos >= 2: 54,7-55,7% a 4 h contra
+    54,3-54,6%); las tres juntas, un poco mas (55-56% a 1 h). Por lado: 2 → suman 1 punto entre las dos; 3 → 1,5.
+    Antes sumaban 3 y alcanzaban solas para marcar direccion. Igual que estirado() en analisis.js."""
+    if largo_tf:
+        return
+    for lado in (1, -1):
+        g = [f for f in F if f[0] == "direccion" and f[1] == lado and f[3].startswith(_ESTIRADO)
+             and ("suele corregir" in f[3] or not f[3].startswith("Indicadores "))]
+        if len(g) >= 2:
+            w = 0.5
+            for f in g:
+                f[2] = w
+                f[3] += " · mismo motivo (precio estirado): cuentan juntas"
+
+
 _FLUJO = {}
 
 
@@ -1519,6 +1540,7 @@ def central(rows, price, candles, now_ms):
                 _cf(F, "direccion", 1, 1, f"Ciclo: {z.lower()}")
             elif "venta" in z.lower() or "caro" in z.lower():
                 _cf(F, "direccion", -1, 1, f"Ciclo: {z.lower()}")
+        _estirado(F, largo_tf)
         # ----- totales -----
         fz = sum(f[1] * f[2] for f in F if f[0] == "fuerza")
         dr = sum(f[1] * f[2] for f in F if f[0] == "direccion")
