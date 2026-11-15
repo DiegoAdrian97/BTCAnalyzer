@@ -2053,6 +2053,7 @@
   .ab-zona-b { position: relative; height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--t2-ink) 8%, transparent); overflow: visible; }
   .ab-zona-b i { position: absolute; top: 0; bottom: 0; }
   .ab-zona-b i.c { background: color-mix(in srgb, var(--color-ok) 55%, transparent); border-radius: 4px 0 0 4px; }
+  .ab-zona-b i.c.der { border-radius: 0 4px 4px 0; }
   .ab-zona-b i.v { background: color-mix(in srgb, var(--color-bad) 55%, transparent); border-radius: 0 4px 4px 0; }
   .ab-zona-b b { position: absolute; top: -4px; width: 3px; height: 16px; margin-left: -1.5px; border-radius: 2px; background: var(--t2-ink); box-shadow: 0 0 0 1.5px var(--t2-panel, #fff); }
   .ab-zona-z { text-align: right; font-weight: 650; color: var(--t2-mute); }

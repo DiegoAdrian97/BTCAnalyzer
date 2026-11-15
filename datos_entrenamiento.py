@@ -116,13 +116,15 @@ def onchain():
     """MVRV, emision diaria en USD, capitalizacion y BTC en circulacion (CoinMetrics community, gratis) para el
     termometro (armar_termometro.py)."""
     out = {}
-    for met in ("CapMVRVCur", "IssTotUSD", "CapMrktCurUSD", "SplyCur", "AdrActCnt"):    # direcciones: Metcalfe (zonas_ciclo.py)
-        rows, u = [], f"https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc&metrics={met}&frequency=1d&page_size=10000&start_time=2010-07-01"
+    # direcciones (Metcalfe), hashrate (hash ribbons) y stablecoins: zonas_ciclo.py
+    for activo, met in (("btc", "CapMVRVCur"), ("btc", "IssTotUSD"), ("btc", "CapMrktCurUSD"), ("btc", "SplyCur"), ("btc", "AdrActCnt"),
+                        ("btc", "HashRate"), ("usdt", "SplyCur"), ("usdc", "SplyCur")):
+        rows, u = [], f"https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets={activo}&metrics={met}&frequency=1d&page_size=10000&start_time=2010-07-01"
         while u:
             j = json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": UA}), timeout=90).read())
             rows += [[r["time"][:10], float(r[met])] for r in j.get("data", []) if r.get(met) not in (None, "")]
             u = j.get("next_page_url")
-        out["cm_" + met] = rows
+        out["cm_" + met if activo == "btc" else f"cm_{activo}_{met}"] = rows
         print(f"{met}: {len(rows)} días hasta {rows[-1][0] if rows else '-'}")
     return out
 

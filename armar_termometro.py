@@ -235,8 +235,11 @@ def onchain(t, c, path):
     import zonas_ciclo
     _, m_adr = serie("cm_AdrActCnt")
     ds = sorted(d for d in m_cap if d in m_sup and m_sup[d] > 0 and d >= 14809)        # desde el 18/7/2010
+    _, m_hr = serie("cm_HashRate"); _, m_usdt = serie("cm_usdt_SplyCur"); _, m_usdc = serie("cm_usdc_SplyCur")
+    st = np.array([(m_usdt.get(d, 0.0) + m_usdc.get(d, 0.0)) or np.nan for d in ds])
     vivo["zonas"] = zonas_ciclo.calcular(np.array(ds), np.array([m_cap[d] / m_sup[d] for d in ds]), np.array([m_sup[d] for d in ds]),
-                                         np.array([m_iss.get(d, np.nan) for d in ds]), np.array([m_adr.get(d, np.nan) for d in ds]))
+                                         np.array([m_iss.get(d, np.nan) for d in ds]), np.array([m_adr.get(d, np.nan) for d in ds]),
+                                         np.array([m_hr.get(d, np.nan) for d in ds]) if m_hr else None, st if m_usdt else None)
     return M, vivo
 
 

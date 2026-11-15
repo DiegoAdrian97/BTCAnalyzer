@@ -23,6 +23,11 @@ ZONAS = (
     ("pi", "Pi Cycle (media de 111 / 2 × media de 350)", ("<=", 0.35), ("p", 85), "100%", "0%"),
     ("potencia", "Ley de potencia (desvío del ajuste)", ("p", 15), ("p", 85), "89–100%", "15–33%"),
     ("metcalfe", "Metcalfe (precio contra direcciones activas)", None, ("p", 85), None, "39–48%"),
+    # lo descartado, medido otra vez como zonas (medir_zonas2.py, nov. 2026): sirven solas y no empeoran el conjunto
+    ("dias_max", "Días desde el máximo histórico", ("p>=", 85), None, "100%", None),          # mucho tiempo sin maximo: compra
+    ("thermocap", "Thermocap (capitalización / emisión acumulada)", None, ("p", 85), None, "17–50%"),
+    ("hash", "Hash ribbons (hashrate 30 / 60 días)", ("p", 10), None, "70–100%", None),        # mineros capitulando: compra
+    ("stable", "Emisión de stablecoins (90 días)", ("p", 10), None, "+28 a +34", None),       # casi no se emiten: compra
 )
 
 
@@ -33,7 +38,7 @@ def _sma(x, n):
     return out
 
 
-def calcular(dia, P, sup, iss_usd, adr):
+def calcular(dia, P, sup, iss_usd, adr, hashrate=None, stable=None):
     """dia: dias desde 1970 (int), P: precio, sup: BTC en circulacion, iss_usd: emision del dia en USD, adr: direcciones
     activas (np.nan si falta). Devuelve la lista de zonas con lo que la pagina necesita para el valor de hoy."""
     P = np.asarray(P, float)
@@ -43,7 +48,7 @@ def calcular(dia, P, sup, iss_usd, adr):
     def umbral(serie, z):
         if z is None:
             return None
-        if z[0] == "p":
+        if z[0] in ("p", "p>="):
             v = serie[np.isfinite(serie)]
             return float(np.percentile(v, z[1])) if len(v) > 730 else None
         return float(z[1])
@@ -76,12 +81,42 @@ def calcular(dia, P, sup, iss_usd, adr):
             b, a = np.polyfit(lx[ok], ly[ok], 1)
             serie = ly - (a + b * lx)
             e.update({"a": float(a), "b": float(b), "gen": gen})   # valor de hoy = log10(precio) - (a + b log10(dias))
-        if e.get("k") is None and "valor" not in e and "a" not in e:
+        elif zid == "dias_max":
+            mx = np.maximum.accumulate(P)
+            ult = np.zeros(n)
+            u = 0
+            for i in range(n):
+                if P[i] >= mx[i]:
+                    u = i
+                ult[i] = i - u
+            serie = ult
+            i_ath = int(np.argmax(P))
+            e.update({"ath": float(P[i_ath]), "ath_dia": int(dia[i_ath])})   # hoy: dias desde ath_dia (0 si el precio lo supera)
+        elif zid == "thermocap":
+            acum = np.cumsum(np.nan_to_num(np.asarray(iss_usd, float)))
+            serie = P * np.asarray(sup, float) / np.where(acum > 0, acum, np.nan)
+            e["k"] = float(sup[-1] / acum[-1])
+        elif zid == "hash" and hashrate is not None:
+            h = np.asarray(hashrate, float)
+            serie = _sma(h, 30) / _sma(h, 60)
+            if not np.isfinite(serie[-1]):
+                continue
+            e["valor"] = float(serie[-1])
+        elif zid == "stable" and stable is not None:
+            st = np.asarray(stable, float)
+            serie = np.full(n, np.nan)
+            serie[90:] = st[90:] / st[:-90] - 1
+            if not np.isfinite(serie[-1]):
+                continue
+            e["valor"] = float(serie[-1])
+        if e.get("k") is None and "valor" not in e and "a" not in e and "ath" not in e:
             continue
         e["compra"] = umbral(serie, zc)
+        if zc is not None and zc[0] == "p>=":
+            e["compra_dir"] = ">="                  # compra cuando el valor es ALTO (dias desde el maximo)
         e["venta"] = umbral(serie, zv)
         v = serie[np.isfinite(serie)]
         e["min"], e["max"] = float(np.percentile(v, 1)), float(np.percentile(v, 99))   # la escala de la barra
-        e["log"] = zid in ("ma2a", "ma200s", "golden", "mayer", "puell", "metcalfe")     # razones: escala logaritmica
+        e["log"] = zid in ("ma2a", "ma200s", "golden", "mayer", "puell", "metcalfe", "thermocap")     # razones: escala logaritmica
         out.append({k: (float(f"{x:.8g}") if isinstance(x, float) else x) for k, x in e.items()})
     return out

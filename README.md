@@ -764,9 +764,16 @@ menos. CoinMetrics y Fear & Greed, gratis.
 | Pi Cycle (≤ 0,35 / percentil ≥ 85) | 100% | 0% |
 | Ley de potencia (percentil ≤ 15 / ≥ 85) | 89–100% | 15–33% |
 | Metcalfe (percentil ≥ 85) | un solo tramo | 39–48% |
-| Delta Price, hash ribbons, Fear & Greed, RSI semanal (venta) | no separaron | no separaron |
+| Días desde el máximo (percentil ≥ 85: mucho tiempo sin máximo) | 100% (+22 y +40 puntos) | — |
+| Thermocap con la emisión (percentil ≥ 85) | — | 17–50% |
+| Hash ribbons (percentil ≤ 10: mineros capitulando) | 70–100% | — |
+| Emisión de stablecoins a 90 días (percentil ≤ 10: casi no se emiten) | +28 a +34 puntos (2019–21 y 2022–25) | — |
+| Fear & Greed (≤ 25 / ≥ 75), con la lógica "miedo = compra" | a 30 días, 57–64% en 3 de 4 tramos (normal 48–58%); a un año, no parejo (2022: siguió bajando meses) | sin patrón |
+| Delta Price, NVT por emisión, stock-to-flow, funding, volatilidad de 90 días, caída desde el máximo, RSI diario y semanal | no separaron o empeoraron el conjunto | |
 
-NUPL da lo mismo que el MVRV (es el MVRV escrito de otra forma): no se repite. NVT, velocidad, oferta activa en el último
+Las cuatro de "lo descartado, otra vez" salen de `medir_zonas2.py`: además de servir solas, sumadas al puntaje de las
+zonas (cuántas marcan compra menos venta) no lo empeoran (días desde el máximo lo mejora: AUC a un año 0,715 → 0,789 en
+2012–19 y 0,807 → 0,841 en 2020–25). El Fear & Greed entra por pedido, con su medición a la vista. NUPL da lo mismo que el MVRV (es el MVRV escrito de otra forma): no se repite. NVT, velocidad, oferta activa en el último
 año y Thermocap no están gratis en CoinMetrics. Se muestran en el ciclo ("Zonas del ciclo": una barra por indicador con
 su zona y la marca de hoy) y en la ficha del ciclo de la respuesta ("Zonas ▲4 ▼1"). Los umbrales y lo que necesita la
 página salen con el reentrenamiento semanal (`armar_termometro.py`); el valor de hoy se termina con el precio de ahora.

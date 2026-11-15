@@ -2054,6 +2054,7 @@
   .ab-zona-b { position: relative; height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--t2-ink) 8%, transparent); overflow: visible; }
   .ab-zona-b i { position: absolute; top: 0; bottom: 0; }
   .ab-zona-b i.c { background: color-mix(in srgb, var(--color-ok) 55%, transparent); border-radius: 4px 0 0 4px; }
+  .ab-zona-b i.c.der { border-radius: 0 4px 4px 0; }
   .ab-zona-b i.v { background: color-mix(in srgb, var(--color-bad) 55%, transparent); border-radius: 0 4px 4px 0; }
   .ab-zona-b b { position: absolute; top: -4px; width: 3px; height: 16px; margin-left: -1.5px; border-radius: 2px; background: var(--t2-ink); box-shadow: 0 0 0 1.5px var(--t2-panel, #fff); }
   .ab-zona-z { text-align: right; font-weight: 650; color: var(--t2-mute); }
@@ -2702,11 +2703,23 @@
         compra_medido: '85–88%', venta_medido: '22–40%' });
     }
     (o.zonas || []).forEach((e) => {
-      const v = e.k ? precio * e.k : e.valor !== undefined ? e.valor : e.a !== undefined ? Math.log10(precio) - (e.a + e.b * Math.log10(hoy - e.gen)) : null;
+      const v = e.k ? precio * e.k : e.valor !== undefined ? e.valor : e.a !== undefined ? Math.log10(precio) - (e.a + e.b * Math.log10(hoy - e.gen))
+        : e.ath !== undefined ? (precio >= e.ath ? 0 : hoy - e.ath_dia) : null;
       if (v === null || !isFinite(v)) return;
-      out.push({ ...e, v, fmt: e.id === 'potencia' ? (x) => `${x >= 0 ? '+' : ''}${f0((Math.pow(10, x) - 1) * 100)}%` : (x) => f2(x) });
+      const fmt = e.id === 'potencia' ? (x) => `${x >= 0 ? '+' : ''}${f0((Math.pow(10, x) - 1) * 100)}%` : e.id === 'dias_max' ? (x) => `${f0(x)} días`
+        : e.id === 'stable' ? (x) => `${x >= 0 ? '+' : ''}${f1(x * 100)}%` : e.id === 'thermocap' ? (x) => f1(x) : (x) => f2(x);
+      out.push({ ...e, v, fmt });
     });
-    out.forEach((e) => { e.zona = e.compra !== null && e.compra !== undefined && e.v <= e.compra ? 'compra' : e.venta !== null && e.venta !== undefined && e.v >= e.venta ? 'venta' : 'neutral'; });
+    // Fear & Greed, con la logica de Diego: cuanto mas miedo, mejor para comprar (miedo extremo <= 25: compra; codicia
+    // extrema >= 75: venta). Lo medido (medir_zonas2.py) va en su detalle: no paso la prueba de zonas a un año
+    if (t && t.fng !== null && t.fng !== undefined && isFinite(num(t.fng))) {
+      out.push({ id: 'fng', nombre: 'Fear & Greed (miedo = compra)', v: num(t.fng), compra: 25, venta: 75, min: 0, max: 100, log: false, fmt: (x) => f0(x),
+        nota: 'Con miedo extremo, a 30 días subió 57–64% de las veces en 3 de 4 tramos desde 2018 (un día cualquiera: 48–58%); a un año depende del momento: en 2022 siguió bajando meses. Con codicia extrema no hubo un patrón parejo.' });
+    }
+    out.forEach((e) => {
+      const enCompra = e.compra !== null && e.compra !== undefined && (e.compra_dir === '>=' ? e.v >= e.compra : e.v <= e.compra);
+      e.zona = enCompra ? 'compra' : e.venta !== null && e.venta !== undefined && e.v >= e.venta ? 'venta' : 'neutral';
+    });
     return out;
   }
   function pintarZonas() {
@@ -2728,18 +2741,23 @@
       const lo = Math.min(e.min, e.compra ?? e.min), hi = Math.max(e.max, e.venta ?? e.max);
       const tr = (x) => (e.log ? Math.log(Math.max(x, 1e-12)) : x), pos = (x) => `${Math.max(0, Math.min(100, ((tr(x) - tr(lo)) / (tr(hi) - tr(lo) || 1)) * 100))}%`;
       const row = el('div', `ab-zona ${e.zona}`), bar = el('span', 'ab-zona-b');
-      if (e.compra !== null && e.compra !== undefined) { const z = el('i', 'c'); z.style.left = '0'; z.style.width = pos(e.compra); bar.append(z); }
+      if (e.compra !== null && e.compra !== undefined) {
+        const z = el('i', `c${e.compra_dir === '>=' ? ' der' : ''}`);
+        if (e.compra_dir === '>=') { z.style.left = pos(e.compra); z.style.right = '0'; } else { z.style.left = '0'; z.style.width = pos(e.compra); }
+        bar.append(z);
+      }
       if (e.venta !== null && e.venta !== undefined) { const z = el('i', 'v'); z.style.left = pos(e.venta); z.style.right = '0'; bar.append(z); }
       const mk = el('b'); mk.style.left = pos(e.v); bar.append(mk);
       const nom = el('span', 'ab-zona-n', e.nombre.replace(/ \(.*\)$/, '')); nom.title = e.nombre;
       row.append(nom, bar, el('span', `ab-zona-z ${e.zona}`, e.zona === 'compra' ? 'compra' : e.zona === 'venta' ? 'venta' : '—'));
+      const med = (m) => (String(m).startsWith('+') ? `a un año, ${m} puntos más que un día cualquiera` : `a un año subió ${m} de las veces`);
       row.title = `${e.nombre}: hoy ${e.fmt(e.v)}.`
-        + (e.compra_medido ? ` Zona de compra (hasta ${e.fmt(e.compra)}): a un año subió ${e.compra_medido} de las veces.` : ' Su zona de compra no sirvió (no se muestra).')
-        + (e.venta_medido ? ` Zona de venta (desde ${e.fmt(e.venta)}): a un año subió ${e.venta_medido}.` : ' Su zona de venta no sirvió.')
-        + ' Un día cualquiera: 60–78%.';
+        + (e.nota ? ` Zona de compra hasta ${e.fmt(e.compra)}, de venta desde ${e.fmt(e.venta)}. ${e.nota}`
+          : (e.compra_medido ? ` Zona de compra (${e.compra_dir === '>=' ? 'desde' : 'hasta'} ${e.fmt(e.compra)}): ${med(e.compra_medido)}.` : ' Su zona de compra no sirvió (no se muestra).')
+            + (e.venta_medido ? ` Zona de venta (desde ${e.fmt(e.venta)}): ${med(e.venta_medido)}.` : ' Su zona de venta no sirvió.') + ' Un día cualquiera: 60–78%.');
       lista.append(row);
     });
-    const nota = el('p', 'ab-note', 'Indicadores de ciclo que marcan zonas (no el punto exacto: pueden durar meses). Medidos con toda la historia de BTC (2012–2019 y 2020–2025, sin mirar el futuro): estando en la zona de compra, un año después BTC estaba más arriba el 83–100% de las veces; en la de venta, el 0–50%; un día cualquiera, el 60–78%. Verde: zona de compra · rojo: de venta · la marca: hoy. Quedaron afuera porque no separaron: Delta Price, hash ribbons, Fear & Greed y el RSI semanal. Pasá el dedo o el mouse por cada uno para ver lo medido.');
+    const nota = el('p', 'ab-note', 'Indicadores de ciclo que marcan zonas (no el punto exacto: pueden durar meses). Medidos con toda la historia de BTC (2012–2019 y 2020–2025, sin mirar el futuro): estando en la zona de compra, un año después BTC estaba más arriba el 83–100% de las veces; en la de venta, el 0–50%; un día cualquiera, el 60–78%. Verde: zona de compra · rojo: de venta · la marca: hoy. Se volvió a medir todo lo descartado: sumaron los días desde el máximo, el Thermocap, los hash ribbons y la emisión de stablecoins; el Fear & Greed va con tu lógica (miedo = compra) aunque como zona a un año no fue parejo. Quedaron afuera: Delta Price, NVT, stock-to-flow, funding, volatilidad, caída desde el máximo, RSI diario y semanal. Pasá el dedo o el mouse por cada uno para ver lo medido.');
     const det = el('details', 'ab-pos-det'); det.append(el('summary', '', 'ⓘ Cómo se lee'), nota);
     box.replaceChildren(el('p', 'ab-tm-sec', 'Zonas del ciclo'), cab, lista, det);
   }
