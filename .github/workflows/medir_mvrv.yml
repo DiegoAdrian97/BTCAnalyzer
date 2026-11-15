@@ -1,0 +1,20 @@
+name: Medir las bandas de desvío del MVRV
+# A mano desde Actions (o al cambiar el medidor): corre medir_mvrv_bandas.py con CoinMetrics (gratis) y deja el
+# resultado como artefacto. No cambia nada del analisis: solo mide.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/medir_mvrv.yml", "medir_mvrv_bandas.py"]
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: python -u medir_mvrv_bandas.py | tee mvrv.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: medicion-mvrv, path: mvrv.txt }
