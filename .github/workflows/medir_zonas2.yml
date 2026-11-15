@@ -16,7 +16,8 @@ jobs:
         with: { python-version: "3.12" }
       - uses: actions/cache@v4
         with: { path: datos_medicion, key: zonas2-v1 }
-      - run: python -u medir_zonas2.py | tee zonas2.txt
+      - run: pip install numpy
+      - run: set -o pipefail; python -u medir_zonas2.py | tee zonas2.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: medicion-zonas2, path: zonas2.txt }
