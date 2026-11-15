@@ -1,0 +1,32 @@
+name: Archivar opciones y perpetuos (datos sin historia gratis)
+# Cada 4 horas guarda la cadena de opciones de Deribit y el funding / open interest de Hyperliquid, OKX y Bybit en la
+# rama 'archivo', para poder medirlos cuando junten unos meses. Ver archivar.py.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 */4 * * *"
+  push:
+    branches: [main]
+    paths: [".github/workflows/archivar.yml", "archivar.py"]
+permissions:
+  contents: write
+concurrency: archivar
+jobs:
+  archivar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Rama archivo
+        run: |
+          git fetch origin archivo:archivo 2>/dev/null && git worktree add ../arch archivo || {
+            git worktree add --detach ../arch && cd ../arch && git checkout --orphan archivo && git rm -rfq . && echo "Datos archivados cada 4 horas (archivar.py en main)." > LEEME.txt; }
+      - run: python archivar.py ../arch
+      - name: Subir
+        run: |
+          cd ../arch
+          git config user.name "github-actions[bot]"; git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || { git commit -qm "archivo: $(date -u +%Y-%m-%dT%H:%MZ)"; git push -q origin archivo; }

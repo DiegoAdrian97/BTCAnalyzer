@@ -20,6 +20,7 @@ services:
         - JavascriptVersion/modelo_fuerte.json
       ignoredPaths:              # los medidores y las pruebas no los usa el servidor: no lo reinician
         - "medir_*.py"
+        - archivar.py
         - "backtest_*.py"
         - pruebas/**
     envVars:
