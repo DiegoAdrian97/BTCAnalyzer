@@ -18,6 +18,10 @@ services:
         - data/**
         - JavascriptVersion/termometro.json
         - JavascriptVersion/modelo_fuerte.json
+      ignoredPaths:              # los medidores y las pruebas no los usa el servidor: no lo reinician
+        - "medir_*.py"
+        - "backtest_*.py"
+        - pruebas/**
     envVars:
       - key: VIVO_CLAVE
         sync: false

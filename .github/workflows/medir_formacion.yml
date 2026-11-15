@@ -1,0 +1,23 @@
+name: Medir vela en formación, estructura al revés y retorno en plata
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/medir_formacion.yml", "medir_formacion.py"]
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        que: ["formacion", "estructura"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install numpy
+      - run: set -o pipefail; python -u medir_formacion.py ${{ matrix.que }} | tee formacion_${{ matrix.que }}.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: "medicion-formacion-${{ matrix.que }}", path: "formacion_${{ matrix.que }}.txt" }
