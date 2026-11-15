@@ -1248,6 +1248,7 @@ PLAZOS = [
     ("1 mes", "1d", 30, ("1w", "1M"), (), "1 semana"),
 ]
 # (plazo, temporalidad) -> (que hacer con la sobrecompra, con la sobreventa): medir_rsi.py
+DIV_MEDIDO = {("4 horas", "1h"), ("1 día", "4h")}     # (plazo, temporalidad) donde la divergencia cuenta: medir_estructura.py
 RSI_MEDIDO = {("1 hora", "15m"): ("revierte", "revierte"), ("1 hora", "1h"): ("revierte", "revierte"),
               ("4 horas", "1h"): (None, "revierte"), ("1 semana", "1d"): ("sigue", None)}
 CTX_MEDIDO = ("oi_1h", "oi_4h", "oi_24h", "long_short")   # su senal solo marca lo que gano en las mediciones
@@ -1463,13 +1464,8 @@ def central(rows, price, candles, now_ms):
                 if e.get("tabla") == "explicacion" and e["plazo"] == nombre_plazo and e["tipo"] == "senal" and e["sesgo"] in ("alcista", "bajista") \
                         and not e["texto"].startswith(("Indicadores de", "Casos parecidos")):
                     _cf(F, "direccion", 1 if e["sesgo"] == "alcista" else -1, 1, e["texto"])
-        else:
-            for x in pick("patron"):
-                if x["tf"] == tf and x["sesgo"] in ("alcista", "bajista"):
-                    _cf(F, "direccion", 1 if x["sesgo"] == "alcista" else -1, 1, f"{x['nombre']} ({x['estado']})")
-            for x in pick("divergencia"):
-                if x["tf"] == tf and x["tipo"] in ("alcista", "bajista"):
-                    _cf(F, "direccion", 1 if x["tipo"] == "alcista" else -1, 1, f"Divergencia {x['tipo']} en {x['indicador']}")
+        # (sin plazo propio, velas de 30 min: las figuras y las divergencias no se midieron ahi y en el resto no
+        # anticipan: no suman)
         if p and nombre_plazo == "1 hora" and p.get("coinciden") in ("alcista", "bajista"):
             # medido (medir_contexto.py): asi la de 1 hora acerto 54,0% contra 51,5%, en los dos tramos
             _cf(F, "direccion", 1 if p["coinciden"] == "alcista" else -1, 1, "15 min, 1 hora y 4 horas apuntan para el mismo lado (medido: acierta 54% contra 51,5%)")
@@ -1503,16 +1499,6 @@ def central(rows, price, candles, now_ms):
         if r_ is not None and abs(r_) > 0.1 and not largo_tf:
             _cf(F, "direccion", -1 if r_ > 0 else 1, 1,
                 f"Indicadores {marco['rating_txt'].lower()}: en las próximas horas suele corregir (medido: a favor aciertan 46–48%)")
-        el = marco.get("elliott") or ""
-        cur = marco.get("elliott_curso")
-        ya = any(f[3].startswith("Elliott") for f in F)                  # el de la explicacion ya esta
-        if cur and not ya:
-            alc = "alcista" in el.split(";")[0]
-            if el.startswith("Impulso"):
-                sube = (cur in ("1", "3", "5", "B")) == alc
-            else:
-                sube = (cur == "B") == alc
-            _cf(F, "direccion", 1 if sube else -1, 1, f"Elliott: onda {cur} en curso ({el.split(';')[0].lower()})")
         bb = ind_.get("Bandas de Bollinger %B")
         if bb and bb["valor"] is not None and (bb["valor"] >= 100 or bb["valor"] <= 0) and not largo_tf:
             # medido: fuera de banda, la hora siguiente volvio hacia adentro el 56-59% de las veces (los dos tramos). En el
@@ -1530,12 +1516,11 @@ def central(rows, price, candles, now_ms):
                 _cf(F, "direccion", 1, 1, f"Más liquidaciones abajo ({ar(abajo, 0)} M de longs) que arriba ({ar(arriba, 0)} M): medido, el precio suele ir para el otro lado (52–53%)")
         # los libros de ordenes y el funding no ganaron en las mediciones ("quedan como contexto, sin peso"): ya no suman a
         # la direccion (se ven en el contexto). Asi lo que dice cada parte de la app sale de lo mismo, sin contradecirse
-        if tm and tf in ("4h", "1d", "1w", "1M"):
-            z = tm["medidor_zona"]
-            if "compra" in z.lower():
-                _cf(F, "direccion", 1, 1, f"Ciclo: {z.lower()}")
-            elif "venta" in z.lower() or "caro" in z.lower():
-                _cf(F, "direccion", -1, 1, f"Ciclo: {z.lower()}")
+        # El ciclo (medidor) ya no suma a la direccion. Medido (armar_termometro.py medir_cortos, sin mirar el futuro,
+        # 2019-22 y 2023-26): estando en zona de compra o de venta, a 1 y 7 dias el precio fue para ese lado como un
+        # dia cualquiera (z entre -0,5 y +1,3); a 30 dias mas seguido (61-65% contra 55-58% en compra; 57-58% contra
+        # 43-45% en caro o venta) pero sin llegar a z 2 (+0,7 a +1,2). Antes sumaba siempre 1 punto de 4 horas a 1 mes
+        # (el medidor no tiene zona neutral). Se muestra aparte, con su plazo de 6 a 12 meses
         _estirado(F, largo_tf)
         # ----- totales -----
         fz = sum(f[1] * f[2] for f in F if f[0] == "fuerza")
@@ -1597,7 +1582,7 @@ def explain(rows, price, spec):
     # diario 2011-2026, en los dos tramos con z >= 2). Revierte la hora siguiente en velas de 15 min y de 1 h (+3 a +6
     # puntos sobre lo normal) y, en 1 h, la sobreventa tambien a 4 h; el RSI diario en sobrecompra, al reves: la semana
     # siguiente suele seguir subiendo (-13 a -14 puntos de reversion). En el resto (4 h, diario a 1 y 30 dias, semanal)
-    # da ~50%: no entra. El cruce del MACD da ~50% en 4 h o menos: solo en el diario o mas, como antes (sin medir)
+    # da ~50%: no entra. El cruce del MACD da ~50% en todas las temporalidades (medir_estructura.py): no entra
     for tf in sig_tfs:
         m = get("marco", tf=tf)[0]
         sc, sv = RSI_MEDIDO.get((name, tf), (None, None))
@@ -1607,19 +1592,18 @@ def explain(rows, price, spec):
             signals.append((4, "alcista", f"RSI de {TF_TXT[tf]} en sobrecompra ({ar(m['rsi'])}): la semana siguiente suele seguir (medido)"))
         elif sv == "revierte" and m["rsi"] <= 30:
             signals.append((4, "alcista", f"Posible rebote: RSI de {TF_TXT[tf]} en sobreventa ({ar(m['rsi'])})"))
-        if tf in ("1d", "1w", "1M") and m["macd_cruce"]:
-            signals.append((4, m["macd_cruce"], f"MACD de {TF_TXT[tf]} cruzó {'al alza' if m['macd_cruce'] == 'alcista' else 'a la baja'}"))
-    for p in get("patron"):
-        if p["tf"] not in sig_tfs or p["sesgo"] == "neutral":
-            continue
-        target = f" → {ap(p['objetivo'])}" if p["objetivo"] else ""
-        if p["clase"] == "grafico":
-            signals.append((1 if p["estado"] == "confirmado" else 4, p["sesgo"], f"{p['nombre']} en {TF_TXT[p['tf']]}{target}"))
-        elif p["exito"] is not None and p["exito"] >= 55 and p["casos"] >= 20:
-            signals.append((5, p["sesgo"], f"{p['nombre']} en {TF_TXT[p['tf']]} (funcionó {ar(p['exito'])}%)"))
+    # Figuras del grafico, Wyckoff, patrones de velas, Elliott y el cruce del MACD ya no son señales de direccion. Medido
+    # (medir_estructura.py, las mismas funciones de la app sobre BTC 2021-2026 y diario 2017-2026, dos tramos): ninguna
+    # anticipa a favor. Una figura confirmada en velas de 1 h acerto 46,7% / 47,6% la hora siguiente (z -5,5 / -2,8) y
+    # en 4 h 47,5% / 45,9%: despues de romper, el precio suele retroceder. Elliott (onda en curso u objetivo) en 1 h:
+    # 46-49% (z -8 a -2). Los patrones de velas que "habian funcionado 55%+" acertaron 44-48% despues. Wyckoff y el
+    # cruce del MACD: ~50%. En el diario nada llega a z 2. Siguen dibujados en el grafico y en su seccion, con
+    # objetivos y niveles: dicen donde mirar, no para donde va.
+    # Las divergencias quedan solo donde estuvieron cerca: las de 1 h para las proximas 4 horas (51,7% / 52,1%, z +2,1 /
+    # +1,7; RSI 52,9% / 52,1%) y las de 4 h para el dia (54,3% / 52,2%, z +2,1 / +0,8). En el resto ~50%
     divs = {}
     for d in get("divergencia"):
-        if d["tf"] in sig_tfs:
+        if d["tf"] in sig_tfs and (name, d["tf"]) in DIV_MEDIDO:
             divs.setdefault((d["tf"], d["tipo"]), []).append(d["indicador"])
     for (tf, tipo), names in divs.items():
         signals.append((3, tipo, f"Divergencia {tipo} en {' y '.join(names)} ({TF_TXT[tf]})"))
@@ -1631,10 +1615,6 @@ def explain(rows, price, spec):
     if main["veredicto"] != "Casi moneda":
         signals.append((2, "alcista" if main["veredicto"] == "Sesgo alcista" else "bajista",
                         f"Casos parecidos: cerró arriba {ar(main['sube'])}% (normal {ar(main['base'])}%)"))
-    m_last = get("marco", tf=sig_tfs[-1])[0]
-    if m_last["elliott_objetivo"]:
-        signals.append((7, "alcista" if m_last["elliott_objetivo"] > price else "bajista",
-                        f"Elliott {TF_TXT[sig_tfs[-1]]}: {m_last['elliott_corto'].split(':')[0]} → {ap(m_last['elliott_objetivo'])}"))
     if "4h" in sig_tfs:     # tocando un Fibonacci de 90 dias que rebota mas que un nivel cualquiera
         fz = [n for n in get("nivel") if n.get("fib") and n["rebote"] >= 55 and abs(n["distancia"]) <= 0.4]
         if fz:

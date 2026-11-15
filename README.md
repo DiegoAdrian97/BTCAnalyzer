@@ -677,7 +677,7 @@ y 1M) junta todos los cálculos de la app en cinco puntos, cada señal con su pe
 | Punto | Qué suma |
 |---|---|
 | ¿Se viene movimiento fuerte? | Modelo de árboles (1 h o 4 h, hasta ±3), mercado despierto (+2) o agitado/en calma (±1), Bollinger comprimidas en esa temporalidad (+1), volumen 2× (+1), ADX ≥ 25 (+0,5), hora del día (±1), dato fuerte de EE.UU. en la ventana (+2), liquidaciones a menos de 1% (+1), volatilidad implícita de las opciones en su 20% más alto o más bajo de 30 días (±1; medido con `medir_dvol.py`: las 4 h siguientes fueron fuertes 18–26% de las veces con el DVOL alto y 7–9% con el bajo, contra 12–13% normal, en 2022, 2023-24 y 2025-26). Alta desde 4, media desde 2 |
-| ¿Sube o baja? | Casos parecidos y aprendizaje (±3; ±1 si no le ganó a la tasa base), en 1 hora si 15 min, 1 h y 4 h coinciden (±1; medido: 54% contra 51,5%), indicadores del marco (±1 al revés en 4 h o menos; en diario o más no cuentan: `medir_largos.py`), cada señal de la explicación: patrones, divergencias, canales, Wyckoff, Elliott (±1; el RSI extremo y el cruce del MACD solo en el diario o más: en 4 h o menos dan ~50%, ver "Cada indicador, medido"), Bollinger fuera de banda en 4 h o menos (±1), liquidaciones de cada lado dentro de 3% (±1), libros (±0,5), ciclo y funding en 4 h o más (±1 / ±0,5). Sube desde +2,5, baja desde −2,5 |
+| ¿Sube o baja? | Casos parecidos y aprendizaje (±3; ±1 si no le ganó a la tasa base), en 1 hora si 15 min, 1 h y 4 h coinciden (±1; medido: 54% contra 51,5%), indicadores del marco (±1 al revés en 4 h o menos; en diario o más no cuentan: `medir_largos.py`), cada señal medida de la explicación (±1): RSI extremo donde revierte o sigue, divergencias de 1 h para 4 horas y de 4 h para el día, open interest y cuentas (figuras, velas, Wyckoff, Elliott y cruce del MACD ya no suman: ver "Figuras, velas, divergencias y Elliott, medidos"), Bollinger fuera de banda en 4 h o menos (±1), liquidaciones de cada lado dentro de 3% (±1), (libros, funding y ciclo ya no suman: no pasaron la medición). Sube desde +2,5, baja desde −2,5 |
 | ¿Hasta dónde? | Rango del 80%, objetivos con su chance de tocarse, movimiento esperado en una hora, objetivo de Elliott |
 | Niveles | Soporte y resistencia más cercanos e invalidación |
 | Atención | RSI extremo, dato fuerte en 24 h, movimiento fuerte, señales en contra casi tan fuertes |
@@ -786,6 +786,38 @@ de 1 hora 2021–2026 (232 huecos de 0,5% o más; tamaño medio 2,2–2,4%): se 
 67–76% y en 7 días el 73–87%; un movimiento igual en cualquier otro momento, 29–32%, 53% y 66–67%. Pero el precio no
 cierra más seguido hacia el hueco (a 24 horas, 46–49%): es un **nivel que atrae, no una dirección**. Entra como nivel
 ("Hueco del CME · en 3 días se rellenó 67–76%", solo BTC, mientras siga abierto y hasta 7 días) y no suma puntos.
+
+### Figuras, velas, divergencias y Elliott, medidos (`medir_estructura.py`, nov. 2026)
+
+Eran lo último que el análisis sumaba sin medir (1 punto cada una, a favor). Con las mismas funciones de la app
+(`indicadores.py`: `patron_grafico`, `wyckoff`, `patrones_velas`, `divergencias`, `elliott`) sobre la ventana de 600
+velas que tendría en cada momento, cada vela de BTC 2021–2026 (5 min, 15 min, 1 h, 4 h; tramos 2021–24 y 2025–26) y
+diarias 2017–2026: cuando la señal está, ¿el precio fue para ese lado? (% de acierto en cada tramo; lo normal ≈ 50%)
+
+| Señal | Velas de 1 h | Velas de 4 h | Diario | Qué se hizo |
+|---|---|---|---|---|
+| Figura confirmada (rompió su línea) | a 1 h 46,7% / 47,6% (z −5,5 / −2,8); a 4 h 47,1% / 46,6% | a 4 h 47,5% / 45,9% (z −2,0 / −2,4) | a 30 días 63% / 59% (z +1,3 / +1,0) | No suma más. Después de romper suele retroceder (lo mismo que "el precio estirado corrige", que ya cuenta) |
+| Figura en formación | 49,3% / 49,4% | 50,7% / 51,8% | ~50% | No suma más |
+| Wyckoff | 48,1% / 50,9% | 47,7% / 48,8% | pocos casos, z < 1,5 | No suma más |
+| Patrón de velas que "funcionó 55%+ en 20+ casos" | a 4 h 46,4% / 43,7% (z −2,1 / −2,5) | 40,5% / 48,5% | pocos | No suma más: el acierto pasado de cada patrón no se repite |
+| Elliott: onda en curso | 48,0% / 48,9% (z −5,3 / −2,0) | 48,7% / 48,1% | a 7 días 51% / 40% | No suma más |
+| Elliott: hacia el objetivo | 46,4% / 48,2% (z −8,1 / −2,6) | 47,7% / 48,9% | ~50% | No suma más |
+| Cruce del MACD | 45,2% / 49,4% | 48,5% / 46,1% | a 1 día 42,9% / 45,9%; a 7 y 30 días ~50% | No suma más (antes solo en diario o más, "sin medir") |
+| Divergencia (RSI o MACD) | a 1 h 50,5% / 50,4%; **a 4 h 51,7% / 52,1%** (z +2,1 / +1,7; solo RSI 52,9% / 52,1%) | a 4 h ~50%; **a 24 h 54,3% / 52,2%** (z +2,1 / +0,8) | a 1 día 45,5% / 51,9% | Queda donde estuvo cerca: las de 1 h para las próximas 4 horas y las de 4 h para el día. En el resto no suma |
+
+Todo sigue dibujado en el gráfico y en su sección, con objetivos y niveles (dicen dónde mirar, no para dónde va); la
+sección y el glosario lo aclaran. **El ciclo** (medidor) tampoco suma ya a la dirección de 4 horas a 1 mes
+(`armar_termometro.py`, `medir_cortos`, sin mirar el futuro, 2019–22 y 2023–26): estando en zona de compra o de venta,
+a 1 y 7 días el precio fue para ese lado como un día cualquiera (z entre −0,5 y +1,3); a 30 días más seguido (compra
+61% / 65% contra 55% / 58%; caro o venta 58% / 57% contra 45% / 43%) pero con z +0,7 a +1,2: hay ~30 meses
+independientes por tramo. Como el medidor no tiene zona neutral, antes sumaba siempre 1 punto. Se muestra aparte con
+su plazo (6 a 12 meses), que es donde está medido.
+
+Con esto, **todo lo que suma a la dirección está medido**: casos parecidos (con su repaso), los tres marcos que
+coinciden, indicadores y Bollinger al revés y RSI extremo en 4 h o menos (juntos como "precio estirado"), divergencia
+de CVD, absorción y barridas, liquidaciones al revés, open interest y cuentas, las divergencias de arriba y el RSI
+diario en sobrecompra. En 1 semana y 1 mes quedan casi solo los casos parecidos: si no le ganan a lo normal, dice
+"lateral".
 
 ### Indicadores del gráfico diario y semanal (`medir_largos.py`, nov. 2026)
 

@@ -1289,8 +1289,8 @@
 
   // Una sola fuente: el analisis central del plazo que miras (junta casos parecidos, indicadores como cuentan medidos,
   // patrones, flujo, liquidaciones, RSI, ciclo...). La direccion, las señales a favor y en contra y la frase salen de ahi:
-  // ninguna parte de la app dice otra cosa. El ciclo mira meses a un año: se muestra con su plazo y se dice si ya esta
-  // sumado en este plazo (de 4 horas en adelante) o no.
+  // ninguna parte de la app dice otra cosa. El ciclo mira meses a un año: se muestra con su plazo y va aparte (medido a
+  // 1, 7 y 30 dias no anticipa: no suma a la direccion de ningun plazo).
   const centralDe = (rows) => { const t = (rows || []).filter((x) => x.tabla === 'central'); return t.find((x) => x.plazo === S.plazo) || t.find((x) => x.tf === S.tf) || t.find((x) => x.tf === '1h') || null; };
   const corto_ = (t) => String(t || '').replace(/\s*\((medido|fuerza)[^)]*\)/gi, '').replace(/: medido,.*$/i, '').split(' (')[0];
   const min1 = (t) => (/^[A-ZÁÉÍÓÚ][a-záéíóúñ]/.test(t) ? t[0].toLowerCase() + t.slice(1) : t);   // sin romper siglas (RSI, MACD, CVD)
@@ -1311,10 +1311,8 @@
     const fr = [];
     fr.push(`Para ${plazoTxt(plz)}: ${dTxt.toLowerCase()}.`
       + (mas.length ? ` A favor de la suba pesa más: ${min1(corto_(mas[0][3]))}` : '')
-      + (menos.length ? `${mas.length ? '; ' : ' '}a favor de la baja: ${min1(corto_(menos[0][3]))}` : '') + (mas.length || menos.length ? '.' : ''));
-    const cicloSumado = fs.some((f) => /^Ciclo:/.test(f[3]));
-    if (lc) fr.push(cicloSumado ? `El ciclo (${zona.toLowerCase()}) ya está sumado en este plazo.`
-      : `El ciclo mira meses a un año (${zona.toLowerCase()}): no se suma a ${plazoTxt(plz)}, así que no la contradice.`);
+      + (menos.length ? `${mas.length ? '; a' : ' A'} favor de la baja${mas.length ? '' : ' pesa'}: ${min1(corto_(menos[0][3]))}` : '') + (mas.length || menos.length ? '.' : ''));
+    if (lc) fr.push(`El ciclo mira meses a un año (${zona.toLowerCase()}): va aparte, no suma a esta dirección.`);
     const cc = document.getElementById('cc-txt');
     cc.replaceChildren(fr[0], ...fr.slice(1).map((x) => el('span', 'ab-cc-mas', ` ${x}`)));
   }
@@ -5990,6 +5988,8 @@
     const pats = document.getElementById('pats'); pats.replaceChildren();
     const list = pick(rows, 'patron', S.tf).sort((a, b) => (a.clase === 'grafico' ? -1 : 1));
     if (!list.length && !pick(rows, 'divergencia', S.tf).length) pats.append(el('p', 'ab-note', 'Sin figuras, patrones de velas ni divergencias claras en esta temporalidad.'));
+    // medir_estructura.py: figuras, velas, Wyckoff y Elliott no anticipan la direccion: no suman al analisis
+    if (list.length || pick(rows, 'divergencia', S.tf).length) pats.append(el('p', 'ab-note', 'Medido: figuras, velas y Elliott marcan niveles y objetivos, no la dirección. No suman a la predicción.'));
     list.forEach((p) => {
       const card = el('div', 'ab-pat'); const top = el('div', 'ab-pat-top');
       const chip = el('span', 'ab-sigchip ab-' + (p.sesgo === 'alcista' ? 'compra' : p.sesgo === 'bajista' ? 'venta' : 'neutral'),
@@ -6513,7 +6513,7 @@
       'Debajo de 30 (sobreventa): la baja está estirada. Medido: en 15 min y 1 h suele rebotar la hora siguiente.', 'Arriba de 70 (sobrecompra): la suba está estirada. Medido: en 15 min y 1 h suele corregir la hora siguiente; en el diario, al revés, suele seguir.',
       'Si el precio hace un extremo nuevo y el RSI no, es una divergencia: el movimiento pierde fuerza.'],
     [/^MACD/, 'osc', 'MACD', 'La diferencia entre dos medias (12 y 26) y su señal (9). Las barras muestran la distancia entre las dos líneas: el impulso.',
-      'MACD cruza arriba de su señal o las barras crecen: el impulso acompaña la suba.', 'Cruza abajo o las barras caen: el impulso acompaña la baja.'],
+      'MACD cruza arriba de su señal o las barras crecen: el impulso acompaña la suba.', 'Cruza abajo o las barras caen: el impulso acompaña la baja.', 'Medido en BTC: después del cruce el precio fue para ese lado ~50% (en 1 h, 4 h y diario). No suma a la predicción.'],
     [/^Estoc[aá]stico/, 'osc', 'Estocástico', 'Dónde cerró el precio dentro del rango de las últimas 14 velas, de 0 (en el mínimo) a 100 (en el máximo).',
       'Debajo de 20 y girando hacia arriba: rebote probable.', 'Arriba de 80 y girando hacia abajo: freno probable.'],
     [/^CCI/, 'osc', 'CCI · Índice del canal de commodities', 'Cuánto se alejó el precio de su promedio, comparado con lo que suele alejarse.', 'Debajo de −100: estirado a la baja, suele rebotar.', 'Arriba de +100: estirado a la suba, suele frenar.'],
@@ -6597,8 +6597,8 @@
     [/^(Fibonacci|Líneas violetas punteadas)/, 'est', 'Retrocesos de Fibonacci', 'Niveles entre el mínimo y el máximo del último tramo grande (23,6%, 38,2%, 50%, 61,8% y 78,6%), donde el precio suele frenar al retroceder.',
       null, null, 'Medido en BTC: rebotaron entre 42% y 62% de las veces según el nivel; el porcentaje de cada uno está en su etiqueta.'],
     [/^(Ondas|Elliott)/, 'est', 'Ondas de Elliott', 'La teoría de que el precio avanza en 5 ondas (1, 3 y 5 a favor; 2 y 4 correcciones) y corrige en 3 (A, B, C).',
-      'En curso una onda 1, 3 o 5 de un impulso alcista: suele seguir subiendo.', 'En curso una onda bajista: suele seguir bajando.', 'Es interpretativo: el conteo puede cambiar con el precio.'],
-    [/^(Patrones$|Flechita)/, 'pat', 'Patrones', 'Figuras de velas y figuras del gráfico (dobles techos, triángulos, hombro-cabeza-hombro…) que el sistema detecta solo, con su objetivo.', null, null, 'Una figura "posible" se confirma recién cuando el precio cierra del otro lado de su línea clave.'],
+      'En curso una onda 1, 3 o 5 de un impulso alcista: suele seguir subiendo.', 'En curso una onda bajista: suele seguir bajando.', 'Es interpretativo: el conteo puede cambiar con el precio. Medido en BTC: la onda en curso y el objetivo no anticipan (en 1 h aciertan 46–49%; en 4 h y diario ~50%). No suma a la predicción: sirve para niveles.'],
+    [/^(Patrones$|Flechita)/, 'pat', 'Patrones', 'Figuras de velas y figuras del gráfico (dobles techos, triángulos, hombro-cabeza-hombro…) que el sistema detecta solo, con su objetivo.', null, null, 'Una figura "posible" se confirma recién cuando el precio cierra del otro lado de su línea clave. Medido en BTC: las figuras y los patrones de velas no anticipan la dirección (una figura recién confirmada en 1 h o 4 h suele retroceder antes de seguir: acierta 46–48%). No suman a la predicción: sirven para niveles y objetivos.'],
     [/^(✓ |Posible )?doble techo/i, 'pat', 'Doble techo', 'Dos máximos parecidos que rechazaron la misma zona, con un piso en el medio (el cuello).', null, 'Si cierra debajo del cuello, se confirma y apunta a bajar tanto como la altura de la figura.'],
     [/^(✓ |Posible )?doble piso/i, 'pat', 'Doble piso', 'Dos mínimos parecidos que defendieron la misma zona, con un techo en el medio (el cuello).', 'Si cierra arriba del cuello, se confirma y apunta a subir tanto como la altura de la figura.', null],
     [/^(✓ |Posible )?triple techo/i, 'pat', 'Triple techo', 'Tres máximos parecidos que rechazaron la misma zona.', null, 'Si cierra debajo del cuello, se confirma: apunta a bajar la altura de la figura.'],
@@ -6608,7 +6608,7 @@
     [/^(✓ |Posible )?triángulo/i, 'pat', 'Triángulo', 'El precio se va encerrando entre una línea de techos y una de pisos que se juntan.', 'Ascendente (techo plano, pisos que suben): suele romper para arriba.', 'Descendente (piso plano, techos que bajan): suele romper para abajo.'],
     [/^(✓ |Posible )?cuña/i, 'pat', 'Cuña', 'Dos líneas inclinadas hacia el mismo lado que se van juntando.', 'Cuña descendente: suele romper para arriba.', 'Cuña ascendente: suele romper para abajo.'],
     [/^(✓ |Posible )?canal/i, 'pat', 'Canal', 'El precio viaja entre dos líneas paralelas.', 'Canal alcista: compra cerca del piso del canal.', 'Canal bajista: venta cerca del techo.', 'Romper el canal con un cierre cambia la lectura.'],
-    [/^Divergencia (alcista|bajista)/, 'osc', 'Divergencia', 'El precio hace un extremo nuevo y el indicador (RSI, MACD…) no lo acompaña.', 'Divergencia alcista: mínimo más bajo en el precio, no en el indicador; la baja pierde fuerza.', 'Divergencia bajista: máximo más alto en el precio, no en el indicador; la suba pierde fuerza.'],
+    [/^Divergencia (alcista|bajista)/, 'osc', 'Divergencia', 'El precio hace un extremo nuevo y el indicador (RSI, MACD…) no lo acompaña.', 'Divergencia alcista: mínimo más bajo en el precio, no en el indicador; la baja pierde fuerza.', 'Divergencia bajista: máximo más alto en el precio, no en el indicador; la suba pierde fuerza.', 'Medido en BTC: las de 1 h acertaron 52–53% a 4 horas y las de 4 h 52–54% a un día; ahí suman. En el resto ~50%: no suman.'],
     [/^Doji/, 'pat', 'Doji', 'Una vela que abrió y cerró casi en el mismo precio: compradores y vendedores quedaron parejos. Indecisión.', null, null, 'Después de un tramo largo, puede anticipar un giro; sola no alcanza.'],
     // ----- analisis de la app -----
     [/^(Mov\. fuerte|Movimiento fuerte|Chance de movimiento fuerte|¿Movimiento fuerte\?|Chance \d|Modelo de movimiento fuerte)/, 'app', 'Movimiento fuerte', 'La chance de que la próxima hora se mueva más del doble de lo normal, para cualquier lado. La calcula un modelo entrenado con años de velas, la hora del día y el calendario.',

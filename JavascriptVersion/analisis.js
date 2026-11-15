@@ -345,10 +345,7 @@
           if (e.tabla === 'explicacion' && e.plazo === nombrePlazo && e.tipo === 'senal' && (e.sesgo === 'alcista' || e.sesgo === 'bajista')
             && !e.texto.startsWith('Indicadores de') && !e.texto.startsWith('Casos parecidos')) cf('direccion', e.sesgo === 'alcista' ? 1 : -1, 1, e.texto);
         });
-      } else {
-        pick('patron').forEach((x) => { if (x.tf === tf && (x.sesgo === 'alcista' || x.sesgo === 'bajista')) cf('direccion', x.sesgo === 'alcista' ? 1 : -1, 1, `${x.nombre} (${x.estado})`); });
-        pick('divergencia').forEach((x) => { if (x.tf === tf && (x.tipo === 'alcista' || x.tipo === 'bajista')) cf('direccion', x.tipo === 'alcista' ? 1 : -1, 1, `Divergencia ${x.tipo} en ${x.indicador}`); });
-      }
+      }   // sin plazo propio (30 min): figuras y divergencias no anticipan (medir_estructura.py), no suman
       if (p && nombrePlazo === '1 hora' && (p.coinciden === 'alcista' || p.coinciden === 'bajista'))     // medido: 54,0% contra 51,5%
         cf('direccion', p.coinciden === 'alcista' ? 1 : -1, 1, '15 min, 1 hora y 4 horas apuntan para el mismo lado (medido: acierta 54% contra 51,5%)');
       // flujo de compras y barridas de liquidez (medir_flujo.py; como en Python: solo lo que gano en los dos tramos)
@@ -373,12 +370,7 @@
         // diario o mas: medido ~50% a 1, 7 y 30 dias (medir_largos.py): ni el resumen ni cada indicador cuentan
         if (!largoTf) cf('direccion', r_ > 0 ? -1 : 1, 1, `Indicadores ${marco.rating_txt.toLowerCase()}: en las próximas horas suele corregir (medido: a favor aciertan 46–48%)`);
       }
-      const el = marco.elliott || '', cur = marco.elliott_curso;
-      if (cur && !F.some((f) => f[3].startsWith('Elliott'))) {    // el de la explicacion ya esta
-        const alc = el.split(';')[0].includes('alcista');
-        const sube = el.startsWith('Impulso') ? (['1', '3', '5', 'B'].includes(cur)) === alc : (cur === 'B') === alc;
-        cf('direccion', sube ? 1 : -1, 1, `Elliott: onda ${cur} en curso (${el.split(';')[0].toLowerCase()})`);
-      }
+      // Elliott ya no suma a la direccion (medir_estructura.py: en 1 h acierta 46-49%, al reves; en 4 h y diario ~50%)
       const bb = ind['Bandas de Bollinger %B'];
       if (bb && ok(bb.valor) && (bb.valor >= 100 || bb.valor <= 0) && !largoTf) cf('direccion', bb.valor >= 100 ? -1 : 1, 1,   // medido: vuelve adentro 56-59% (en el diario no)
         `Precio ${bb.valor >= 100 ? 'arriba de la banda superior' : 'debajo de la banda inferior'} de Bollinger: suele volver adentro`);
@@ -392,12 +384,7 @@
         }
       }
       // los libros y el funding no ganaron en las mediciones: ya no suman a la direccion (igual que en Python)
-      const largo = tf === '4h' || tf === '1d' || tf === '1w' || tf === '1M';
-      if (tm && largo) {
-        const z = tm.medidor_zona, zl = z.toLowerCase();
-        if (zl.includes('compra')) cf('direccion', 1, 1, `Ciclo: ${zl}`);
-        else if (zl.includes('venta') || zl.includes('caro')) cf('direccion', -1, 1, `Ciclo: ${zl}`);
-      }
+      // el ciclo ya no suma a la direccion: medido a 1, 7 y 30 dias no llega a z 2 (igual que en Python). Va aparte
       // precio estirado (indicadores al reves, fuera de Bollinger, RSI extremo): dicen lo mismo, cuentan juntas (_estirado en Python)
       if (!(tf === '1d' || tf === '1w' || tf === '1M')) {
         [1, -1].forEach((ld) => {
@@ -1091,6 +1078,7 @@
     return { t_inicio: a[0], p_inicio: a[1], t_fin: b[0], p_fin: b[1] };
   }
   // (plazo|temporalidad) -> [sobrecompra, sobreventa]: medir_rsi.py (igual que RSI_MEDIDO en Python)
+  const DIV_MEDIDO = ['4 horas|1h', '1 día|4h'];     // plazo|temporalidad donde la divergencia cuenta: medir_estructura.py
   const RSI_MEDIDO = { '1 hora|15m': ['revierte', 'revierte'], '1 hora|1h': ['revierte', 'revierte'], '4 horas|1h': [null, 'revierte'], '1 semana|1d': ['sigue', null] };
   const CTX_MEDIDO = ['oi_1h', 'oi_4h', 'oi_24h', 'long_short'];
   const SHORT_CTX = { 'flujo_1 h': 'Compras a mercado 1 h', 'flujo_4 h': 'Compras a mercado 4 h', oi_1h: 'Open interest 1 h',
@@ -1128,17 +1116,12 @@
       if (sc === 'revierte' && m.rsi >= 70) signals.push([4, 'bajista', `Posible reversión a la baja: RSI de ${TF_TXT[tf]} en sobrecompra (${ar(m.rsi)})`]);
       else if (sc === 'sigue' && m.rsi >= 70) signals.push([4, 'alcista', `RSI de ${TF_TXT[tf]} en sobrecompra (${ar(m.rsi)}): la semana siguiente suele seguir (medido)`]);
       else if (sv === 'revierte' && m.rsi <= 30) signals.push([4, 'alcista', `Posible rebote: RSI de ${TF_TXT[tf]} en sobreventa (${ar(m.rsi)})`]);
-      if (['1d', '1w', '1M'].includes(tf) && m.macd_cruce) signals.push([4, m.macd_cruce, `MACD de ${TF_TXT[tf]} cruzó ${m.macd_cruce === 'alcista' ? 'al alza' : 'a la baja'}`]);
     });
-    get('patron').forEach((p) => {
-      if (!sigTfs.includes(p.tf) || p.sesgo === 'neutral') return;
-      const target = p.objetivo ? ` → ${ap(p.objetivo)}` : '';
-      if (p.clase === 'grafico') signals.push([p.estado === 'confirmado' ? 1 : 4, p.sesgo, `${p.nombre} en ${TF_TXT[p.tf]}${target}`]);
-      else if (p.exito !== null && p.exito >= 55 && p.casos >= 20) signals.push([5, p.sesgo, `${p.nombre} en ${TF_TXT[p.tf]} (funcionó ${ar(p.exito)}%)`]);
-    });
+    // figuras, Wyckoff, patrones de velas, Elliott y cruce del MACD: medidos (medir_estructura.py), no anticipan a favor;
+    // siguen en el grafico y en su seccion. Las divergencias, solo donde estuvieron cerca (DIV_MEDIDO). Igual que en Python
     const divs = new Map();
     get('divergencia').forEach((d) => {
-      if (!sigTfs.includes(d.tf)) return;
+      if (!sigTfs.includes(d.tf) || !DIV_MEDIDO.includes(`${name}|${d.tf}`)) return;
       const k = `${d.tf}|${d.tipo}`;
       if (!divs.has(k)) divs.set(k, [d.tf, d.tipo, []]);
       divs.get(k)[2].push(d.indicador);
@@ -1151,11 +1134,6 @@
     });
     if (main.veredicto !== 'Casi moneda') {
       signals.push([2, main.veredicto === 'Sesgo alcista' ? 'alcista' : 'bajista', `Casos parecidos: cerró arriba ${ar(main.sube)}% (normal ${ar(main.base)}%)`]);
-    }
-    const mLast = get('marco', { tf: sigTfs[sigTfs.length - 1] })[0];
-    if (mLast.elliott_objetivo) {
-      signals.push([7, mLast.elliott_objetivo > price ? 'alcista' : 'bajista',
-        `Elliott ${TF_TXT[sigTfs[sigTfs.length - 1]]}: ${mLast.elliott_corto.split(':')[0]} → ${ap(mLast.elliott_objetivo)}`]);
     }
     if (sigTfs.includes('4h')) {   // tocando un Fibonacci de 90 dias que rebota mas que un nivel cualquiera
       const fz = get('nivel').filter((n) => n.fib && n.rebote >= 55 && Math.abs(n.distancia) <= 0.4);
