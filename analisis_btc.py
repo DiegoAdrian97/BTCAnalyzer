@@ -1511,21 +1511,14 @@ def central(rows, price, candles, now_ms):
                 _cf(F, "direccion", -1, 1, f"Más liquidaciones arriba ({ar(arriba, 0)} M de shorts) que abajo ({ar(abajo, 0)} M): medido, el precio suele ir para el otro lado (52–53%)")
             elif abajo >= 1.5 * arriba:
                 _cf(F, "direccion", 1, 1, f"Más liquidaciones abajo ({ar(abajo, 0)} M de longs) que arriba ({ar(arriba, 0)} M): medido, el precio suele ir para el otro lado (52–53%)")
-        if libros and corto:
-            d = sum(x["desequilibrio"] for x in libros) / len(libros)
-            if abs(d) >= 15:
-                _cf(F, "direccion", 1 if d > 0 else -1, 0.5, f"Libros de órdenes: {'más compras' if d > 0 else 'más ventas'} cerca del precio ({ar(d, 0)}%)")
+        # los libros de ordenes y el funding no ganaron en las mediciones ("quedan como contexto, sin peso"): ya no suman a
+        # la direccion (se ven en el contexto). Asi lo que dice cada parte de la app sale de lo mismo, sin contradecirse
         if tm and tf in ("4h", "1d", "1w", "1M"):
             z = tm["medidor_zona"]
             if "compra" in z.lower():
                 _cf(F, "direccion", 1, 1, f"Ciclo: {z.lower()}")
             elif "venta" in z.lower() or "caro" in z.lower():
                 _cf(F, "direccion", -1, 1, f"Ciclo: {z.lower()}")
-        if fu and fu.get("f7") is not None and tf in ("4h", "1d", "1w", "1M"):
-            if fu["f7"] < 0:
-                _cf(F, "direccion", 1, 0.5, "Funding negativo: hay miedo (a meses suele ser bueno)")
-            elif fu["f7"] >= 0.0003:
-                _cf(F, "direccion", -1, 0.5, "Funding alto: hay euforia")
         # ----- totales -----
         fz = sum(f[1] * f[2] for f in F if f[0] == "fuerza")
         dr = sum(f[1] * f[2] for f in F if f[0] == "direccion")
@@ -1545,11 +1538,7 @@ def central(rows, price, candles, now_ms):
         inval = next((e["texto"] for e in rows if e.get("tabla") == "explicacion" and e["plazo"] == nombre_plazo and e["tipo"] == "invalida"), None) if p else None
         # ----- riesgo -----
         R = []
-        rsi = ind_.get("RSI 14")
-        if rsi and rsi["valor"] is not None and rsi["valor"] >= 75:
-            R.append(f"RSI {round(rsi['valor'])}: sobrecompra")
-        elif rsi and rsi["valor"] is not None and rsi["valor"] <= 25:
-            R.append(f"RSI {round(rsi['valor'])}: sobreventa")
+        # el RSI extremo ya no va aca: tiene su aviso ("posible reversion") con lo medido de cada temporalidad
         if eventos and eventos[0] - now_ms <= 24 * 3_600_000:
             R.append(f"Dato fuerte de EE.UU. en {max(1, round((eventos[0] - now_ms) / 3_600_000))} h: el precio se mueve más")
         if fuerza == "alta":

@@ -398,19 +398,12 @@
           else if (abajo >= 1.5 * arriba) cf('direccion', 1, 1, `Más liquidaciones abajo (${ar(abajo, 0)} M de longs) que arriba (${ar(arriba, 0)} M): medido, el precio suele ir para el otro lado (52–53%)`);
         }
       }
-      if (libros.length && corto) {
-        let d = 0; libros.forEach((x) => { d += x.desequilibrio; }); d /= libros.length;
-        if (Math.abs(d) >= 15) cf('direccion', d > 0 ? 1 : -1, 0.5, `Libros de órdenes: ${d > 0 ? 'más compras' : 'más ventas'} cerca del precio (${ar(d, 0)}%)`);
-      }
+      // los libros y el funding no ganaron en las mediciones: ya no suman a la direccion (igual que en Python)
       const largo = tf === '4h' || tf === '1d' || tf === '1w' || tf === '1M';
       if (tm && largo) {
         const z = tm.medidor_zona, zl = z.toLowerCase();
         if (zl.includes('compra')) cf('direccion', 1, 1, `Ciclo: ${zl}`);
         else if (zl.includes('venta') || zl.includes('caro')) cf('direccion', -1, 1, `Ciclo: ${zl}`);
-      }
-      if (fu && ok(fu.f7) && largo) {
-        if (fu.f7 < 0) cf('direccion', 1, 0.5, 'Funding negativo: hay miedo (a meses suele ser bueno)');
-        else if (fu.f7 >= 0.0003) cf('direccion', -1, 0.5, 'Funding alto: hay euforia');
       }
       // ----- totales -----
       let fz = 0, dr = 0, aFavor = 0, enContra = 0;
@@ -433,8 +426,6 @@
       const inv = p ? rows.find((e) => e.tabla === 'explicacion' && e.plazo === nombrePlazo && e.tipo === 'invalida') : null;
       // ----- riesgo -----
       const R = [], rsi = ind['RSI 14'];
-      if (rsi && ok(rsi.valor) && rsi.valor >= 75) R.push(`RSI ${roundEven(rsi.valor)}: sobrecompra`);
-      else if (rsi && ok(rsi.valor) && rsi.valor <= 25) R.push(`RSI ${roundEven(rsi.valor)}: sobreventa`);
       if (eventos.length && eventos[0] - now <= 24 * 3600000) R.push(`Dato fuerte de EE.UU. en ${Math.max(1, roundEven((eventos[0] - now) / 3600000))} h: el precio se mueve más`);
       if (fuerza === 'alta') R.push('Se viene movimiento fuerte: revisá stops y tamaño');
       if ((lado === 'sube' && enContra >= 0.6 * aFavor) || (lado === 'baja' && aFavor >= 0.6 * enContra)) R.push('Hay señales en contra casi tan fuertes: dirección poco firme');

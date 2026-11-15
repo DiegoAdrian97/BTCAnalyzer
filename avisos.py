@@ -373,6 +373,14 @@ def _contexto(d, rows):
     """Chequeo previo como lo haria un trader: que dice el resto del mercado. Es informacion, no filtro: en las
     pruebas, filtrar el setup con estas cosas no mejoro el resultado de forma confiable."""
     out = []
+    # lo que dice el analisis de la app (el mismo que muestra la pagina), para la hora y las 4 horas
+    for plazo in ("1 hora", "4 horas"):
+        c = next((x for x in rows if x.get("tabla") == "central" and x.get("plazo") == plazo), None)
+        if c and c.get("direccion"):
+            lado = 1 if c["direccion"] == "sube" else -1 if c["direccion"] == "baja" else 0
+            out.append(f"Análisis a {plazo}: {'sube' if lado > 0 else 'baja' if lado < 0 else 'lateral'} "
+                       f"(▲ {_ar(c['a_favor'], 1)} · ▼ {_ar(c['en_contra'], 1)}) → "
+                       + ("a favor" if lado * d > 0 else "en contra" if lado * d < 0 else "ni a favor ni en contra") + " de la operación")
     mv = next((x for x in rows if x.get("tabla") == "movimiento"), None)
     if mv and mv.get("modelo_1h") is not None:
         out.append(f"Movimiento fuerte: {_ar(mv['modelo_1h'])}% en la próxima hora, {_ar(mv.get('modelo_4h') or 0)}% en 4 h "

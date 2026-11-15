@@ -49,15 +49,15 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
 <script>/* si el estilo no llega (falla de red o un despliegue a medias), se pide de nuevo sin cache: antes quedaba la pagina sin estilo */
 window.abCss = function () { try { var n = (window.abCssN = (window.abCssN || 0) + 1); if (n > 3) return;
-  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'p-8308a22cd8.css?r=' + Date.now(); l.onerror = function () { setTimeout(window.abCss, 1500 * n); };
+  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'p-9c50133a0f.css?r=' + Date.now(); l.onerror = function () { setTimeout(window.abCss, 1500 * n); };
   document.head.appendChild(l); } catch (e) {} };
 addEventListener('load', function () { try { if (!getComputedStyle(document.documentElement).getPropertyValue('--ab-css')) window.abCss(); } catch (e) {} });</script>
-<link rel="stylesheet" href="p-8308a22cd8.css" onerror="abCss()">
-<script>window.AB_PAGINA = "19bf6f8e03";</script>
-<script defer src="app.js?v=9a01289105"></script>
+<link rel="stylesheet" href="p-9c50133a0f.css" onerror="abCss()">
+<script>window.AB_PAGINA = "4098bd6177";</script>
+<script defer src="app.js?v=c01aa2b12e"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-77a1c6c363.js"></script>
+<script defer src="p-94978f901b.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -221,9 +221,9 @@ addEventListener('load', function () { try { if (!getComputedStyle(document.docu
 
   <!-- una sola conclusion arriba: cada señal mira un plazo distinto y antes parecian contradecirse -->
   <section class="ab-conclu" id="conclusion" aria-label="En resumen" hidden>
-    <div><small>Próxima hora</small><b id="cc-hora">—</b></div>
-    <div><small id="cc-ind-k">Indicadores</small><b id="cc-ind">—</b></div>
-    <div><small>Ciclo (meses)</small><b id="cc-ciclo">—</b></div>
+    <div><small id="cc-hora-k">Dirección</small><b id="cc-hora">—</b></div>
+    <div><small id="cc-ind-k">Señales</small><b id="cc-ind">—</b></div>
+    <div><small>Ciclo (meses a un año)</small><b id="cc-ciclo">—</b></div>
     <p id="cc-txt"></p>
   </section>
 
@@ -314,7 +314,7 @@ addEventListener('load', function () { try { if (!getComputedStyle(document.docu
     <div class="ab-hero-side" id="sesgo">
       <div class="ab-card-head"><span class="ab-kicker">Sesgo técnico</span><span class="ab-kicker" id="sesgo-tf">—</span></div>
       <svg class="ab-gauge" id="gauge" viewBox="0 0 220 128" role="img" aria-label="Sesgo técnico"></svg>
-      <div class="ab-gauge-txt"><b id="gauge-txt" data-source="analisis" data-field="rating_txt">—</b><span class="ab-note" id="gauge-votes"></span></div>
+      <div class="ab-gauge-txt"><b id="gauge-txt" data-source="analisis" data-field="rating_txt">—</b><span class="ab-note" id="gauge-votes"></span><span class="ab-note ab-gauge-med" id="gauge-med"></span></div>
       <div class="ab-strip" id="strip"></div>
     </div>
   </section>

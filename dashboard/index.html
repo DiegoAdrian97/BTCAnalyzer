@@ -2070,6 +2070,8 @@
   .ab-rs-rev.dn b { color: var(--color-bad); } .ab-rs-rev.up b { color: var(--color-ok); }
   .ab-rs-rev span { color: var(--t2-mute); }
 
+  .ab-gauge-med { display: block; margin-top: 4px; font-size: 11.5px; line-height: 1.35; max-width: 32ch; justify-self: center; }
+
   :root { --ab-css: 1; }   /* marca: la pagina comprueba con esto que el estilo cargo */
 </style>
 
@@ -2233,9 +2235,9 @@
 
   <!-- una sola conclusion arriba: cada señal mira un plazo distinto y antes parecian contradecirse -->
   <section class="ab-conclu" id="conclusion" aria-label="En resumen" hidden>
-    <div><small>Próxima hora</small><b id="cc-hora">—</b></div>
-    <div><small id="cc-ind-k">Indicadores</small><b id="cc-ind">—</b></div>
-    <div><small>Ciclo (meses)</small><b id="cc-ciclo">—</b></div>
+    <div><small id="cc-hora-k">Dirección</small><b id="cc-hora">—</b></div>
+    <div><small id="cc-ind-k">Señales</small><b id="cc-ind">—</b></div>
+    <div><small>Ciclo (meses a un año)</small><b id="cc-ciclo">—</b></div>
     <p id="cc-txt"></p>
   </section>
 
@@ -2326,7 +2328,7 @@
     <div class="ab-hero-side" id="sesgo">
       <div class="ab-card-head"><span class="ab-kicker">Sesgo técnico</span><span class="ab-kicker" id="sesgo-tf">—</span></div>
       <svg class="ab-gauge" id="gauge" viewBox="0 0 220 128" role="img" aria-label="Sesgo técnico"></svg>
-      <div class="ab-gauge-txt"><b id="gauge-txt" data-source="analisis" data-field="rating_txt">—</b><span class="ab-note" id="gauge-votes"></span></div>
+      <div class="ab-gauge-txt"><b id="gauge-txt" data-source="analisis" data-field="rating_txt">—</b><span class="ab-note" id="gauge-votes"></span><span class="ab-note ab-gauge-med" id="gauge-med"></span></div>
       <div class="ab-strip" id="strip"></div>
     </div>
   </section>
@@ -2613,7 +2615,7 @@
   const PLAZO_VIEW = { '5 min': '5m', '15 min': '5m', '1 hora': '5m', '4 horas': '15m', '1 día': '1h', '1 semana': '1d', '1 mes': '1w' };
   const plazoTxt = (p) => ({ '1 hora': 'la próxima hora', '4 horas': 'las próximas 4 horas', '1 día': 'el próximo día', '1 semana': 'la próxima semana', '1 mes': 'el próximo mes' }[p] || `los próximos ${p}`);
   // "hasta las 13:00 h" o, en los plazos de dias, "hasta el 22/11" (hasta viene como "dd/mm hh:mm")
-  const hastaTxt = (c) => (!c.hasta ? '' : ['1 semana', '1 mes'].includes(c.plazo) ? ` · hasta el ${c.hasta.slice(0, 5)}` : ` · hasta las ${c.hasta.slice(-5)}\u00a0h`);
+  const hastaTxt = (c) => (!c.hasta ? '' : ['1 semana', '1 mes'].includes(c.plazo) ? ` · hasta el ${c.hasta.slice(0, 5)}` : c.plazo === '1 día' ? ` · hasta el ${c.hasta.slice(0, 5)}, ${c.hasta.slice(-5)}\u00a0h` : ` · hasta las ${c.hasta.slice(-5)}\u00a0h`);
   // grafico de velas (por defecto) o de linea: se recuerda en este navegador
   const LINEA_K = 'ab-grafico-linea';
   const lineaGuardada = (() => { try { return localStorage.getItem(LINEA_K) === '1'; } catch (e) { return false; } })();
@@ -3251,7 +3253,7 @@
     Object.keys(PEREZOSOS).forEach(perezoso);
     placeTf(); placeSc();
     connectLive();
-    drawConclusion();
+    G.rows = rows; drawConclusion(rows);
     drawCentro(rows, sum);
     plazosBordes(); if (MINI.classList.contains('on')) miniPintar();
     plegarNotas();
@@ -3397,11 +3399,15 @@
     } else rg.hidden = true;
     // la frase que lo junta (la de la conclusion) y el aviso si hay riesgo
     const cc = document.getElementById('cc-txt'), rt = document.getElementById('rs-txt');
-    { const t = (id) => { const e = document.getElementById(id); return e ? e.textContent.trim() : ''; };
-      const lado = (x) => (/sub|alcista|compra/i.test(x) ? 'up' : /baj|cae|venta|vend/i.test(x) ? 'dn' : '');
-      const ico = (x) => (lado(x) === 'up' ? '▲' : lado(x) === 'dn' ? '▼' : '◆');
-      const f = (k, v) => { if (!v || v === '—') return null; const d = el('span', `ab-v-acuerdo ${lado(v)}`.trim()); d.append(el('i', '', ico(v)), el('small', '', k), el('b', '', v)); return d; };
-      rt.replaceChildren(...[f('Predicción', t('cc-hora')), f(t('cc-ind-k') || 'Indicadores', t('cc-ind'))].filter(Boolean));   // el ciclo tiene su ficha justo abajo
+    { const fs = (c.factores || []).filter((f) => f[0] === 'direccion');
+      const top = (sg) => fs.filter((f) => Math.sign(f[1]) === sg).sort((a, b) => b[2] - a[2]);
+      const f = (k, sg) => {
+        const l = top(sg); if (!l.length) return null;
+        const d = el('span', `ab-v-acuerdo ${sg > 0 ? 'up' : 'dn'}`); d.title = l.map((x) => `${sg > 0 ? '▲' : '▼'} ${x[3]}`).join('\n');
+        d.append(el('i', '', sg > 0 ? '▲' : '▼'), el('small', '', `${k} · ${String(sg > 0 ? num(c.a_favor) : num(c.en_contra)).replace('.', ',')}`), el('b', '', corto_(l[0][3]) + (l.length > 1 ? ` y ${l.length - 1} más` : '')));
+        return d;
+      };
+      rt.replaceChildren(...[f('A favor de la suba', 1), f('A favor de la baja', -1)].filter(Boolean));
       rt.title = cc ? cc.textContent.trim() : ''; rt.setAttribute('aria-label', rt.title); }
     const rz = document.getElementById('rs-riesgo'); rz.hidden = !c.riesgo.length;
     rz.replaceChildren(el('b', '', '⚠ Atención: '), c.riesgo.join(' · '));
@@ -3466,8 +3472,7 @@
     const ladoCls = (t) => (/sub|alcista|compra/i.test(t) ? 'up' : /baj|venta/i.test(t) ? 'dn' : '');
     const txt = (id) => { const e = document.getElementById(id); return e ? e.textContent.replace(/\s+/g, ' ').trim() : ''; };
     if (c) {
-      const gi = txt('gauge-txt');
-      res('parte-dir', [vTira(c.a_favor, c.en_contra), gi ? vFicha(`Indicadores: ${gi}`, ladoCls(gi)) : null]);
+      res('parte-dir', [vFicha(c.direccion === 'sube' ? '▲ Sube' : c.direccion === 'baja' ? '▼ Baja' : '◆ Lateral', c.direccion === 'sube' ? 'up' : c.direccion === 'baja' ? 'dn' : ''), vTira(c.a_favor, c.en_contra)]);
       res('parte-mov', [okv(c.prob_fuerte) ? vFicha(`⚡ ${f0(num(c.prob_fuerte))}% fuerte`, num(c.prob_fuerte) > num(c.prob_normal) ? 'warn' : '', `Chance de movimiento fuerte (lo normal: ${f0(num(c.prob_normal))}%)`) : null,
         okv(c.esperado_usd) ? vFicha(`↕ ~${num(c.esperado_usd) >= 100 ? f0(num(c.esperado_usd)) : fp(num(c.esperado_usd))} USD`, '', 'Lo que suele moverse en el plazo') : null]);
       res('parte-niv', [okv(c.soporte) ? vFicha(`S ${fp(num(c.soporte))}`, 'up', 'Soporte') : null, okv(c.resistencia) ? vFicha(`R ${fp(num(c.resistencia))}`, 'dn', 'Resistencia') : null]);
@@ -3830,30 +3835,36 @@
   document.getElementById('plazos').addEventListener('scroll', plazosBordes, { passive: true });
   window.addEventListener('resize', plazosBordes, { passive: true });
 
-  function drawConclusion() {
-    const sec = document.getElementById('conclusion'), txt = (id) => { const e = document.getElementById(id); return e && !e.closest('[hidden]') ? e.textContent.trim() : ''; };
-    const hora = txt('verdict-big').replace(/^[^\wÁÉÍÓÚÑáéíóúñ]+/, ''), ind = txt('gauge-txt'), tab = document.getElementById('tm-tab');
-    const ciclo = tab && !tab.hidden ? txt('tm-zona') : '';
-    if (!hora || hora === '—') { sec.hidden = true; return; }
+  // Una sola fuente: el analisis central del plazo que miras (junta casos parecidos, indicadores como cuentan medidos,
+  // patrones, flujo, liquidaciones, RSI, ciclo...). La direccion, las señales a favor y en contra y la frase salen de ahi:
+  // ninguna parte de la app dice otra cosa. El ciclo mira meses a un año: se muestra con su plazo y se dice si ya esta
+  // sumado en este plazo (de 4 horas en adelante) o no.
+  const centralDe = (rows) => { const t = (rows || []).filter((x) => x.tabla === 'central'); return t.find((x) => x.plazo === S.plazo) || t.find((x) => x.tf === S.tf) || t.find((x) => x.tf === '1h') || null; };
+  const corto_ = (t) => String(t || '').replace(/\s*\((medido|fuerza)[^)]*\)/gi, '').replace(/: medido,.*$/i, '').split(' (')[0];
+  const min1 = (t) => (/^[A-ZÁÉÍÓÚ][a-záéíóúñ]/.test(t) ? t[0].toLowerCase() + t.slice(1) : t);   // sin romper siglas (RSI, MACD, CVD)
+  function drawConclusion(rows) {
+    const sec = document.getElementById('conclusion'), c = centralDe(rows || G.rows);
+    if (!c || !c.direccion) { sec.hidden = true; return; }
     sec.hidden = false;
-    const lado = (t) => (/sub|alcista|compra/i.test(t) ? 1 : /baj|cae|venta|vend/i.test(t) ? -1 : 0);
-    const pon = (id, t) => { const e = document.getElementById(id); e.textContent = t || '—'; e.className = t ? (lado(t) > 0 ? 'sube' : lado(t) < 0 ? 'baja' : '') : ''; };
-    pon('cc-hora', hora); pon('cc-ind', ind); pon('cc-ciclo', ciclo);
-    document.getElementById('cc-ind-k').textContent = `Indicadores ${TF_TXT[S.tf] || ''}`.trim();
-    // Los indicadores (medias y osciladores, ahora) y la prediccion (que paso despues en casos parecidos) miran la misma
-    // hora de forma distinta; el ciclo mira meses. Se explica cada diferencia en vez de una frase generica.
-    const [lh, li, lc] = [lado(hora), lado(ind), ciclo ? lado(ciclo) : 0], dir = (x) => (x > 0 ? 'al alza' : 'a la baja'), fr = [];
-    if (li && lh === 0) fr.push(`Los indicadores marcan ${ind.toLowerCase()}, pero en casos parecidos del pasado el precio no tuvo una dirección clara en la próxima hora: por eso la predicción dice lateral.`);
-    else if (li && lh && li !== lh) fr.push(`Los indicadores apuntan ${dir(li)}, pero en casos parecidos del pasado el precio terminó ${dir(lh)}: la predicción se basa en eso.`);
-    else if (lh && li === lh) fr.push(`Indicadores y predicción coinciden ${dir(lh)} para la próxima hora.`);
-    else if (lh && !li) fr.push(`Los indicadores están neutrales, pero en casos parecidos el precio terminó ${dir(lh)}.`);
-    if (lc && (lh || li) && lc !== (lh || li)) fr.push(`El ciclo apunta ${dir(lc)}: no lo contradice, mira semanas o meses.`);
-    else if (lc && lc === (lh || li)) fr.push(`El ciclo (semanas o meses) apunta para el mismo lado.`);
-    else if (lc) fr.push(`El ciclo, que mira semanas o meses, apunta ${dir(lc)}.`);
-    // en la vista simple queda solo la primera frase (la que explica la diferencia mas importante)
+    const fs = (c.factores || []).filter((f) => f[0] === 'direccion'), mas = fs.filter((f) => f[1] > 0).sort((a, b) => b[2] - a[2]), menos = fs.filter((f) => f[1] < 0).sort((a, b) => b[2] - a[2]);
+    const plz = c.plazo || S.plazo, dTxt = c.direccion === 'sube' ? 'Sube' : c.direccion === 'baja' ? 'Baja' : 'Lateral';
+    const pon = (id, t, cls) => { const e = document.getElementById(id); e.textContent = t || '—'; e.className = cls || ''; };
+    document.getElementById('cc-hora-k').textContent = `Dirección · ${plz}`;
+    pon('cc-hora', dTxt, c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '');
+    pon('cc-ind', `▲ ${String(num(c.a_favor)).replace('.', ',')} · ▼ ${String(num(c.en_contra)).replace('.', ',')}`, num(c.a_favor) > num(c.en_contra) ? 'sube' : num(c.en_contra) > num(c.a_favor) ? 'baja' : '');
+    const tab = document.getElementById('tm-tab'), zona = tab && !tab.hidden ? (document.getElementById('tm-zona') || {}).textContent || '' : '';
+    const zch = document.getElementById('tm-mvrv'), zonas = zch && !zch.hidden ? zch.textContent : '';
+    const lc = /compra/i.test(zona) ? 1 : /venta|cara/i.test(zona) ? -1 : 0;
+    pon('cc-ciclo', [zona, zonas].filter(Boolean).join(' · '), lc > 0 ? 'sube' : lc < 0 ? 'baja' : '');
+    const fr = [];
+    fr.push(`Para ${plazoTxt(plz)}: ${dTxt.toLowerCase()}.`
+      + (mas.length ? ` A favor de la suba pesa más: ${min1(corto_(mas[0][3]))}` : '')
+      + (menos.length ? `${mas.length ? '; ' : ' '}a favor de la baja: ${min1(corto_(menos[0][3]))}` : '') + (mas.length || menos.length ? '.' : ''));
+    const cicloSumado = fs.some((f) => /^Ciclo:/.test(f[3]));
+    if (lc) fr.push(cicloSumado ? `El ciclo (${zona.toLowerCase()}) ya está sumado en este plazo.`
+      : `El ciclo mira meses a un año (${zona.toLowerCase()}): no se suma a ${plazoTxt(plz)}, así que no la contradice.`);
     const cc = document.getElementById('cc-txt');
-    if (!fr.length) cc.textContent = 'Sin una dirección clara en ningún plazo.';
-    else cc.replaceChildren(fr[0], ...fr.slice(1).map((x) => el('span', 'ab-cc-mas', ` ${x}`)));
+    cc.replaceChildren(fr[0], ...fr.slice(1).map((x) => el('span', 'ab-cc-mas', ` ${x}`)));
   }
 
   // Las explicaciones largas (como se calcula, que significa) quedan en 2 lineas: se abren tocandolas. La pagina era muy
@@ -5187,7 +5198,10 @@
   function drawStory(rows) {
     const ex = pick(rows, 'explicacion').filter((e) => e.plazo === S.plazo).sort((a, b) => num(a.orden) - num(b.orden));
     const head = ex.find((e) => e.tipo === 'titular');
-    const bias = head ? head.sesgo : 'neutral';
+    // el lado y las señales, del analisis central del plazo (el mismo que la respuesta): antes salian solo de los casos
+    // parecidos y podian decir "escenario alcista" con la respuesta en "baja"
+    const cen = pick(rows, 'central').find((x) => x.plazo === S.plazo);
+    const bias = cen ? (cen.direccion === 'sube' ? 'alcista' : cen.direccion === 'baja' ? 'bajista' : 'neutral') : head ? head.sesgo : 'neutral';
     const chip = document.getElementById('story-chip'); chip.replaceChildren();
     const b = el('span', 'ab-bias', bias === 'alcista' ? '▲ Escenario alcista' : bias === 'bajista' ? '▼ Escenario bajista' : '◆ Sin dirección clara');
     b.style.color = bias === 'alcista' ? 'var(--color-ok)' : bias === 'bajista' ? 'var(--color-bad)' : 'var(--color-fg-muted)';
@@ -5212,7 +5226,8 @@
     const why = ex.find((e) => e.tipo === 'porque');
     document.getElementById('porque').textContent = why ? why.texto : '';
     // vienen ordenadas por importancia: alcanza con las 4 primeras de cada lado
-    const sigs = ex.filter((e) => e.tipo === 'senal');
+    const sigs = cen ? (cen.factores || []).filter((f) => f[0] === 'direccion').sort((a, b) => b[2] - a[2]).map((f) => ({ sesgo: f[1] > 0 ? 'alcista' : 'bajista', texto: f[3] }))
+      : ex.filter((e) => e.tipo === 'senal');
     const favorSide = neutral ? 'alcista' : bias;
     fill('favor', sigs.filter((e) => e.sesgo === favorSide).slice(0, 4));
     fill('contra', sigs.filter((e) => e.sesgo !== favorSide).slice(0, 4));
@@ -5234,7 +5249,8 @@
     const p = pick(rows, 'plazo').find((r) => r.plazo === S.plazo);
     if (!p) return;
     const head = pick(rows, 'explicacion').find((e) => e.plazo === S.plazo && e.tipo === 'titular');
-    const bias = head ? head.sesgo : 'neutral';
+    const cenP = pick(rows, 'central').find((x) => x.plazo === S.plazo);
+    const bias = cenP ? (cenP.direccion === 'sube' ? 'alcista' : cenP.direccion === 'baja' ? 'bajista' : 'neutral') : head ? head.sesgo : 'neutral';
     const price = num(s.precio), pu = num(p.primero_arriba);
     document.getElementById('pred-k').textContent = ['1 semana', '1 mes'].includes(S.plazo) ? `Predicción a ${S.plazo} desde ahora · hasta el ${p.hora.slice(0, 5)}`
       : `Predicción a ${S.plazo} desde ahora · hasta las ${p.hora.slice(-5)}\u00a0h del ${p.hora.slice(0, 5)}`;
@@ -5477,6 +5493,9 @@
     if (cur) {
       later(() => nd.style('transform', `rotate(${num(cur.rating) * 90}deg)`));
       const t = document.getElementById('gauge-txt'); t.textContent = cur.rating_txt; t.setAttribute('data-where', `tabla=marco&tf=${S.tf}`);
+      { const gm = document.getElementById('gauge-med'), lg = ['1d', '1w', '1M'].includes(S.tf);
+        gm.textContent = Math.abs(num(cur.rating)) <= 0.1 ? '' : lg ? 'Regla clásica de cada indicador; en velas diarias o más largas suma a favor.'
+          : `Regla clásica de cada indicador. Medido: en ${TF_TXT[S.tf] || S.tf}, cuando marcan ${num(cur.rating) > 0 ? 'alcista' : 'bajista'} el precio suele corregir, así que la predicción lo cuenta ${num(cur.rating) > 0 ? 'a favor de la baja' : 'a favor de la suba'}.`; }
       document.getElementById('gauge-votes').textContent = `Medias ${cur.ma_compra}↑ ${cur.ma_venta}↓ · osciladores ${cur.osc_compra}↑ ${cur.osc_venta}↓ · orden de las medias: ${cur.tendencia.toLowerCase()}`;
     }
     const strip = document.getElementById('strip'); strip.replaceChildren();

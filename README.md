@@ -282,6 +282,13 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
   plazos para cambiarla. "Ver el análisis completo" abre 6 partes (cómo se llegó a la dirección, cuánto se puede mover,
   niveles, qué está pasando, cuánto le creo y herramientas), cerradas, cada una con su resumen en una línea y un
   índice para saltar. Las tarjetas de siempre viven adentro de esas partes (sin repetir la conclusión).
+- **Una sola conclusión por plazo** (nov. 2026): todo lo que nombra una dirección sale de la fila `central` del plazo
+  que estás mirando (casos parecidos, indicadores como cuentan medidos, patrones, flujo, liquidaciones, RSI, ciclo): la
+  respuesta, las fichas "a favor de la suba / de la baja" (lo que más pesa de cada lado), la frase, el resumen de la
+  parte 1, "Por qué" con sus listas, el veredicto y el aviso de Telegram ("Análisis a 1 hora: baja → en contra de la
+  operación"). El velocímetro de indicadores aclara que es la regla clásica y cómo la cuenta la predicción. Lo que no
+  ganó en las mediciones (libros de órdenes, funding, RSI extremo como "riesgo") ya no suma ni avisa por su cuenta. El
+  ciclo mira meses a un año: se muestra con su plazo y la frase dice si está sumado (de 4 horas en adelante) o no.
 - **El gráfico elige el plazo** (nov. 2026): la predicción mira unas velas por delante de lo que estás viendo. 5 min →
   la próxima hora, 15 y 30 min → 4 horas, 1 hora → el día, 4 horas y diario → la semana, semanal y mensual → el mes. Los
   botones de plazo siguen (y llevan al gráfico que les toca). **1 semana** y **1 mes** son plazos nuevos: casos
