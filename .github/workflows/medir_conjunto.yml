@@ -1,0 +1,23 @@
+name: Medir cómo trabajan juntas las señales que ya usa la app
+# A mano desde Actions (o al cambiar el medidor): corre medir_conjunto.py con velas publicas de data.binance.vision y deja
+# el resultado como artefacto. No cambia nada del analisis: solo mide.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/medir_conjunto.yml", "medir_conjunto.py"]
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install numpy
+      - uses: actions/cache@v4
+        with: { path: datos_medicion, key: senales-btc-v1 }
+      - run: python -u medir_conjunto.py | tee conjunto.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: medicion-conjunto, path: conjunto.txt }
