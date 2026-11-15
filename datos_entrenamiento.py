@@ -146,7 +146,8 @@ if __name__ == "__main__":
     json.dump(fg, open("fng.json", "w"))
     json.dump(alts_diario(), open("alts_diario.json", "w"))
     oc = onchain()
-    assert all(len(v) > 5000 for v in oc.values()), "datos on-chain incompletos"
+    # los de BTC vienen desde 2010; las stablecoins, desde 2015 (USDT) y 2018 (USDC)
+    assert all(len(v) > (2500 if k.startswith(("cm_usdt", "cm_usdc")) else 5000) for k, v in oc.items()), "datos on-chain incompletos"
     json.dump(oc, open("onchain.json", "w"))
     # las criptos con modelo propio de movimiento fuerte (entrenar_fuerte.py --moneda)
     for mon in ("SOL", "XRP", "ZEC"):
