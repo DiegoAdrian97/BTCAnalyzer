@@ -768,6 +768,15 @@ revés, fuera de Bollinger, RSI extremo, open interest que cae con el precio, cu
 - **Pesos aprendidos** (regresión logística con 2022–24, probada en 2025–26) no le ganaron a los pesos iguales
   (52,5% contra 52,7% a 1 hora; 53,1% contra 54,3% a 4 horas): se quedan los pesos simples.
 
+### El análisis se mide a sí mismo (registro de conclusiones y `medir_central.py`, nov. 2026)
+
+El servidor guarda cada hora, por plazo, la conclusión (dirección, puntos, a favor y en contra) y las señales que la
+formaron, con su lado y su peso (rama de historial, carpeta `central`, un archivo por día; una clave corta por señal:
+casos, indicadores, bollinger, rsi, cvd, barrida, liquidaciones, ciclo, patron...). `medir_central.py` (cada lunes en
+Actions, o a mano) lo cruza con lo que hizo el precio: acierto por plazo (y con 3 puntos o más) y por señal. Con eso se
+ajustan pesos y umbrales con aciertos reales, incluidos los casos parecidos y los patrones, que no se pueden
+reconstruir en un repaso. Sirve desde unas semanas de datos (100 casos o más por fila).
+
 ### Huecos del CME (`medir_complementos.py --cme`, nov. 2026)
 
 Los futuros de BTC del CME cierran el viernes y reabren el domingo; el precio de cripto sigue y deja un hueco. Con velas

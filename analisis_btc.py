@@ -2332,6 +2332,7 @@ def run_live(every, public=False):
                     try:                 # el historial de predicciones para "Reproducir" (rama historial del repo)
                         historial.anotar(getattr(live_mod, "ULTIMAS_PREDICCIONES", None))
                         historial.anotar_libro()
+                        historial.anotar_central(data["rows"])        # la conclusion de cada hora, para medir que señal funciona
                     except Exception as e:
                         print(f"(historial: {type(e).__name__}: {e})", flush=True)
                 save_json(OUT_FILE, data)

@@ -219,7 +219,82 @@ def _traer_libro(dia):
             filas.setdefault(linea.split(",")[0], linea)
 
 
+# ---------- la conclusion de cada hora (para medir con aciertos reales que señal funciona) ----------
+# Una fila por hora y por plazo, con lo primero que dijo el analisis central despues de cerrar la hora:
+# historial/BTC/central/<dia>.csv:  t, plazo, precio, direccion, puntos, a_favor, en_contra, fuerza, senales
+# senales = "clave:puntos;clave:puntos;..." (puntos = lado x peso; la clave sale del texto de cada señal).
+# medir_central.py lo lee y dice cuanto acerto cada plazo y cada señal.
+CENTRAL_COL = "t,plazo,precio,direccion,puntos,a_favor,en_contra,fuerza,senales"
+_CLAVES = (("Casos parecidos", "casos"), ("Indicadores", "indicadores"), ("Precio arriba de la banda", "bollinger"),
+           ("Precio debajo de la banda", "bollinger"), ("Posible reversión", "rsi"), ("Posible rebote", "rsi"),
+           ("RSI de", "rsi_sigue"), ("MACD de", "macd"), ("Divergencia de CVD", "cvd"), ("En spot se", "absorcion"),
+           ("Barrida de liquidez", "barrida"), ("Elliott", "elliott"), ("Más liquidaciones", "liquidaciones"),
+           ("Ciclo:", "ciclo"), ("15 min, 1 hora y 4 horas", "coinciden"), ("Divergencia", "divergencia"),
+           ("En el Fibonacci", "fibonacci"), ("Arriba de la media simple", "sma200"), ("Debajo de la media simple", "sma200"),
+           ("Wyckoff", "wyckoff"), ("Open interest", "oi"), ("Long/short", "cuentas"), ("Ruptura", "patron"),
+           ("SuperTrend", "supertrend"), ("Nube de Ichimoku", "ichimoku"), ("VWAP", "vwap"), ("OBV", "obv"),
+           ("Chaikin", "chaikin"), ("Parabolic SAR", "sar"))
+_central = {}             # dia -> {(t, plazo): linea}
+
+
+def clave_senal(texto):
+    for ini, k in _CLAVES:
+        if texto.startswith(ini):
+            return k
+    return "patron" if " en " in texto and "→" in texto else "otra"
+
+
+def anotar_central(rows, ahora_ms=None):
+    """Guarda la conclusion de cada plazo una vez por hora (la primera despues del cierre de la hora)."""
+    if not rows:
+        return
+    ahora_ms = ahora_ms or time.time() * 1000
+    t = int(ahora_ms // 3_600_000 * 3_600_000)
+    dia = _dia(t)
+    precio = next((r.get("precio") for r in rows if r.get("tabla") == "resumen"), None)
+    with _lock:
+        _traer_central(dia)
+        filas = _central.setdefault(dia, {})
+        for c in rows:
+            if c.get("tabla") != "central" or not c.get("plazo") or (str(t), c["plazo"]) in filas:
+                continue
+            sen = {}
+            for f in c.get("factores") or []:
+                if f[0] == "direccion":
+                    k = clave_senal(f[3])
+                    sen[k] = round(sen.get(k, 0) + f[1] * f[2], 2)
+            filas[(str(t), c["plazo"])] = ",".join([str(t), c["plazo"], _txt(precio), c.get("direccion") or "", _txt(c.get("direccion_puntos")),
+                                                    _txt(c.get("a_favor")), _txt(c.get("en_contra")), c.get("fuerza") or "",
+                                                    ";".join(f"{k}:{_txt(v)}" for k, v in sorted(sen.items()))])
+            _sucios.add(("central", dia))
+        for d in [d for d in _central if d < _dia(t - DIAS_EN_MEMORIA * 864e5) and ("central", d) not in _sucios]:
+            _central.pop(d, None)
+    subir_si_toca()
+
+
+def _traer_central(dia):
+    if ("central", dia) in _cargados:
+        return
+    _cargados.add(("central", dia))
+    try:
+        if _token():
+            texto = _api("GET", f"/contents/{_ruta('central', dia)}?ref={RAMA}", crudo=True)
+        else:
+            with urllib.request.urlopen(f"https://raw.githubusercontent.com/{REPO}/{RAMA}/{_ruta('central', dia)}", timeout=15) as r:
+                texto = r.read().decode()
+    except Exception:
+        return
+    filas = _central.setdefault(dia, {})
+    for linea in texto.splitlines()[1:]:
+        p = linea.split(",")
+        if len(p) >= 9:
+            filas.setdefault((p[0], p[1]), linea)
+
+
 def _csv(tf, dia):
+    if tf == "central":
+        f = _central.get(dia, {})
+        return CENTRAL_COL + "\n" + "".join(f[k] + "\n" for k in sorted(f, key=lambda k: (int(k[0]), k[1])))
     if tf == "libro":
         return "t,medio,paso,niveles\n" + "".join(_libro.get(dia, {})[k] + "\n" for k in sorted(_libro.get(dia, {}), key=int))
     filas = sorted(_datos.get((tf, dia), {}).values(), key=lambda c: (int(c[0]), int(c[1])))

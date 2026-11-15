@@ -56,3 +56,21 @@ csv = h._csv("libro", "2026-11-12")
 assert csv.splitlines()[0] == "t,medio,paso,niveles" and csv.splitlines()[1].endswith("1401:350"), csv
 assert h._ruta("libro", "2026-11-12") == "historial/BTC/libro/2026-11-12.csv"
 print("historial: libro de ordenes bien")
+
+
+# ---------- la conclusion de cada hora ----------
+h._central.clear(); h._cargados.add(("central", "2026-11-11"))
+filas = [{"tabla": "resumen", "precio": 70000.5},
+         {"tabla": "central", "plazo": "1 hora", "direccion": "baja", "direccion_puntos": -3.0, "a_favor": 1.0, "en_contra": 4.0, "fuerza": "media",
+          "factores": [["fuerza", 1, 1, "Volumen 2 veces el promedio"], ["direccion", -1, 3, "Casos parecidos y aprendizaje: baja (58% toca primero ese lado)"],
+                       ["direccion", -1, 0.5, "Indicadores alcista fuerte: en las próximas horas suele corregir"], ["direccion", -1, 0.5, "Posible reversión a la baja: RSI de 1 hora en sobrecompra (74)"],
+                       ["direccion", 1, 1, "Ruptura alcista de rango lateral en 1 hora → 71.000"]]},
+         {"tabla": "central", "plazo": None, "direccion": "sube", "factores": []}]
+h.anotar_central(filas, 1794402000000 + 65_000)
+h.anotar_central([filas[0], {**filas[1], "direccion": "sube"}], 1794402000000 + 120_000)        # misma hora: no se pisa
+csv = h._csv("central", "2026-11-11").splitlines()
+assert csv[0] == h.CENTRAL_COL and len(csv) == 2, csv
+assert csv[1] == "1794402000000,1 hora,70000.5,baja,-3,1,4,media,casos:-3;indicadores:-0.5;patron:1;rsi:-0.5", csv[1]
+assert h.clave_senal("Más liquidaciones arriba (20 M de shorts)") == "liquidaciones" and h.clave_senal("algo raro") == "otra"
+assert h._ruta("central", "2026-11-11") == "historial/BTC/central/2026-11-11.csv"
+print("historial: conclusión de cada hora bien")
