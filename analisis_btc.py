@@ -1597,11 +1597,11 @@ def explain(rows, price, spec):
         m = get("marco", tf=tf)[0]
         sc, sv = RSI_MEDIDO.get((name, tf), (None, None))
         if sc == "revierte" and m["rsi"] >= 70:
-            signals.append((4, "bajista", f"RSI de {TF_TXT[tf]} en sobrecompra ({ar(m['rsi'])}): suele corregir (medido)"))
+            signals.append((4, "bajista", f"Posible reversión a la baja: RSI de {TF_TXT[tf]} en sobrecompra ({ar(m['rsi'])})"))
         elif sc == "sigue" and m["rsi"] >= 70:
             signals.append((4, "alcista", f"RSI de {TF_TXT[tf]} en sobrecompra ({ar(m['rsi'])}): la semana siguiente suele seguir (medido)"))
         elif sv == "revierte" and m["rsi"] <= 30:
-            signals.append((4, "alcista", f"RSI de {TF_TXT[tf]} en sobreventa ({ar(m['rsi'])}): suele rebotar (medido)"))
+            signals.append((4, "alcista", f"Posible rebote: RSI de {TF_TXT[tf]} en sobreventa ({ar(m['rsi'])})"))
         if tf in ("1d", "1w", "1M") and m["macd_cruce"]:
             signals.append((4, m["macd_cruce"], f"MACD de {TF_TXT[tf]} cruzó {'al alza' if m['macd_cruce'] == 'alcista' else 'a la baja'}"))
     for p in get("patron"):

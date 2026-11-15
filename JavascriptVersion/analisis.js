@@ -1135,9 +1135,9 @@
     sigTfs.forEach((tf) => {   // RSI solo donde se midio que anticipa (RSI_MEDIDO, como en Python); el MACD, en el diario o mas
       const m = get('marco', { tf })[0];
       const [sc, sv] = RSI_MEDIDO[`${name}|${tf}`] || [null, null];
-      if (sc === 'revierte' && m.rsi >= 70) signals.push([4, 'bajista', `RSI de ${TF_TXT[tf]} en sobrecompra (${ar(m.rsi)}): suele corregir (medido)`]);
+      if (sc === 'revierte' && m.rsi >= 70) signals.push([4, 'bajista', `Posible reversión a la baja: RSI de ${TF_TXT[tf]} en sobrecompra (${ar(m.rsi)})`]);
       else if (sc === 'sigue' && m.rsi >= 70) signals.push([4, 'alcista', `RSI de ${TF_TXT[tf]} en sobrecompra (${ar(m.rsi)}): la semana siguiente suele seguir (medido)`]);
-      else if (sv === 'revierte' && m.rsi <= 30) signals.push([4, 'alcista', `RSI de ${TF_TXT[tf]} en sobreventa (${ar(m.rsi)}): suele rebotar (medido)`]);
+      else if (sv === 'revierte' && m.rsi <= 30) signals.push([4, 'alcista', `Posible rebote: RSI de ${TF_TXT[tf]} en sobreventa (${ar(m.rsi)})`]);
       if (['1d', '1w', '1M'].includes(tf) && m.macd_cruce) signals.push([4, m.macd_cruce, `MACD de ${TF_TXT[tf]} cruzó ${m.macd_cruce === 'alcista' ? 'al alza' : 'a la baja'}`]);
     });
     get('patron').forEach((p) => {

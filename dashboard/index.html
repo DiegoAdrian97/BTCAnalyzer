@@ -2064,6 +2064,12 @@
   /* la ficha del ciclo: si no entra, las zonas bajan a otro renglon (antes se salian en celus) */
   .ab-hoja .ab-tm-tab { flex-wrap: wrap; row-gap: 6px; }
 
+  /* posibilidad de reversion por RSI, en la respuesta */
+  .ab-rs-rev { margin-top: 8px; padding: 7px 12px; border-radius: 12px; font-size: 13px; background: var(--t2-sunk); border: 1px solid var(--vidrio-borde); cursor: help; }
+  .ab-rs-rev[hidden] { display: none; }
+  .ab-rs-rev.dn b { color: var(--color-bad); } .ab-rs-rev.up b { color: var(--color-ok); }
+  .ab-rs-rev span { color: var(--t2-mute); }
+
   :root { --ab-css: 1; }   /* marca: la pagina comprueba con esto que el estilo cargo */
 </style>
 
@@ -3399,7 +3405,25 @@
       rt.title = cc ? cc.textContent.trim() : ''; rt.setAttribute('aria-label', rt.title); }
     const rz = document.getElementById('rs-riesgo'); rz.hidden = !c.riesgo.length;
     rz.replaceChildren(el('b', '', '⚠ Atención: '), c.riesgo.join(' · '));
+    // posibilidad de reversion por RSI, en el grafico que miras (lo medido de esa temporalidad: medir_rsi.py)
+    let rv = document.getElementById('rs-rev');
+    if (!rv) { rv = el('div', 'ab-rs-rev'); rv.id = 'rs-rev'; rz.after(rv); }
+    const mk = rows.find((x) => x.tabla === 'marco' && x.tf === S.tf), rsi = mk ? num(mk.rsi) : NaN;
+    rv.hidden = !(isFinite(rsi) && (rsi >= 70 || rsi <= 30));
+    if (!rv.hidden) {
+      const alto = rsi >= 70, tfx = TF_TXT[S.tf] || S.tf, med = RSI_REV[S.tf];
+      const tit = med === 'revierte' ? (alto ? '⟲ Posible reversión a la baja' : '⟲ Posible rebote')
+        : med === 'sigue' && alto ? '↗ Sobrecompra: suele seguir' : alto ? 'RSI en sobrecompra' : 'RSI en sobreventa';
+      rv.className = `ab-rs-rev ${med === 'revierte' ? (alto ? 'dn' : 'up') : med === 'sigue' && alto ? 'up' : ''}`.trim();
+      rv.replaceChildren(el('b', '', tit), el('span', '', ` · RSI de ${tfx} ${f0(rsi)}`));
+      rv.title = med === 'revierte' ? `Medido (BTC 2021–2026): con el RSI de ${tfx} ${alto ? 'en sobrecompra, la hora siguiente corrigió' : 'en sobreventa, la hora siguiente rebotó'} 3 a 6 puntos más seguido que lo normal${!alto && S.tf === '1h' ? ', y también en las 4 horas siguientes' : ''}. Es una posibilidad, no una certeza.`
+        : med === 'sigue' && alto ? 'Medido (BTC 2011–2026): con el RSI diario en sobrecompra, la semana siguiente siguió subiendo más seguido que lo normal (no revierte).'
+          : med === 'nada' ? `Medido: en velas de ${tfx}, la sobrecompra y la sobreventa no anticiparon la reversión (~50%).` : `En velas de ${tfx} no se midió si anticipa la reversión.`;
+    }
   }
+  // que hace el RSI extremo en cada temporalidad (medir_rsi.py): revierte la hora siguiente en 15 min y 1 h; en el diario
+  // la sobrecompra sigue; en 4 h, el resto del diario y el semanal no anticipa
+  const RSI_REV = { '15m': 'revierte', '1h': 'revierte', '4h': 'nada', '1d': 'sigue', '1w': 'nada' };
   // ---------- el analisis completo: 6 partes, cada una con su resumen en una linea y el detalle al abrirla ----------
   const PARTES = [
     ['parte-dir', 'Cómo se llegó a la dirección', ['conclusion', 'ce-dir', 'sesgo', 'prediccion', ['que-espero', 'Todas las señales, una por una']]],
@@ -9008,8 +9032,12 @@
       'RSI saliendo de abajo de 30, o MACD cruzando arriba de su señal: impulso alcista.', 'RSI cayendo desde arriba de 70, o MACD cruzando abajo: impulso bajista.'],
     [/^(Stoch RSI|Estoc[aá]stico RSI)/, 'osc', 'Stoch RSI', 'El estocástico aplicado al RSI: un RSI más sensible, de 0 a 100, que reacciona antes.',
       'Cruce hacia arriba debajo de 20: rebote probable.', 'Cruce hacia abajo arriba de 80: freno probable.'],
+    [/^(⟲ )?Posible (reversión|rebote)|^↗ Sobrecompra/, 'osc', 'Posibilidad de reversión (RSI)', 'El RSI de 14 velas está en sobrecompra (70 o más) o en sobreventa (30 o menos): la suba o la baja está estirada.',
+      'Medido en velas de 15 min y 1 h (BTC 2021–2026): con sobreventa, la hora siguiente rebotó 3 a 6 puntos más seguido que lo normal (en 1 h, también a 4 h).',
+      'Con sobrecompra en 15 min y 1 h, la hora siguiente corrigió 3 a 6 puntos más seguido. Ojo: en el diario es al revés, la semana siguiente suele seguir subiendo.',
+      'Es una posibilidad, no una certeza: en 4 h y en el semanal no anticipa (~50%).'],
     [/^RSI/, 'osc', 'RSI · Índice de fuerza relativa', 'Compara las subas con las bajas de las últimas 14 velas y lo resume de 0 a 100. Dice si el movimiento está estirado.',
-      'Debajo de 30 (sobreventa): la baja está estirada y suele rebotar.', 'Arriba de 70 (sobrecompra): la suba está estirada y suele frenar.',
+      'Debajo de 30 (sobreventa): la baja está estirada. Medido: en 15 min y 1 h suele rebotar la hora siguiente.', 'Arriba de 70 (sobrecompra): la suba está estirada. Medido: en 15 min y 1 h suele corregir la hora siguiente; en el diario, al revés, suele seguir.',
       'Si el precio hace un extremo nuevo y el RSI no, es una divergencia: el movimiento pierde fuerza.'],
     [/^MACD/, 'osc', 'MACD', 'La diferencia entre dos medias (12 y 26) y su señal (9). Las barras muestran la distancia entre las dos líneas: el impulso.',
       'MACD cruza arriba de su señal o las barras crecen: el impulso acompaña la suba.', 'Cruza abajo o las barras caen: el impulso acompaña la baja.'],

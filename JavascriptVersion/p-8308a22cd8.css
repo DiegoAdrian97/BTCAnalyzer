@@ -2063,4 +2063,10 @@
   /* la ficha del ciclo: si no entra, las zonas bajan a otro renglon (antes se salian en celus) */
   .ab-hoja .ab-tm-tab { flex-wrap: wrap; row-gap: 6px; }
 
+  /* posibilidad de reversion por RSI, en la respuesta */
+  .ab-rs-rev { margin-top: 8px; padding: 7px 12px; border-radius: 12px; font-size: 13px; background: var(--t2-sunk); border: 1px solid var(--vidrio-borde); cursor: help; }
+  .ab-rs-rev[hidden] { display: none; }
+  .ab-rs-rev.dn b { color: var(--color-bad); } .ab-rs-rev.up b { color: var(--color-ok); }
+  .ab-rs-rev span { color: var(--t2-mute); }
+
   :root { --ab-css: 1; }   /* marca: la pagina comprueba con esto que el estilo cargo */
