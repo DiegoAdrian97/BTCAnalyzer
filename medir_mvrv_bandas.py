@@ -94,5 +94,36 @@ def main():
                       f"(mediana {100 * sorted(zona)[len(zona) // 2]:+.0f}%)")
 
 
+def plazos_cortos():
+    """¿La zona del MVRV anticipa la semana y el mes? Cada dia dentro de cada zona (media y desvio hasta ese dia, sin mirar
+    el futuro): % de veces que BTC subio a 7, 30 y 90 dias, contra un dia cualquiera del mismo tramo (2013-19 y 2020-26)."""
+    mv, px = serie("CapMVRVCur"), serie("PriceUSD")
+    dias = sorted(d for d in mv if d in px and d >= "2011-01-01")
+    M = [mv[d] for d in dias]; P = [px[d] for d in dias]; n = len(dias)
+    s = s2 = 0.0; Z = []
+    for k, x in enumerate(M):
+        s += x; s2 += x * x; m = s / (k + 1); sd = math.sqrt(max(1e-12, s2 / (k + 1) - m * m)); Z.append((x - m) / sd)
+    zonas = (("<= -1", lambda z: z <= -1), ("<= -0,5", lambda z: z <= -0.5), ("-0,5 a 1,5", lambda z: -0.5 < z < 1.5),
+             (">= 1,5", lambda z: z >= 1.5), (">= 2", lambda z: z >= 2))
+    print("\n===== ¿La zona anticipa la semana y el mes? (cada día dentro de la zona; z del día vs un día cualquiera) =====")
+    for h in (7, 30, 90):
+        for nom, a, b in (("2013-19", "2013-01-01", "2020-01-01"), ("2020-26", "2020-01-01", "2100-01-01")):
+            idx = [i for i in range(730, n - h) if a <= dias[i] < b]
+            base = sum(P[i + h] > P[i] for i in idx) / len(idx)
+            txt = f"  {h:>2} días {nom}: un día cualquiera sube {100 * base:.0f}%"
+            for zn, f in zonas:
+                sel = [i for i in idx if f(Z[i])]
+                if len(sel) < 30:
+                    txt += f" | {zn}: pocos ({len(sel)})"
+                    continue
+                ok = sum(P[i + h] > P[i] for i in sel) / len(sel)
+                # z contra la tasa base; los dias se pisan (n efectivo ~ n / h): se corrige
+                ne = max(1.0, len(sel) / h)
+                z = (ok - base) / math.sqrt(base * (1 - base) / ne)
+                txt += f" | {zn}: {len(sel)} d, sube {100 * ok:.0f}% (z {z:+.1f})"
+            print(txt, flush=True)
+
+
 if __name__ == "__main__":
+    plazos_cortos()
     main()
