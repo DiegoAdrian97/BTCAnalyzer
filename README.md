@@ -675,7 +675,7 @@ y 1M) junta todos los cálculos de la app en cinco puntos, cada señal con su pe
 | Punto | Qué suma |
 |---|---|
 | ¿Se viene movimiento fuerte? | Modelo de árboles (1 h o 4 h, hasta ±3), mercado despierto (+2) o agitado/en calma (±1), Bollinger comprimidas en esa temporalidad (+1), volumen 2× (+1), ADX ≥ 25 (+0,5), hora del día (±1), dato fuerte de EE.UU. en la ventana (+2), liquidaciones a menos de 1% (+1), volatilidad implícita de las opciones en su 20% más alto o más bajo de 30 días (±1; medido con `medir_dvol.py`: las 4 h siguientes fueron fuertes 18–26% de las veces con el DVOL alto y 7–9% con el bajo, contra 12–13% normal, en 2022, 2023-24 y 2025-26). Alta desde 4, media desde 2 |
-| ¿Sube o baja? | Casos parecidos y aprendizaje (±3; ±1 si no le ganó a la tasa base), en 1 hora si 15 min, 1 h y 4 h coinciden (±1; medido: 54% contra 51,5%), indicadores del marco (±2), cada señal de la explicación: patrones, divergencias, canales, Wyckoff, Elliott (±1; el RSI extremo y el cruce del MACD solo en el diario o más: en 4 h o menos dan ~50%, ver "Cada indicador, medido"), SuperTrend, Ichimoku, VWAP, OBV, Chaikin, SAR y Bollinger fuera de banda (±0,5), liquidaciones de cada lado dentro de 3% (±1), libros (±0,5), ciclo y funding en 4 h o más (±1 / ±0,5). Sube desde +2,5, baja desde −2,5 |
+| ¿Sube o baja? | Casos parecidos y aprendizaje (±3; ±1 si no le ganó a la tasa base), en 1 hora si 15 min, 1 h y 4 h coinciden (±1; medido: 54% contra 51,5%), indicadores del marco (±1 al revés en 4 h o menos; en diario o más no cuentan: `medir_largos.py`), cada señal de la explicación: patrones, divergencias, canales, Wyckoff, Elliott (±1; el RSI extremo y el cruce del MACD solo en el diario o más: en 4 h o menos dan ~50%, ver "Cada indicador, medido"), Bollinger fuera de banda en 4 h o menos (±1), liquidaciones de cada lado dentro de 3% (±1), libros (±0,5), ciclo y funding en 4 h o más (±1 / ±0,5). Sube desde +2,5, baja desde −2,5 |
 | ¿Hasta dónde? | Rango del 80%, objetivos con su chance de tocarse, movimiento esperado en una hora, objetivo de Elliott |
 | Niveles | Soporte y resistencia más cercanos e invalidación |
 | Atención | RSI extremo, dato fuerte en 24 h, movimiento fuerte, señales en contra casi tan fuertes |
@@ -705,7 +705,7 @@ curso ya lo pasó (antes una onda A bajista con el objetivo ya arriba del precio
 | **Puntaje con los pesos nuevos, \|p\| ≥ 1** | 54,1% / 52,1% (a 4 h: 54,2% / 53,6%) | Se aplica |
 | **Puntaje con los pesos nuevos, \|p\| ≥ 2** | 55,8% / 55,4% (a 4 h: 55,6% / 55,2%) | Se aplica |
 
-En velas diarias o más largas los indicadores siguen a favor (no se midió). **Fed** (45 decisiones 2021–2026): la hora
+En velas diarias o más largas los indicadores no cuentan (medido después: ver "Indicadores del gráfico diario y semanal"). **Fed** (45 decisiones 2021–2026): la hora
 del anuncio se movió ×3,2 lo normal (más del doble el 78%) → suma +3 a la fuerza; después BTC subió ~50% de las veces
 fuera que bajaran, mantuvieran o subieran la tasa → no entra en la dirección. **DVOL en el modelo de movimiento fuerte**:
 mejora en los 6 casos (1 h: +0,4 / +1,1 / +0,2 puntos; 4 h: +0,2 / +0,8 / +0,4) pero solo 2025 pasa z > 2: queda afuera
@@ -784,6 +784,27 @@ de 1 hora 2021–2026 (232 huecos de 0,5% o más; tamaño medio 2,2–2,4%): se 
 67–76% y en 7 días el 73–87%; un movimiento igual en cualquier otro momento, 29–32%, 53% y 66–67%. Pero el precio no
 cierra más seguido hacia el hueco (a 24 horas, 46–49%): es un **nivel que atrae, no una dirección**. Entra como nivel
 ("Hueco del CME · en 3 días se rellenó 67–76%", solo BTC, mientras siga abierto y hasta 7 días) y no suma puntos.
+
+### Indicadores del gráfico diario y semanal (`medir_largos.py`, nov. 2026)
+
+Faltaba medir lo que el análisis del día, la semana y el mes contaba "a favor (sin medir)": el resumen de indicadores
+del gráfico diario o semanal (2 puntos), seis indicadores de tendencia (0,5 cada uno) y Bollinger fuera de banda (0,5).
+Hasta 5,5 puntos, cuando la dirección se decide desde 2,5: alcanzaban solos. Con velas diarias de Binance spot
+(agosto de 2017 a hoy, 3.363) y semanales armadas con ellas, cada vela, a 1, 7 y 30 días, hasta 2021 y en 2022–2026:
+
+| Qué marca | 1 día | 7 días | 30 días | Qué se hizo |
+|---|---|---|---|---|
+| Resumen del diario (medias y osciladores) | 49,4% / 49,2% (z −0,7 / −0,6) | 53,7% / 49,7% (+0,7 / −0,1) | 56,0% / 47,4% (+0,6 / −0,4) | No cuenta más |
+| Resumen fuerte (más de 0,5) | 48,7% / 49,8% | 55,5% / 48,8% | 57,7% / 48,4% | No cuenta más |
+| Resumen del semanal | — | 60,0% / 48,7% (z +0,2 / −0,4) | 61,4% / 48,5% (+0,4 / −0,3) | No cuenta más |
+| Cada indicador (37 en diario y semanal) | ninguno con z ≥ 2 del mismo lado en los dos tramos | | | No cuentan |
+| Bollinger fuera de banda, diario | 50,0% / 49,3% | 44,3% / 50,2% | 30,4% / 44,6% (a 30 días más bien siguió) | Ya no suma "vuelve adentro" en el diario |
+
+(En 2017–2021 parecen acertar más a 30 días solo porque casi todo subía: contra lo normal de cada tramo no hay
+diferencia.) Los que más se acercaron, sin pasar: precio fuera del canal de Keltner diario, a 30 días siguió para ese
+lado 69% / 67% contra 53% / 52% (z +1,7 / +1,9); MFI diario extremo, a 30 días siguió en vez de revertir (z −1,8 /
+−2,3). Los dos dicen lo mismo que el RSI diario en sobrecompra, que ya está ("la semana siguiente suele seguir").
+En la tabla de indicadores, la columna "Medido" del diario y el semanal ahora dice "~50%".
 
 ### Candidatos nuevos que no pasaron (`medir_complementos.py`, nov. 2026)
 

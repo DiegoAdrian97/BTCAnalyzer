@@ -367,12 +367,11 @@
         }
       }
       // medido (medir_direccion.py): a 1 y 4 h los indicadores de tendencia aciertan menos que una moneda (46-48%): en 4 h o
-      // menos cuentan al reves (peso 1, solo el resumen); en diario o mas, a favor (sin medir)
+      // menos cuentan al reves (peso 1, solo el resumen); en diario o mas no cuentan (medir_largos.py: ~50%)
       const r_ = marco.rating, largoTf = tf === '1d' || tf === '1w' || tf === '1M';
       if (ok(r_) && Math.abs(r_) > 0.1) {
+        // diario o mas: medido ~50% a 1, 7 y 30 dias (medir_largos.py): ni el resumen ni cada indicador cuentan
         if (!largoTf) cf('direccion', r_ > 0 ? -1 : 1, 1, `Indicadores ${marco.rating_txt.toLowerCase()}: en las próximas horas suele corregir (medido: a favor aciertan 46–48%)`);
-        else cf('direccion', r_ > 0 ? 1 : -1, 2,
-          `Indicadores: ${marco.rating_txt.toLowerCase()} (medias ${marco.ma_compra}↑ ${marco.ma_venta}↓, osciladores ${marco.osc_compra}↑ ${marco.osc_venta}↓)`);
       }
       const el = marco.elliott || '', cur = marco.elliott_curso;
       if (cur && !F.some((f) => f[3].startsWith('Elliott'))) {    // el de la explicacion ya esta
@@ -380,15 +379,8 @@
         const sube = el.startsWith('Impulso') ? (['1', '3', '5', 'B'].includes(cur)) === alc : (cur === 'B') === alc;
         cf('direccion', sube ? 1 : -1, 1, `Elliott: onda ${cur} en curso (${el.split(';')[0].toLowerCase()})`);
       }
-      [['SuperTrend (10,3)', 'SuperTrend'], ['Nube de Ichimoku', 'Nube de Ichimoku'], ['VWAP del dia', 'VWAP del día'], ['OBV', 'OBV'],
-        ['Chaikin Money Flow 20', 'Chaikin'], ['Parabolic SAR', 'Parabolic SAR']].forEach(([nombre, txt]) => {
-        if (!largoTf) return;                                  // en 4 h o menos dicen lo mismo que el resumen (medido: al reves)
-        const x = ind[nombre];
-        if (x && (x.senal === 'compra' || x.senal === 'venta')) cf('direccion', x.senal === 'compra' ? 1 : -1, 0.5,
-          `${txt}: ${x.senal === 'compra' ? 'a favor de la suba' : 'a favor de la baja'}` + (x.detalle ? ` (${x.detalle})` : ''));
-      });
       const bb = ind['Bandas de Bollinger %B'];
-      if (bb && ok(bb.valor) && (bb.valor >= 100 || bb.valor <= 0)) cf('direccion', bb.valor >= 100 ? -1 : 1, largoTf ? 0.5 : 1,   // medido: vuelve adentro 56-59%
+      if (bb && ok(bb.valor) && (bb.valor >= 100 || bb.valor <= 0) && !largoTf) cf('direccion', bb.valor >= 100 ? -1 : 1, 1,   // medido: vuelve adentro 56-59% (en el diario no)
         `Precio ${bb.valor >= 100 ? 'arriba de la banda superior' : 'debajo de la banda inferior'} de Bollinger: suele volver adentro`);
       let arriba = 0, abajo = 0;
       liq.forEach((x) => { if (x.precio / price - 1 > 0 && x.precio / price - 1 <= 0.03) arriba += x.shorts; if (1 - x.precio / price > 0 && 1 - x.precio / price <= 0.03) abajo += x.longs; });
@@ -1126,8 +1118,7 @@
       const m = get('marco', { tf })[0];
       if (Math.abs(m.rating) > 0.1) {   // en 4 h o menos, para el lado que cuenta central (medido: corrige); igual que en Python
         const al = m.rating > 0;
-        if (['1d', '1w', '1M'].includes(tf)) signals.push([[2, 3][n], al ? 'alcista' : 'bajista', `Indicadores de ${TF_TXT[tf]}: ${m.rating_txt.toLowerCase()}`]);
-        else signals.push([[2, 3][n], al ? 'bajista' : 'alcista', `Indicadores de ${TF_TXT[tf]}: ${m.rating_txt.toLowerCase()}, suele corregir (medido)`]);
+        if (!['1d', '1w', '1M'].includes(tf)) signals.push([[2, 3][n], al ? 'bajista' : 'alcista', `Indicadores de ${TF_TXT[tf]}: ${m.rating_txt.toLowerCase()}, suele corregir (medido)`]);
       }
     });
     // RSI y MACD de cada temporalidad, como los mira un trader

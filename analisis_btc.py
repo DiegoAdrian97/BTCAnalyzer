@@ -1494,15 +1494,15 @@ def central(rows, price, candles, now_ms):
         # Medido (medir_direccion.py, BTC 1 h 2021-2026): a 1 y 4 horas los indicadores de tendencia aciertan MENOS que una
         # moneda (el resumen 45,6-48,1%; SuperTrend, Ichimoku, VWAP, OBV, Chaikin y SAR 45-49%, en los dos tramos): despues
         # de que marcan fuerte, el precio suele corregir. En 4 h o menos cuentan al reves (peso 1, solo el resumen: los
-        # demas dicen lo mismo); en velas diarias o mas largas, a favor (sin medir).
+        # demas dicen lo mismo). En velas diarias o mas largas NO cuentan. Medido (medir_largos.py, BTC diario 2017-2026 y
+        # semanal, a 1, 7 y 30 dias, hasta 2021 y 2022-26): el resumen, las medias, los osciladores y cada indicador
+        # aciertan ~50% (z entre -0,8 y +1,0): ni a favor ni al reves. Antes sumaban hasta 5,5 puntos "a favor (sin
+        # medir)" (resumen 2, seis de tendencia 0,5 y Bollinger 0,5) y decidian solos la direccion del dia, la semana y
+        # el mes
         r_ = marco["rating"]
-        if r_ is not None and abs(r_) > 0.1:
-            if not largo_tf:
-                _cf(F, "direccion", -1 if r_ > 0 else 1, 1,
-                    f"Indicadores {marco['rating_txt'].lower()}: en las próximas horas suele corregir (medido: a favor aciertan 46–48%)")
-            else:
-                _cf(F, "direccion", 1 if r_ > 0 else -1, 2,
-                    f"Indicadores: {marco['rating_txt'].lower()} (medias {marco['ma_compra']}↑ {marco['ma_venta']}↓, osciladores {marco['osc_compra']}↑ {marco['osc_venta']}↓)")
+        if r_ is not None and abs(r_) > 0.1 and not largo_tf:
+            _cf(F, "direccion", -1 if r_ > 0 else 1, 1,
+                f"Indicadores {marco['rating_txt'].lower()}: en las próximas horas suele corregir (medido: a favor aciertan 46–48%)")
         el = marco.get("elliott") or ""
         cur = marco.get("elliott_curso")
         ya = any(f[3].startswith("Elliott") for f in F)                  # el de la explicacion ya esta
@@ -1513,15 +1513,11 @@ def central(rows, price, candles, now_ms):
             else:
                 sube = (cur == "B") == alc
             _cf(F, "direccion", 1 if sube else -1, 1, f"Elliott: onda {cur} en curso ({el.split(';')[0].lower()})")
-        for nombre, txt in () if not largo_tf else (("SuperTrend (10,3)", "SuperTrend"), ("Nube de Ichimoku", "Nube de Ichimoku"), ("VWAP del dia", "VWAP del día"),
-                            ("OBV", "OBV"), ("Chaikin Money Flow 20", "Chaikin"), ("Parabolic SAR", "Parabolic SAR")):
-            x = ind_.get(nombre)
-            if x and x["senal"] in ("compra", "venta"):
-                _cf(F, "direccion", 1 if x["senal"] == "compra" else -1, 0.5, f"{txt}: {'a favor de la suba' if x['senal'] == 'compra' else 'a favor de la baja'}" + (f" ({x['detalle']})" if x.get("detalle") else ""))
         bb = ind_.get("Bandas de Bollinger %B")
-        if bb and bb["valor"] is not None and (bb["valor"] >= 100 or bb["valor"] <= 0):
-            # medido: fuera de banda, la hora siguiente volvio hacia adentro el 56-59% de las veces (los dos tramos)
-            _cf(F, "direccion", -1 if bb["valor"] >= 100 else 1, 0.5 if largo_tf else 1, f"Precio {'arriba de la banda superior' if bb['valor'] >= 100 else 'debajo de la banda inferior'} de Bollinger: suele volver adentro")
+        if bb and bb["valor"] is not None and (bb["valor"] >= 100 or bb["valor"] <= 0) and not largo_tf:
+            # medido: fuera de banda, la hora siguiente volvio hacia adentro el 56-59% de las veces (los dos tramos). En el
+            # diario no: a 1 y 7 dias ~50% y a 30 dias mas bien siguio (medir_largos.py)
+            _cf(F, "direccion", -1 if bb["valor"] >= 100 else 1, 1, f"Precio {'arriba de la banda superior' if bb['valor'] >= 100 else 'debajo de la banda inferior'} de Bollinger: suele volver adentro")
         arriba = sum(x["shorts"] for x in liq if 0 < x["precio"] / price - 1 <= 0.03)
         abajo = sum(x["longs"] for x in liq if 0 < 1 - x["precio"] / price <= 0.03)
         # Medido (medir_nuevo.py, BTC 2021-2026, el mismo modelo del mapa): no es un iman. Con mas liquidaciones de un lado
@@ -1592,12 +1588,10 @@ def explain(rows, price, spec):
         m = get("marco", tf=tf)[0]
         if abs(m["rating"]) > 0.1:
             # medido (medir_direccion.py): en 4 h o menos el resumen acierta menos que una moneda (el precio corrige):
-            # se muestra para el lado que cuenta central(); en el diario o mas, a favor. Antes la lista decia "alcista"
+            # se muestra para el lado que cuenta central(); en el diario o mas no anticipa y no se muestra. Antes la lista decia "alcista"
             # mientras la prediccion lo contaba como bajista
             al = m["rating"] > 0
-            if tf in ("1d", "1w", "1M"):
-                signals.append((pr, "alcista" if al else "bajista", f"Indicadores de {TF_TXT[tf]}: {m['rating_txt'].lower()}"))
-            else:
+            if tf not in ("1d", "1w", "1M"):          # diario o mas: medido ~50% a 1, 7 y 30 dias (medir_largos.py), no entra
                 signals.append((pr, "bajista" if al else "alcista", f"Indicadores de {TF_TXT[tf]}: {m['rating_txt'].lower()}, suele corregir (medido)"))
     # RSI en sobrecompra y sobreventa: solo donde se midio que anticipa (medir_rsi.py, cada vela, BTC 2021-2026 y
     # diario 2011-2026, en los dos tramos con z >= 2). Revierte la hora siguiente en velas de 15 min y de 1 h (+3 a +6
