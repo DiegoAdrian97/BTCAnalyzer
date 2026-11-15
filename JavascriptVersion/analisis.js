@@ -1165,10 +1165,7 @@
       }
     }
     if (main.coinciden) signals.push([2, main.coinciden, `15 min, 1 hora y 4 horas van para el mismo lado: así acertó ${ar(COINCIDEN.si, 1)}% (2023-26; ${ar(COINCIDEN.no, 1)}% cuando no)`]);
-    const sma = get('nivel').find((n) => n.nombre === 'Media simple 200 días');
-    if (sma && name === '1 día') {
-      signals.push([6, price > sma.precio ? 'alcista' : 'bajista', price > sma.precio ? 'Arriba de la media simple de 200 días' : 'Debajo de la media simple de 200 días']);
-    }
+    // la media simple de 200 dias ya no es señal del dia (medir_largos.py: ~50%); sigue como nivel
     signals.sort((a, b) => a[0] - b[0]);
 
     const up = main.obj_arriba, dn = main.obj_abajo, mg = main.margen_primero || 0;

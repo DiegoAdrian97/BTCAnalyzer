@@ -1644,10 +1644,8 @@ def explain(rows, price, spec):
     if main.get("coinciden"):
         signals.append((2, main["coinciden"], f"15 min, 1 hora y 4 horas van para el mismo lado: así acertó {ar(COINCIDEN['si'], 1)}% "
                                               f"(2023-26; {ar(COINCIDEN['no'], 1)}% cuando no)"))
-    sma = next((n for n in get("nivel") if n["nombre"] == "Media simple 200 días"), None)
-    if sma and name == "1 día":
-        signals.append((6, "alcista" if price > sma["precio"] else "bajista",
-                        "Arriba de la media simple de 200 días" if price > sma["precio"] else "Debajo de la media simple de 200 días"))
+    # "arriba / debajo de la media simple de 200 dias" ya no es una señal del dia: medido (medir_largos.py) el dia
+    # siguiente fue para ese lado 51,0% / 51,2% contra 50,6% / 50,0% normal (z +0,2 / +1,1). Sigue como nivel
     signals.sort(key=lambda x: x[0])
 
     up, dn, pu, mg = main["obj_arriba"], main["obj_abajo"], main["primero_arriba"], main["margen_primero"] or 0

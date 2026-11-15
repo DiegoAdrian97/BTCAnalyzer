@@ -806,7 +806,8 @@ Hasta 5,5 puntos, cuando la dirección se decide desde 2,5: alcanzaban solos. Co
 diferencia.) Los que más se acercaron, sin pasar: precio fuera del canal de Keltner diario, a 30 días siguió para ese
 lado 69% / 67% contra 53% / 52% (z +1,7 / +1,9); MFI diario extremo, a 30 días siguió en vez de revertir (z −1,8 /
 −2,3). Los dos dicen lo mismo que el RSI diario en sobrecompra, que ya está ("la semana siguiente suele seguir").
-En la tabla de indicadores, la columna "Medido" del diario y el semanal ahora dice "~50%".
+En la tabla de indicadores, la columna "Medido" del diario y el semanal ahora dice "~50%". Tampoco suma ya "arriba / debajo
+de la media simple de 200 días" al análisis del día (51% contra 50–51% normal); queda como nivel.
 
 ### Candidatos nuevos que no pasaron (`medir_complementos.py`, nov. 2026)
 
