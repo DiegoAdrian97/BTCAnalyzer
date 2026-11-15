@@ -1,0 +1,22 @@
+name: Medir los indicadores del gráfico diario y semanal
+# A mano desde Actions (o al cambiar el medidor): corre medir_largos.py con velas diarias publicas de data.binance.vision
+# y deja el resultado como artefacto. No cambia nada del analisis: solo mide.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/medir_largos.yml", "medir_largos.py"]
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/cache@v4
+        with: { path: datos_medicion, key: largos-btc-v1 }
+      - run: python -u medir_largos.py | tee largos.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: medicion-largos, path: largos.txt }
