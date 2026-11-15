@@ -57,7 +57,8 @@ CHART_BARS = 300
 SCENARIO_STEPS = 12
 # temporalidad: (dias de historia, horizontes de probabilidad en velas)
 TIMEFRAMES = {"5m": (30, (3, 12)), "15m": (90, (4, 16)), "30m": (180, (4, 16)),
-              "1h": (365, (4, 24)), "4h": (730, (3, 6)), "1d": (1500, (3, 7))}
+              "1h": (365, (4, 24)), "4h": (730, (3, 6)),
+              "1d": (1500, (3, 7, 30))}     # 30: el plazo de 1 mes (los casos parecidos necesitan 30 dias despues)
 
 
 # ---------- datos ----------
@@ -1240,6 +1241,11 @@ PLAZOS = [
     ("1 hora", "5m", 12, ("15m", "1h"), ("flujo_1 h", "flujo_4 h", "oi_1h", "oi_4h"), "15 min"),
     ("4 horas", "30m", 8, ("1h", "4h"), ("flujo_4 h", "oi_24h", "long_short"), "1 hora"),
     ("1 día", "4h", 6, ("4h", "1d"), ("oi_24h", "long_short", "funding"), "4 horas"),
+    # plazos largos (nov. 2026): casos parecidos de velas diarias a 7 y 30 dias; las señales, de las velas semanales y
+    # mensuales. Sin contexto de corto plazo (el open interest y las cuentas se midieron a 1 h - 1 dia). Su repaso
+    # dice si le ganan a lo normal, como los demas
+    ("1 semana", "1d", 7, ("1d", "1w"), (), "1 día"),
+    ("1 mes", "1d", 30, ("1w", "1M"), (), "1 semana"),
 ]
 CTX_MEDIDO = ("oi_1h", "oi_4h", "oi_24h", "long_short")   # su senal solo marca lo que gano en las mediciones
 SHORT_CTX = {"flujo_1 h": "Compras a mercado 1 h", "flujo_4 h": "Compras a mercado 4 h", "oi_1h": "Open interest 1 h",
@@ -1305,7 +1311,7 @@ def coinciden(rows):
 # Ojo: medido sin mirar el futuro, la direccion casi no se puede predecir (la prediccion le gana a la tasa base por
 # 0-0,2%); la fuerza si (modelo: 9-12%). El puntaje de direccion resume lo que dicen las senales, no promete acierto.
 CENTRAL_TF = ("5m", "15m", "30m", "1h", "4h", "1d", "1w", "1M")
-CENTRAL_PLAZO = {"5m": "5 min", "15m": "15 min", "1h": "1 hora", "4h": "4 horas", "1d": "1 día"}
+CENTRAL_PLAZO = {"5m": "5 min", "15m": "15 min", "1h": "1 hora", "4h": "4 horas", "1d": "1 día", "1w": "1 semana", "1M": "1 mes"}
 CENTRAL_HORAS = {"5m": 1, "15m": 1, "30m": 2, "1h": 2, "4h": 8, "1d": 24, "1w": 72, "1M": 168}
 
 
@@ -1565,6 +1571,8 @@ def explain(rows, price, spec):
     get = lambda t, **kw: [r for r in rows if r["tabla"] == t and all(r.get(k) == v for k, v in kw.items())]
     main = get("plazo", plazo=name)[0]
     hh = main["hora"][-5:]
+    # semanal o mensual pueden faltar (pocas velas): quedan las temporalidades que estan (el diario siempre)
+    sig_tfs = tuple(tf for tf in sig_tfs if get("marco", tf=tf)) or ("1d",)
     signals = []      # (prioridad, sesgo, texto corto)
     for pr, tf in zip((2, 3), sig_tfs):
         m = get("marco", tf=tf)[0]

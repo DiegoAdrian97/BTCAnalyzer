@@ -74,11 +74,18 @@
   }
   const later = (fn) => (reduce ? fn() : requestAnimationFrame(() => requestAnimationFrame(fn)));
   // cada plazo se mira con las velas que mejor lo muestran
-  const PLAZO_VIEW = { '5 min': '5m', '15 min': '15m', '1 hora': '1h', '4 horas': '4h', '1 día': '1d' };
+  // el grafico que mirás decide el plazo de la prediccion (unas velas por delante): 5 min → la proxima hora, 15 min →
+  // 4 horas, 1 hora → el dia, 4 horas y diario → la semana, semanal y mensual → el mes. Elegir un plazo lleva al grafico
+  // que le corresponde
+  const VIEW_PLAZO = { '5m': '1 hora', '15m': '4 horas', '30m': '4 horas', '1h': '1 día', '4h': '1 semana', '1d': '1 semana', '1w': '1 mes', '1M': '1 mes' };
+  const PLAZO_VIEW = { '5 min': '5m', '15 min': '5m', '1 hora': '5m', '4 horas': '15m', '1 día': '1h', '1 semana': '1d', '1 mes': '1w' };
+  const plazoTxt = (p) => ({ '1 hora': 'la próxima hora', '4 horas': 'las próximas 4 horas', '1 día': 'el próximo día', '1 semana': 'la próxima semana', '1 mes': 'el próximo mes' }[p] || `los próximos ${p}`);
+  // "hasta las 13:00 h" o, en los plazos de dias, "hasta el 22/11" (hasta viene como "dd/mm hh:mm")
+  const hastaTxt = (c) => (!c.hasta ? '' : ['1 semana', '1 mes'].includes(c.plazo) ? ` · hasta el ${c.hasta.slice(0, 5)}` : ` · hasta las ${c.hasta.slice(-5)}\u00a0h`);
   // grafico de velas (por defecto) o de linea: se recuerda en este navegador
   const LINEA_K = 'ab-grafico-linea';
   const lineaGuardada = (() => { try { return localStorage.getItem(LINEA_K) === '1'; } catch (e) { return false; } })();
-  const S = { linea: lineaGuardada, plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
+  const S = { linea: lineaGuardada, plazo: '1 hora', tf: '5m', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
     layers: { ema: false, bb: false, fvg: false, patrones: false, ondas: false, fib: false, liq: false, osc: false, plan: true, opc: false, abanico: false, flujo: false, vp: false, ict: false, libro: false, mvrv: false }, log: false, medir: false, iman: false };
   const defBars = () => (window.innerWidth < 600 ? 50 : 90);  // en el telefono, menos para que se lean
   S.nbars = defBars();
@@ -134,7 +141,7 @@
   window.addEventListener('pagehide', () => {
     try { sessionStorage.setItem('ab-vista', JSON.stringify({ plazo: S.plazo, tf: S.tf, scen: S.scen, layers: S.layers, fs: S.fs, log: S.log, iman: S.iman })); } catch (e) { /* idem */ }
   });
-  const placeTf = seg(document.getElementById('tfs'), 'data-tf', (v) => { S.tf = v; S.hz = null; S.offset = 0; draw(); });
+  const placeTf = seg(document.getElementById('tfs'), 'data-tf', (v) => { S.tf = v; S.hz = null; S.offset = 0; if (VIEW_PLAZO[v]) S.plazo = VIEW_PLAZO[v]; draw(); });
   const placeSc = seg(document.getElementById('scens'), 'data-scen', (v) => { S.scen = v; draw(); });
   document.getElementById('layers').addEventListener('click', (e) => {
     const b = e.target.closest('[data-layer]'); if (!b) return;
@@ -649,12 +656,13 @@
   // En resumen: la prediccion de la proxima hora, los indicadores del marco elegido y el termometro (ciclo), juntos y
   // con su plazo. Si apuntan para lados distintos se dice por que, en vez de dejar que parezcan contradecirse.
   // ---------- analisis central (fila 'central' de analisis.js): 5 puntos en la temporalidad elegida ----------
-  const CE_TFS = [['5m', '5m'], ['15m', '15m'], ['30m', '30m'], ['1h', '1h'], ['4h', '4h'], ['1d', '1D'], ['1w', '1S'], ['1M', '1M']];
-  const CE_PLAZO = { '5m': '5 min', '15m': '15 min', '1h': '1 hora', '4h': '4 horas', '1d': '1 día' };
+  // los botones del analisis central son plazos (cada uno sale de su temporalidad: 1 semana de las velas semanales)
+  const CE_TFS = [['5m', '5 min'], ['15m', '15 min'], ['1h', '1 hora'], ['4h', '4 horas'], ['1d', '1 día'], ['1w', '1 semana'], ['1M', '1 mes']];
+  const CE_PLAZO = { '5m': '5 min', '15m': '15 min', '1h': '1 hora', '4h': '4 horas', '1d': '1 día', '1w': '1 semana', '1M': '1 mes' };
   const okv = (x) => x !== null && x !== undefined;
   function drawCentro(rows, sum) {
     const sec = document.getElementById('centro'), todas = pick(rows, 'central');
-    const c = todas.find((x) => x.tf === S.tf) || todas.find((x) => x.tf === '1h');
+    const c = todas.find((x) => x.plazo === S.plazo) || todas.find((x) => x.tf === S.tf) || todas.find((x) => x.tf === '1h');
     drawRespuesta(rows, sum, c); drawPartes(rows, c);
     sec.hidden = !c; if (!c) return;
     const tfs = document.getElementById('ce-tfs');
@@ -663,7 +671,7 @@
       b.addEventListener('click', () => (CE_PLAZO[tf] ? setPlazo(CE_PLAZO[tf]) : setTf(tf)));
       return b;
     }));
-    document.getElementById('ce-k').textContent = `${MON()} · ${TF_TXT[c.tf] || c.tf}${c.hasta ? ` · hasta las ${c.hasta.slice(-5)}\u00a0h` : ''}`;
+    document.getElementById('ce-k').textContent = `${MON()} · ${TF_TXT[c.tf] || c.tf}${hastaTxt(c)}`;
     const lista = (punto) => {
       const fs = c.factores.filter((f) => f[0] === punto).slice().sort((a, b) => b[2] - a[2]);
       if (!fs.length) return null;
@@ -736,13 +744,13 @@
   // ---------- la respuesta: el resultado final del analisis, una sola vez y arriba de todo ----------
   // Sale de la fila 'central' (donde convergen todos los calculos). El detalle de como se llego va en el analisis
   // completo, en 6 partes (ver PARTES), sin repetir la conclusion.
-  const PLZ_CORTO = { '5 min': '5 min', '15 min': '15 min', '1 hora': '1 hora', '4 horas': '4 horas', '1 día': '1 día' };
+  const PLZ_CORTO = { '5 min': '5 min', '15 min': '15 min', '1 hora': '1 hora', '4 horas': '4 horas', '1 día': '1 día', '1 semana': '1 semana', '1 mes': '1 mes' };
   function drawRespuesta(rows, sum, c) {
     const sec = document.getElementById('respuesta'); sec.hidden = !c; if (!c) return;
     const ahora = sum && okv(sum.precio) ? num(sum.precio) : null;
     const plazo = CE_PLAZO[c.tf];
-    document.getElementById('rs-t').textContent = plazo ? `En ${plazo === '1 hora' ? 'la próxima hora' : plazo === '1 día' ? 'el próximo día' : `los próximos ${plazo}`}` : `Velas de ${TF_TXT[c.tf] || c.tf}`;
-    document.getElementById('rs-k').textContent = `${MON()}${c.hasta ? ` · hasta las ${c.hasta.slice(-5)} h` : ''}`;
+    document.getElementById('rs-t').textContent = plazo ? `En ${plazoTxt(plazo)}` : `Velas de ${TF_TXT[c.tf] || c.tf}`;
+    document.getElementById('rs-k').textContent = `${MON()}${hastaTxt(c)}`;
     // los plazos: cambian la respuesta (y el grafico)
     const pl = document.getElementById('rs-plazos');
     pl.replaceChildren(...pick(rows, 'plazo').map((p) => {
@@ -1022,7 +1030,7 @@
       let t = `${motivo ? `${motivo}. ` : ''}${NOM[MON()] || MON()}, ${num(precio)} dólares.`;
       const ch = r ? Number(r.cambio_24h) : NaN;
       if (isFinite(ch)) t += Math.abs(ch) < 0.05 ? ' Igual que hace 24 horas.' : ` ${ch > 0 ? 'Sube' : 'Baja'} ${dec(ch)} por ciento en 24 horas.`;
-      if (c.direccion) t += ` Para ${String(c.plazo || S.plazo).replace(/^1 /, 'la próxima ')}, ${c.direccion === 'sube' ? 'más probable que suba' : c.direccion === 'baja' ? 'más probable que baje' : 'sin dirección clara'}.`;
+      if (c.direccion) t += ` Para ${plazoTxt(String(c.plazo || S.plazo))}, ${c.direccion === 'sube' ? 'más probable que suba' : c.direccion === 'baja' ? 'más probable que baje' : 'sin dirección clara'}.`;
       const lv = [[c.soporte, 'Soporte'], [c.resistencia, 'Resistencia']].filter(([p]) => p).map(([p, n]) => [Number(p), n]).sort((a, b) => Math.abs(a[0] - precio) - Math.abs(b[0] - precio));
       if (lv.length) t += ` ${lv[0][1]} más cerca en ${num(lv[0][0])}.`;
       return t;
@@ -2021,6 +2029,8 @@
     dot.style.left = `${v}%`; dot.style.bottom = '';   // fila horizontal dentro de la hoja
     document.getElementById('tm-num').textContent = f0(v);
     document.getElementById('tm-zona').textContent = t.medidor_zona;
+    { const mz = document.getElementById('tm-mvrv'), ok = t.mvrv_banda !== null && t.mvrv_banda !== undefined;
+      mz.hidden = !ok; if (ok) { mz.textContent = `MVRV: zona ${t.mvrv_banda === 'normal' ? 'media' : `de ${t.mvrv_banda}`}`; mz.className = `ab-tm-mvrv ${/compra/.test(t.mvrv_banda) ? 'up' : /venta|cara/.test(t.mvrv_banda) ? 'dn' : ''}`.trim(); } }
     const mon = t.moneda || 'BTC';
     document.getElementById('tm-kick').textContent = mon === 'BTC' ? 'Ciclo de BTC · semanas o meses' : `${mon} · su precio frente a su historia y el ciclo de BTC · semanas o meses`;
     body.replaceChildren();
@@ -2603,7 +2613,8 @@
     const head = pick(rows, 'explicacion').find((e) => e.plazo === S.plazo && e.tipo === 'titular');
     const bias = head ? head.sesgo : 'neutral';
     const price = num(s.precio), pu = num(p.primero_arriba);
-    document.getElementById('pred-k').textContent = `Predicción a ${S.plazo} desde ahora · hasta las ${p.hora.slice(-5)}\u00a0h del ${p.hora.slice(0, 5)}`;
+    document.getElementById('pred-k').textContent = ['1 semana', '1 mes'].includes(S.plazo) ? `Predicción a ${S.plazo} desde ahora · hasta el ${p.hora.slice(0, 5)}`
+      : `Predicción a ${S.plazo} desde ahora · hasta las ${p.hora.slice(-5)}\u00a0h del ${p.hora.slice(0, 5)}`;
     document.getElementById('pred-n').textContent = `${f0(num(p.n))} casos parecidos`;
     const vb = document.getElementById('verdict-big');
     vb.className = 'ab-verdict-big ab-' + bias;

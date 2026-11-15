@@ -17,7 +17,7 @@
   const HOUR_MS = 3600000;
   const DAY_MS = 86400000;
   // temporalidad: [dias de historia, horizontes de probabilidad en velas]
-  const TIMEFRAMES = { '5m': [30, [3, 12]], '15m': [90, [4, 16]], '30m': [180, [4, 16]], '1h': [365, [4, 24]], '4h': [730, [3, 6]], '1d': [1500, [3, 7]] };
+  const TIMEFRAMES = { '5m': [30, [3, 12]], '15m': [90, [4, 16]], '30m': [180, [4, 16]], '1h': [365, [4, 24]], '4h': [730, [3, 6]], '1d': [1500, [3, 7, 30]] };   // 30: el plazo de 1 mes
   const DIAS_LARGOS = 3000;      // historia diaria para la semanal y la mensual (como DIAS_LARGOS de Python)
   const TF_MS = { '5m': 300000, '15m': 900000, '30m': 1800000, '1h': 3600000, '4h': 14400000, '1d': 86400000 };
   const TF_TXT = { '5m': '5 min', '15m': '15 min', '30m': '30 min', '1h': '1 hora', '4h': '4 horas', '1d': 'diario', '1w': 'semanal', '1M': 'mensual' };
@@ -267,7 +267,7 @@
 
   // ---------- analisis central: todo converge en 5 puntos, en cada temporalidad (ver central en analisis_btc.py) ----------
   const CENTRAL_TF = ['5m', '15m', '30m', '1h', '4h', '1d', '1w', '1M'];
-  const CENTRAL_PLAZO = { '5m': '5 min', '15m': '15 min', '1h': '1 hora', '4h': '4 horas', '1d': '1 día' };
+  const CENTRAL_PLAZO = { '5m': '5 min', '15m': '15 min', '1h': '1 hora', '4h': '4 horas', '1d': '1 día', '1w': '1 semana', '1M': '1 mes' };
   const CENTRAL_HORAS = { '5m': 1, '15m': 1, '30m': 2, '1h': 2, '4h': 8, '1d': 24, '1w': 72, '1M': 168 };
   const nz = (x) => (x === undefined ? null : x);
   const ok = (x) => x !== null && x !== undefined;
@@ -1079,6 +1079,8 @@
     ['1 hora', '5m', 12, ['15m', '1h'], ['flujo_1 h', 'flujo_4 h', 'oi_1h', 'oi_4h'], '15 min'],
     ['4 horas', '30m', 8, ['1h', '4h'], ['flujo_4 h', 'oi_24h', 'long_short'], '1 hora'],
     ['1 día', '4h', 6, ['4h', '1d'], ['oi_24h', 'long_short', 'funding'], '4 horas'],
+    ['1 semana', '1d', 7, ['1d', '1w'], [], '1 día'],      // plazos largos: como en Python
+    ['1 mes', '1d', 30, ['1w', '1M'], [], '1 semana'],
   ];
   // Fibonacci del swing de 90 dias en 4 h (como analisis_btc.py: el unico que mostro ventaja) y su rebote medido
   const FIB_REBOTE = { 0.236: 58, 0.382: 59, 0.5: 59, 0.618: 42, 0.786: 62 };
@@ -1112,10 +1114,12 @@
 
   /** La conclusion de un plazo en pocas palabras: prediccion, hasta 4 razones de cada lado, niveles e invalidacion. */
   function explain(rows, price, spec) {
-    const [name, , , sigTfs, ctxKeys, candle] = spec;
+    const [name, , , , ctxKeys, candle] = spec;
     const get = (t, kw = {}) => rows.filter((r) => r.tabla === t && Object.entries(kw).every(([k, v]) => r[k] === v));
     const main = get('plazo', { plazo: name })[0];
     const hh = main.hora.slice(-5);
+    const sigTfs = spec[3].filter((tf) => get('marco', { tf }).length);   // semanal o mensual pueden faltar: el diario siempre esta
+    if (!sigTfs.length) sigTfs.push('1d');
     const signals = [];      // [prioridad, sesgo, texto corto]
     sigTfs.forEach((tf, n) => {
       const m = get('marco', { tf })[0];

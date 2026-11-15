@@ -49,15 +49,15 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
 <script>/* si el estilo no llega (falla de red o un despliegue a medias), se pide de nuevo sin cache: antes quedaba la pagina sin estilo */
 window.abCss = function () { try { var n = (window.abCssN = (window.abCssN || 0) + 1); if (n > 3) return;
-  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'p-4f8c4b7eb6.css?r=' + Date.now(); l.onerror = function () { setTimeout(window.abCss, 1500 * n); };
+  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'p-acf6adc87b.css?r=' + Date.now(); l.onerror = function () { setTimeout(window.abCss, 1500 * n); };
   document.head.appendChild(l); } catch (e) {} };
 addEventListener('load', function () { try { if (!getComputedStyle(document.documentElement).getPropertyValue('--ab-css')) window.abCss(); } catch (e) {} });</script>
-<link rel="stylesheet" href="p-4f8c4b7eb6.css" onerror="abCss()">
-<script>window.AB_PAGINA = "921d96084e";</script>
-<script defer src="app.js?v=cbb08282c7"></script>
+<link rel="stylesheet" href="p-acf6adc87b.css" onerror="abCss()">
+<script>window.AB_PAGINA = "379911c9d9";</script>
+<script defer src="app.js?v=01138dbd7e"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-86c3eb6cb3.js"></script>
+<script defer src="p-1c95259ed7.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -123,10 +123,10 @@ addEventListener('load', function () { try { if (!getComputedStyle(document.docu
       <div class="ab-tools">
         <nav class="ab-seg ab-small" id="tfs" aria-label="Velas del gráfico">
           <span class="ab-seg-thumb"></span>
-          <button type="button" data-tf="5m" aria-pressed="false">5m</button>
+          <button type="button" data-tf="5m" aria-pressed="true">5m</button>
           <button type="button" data-tf="15m" aria-pressed="false">15m</button>
           <button type="button" data-tf="30m" aria-pressed="false">30m</button>
-          <button type="button" data-tf="1h" aria-pressed="true">1h</button>
+          <button type="button" data-tf="1h" aria-pressed="false">1h</button>
           <button type="button" data-tf="4h" aria-pressed="false">4h</button>
           <button type="button" data-tf="1d" aria-pressed="false">1D</button>
           <button type="button" data-tf="1w" aria-pressed="false" title="Semanal (sin predicción: pocas velas para medirla)">1S</button>
@@ -216,7 +216,7 @@ addEventListener('load', function () { try { if (!getComputedStyle(document.docu
     <div class="ab-ce-riesgo" id="ce-riesgo" hidden></div>
   </section>
   <button type="button" class="ab-tm-tab" id="tm-tab" aria-expanded="false" aria-controls="tm-panel" hidden title="Termómetro del ciclo (semanas o meses): 0 = momento de comprar · 100 = de vender">
-    <small class="ab-tm-k">Ciclo</small><span class="ab-tm-bar"><span class="ab-tm-dot" id="tm-dot"></span></span><b id="tm-num">—</b><small id="tm-zona">—</small>
+    <small class="ab-tm-k">Ciclo</small><span class="ab-tm-bar"><span class="ab-tm-dot" id="tm-dot"></span></span><b id="tm-num">—</b><small id="tm-zona">—</small><small class="ab-tm-mvrv" id="tm-mvrv" hidden></small>
   </button>
 
   <!-- una sola conclusion arriba: cada señal mira un plazo distinto y antes parecian contradecirse -->

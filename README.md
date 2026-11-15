@@ -1,6 +1,6 @@
 # BTCAnalyzer
 
-Analista de BTC/USDT perpetuo con un dashboard en vivo: predicción por plazo (5 min a 1 día),
+Analista de BTC/USDT perpetuo con un dashboard en vivo: predicción por plazo (5 min a 1 mes),
 gráfico con figuras, divergencias, liquidaciones estimadas, libros de órdenes y más de
 30 indicadores. Datos públicos de Binance Futures, Bybit, OKX, Bitget y BingX (no usa claves).
 
@@ -282,6 +282,13 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
   plazos para cambiarla. "Ver el análisis completo" abre 6 partes (cómo se llegó a la dirección, cuánto se puede mover,
   niveles, qué está pasando, cuánto le creo y herramientas), cerradas, cada una con su resumen en una línea y un
   índice para saltar. Las tarjetas de siempre viven adentro de esas partes (sin repetir la conclusión).
+- **El gráfico elige el plazo** (nov. 2026): la predicción mira unas velas por delante de lo que estás viendo. 5 min →
+  la próxima hora, 15 y 30 min → 4 horas, 1 hora → el día, 4 horas y diario → la semana, semanal y mensual → el mes. Los
+  botones de plazo siguen (y llevan al gráfico que les toca). **1 semana** y **1 mes** son plazos nuevos: casos
+  parecidos de velas diarias a 7 y 30 días (con su repaso: si no le ganan a lo normal, quedan en "Casi moneda", como
+  los demás) y el análisis central de las velas semanales y mensuales. La zona de las bandas del MVRV va al lado del
+  ciclo (medida: a un año sí; a 7, 30 y 90 días no anticipa de forma significativa, z entre −1 y +1, así que no suma a
+  la dirección de la semana ni del mes).
 - **Figuras del gráfico**: hombro-cabeza-hombro (y el invertido), triple techo y triple piso (tres extremos en la misma
   zona, hasta ~1 %, con dos valles o picos parecidos entre ellos; objetivo: la altura proyectada desde el cuello), doble
   techo y doble piso, triángulos, cuñas, canales y rangos. Igual en Python y JS (`python pruebas/triples.py`).
