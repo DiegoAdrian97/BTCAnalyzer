@@ -1,0 +1,20 @@
+name: Medir las zonas de ciclo
+# A mano desde Actions (o al cambiar el medidor): corre medir_zonas.py con CoinMetrics y Fear & Greed (gratis) y deja
+# el resultado como artefacto. No cambia nada del analisis: solo mide.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/medir_zonas.yml", "medir_zonas.py"]
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: python -u medir_zonas.py | tee zonas.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: medicion-zonas, path: zonas.txt }
