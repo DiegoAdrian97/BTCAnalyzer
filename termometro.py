@@ -161,7 +161,28 @@ def onchain_hoy(T, price, now_ms=None):
     hoy = int((now_ms or time.time() * 1000) // 86400000)
     rp = o["rp"] + o["rp_pend"] * max(0, min(45, hoy - o["dia"]))
     iss = o["btc_dia"] * price
-    return {"mvrv": price / rp, "puell": iss / ((o["iss_suma364"] + iss) / 365), "precio_realizado": rp}
+    out = {"mvrv": price / rp, "puell": iss / ((o["iss_suma364"] + iss) / 365), "precio_realizado": rp}
+    if o.get("mvrv_desvio"):
+        out["mvrv_z"] = (price / rp - o["mvrv_media"]) / o["mvrv_desvio"]
+        out["bandas"] = [[k, round(rp * (o["mvrv_media"] + k * o["mvrv_desvio"]), 1)] for k, _ in MVRV_BANDAS]
+    return out
+
+
+# Bandas de desvio extremo del MVRV (medir_mvrv_bandas.py, CoinMetrics 2011-2026, nov. 2026). Lo que paso a 365 dias
+# con el precio dentro de cada zona (un dia cualquiera desde 2013: subio 69%, mediana +69%):
+#   -1 desvio (MVRV <= 1, debajo del costo promedio): subio 99-100% de los dias (mediana +90%), pero la primera vez que
+#      entra no es el piso: 4 episodios, a +20% a +170% del minimo del ciclo y a 90-180 dias seguido en baja.
+#   -0,5 desvios: subio 85-88% (mediana +78-91%); en 2022 entro a 34.000 y siguio cayendo 6 meses.
+#   +2 desvios: subio 22-40% (mediana -13 a -51%): zona de riesgo, pero la primera vez que entra suele faltar: en 2013
+#      y 2017 siguio subiendo meses (+214% y +276% a un año) y en 2021 llego a +2,5 en febrero, no en el maximo de
+#      noviembre. En el ciclo 2024-25 no paso de +1 desvio: no marco el techo.
+# Por eso se muestra (grafico y ciclo) pero no entra al medidor: ya usa el MVRV, y el MVRV Z no lo mejoro.
+MVRV_BANDAS = ((-1.0, "compra fuerte"), (-0.5, "compra"), (0.0, "media"), (1.5, "cara"), (2.0, "venta"), (2.5, "venta extrema"))
+
+
+def mvrv_banda(z):
+    return ("compra fuerte" if z <= -1 else "compra" if z <= -0.5 else "venta extrema" if z >= 2.5 else "venta" if z >= 2
+            else "cara" if z >= 1.5 else "normal")
 
 
 def ajuste_funding(md, f7):
@@ -217,6 +238,8 @@ def termometro(closes_d, price, T=None, fng=None, now_ms=None, f7=None):
             "p_mvrv": round(p["mvrv"], 1) if "mvrv" in p else None, "p_puell": round(p["puell"], 1) if "puell" in p else None,
             "mvrv": round(oc["mvrv"], 3) if oc else None, "puell": round(oc["puell"], 3) if oc else None,
             "precio_realizado": round(oc["precio_realizado"], 1) if oc else None,
+            "mvrv_z": round(oc["mvrv_z"], 2) if "mvrv_z" in oc else None, "mvrv_banda": mvrv_banda(oc["mvrv_z"]) if "mvrv_z" in oc else None,
+            "mvrv_bandas": oc.get("bandas") or [],
             "wma200": round(wma, 1), "sobre_wma": round((price / wma - 1) * 100, 1), "caida_ath": round(med["dd_ath"] * 100, 1),
             "ath": round(ath, 1), "ret_anual": round((price / closes_d[-365] - 1) * 100, 1),
             "sube_180": z["sube_180"], "mediana_180": z["mediana_180"], "sube_365": z["sube_365"], "mediana_365": z["mediana_365"],

@@ -79,7 +79,7 @@
   const LINEA_K = 'ab-grafico-linea';
   const lineaGuardada = (() => { try { return localStorage.getItem(LINEA_K) === '1'; } catch (e) { return false; } })();
   const S = { linea: lineaGuardada, plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
-    layers: { ema: false, bb: false, fvg: false, patrones: false, ondas: false, fib: false, liq: false, osc: false, plan: true, opc: false, abanico: false, flujo: false, vp: false, ict: false, libro: false }, log: false, medir: false, iman: false };
+    layers: { ema: false, bb: false, fvg: false, patrones: false, ondas: false, fib: false, liq: false, osc: false, plan: true, opc: false, abanico: false, flujo: false, vp: false, ict: false, libro: false, mvrv: false }, log: false, medir: false, iman: false };
   const defBars = () => (window.innerWidth < 600 ? 50 : 90);  // en el telefono, menos para que se lean
   S.nbars = defBars();
   // en el celu arranca con lo esencial (velas, medias, patrones y liquidaciones); el resto se prende en "Capas"
@@ -142,6 +142,37 @@
   });
   document.getElementById('replay').addEventListener('click', () => { ghostK += 1; draw(); });
   function setPlazo(name) { S.plazo = name; S.offset = 0; setTf(PLAZO_VIEW[name]); }
+  // ---------- bandas de desvio del MVRV (capa del grafico, solo 1D, 1S y 1M) ----------
+  // termometro.json trae la media y el desvio del MVRV de toda la historia y el precio realizado de cada semana
+  // (armar_termometro.py). Cada vela usa el precio realizado de su dia (interpolado); despues del ultimo dato sigue su
+  // tendencia del ultimo mes, como el MVRV de hoy. Medido: termometro.py, MVRV_BANDAS
+  const MVRV_K = [[-1, 'compra fuerte', (P) => P.up, 2], [-0.5, 'compra', (P) => alpha(P.up, 0.6), 1.5], [0, 'media', (P) => alpha(P.mute, 0.6), 1],
+    [1.5, 'cara', (P) => alpha(P.warn, 0.8), 1.5], [2, 'venta', (P) => alpha(P.dn, 0.75), 1.5], [2.5, 'venta extrema', (P) => P.dn, 2]];
+  let MVRV_T = null, mvrvPidiendo = false;
+  function mvrvDatos() {
+    if (MVRV_T || mvrvPidiendo) return MVRV_T;
+    mvrvPidiendo = true;
+    fetch('termometro.json').then((r) => r.json()).then((j) => { MVRV_T = (j && j.onchain && j.onchain.mvrv_desvio) ? j.onchain : { sin: true }; draw(); })
+      .catch(() => { MVRV_T = { sin: true }; }).finally(() => { mvrvPidiendo = false; });
+    return null;
+  }
+  function mvrvCapa(all, tf, on) {
+    const vacio = () => G.mvrv.forEach((se) => se.setData([]));
+    if (!on || !['1d', '1w', '1M'].includes(tf) || MON() !== 'BTC') { vacio(); return; }
+    const o = mvrvDatos();
+    if (!o || o.sin || !o.rp_sem || !o.rp_sem.length) { vacio(); return; }
+    const sem = o.rp_sem, u = sem[sem.length - 1];
+    const rpDia = (d) => {
+      if (d >= u[0]) return u[1] + (o.rp_pend || 0) * Math.min(45, d - u[0]);
+      if (d <= sem[0][0]) return null;
+      let a = 0, b = sem.length - 1;
+      while (b - a > 1) { const m = (a + b) >> 1; if (sem[m][0] <= d) a = m; else b = m; }
+      const [d0, r0] = sem[a], [d1, r1] = sem[b];
+      return r0 + (r1 - r0) * ((d - d0) / (d1 - d0 || 1));
+    };
+    const rps = all.map((b) => [b, rpDia(Math.floor(b.t / 86400000))]).filter((x) => x[1] !== null);
+    MVRV_K.forEach(([k], i) => G.mvrv[i].setData(rps.map(([b, rp]) => ({ time: T2(b.t), value: rp * (o.mvrv_media + k * o.mvrv_desvio) }))));
+  }
   function setTf(tf) {
     S.tf = tf; S.hz = null;
     document.querySelectorAll('#tfs button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.tf === tf)));
@@ -2040,8 +2071,31 @@
         pisoEls.push(el('p', 'ab-tm-sec', 'Desde esta fecha en años anteriores'), ch, ...(txt ? [el('p', 'ab-hero-sub', txt)] : []));
       }
     }
+    // bandas de desvio del MVRV: en que zona esta hoy, con lo medido (termometro.py, MVRV_BANDAS). Se muestra; no entra al
+    // medidor (ya usa el MVRV)
+    const mvrvEls = [];
+    if (t.mvrv_z !== null && t.mvrv_z !== undefined && (t.mvrv_bandas || []).length) {
+      const z = num(t.mvrv_z), lo = -1.5, hi = 3, pos = (x) => `${((Math.max(lo, Math.min(hi, x)) - lo) / (hi - lo)) * 100}%`;
+      const ZN = [[-9, -1, 'compra fuerte', 'up'], [-1, -0.5, 'compra', 'up2'], [-0.5, 1.5, 'normal', ''], [1.5, 2, 'cara', 'warn'], [2, 9, 'venta', 'dn']];
+      const esc = el('div', 'ab-mvrv-esc'); esc.setAttribute('role', 'img'); esc.setAttribute('aria-label', `MVRV ${f2(num(t.mvrv))}, ${sg(z, 2).replace('%', '')} desvíos: zona ${t.mvrv_banda}`);
+      ZN.forEach(([a0, b0, k, c]) => { const sp = el('span', `z ${c}`); sp.style.left = pos(a0); sp.style.width = `calc(${pos(b0)} - ${pos(a0)})`; sp.title = k; esc.append(sp); });
+      const mk = el('b', 'hoy'); mk.style.left = pos(z); mk.title = `Hoy: ${ar.format('+.2f')(z)} desvíos`; esc.append(mk);
+      const ley = el('div', 'ab-mvrv-ley'); ley.append(el('span', '', 'compra'), el('span', '', 'normal'), el('span', '', 'venta'));
+      const MED = { 'compra fuerte': ['a 1 año subió 99–100% de las veces', 'up'], compra: ['a 1 año subió 85–88% de las veces', 'up'], normal: ['a 1 año: como un día cualquiera (69%)', ''],
+        cara: ['a 1 año subió 32–45% de las veces', 'warn'], venta: ['a 1 año subió 22–40% de las veces', 'dn'], 'venta extrema': ['a 1 año subió 14–40% de las veces', 'dn'] };
+      const m = MED[t.mvrv_banda] || MED.normal;
+      const bandas = el('div', 'ab-v-fichas');
+      (t.mvrv_bandas || []).filter(([k]) => [-1, -0.5, 2].includes(num(k))).forEach(([k, v]) => {
+        bandas.append(vFicha(`${num(k) > 0 ? '+' : num(k) < 0 ? '−' : ''}${String(Math.abs(num(k))).replace('.', ',')}σ ${fp(num(v))}`, num(k) < 0 ? 'up' : 'dn',
+          num(k) === -1 ? 'Compra fuerte: el costo promedio de todos los BTC (MVRV 1)' : num(k) === -0.5 ? 'Zona de compra' : 'Zona de venta'));
+      });
+      const cab = el('div', 'ab-mvrv-cab'); cab.append(vFicha(`Zona: ${t.mvrv_banda}`, m[1]), vFicha(m[0], m[1]));
+      const nota = el('p', 'ab-note', 'Bandas de desvío extremo del MVRV: el costo promedio de todos los BTC por la media del MVRV de su historia (2011–2026) ± desvíos. Medido con CoinMetrics: la zona sirve a un año, pero la primera vez que entra no suele ser el piso ni el techo (en 2022 entró a compra en 34.000 y siguió cayendo 6 meses; en 2013 y 2017 entró a venta y siguió subiendo meses; en el ciclo 2024–25 no llegó a la zona de venta). Por eso se muestra pero no entra al medidor, que ya usa el MVRV.');
+      const det = el('details', 'ab-pos-det'); det.append(el('summary', '', 'ⓘ Cómo se lee'), nota);
+      mvrvEls.push(el('p', 'ab-tm-sec', 'Bandas de desvío del MVRV'), cab, esc, ley, bandas, det);
+    }
     const escala = el('p', 'ab-note', 'Escala: 0 = el mejor momento para comprar · 100 = para vender. Mira el ciclo (semanas o meses), no la próxima hora.');
-    body.append(big, escala, sc, pasado, ...pisoEls, el('p', 'ab-tm-sec', 'Qué lo forma'), comp,
+    body.append(big, escala, sc, pasado, ...mvrvEls, ...pisoEls, el('p', 'ab-tm-sec', 'Qué lo forma'), comp,
       el('p', 'ab-tm-sec', 'Momento del ciclo (la otra mitad)'), el('p', 'ab-hero-sub', `${t.año}, ${(FASE[t.fase] || (() => t.fase))(t.avance)}.`),
       ...reglaFng(t),
       ...(fg ? [el('p', 'ab-tm-sec', 'Fear & Greed Index'), fngGauge(num(fg.fng), fg.fng_clase || String(fg.valor).split(' · ')[1] || '', fg.fng_ayer)] : []),
@@ -4376,6 +4430,9 @@
     G.e20 = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet, color: P.c0, lineWidth: 1 });
     G.e50 = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet, color: P.c1, lineWidth: 1 });
     G.e200 = chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet, color: alpha(P.fg, 0.7), lineWidth: 2 });
+    // bandas de desvio del MVRV: precio realizado x (media + k desvios); verdes las de compra, rojas las de venta
+    G.mvrv = MVRV_K.map(([k, , col, ancho]) => chart.addSeries(LW.LineSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet,
+      color: col(P), lineWidth: ancho, lineStyle: k === 0 ? LW.LineStyle.Dotted : LW.LineStyle.Solid }));
     G.ghost = chart.addSeries(LW.CandlestickSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet, upColor: alpha(P.up, 0.25), downColor: alpha(P.dn, 0.25), borderVisible: true,
       borderUpColor: alpha(P.up, 0.85), borderDownColor: alpha(P.dn, 0.85), wickUpColor: alpha(P.up, 0.6), wickDownColor: alpha(P.dn, 0.6) });
     // linea con area, en el color del mercado (el cambio de 24 h): las velas siguen abajo, invisibles, asi niveles,
@@ -5469,6 +5526,7 @@
     const line = (k) => all.filter((b) => b[k] !== null).map((b) => ({ time: T2(b.t), value: b[k] }));
     G.e20.setData(L.ema ? line('e20') : []); G.e50.setData(L.ema ? line('e50') : []); G.e200.setData(L.ema ? line('e200') : []);
     G.bbU.setData(L.bb ? line('bu') : []); G.bbL.setData(L.bb ? line('bl') : []);
+    mvrvCapa(all, tf, L.mvrv);
     G.vwap.setData(L.vp ? vwapSerie(all, TF_MIN[tf]) : []);
     if (G.fl) {
       const fe = flujoDe(MON(), tf, () => { if (S.rows && S.layers.flujo) drawChart(S.rows, S.sum); });
@@ -5593,6 +5651,9 @@
         if (it) it.append(document.createElement('br'), bt);
       }
     }
+    if (L.mvrv && ['1d', '1w', '1M'].includes(tf) && MON() === 'BTC') item('mvrv', { background: `linear-gradient(90deg, ${P.up}, ${P.dn})` }, 'Bandas MVRV:',
+      MVRV_T && !MVRV_T.sin ? 'el costo promedio de todos los BTC por la media de su historia ± desvíos. Verdes (−1 y −0,5): zonas históricas de compra; naranja y rojas (+1,5, +2 y +2,5): de venta. Medido: debajo de −0,5 subió a un año 85–100% de las veces; arriba de +2, solo 22–40%. Pero la primera vez que entra no suele ser el piso ni el techo.'
+        : 'todavía no están los datos (se arman con el reentrenamiento semanal).');
     if (d.dolor !== null) item('opc', DD(P.c2), 'Línea violeta a rayas largas:',
       'el "dolor máximo" de las opciones del viernes: el precio donde más opciones vencen sin valor. Cerca del vencimiento a veces atrae al precio.');
     if (d.plan) item('plan', DD(P.fg), 'Tu plan (líneas grises con nombre):',
@@ -5880,12 +5941,30 @@
     const tb = document.querySelector('#ind-table tbody'); tb.replaceChildren();
     let group = null;
     pick(rows, 'indicador', S.tf).forEach((r) => {
-      if (r.grupo !== group) { group = r.grupo; const g = el('tr', 'ab-g'); const td = el('td', '', group); td.colSpan = 4; g.append(td); tb.append(g); }
+      if (r.grupo !== group) { group = r.grupo; const g = el('tr', 'ab-g'); const td = el('td', '', group); td.colSpan = 5; g.append(td); tb.append(g); }
       const tr = el('tr'); tr.dataset.key = `${encodeURIComponent(r.tf)},${encodeURIComponent(r.indicador)}`;
       const sig = el('td'); const chip = el('span', 'ab-sigchip ab-' + r.senal, r.senal === 'compra' ? '▲ Alcista' : r.senal === 'venta' ? '▼ Bajista' : '• Neutral'); sig.append(chip);
       const det = el('td', '', r.detalle); if (!r.vota) det.append(el('span', 'ab-novote', (r.detalle ? ' · ' : '') + 'no vota'));
-      tr.append(el('td', '', r.indicador), el('td', 'r', r.valor === null ? '' : f2(num(r.valor))), sig, det); tb.append(tr);
+      tr.append(el('td', '', r.indicador), el('td', 'r', r.valor === null ? '' : f2(num(r.valor))), sig, indMedido(r), det); tb.append(tr);
     });
+  }
+
+  // lo que paso de verdad despues de cada señal (medir_senales.py, BTC 2021-2026, cada 4 h, en 2021-24 y en 2025-26):
+  // por temporalidad, dos letras = la hora siguiente y las 4 siguientes (en velas de 4 h: 4 h y 24 h).
+  // R = al reves en los dos tramos (z <= -2: el precio suele ir para el otro lado), F = a favor, - = ~50% (no anticipa)
+  const IND_MEDIDO = {"1h":{"ADX 14":"--","Awesome Oscillator":"-R","Bandas de Bollinger %B":"--","Bull Bear Power":"RR","CCI 20":"--","Canal de Keltner":"--","Chaikin Money Flow 20":"-R","Divergencia RSI":"--","Donchian 20":"--","EMA 10":"RR","EMA 100":"-R","EMA 20":"-R","EMA 200":"--","EMA 30":"-R","EMA 50":"-R","Estocástico %K (14,3,3)":"--","Hull MA 9":"--","Ichimoku línea base (26)":"RR","MACD (12,26)":"--","MFI 14":"--","Momentum 10":"--","Nube de Ichimoku":"-R","OBV":"-R","Parabolic SAR":"--","RSI 14":"--","SMA 10":"RR","SMA 100":"--","SMA 20":"RR","SMA 200":"--","SMA 30":"RR","SMA 50":"-R","Stoch RSI (3,3,14,14)":"--","SuperTrend (10,3)":"-R","Ultimate Oscillator":"--","VWAP del dia":"RR","VWMA 20":"-R","Williams %R 14":"--"},"15m":{"ADX 14":"--","Awesome Oscillator":"--","Bandas de Bollinger %B":"--","Bull Bear Power":"--","CCI 20":"--","Canal de Keltner":"--","Chaikin Money Flow 20":"--","Divergencia RSI":"-F","Donchian 20":"--","EMA 10":"-R","EMA 100":"-R","EMA 20":"-R","EMA 200":"-R","EMA 30":"-R","EMA 50":"-R","Estocástico %K (14,3,3)":"--","Hull MA 9":"--","Ichimoku línea base (26)":"-R","MACD (12,26)":"--","MFI 14":"--","Momentum 10":"--","Nube de Ichimoku":"-R","OBV":"-R","Parabolic SAR":"--","RSI 14":"--","SMA 10":"-R","SMA 100":"-R","SMA 20":"-R","SMA 200":"-R","SMA 30":"-R","SMA 50":"-R","Stoch RSI (3,3,14,14)":"--","SuperTrend (10,3)":"-R","Ultimate Oscillator":"--","VWAP del dia":"-R","VWMA 20":"--","Williams %R 14":"--"},"4h":{"ADX 14":"--","Awesome Oscillator":"-R","Bandas de Bollinger %B":"--","Bull Bear Power":"R-","CCI 20":"--","Canal de Keltner":"--","Chaikin Money Flow 20":"--","Divergencia RSI":"--","EMA 10":"RR","EMA 100":"--","EMA 20":"RR","EMA 200":"--","EMA 30":"-R","EMA 50":"--","Estocástico %K (14,3,3)":"--","Hull MA 9":"R-","Ichimoku línea base (26)":"-R","MACD (12,26)":"--","MFI 14":"--","Momentum 10":"--","Nube de Ichimoku":"--","OBV":"RR","Parabolic SAR":"-R","RSI 14":"--","SMA 10":"R-","SMA 100":"--","SMA 20":"RR","SMA 200":"--","SMA 30":"RR","SMA 50":"--","Stoch RSI (3,3,14,14)":"--","SuperTrend (10,3)":"--","Ultimate Oscillator":"-R","VWAP del dia":"R-","VWMA 20":"RR","Williams %R 14":"--"}};
+  function indMedido(r) {
+    const td = el('td', 'ab-medido'), m = (IND_MEDIDO[r.tf] || {})[r.indicador], hz = r.tf === '4h' ? ['4 h', '24 h'] : ['1 h', '4 h'];
+    if (!m) { td.append(el('span', 'ab-note', 'sin medir')); td.title = 'Esta temporalidad no se midió (sí 15 min, 1 h y 4 h)'; return td; }
+    const lado = r.senal === 'compra' ? 1 : r.senal === 'venta' ? -1 : 0, txt = [];
+    const k = m.includes('R') ? 'R' : m.includes('F') ? 'F' : '-', donde = hz.filter((_, i) => m[i] === k).join(' y ');
+    let chip;
+    if (k === 'R') chip = lado ? el('span', `ab-sigchip ab-${lado > 0 ? 'venta' : 'compra'}`, lado > 0 ? '▼ corrige' : '▲ rebota') : el('span', 'ab-note', 'al revés');
+    else if (k === 'F') chip = lado ? el('span', `ab-sigchip ab-${lado > 0 ? 'compra' : 'venta'}`, lado > 0 ? '▲ a favor' : '▼ a favor') : el('span', 'ab-note', 'a favor');
+    else chip = el('span', 'ab-note', '~50%');
+    td.append(chip);
+    td.title = k === 'R' ? `Medido: a ${donde} el precio fue para el lado contrario de lo que marca (en 2021–24 y en 2025–26)` : k === 'F' ? `Medido: a ${donde} fue para el lado que marca` : 'Medido: ~50%, no anticipa la dirección (como tirar una moneda)';
+    return td;
   }
 
   function drawHits(rows) {

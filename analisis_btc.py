@@ -1577,9 +1577,13 @@ def explain(rows, price, spec):
                 signals.append((pr, "alcista" if al else "bajista", f"Indicadores de {TF_TXT[tf]}: {m['rating_txt'].lower()}"))
             else:
                 signals.append((pr, "bajista" if al else "alcista", f"Indicadores de {TF_TXT[tf]}: {m['rating_txt'].lower()}, suele corregir (medido)"))
-    # RSI y MACD de cada temporalidad, como los mira un trader
+    # RSI y MACD de cada temporalidad, como los mira un trader. Medido (medir_senales.py, BTC 2021-2026, velas de 15 min,
+    # 1 h y 4 h): el RSI extremo y el cruce del MACD aciertan ~50% a 1, 4 y 24 h en los dos tramos: no entran en 4 h o
+    # menos (antes sumaban +-1 a la direccion). En el diario o mas, como antes (sin medir)
     for tf in sig_tfs:
         m = get("marco", tf=tf)[0]
+        if tf not in ("1d", "1w", "1M"):
+            continue
         if m["rsi"] >= 70:
             signals.append((4, "bajista", f"RSI de {TF_TXT[tf]} en sobrecompra ({ar(m['rsi'])})"))
         elif m["rsi"] <= 30:

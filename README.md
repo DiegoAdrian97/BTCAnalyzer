@@ -661,7 +661,7 @@ y 1M) junta todos los cálculos de la app en cinco puntos, cada señal con su pe
 | Punto | Qué suma |
 |---|---|
 | ¿Se viene movimiento fuerte? | Modelo de árboles (1 h o 4 h, hasta ±3), mercado despierto (+2) o agitado/en calma (±1), Bollinger comprimidas en esa temporalidad (+1), volumen 2× (+1), ADX ≥ 25 (+0,5), hora del día (±1), dato fuerte de EE.UU. en la ventana (+2), liquidaciones a menos de 1% (+1), volatilidad implícita de las opciones en su 20% más alto o más bajo de 30 días (±1; medido con `medir_dvol.py`: las 4 h siguientes fueron fuertes 18–26% de las veces con el DVOL alto y 7–9% con el bajo, contra 12–13% normal, en 2022, 2023-24 y 2025-26). Alta desde 4, media desde 2 |
-| ¿Sube o baja? | Casos parecidos y aprendizaje (±3; ±1 si no le ganó a la tasa base), en 1 hora si 15 min, 1 h y 4 h coinciden (±1; medido: 54% contra 51,5%), indicadores del marco (±2), cada señal de la explicación: patrones, divergencias, canales, RSI extremo, MACD, Wyckoff, Elliott (±1), SuperTrend, Ichimoku, VWAP, OBV, Chaikin, SAR y Bollinger fuera de banda (±0,5), liquidaciones de cada lado dentro de 3% (±1), libros (±0,5), ciclo y funding en 4 h o más (±1 / ±0,5). Sube desde +2,5, baja desde −2,5 |
+| ¿Sube o baja? | Casos parecidos y aprendizaje (±3; ±1 si no le ganó a la tasa base), en 1 hora si 15 min, 1 h y 4 h coinciden (±1; medido: 54% contra 51,5%), indicadores del marco (±2), cada señal de la explicación: patrones, divergencias, canales, Wyckoff, Elliott (±1; el RSI extremo y el cruce del MACD solo en el diario o más: en 4 h o menos dan ~50%, ver "Cada indicador, medido"), SuperTrend, Ichimoku, VWAP, OBV, Chaikin, SAR y Bollinger fuera de banda (±0,5), liquidaciones de cada lado dentro de 3% (±1), libros (±0,5), ciclo y funding en 4 h o más (±1 / ±0,5). Sube desde +2,5, baja desde −2,5 |
 | ¿Hasta dónde? | Rango del 80%, objetivos con su chance de tocarse, movimiento esperado en una hora, objetivo de Elliott |
 | Niveles | Soporte y resistencia más cercanos e invalidación |
 | Atención | RSI extremo, dato fuerte en 24 h, movimiento fuerte, señales en contra casi tan fuertes |
@@ -720,6 +720,40 @@ Cada una contra un control (lo que daría el azar en la misma situación), BTC 2
 | Flujo de los ETF (10% extremos) | Mucha entrada: el día siguiente subió 63% / 53% (lo normal 55% / 50%), con 30–35 casos por tramo: no alcanza | No |
 | Vencimiento de opciones (dolor máximo) | No hay historia gratuita del interés abierto por precio | No se mide |
 | Nasdaq (QQQ) adelantándose a BTC | Yahoo no le da velas de 1 h a GitHub (429); no hay otra fuente gratuita de intradiario | No se pudo medir |
+
+### Cada indicador, medido (`medir_senales.py`, nov. 2026)
+
+BTC 2021–2026, velas de 15 min, 1 h y 4 h (cada 4 horas, ~12.000 momentos por temporalidad): cada indicador de la tabla
+"Todos los indicadores" solo, cuando marca alcista o bajista, ¿el precio fue para ese lado la hora y las 4 horas siguientes
+(en velas de 4 h: 4 y 24 horas)? A favor o al revés si se repite en 2021-24 y en 2025-26 (z ≥ 2).
+
+| Qué | Resultado | Qué se hizo |
+|---|---|---|
+| Medias (EMA/SMA 10 a 50, VWMA), Ichimoku, VWAP, OBV, Bull Bear Power, SuperTrend | **Al revés** a 4 h en casi todas (47–48%; EMA y SMA 10 a 30 también a 1 h): después de marcar, el precio corrige | Ya contaban al revés en el resumen. La tabla muestra una columna "Medido" (▼ corrige / ▲ rebota) |
+| Osciladores (RSI, estocástico, CCI, Williams, MACD, Stoch RSI, Ultimate, MFI), ADX, Bollinger %B, Keltner, Donchian, SAR | ~50% | "~50%" en la tabla |
+| Resumen (medias y osciladores) | Al revés: 1 h 46–48%, 4 h 46–48%, en 4 h también a 24 h | Como estaba (al revés, peso 1). La lista de señales ahora lo muestra para ese lado (antes decía "alcista" mientras la predicción lo contaba bajista) |
+| RSI ≥ 70 / ≤ 30 y cruce del MACD (sumaban ±1 en la explicación) | ~50% en 15 min, 1 h y 4 h | Fuera de la predicción en 4 h o menos |
+| Reglas alternativas: ADX con +DI/−DI, Momentum con signo, MACD con el cero, RSI contra 50 | ~50% o al revés | No se cambian las reglas: ninguna anticipa a favor |
+| Divergencia RSI en 15 min | A favor a 4 h | Ya suma (divergencias) |
+
+Además: el flujo de compras/ventas a mercado, los libros de órdenes y el funding entraban a la explicación y sumaban ±1,
+aunque las mediciones decían "quedan como contexto, sin peso": ya no suman (solo el open interest y las cuentas, medidos).
+
+### Bandas de desvío extremo del MVRV (`medir_mvrv_bandas.py`, nov. 2026)
+
+Precio realizado (costo promedio de todos los BTC) × (media del MVRV de toda la historia ± desvíos): media 1,81, desvío
+0,81 (CoinMetrics 2011–2026). Un día cualquiera desde 2013 subió a un año el 69% (mediana +69%).
+
+| Zona | A 365 días (cada día dentro de la zona) | La primera vez que entra |
+|---|---|---|
+| −1 desvío (MVRV ≤ 1) | Subió 99–100% (mediana +90%) | 4 episodios; a +20% a +170% del mínimo del ciclo, y 90–180 días después todavía en baja |
+| −0,5 desvíos | Subió 85–88% (mediana +78% a +91%) | En 2022 entró a 34.000 y siguió cayendo 6 meses |
+| +2 desvíos | Subió 22–40% (mediana −13% a −51%) | En 2013 y 2017 siguió subiendo meses; en 2021 llegó a +2,5 en febrero, no en el máximo de noviembre |
+| +1,5 desvíos | Subió 32–45% | En el ciclo 2024–25 no pasó de +1: no marcó el techo |
+
+Sirve a un año, pero no marca el punto exacto. Se muestra (capa "Bandas MVRV" del gráfico en 1D, 1S y 1M, y en el
+ciclo, con la zona de hoy) y **no entra al medidor**: el medidor ya usa el MVRV y el MVRV Z no lo mejoró. Los datos
+(media, desvío y precio realizado semanal desde 2017) salen con el reentrenamiento semanal (`armar_termometro.py`).
 
 ### Lo nuevo, medido (`medir_nuevo.py`, nov. 2026)
 

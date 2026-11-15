@@ -2028,4 +2028,18 @@
 
   #parte-ctx #qp-box > summary { display: none; }
 
+  /* bandas de desvio del MVRV, en el ciclo */
+  .ab-mvrv-cab { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+  .ab-mvrv-esc { position: relative; height: 12px; border-radius: 6px; overflow: visible; background: color-mix(in srgb, var(--t2-ink) 7%, transparent); }
+  .ab-mvrv-esc .z { position: absolute; top: 0; bottom: 0; }
+  .ab-mvrv-esc .z.up { background: color-mix(in srgb, var(--color-ok) 70%, transparent); border-radius: 6px 0 0 6px; }
+  .ab-mvrv-esc .z.up2 { background: color-mix(in srgb, var(--color-ok) 35%, transparent); }
+  .ab-mvrv-esc .z.warn { background: color-mix(in srgb, var(--color-warn) 45%, transparent); }
+  .ab-mvrv-esc .z.dn { background: color-mix(in srgb, var(--color-bad) 70%, transparent); border-radius: 0 6px 6px 0; }
+  .ab-mvrv-esc .hoy { position: absolute; top: -5px; width: 4px; height: 22px; margin-left: -2px; border-radius: 2px; background: var(--t2-ink); box-shadow: 0 0 0 2px var(--t2-panel, #fff); }
+  .ab-mvrv-ley { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--t2-mute); margin: 6px 0 2px; }
+
+  /* celus: en la tabla de indicadores se ve señal y medido sin correr de costado (el valor queda en compu) */
+  @media (max-width: 420px) { #ind-table tr > :nth-child(2):not([colspan]) { display: none; } #ind-table .ab-sigchip { padding-inline: 7px; } }
+
   :root { --ab-css: 1; }   /* marca: la pagina comprueba con esto que el estilo cargo */

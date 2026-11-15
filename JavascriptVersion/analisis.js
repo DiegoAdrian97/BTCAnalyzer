@@ -182,8 +182,15 @@
     const o = T.onchain;
     if (!o || price <= 0) return {};
     const hoy = Math.floor(nowMs / 86400000), rp = o.rp + o.rp_pend * Math.max(0, Math.min(45, hoy - o.dia)), iss = o.btc_dia * price;
-    return { mvrv: price / rp, puell: iss / ((o.iss_suma364 + iss) / 365), precio_realizado: rp };
+    const out = { mvrv: price / rp, puell: iss / ((o.iss_suma364 + iss) / 365), precio_realizado: rp };
+    if (o.mvrv_desvio) {   // bandas de desvio extremo del MVRV (termometro.py: MVRV_BANDAS, con lo medido)
+      out.mvrv_z = (price / rp - o.mvrv_media) / o.mvrv_desvio;
+      out.bandas = MVRV_BANDAS.map(([k]) => [k, rnd(rp * (o.mvrv_media + k * o.mvrv_desvio), 1)]);
+    }
+    return out;
   }
+  const MVRV_BANDAS = [[-1.0, 'compra fuerte'], [-0.5, 'compra'], [0.0, 'media'], [1.5, 'cara'], [2.0, 'venta'], [2.5, 'venta extrema']];
+  const mvrvBanda = (z) => (z <= -1 ? 'compra fuerte' : z <= -0.5 ? 'compra' : z >= 2.5 ? 'venta extrema' : z >= 2 ? 'venta' : z >= 1.5 ? 'cara' : 'normal');
   function ajusteFunding(md, f7) {   // +1 funding de 7 dias negativo (miedo), -1 si es 0,03% o mas (euforia), 0 si no
     const fu = md && md.funding;
     if (!fu || f7 === null || f7 === undefined || Number.isNaN(f7)) return 0;
@@ -225,6 +232,8 @@
       p_mvrv: p.mvrv === undefined ? null : rnd(p.mvrv, 1), p_puell: p.puell === undefined ? null : rnd(p.puell, 1),
       mvrv: oc.mvrv === undefined ? null : rnd(oc.mvrv, 3), puell: oc.puell === undefined ? null : rnd(oc.puell, 3),
       precio_realizado: oc.precio_realizado === undefined ? null : rnd(oc.precio_realizado, 1),
+      mvrv_z: oc.mvrv_z === undefined ? null : rnd(oc.mvrv_z, 2), mvrv_banda: oc.mvrv_z === undefined ? null : mvrvBanda(oc.mvrv_z),
+      mvrv_bandas: oc.bandas || [],
       wma200: rnd(wma, 1), sobre_wma: rnd((price / wma - 1) * 100, 1), caida_ath: rnd(med.dd_ath * 100, 1), ath: rnd(ath, 1),
       ret_anual: rnd((price / c365 - 1) * 100, 1), sube_180: z.sube_180, mediana_180: z.mediana_180, sube_365: z.sube_365, mediana_365: z.mediana_365,
       zonas: T.zonas.map((x) => [x.desde, x.hasta, x.nombre, x.sube_365, x.mediana_365]) };
@@ -1119,6 +1128,7 @@
     // RSI y MACD de cada temporalidad, como los mira un trader
     sigTfs.forEach((tf) => {
       const m = get('marco', { tf })[0];
+      if (!['1d', '1w', '1M'].includes(tf)) return;   // medido: en 4 h o menos el RSI extremo y el cruce del MACD dan ~50% (igual que en Python)
       if (m.rsi >= 70) signals.push([4, 'bajista', `RSI de ${TF_TXT[tf]} en sobrecompra (${ar(m.rsi)})`]);
       else if (m.rsi <= 30) signals.push([4, 'alcista', `RSI de ${TF_TXT[tf]} en sobreventa (${ar(m.rsi)})`]);
       if (m.macd_cruce) signals.push([4, m.macd_cruce, `MACD de ${TF_TXT[tf]} cruzó ${m.macd_cruce === 'alcista' ? 'al alza' : 'a la baja'}`]);

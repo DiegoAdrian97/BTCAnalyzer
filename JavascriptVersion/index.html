@@ -49,15 +49,15 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
 <script>/* si el estilo no llega (falla de red o un despliegue a medias), se pide de nuevo sin cache: antes quedaba la pagina sin estilo */
 window.abCss = function () { try { var n = (window.abCssN = (window.abCssN || 0) + 1); if (n > 3) return;
-  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'p-b077fb1be3.css?r=' + Date.now(); l.onerror = function () { setTimeout(window.abCss, 1500 * n); };
+  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'p-4f8c4b7eb6.css?r=' + Date.now(); l.onerror = function () { setTimeout(window.abCss, 1500 * n); };
   document.head.appendChild(l); } catch (e) {} };
 addEventListener('load', function () { try { if (!getComputedStyle(document.documentElement).getPropertyValue('--ab-css')) window.abCss(); } catch (e) {} });</script>
-<link rel="stylesheet" href="p-b077fb1be3.css" onerror="abCss()">
-<script>window.AB_PAGINA = "b449fa5f7f";</script>
-<script defer src="app.js?v=89b644de42"></script>
+<link rel="stylesheet" href="p-4f8c4b7eb6.css" onerror="abCss()">
+<script>window.AB_PAGINA = "921d96084e";</script>
+<script defer src="app.js?v=cbb08282c7"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-3917e61832.js"></script>
+<script defer src="p-86c3eb6cb3.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -157,6 +157,7 @@ addEventListener('load', function () { try { if (!getComputedStyle(document.docu
           <button type="button" class="ab-chipbtn" id="vivo-chip" aria-pressed="false" title="El libro de órdenes y las compras y ventas que entran, en vivo dentro del gráfico"><i style="background: linear-gradient(90deg, var(--color-ok) 50%, var(--color-bad) 50%)"></i>En vivo: libro y trades</button>
           <button type="button" class="ab-chipbtn" data-layer="plan" aria-pressed="true" hidden><i style="background: var(--color-fg)"></i>Mi plan</button>
           <button type="button" class="ab-chipbtn" data-layer="opc" aria-pressed="true"><i style="background: var(--ab-c2)"></i>Opciones</button>
+          <button type="button" class="ab-chipbtn" data-layer="mvrv" aria-pressed="true" title="Bandas de desvío extremo del MVRV: zonas históricas de compra y de venta del ciclo (en 1D, 1S y 1M)"><i style="background: linear-gradient(90deg, var(--color-ok), var(--color-bad))"></i>Bandas MVRV</button>
           <button type="button" class="ab-chipbtn" data-layer="abanico" aria-pressed="true" title="Lo que pasó después en los casos realmente parecidos al de ahora"><i style="background: linear-gradient(90deg, var(--color-ok), var(--color-bad))"></i>Abanico</button>
         </div>
         <div class="ab-zoom" role="group" aria-label="Zoom del gráfico">
@@ -397,11 +398,11 @@ addEventListener('load', function () { try { if (!getComputedStyle(document.docu
     <details class="ab-more" id="indicadores" data-source="analisis">
       <summary><span>Todos los indicadores</span><span class="ab-kicker" id="ind-tf"></span></summary>
       <div class="ab-more-body">
-        <p class="ab-note">Cada indicador dice hacia dónde apunta según su propia regla: <b>alcista</b> si favorece una suba, <b>bajista</b> si favorece una baja. Son votos que se suman en el sesgo técnico.</p>
+        <p class="ab-note">"Señal" es lo que dice cada indicador con su regla de siempre (la de TradingView). "Medido" es lo que pasó de verdad después, con BTC 2021–2026: en 15 min, 1 h y 4 h casi ninguno anticipa a favor, y los de tendencia (medias, Ichimoku, VWAP, OBV, Bull Bear Power) suelen ir <b>al revés</b>: el precio corrige. Por eso la predicción los cuenta al revés en 4 h o menos.</p>
         <div class="ab-votes" id="votes"></div>
         <div class="ab-tbl-box">
           <table class="ab-tbl" id="ind-table" data-source="analisis" data-row-key="tf,indicador">
-            <thead><tr><th data-field="indicador">Indicador</th><th data-field="valor" class="r">Valor</th><th data-field="senal">Señal</th><th data-field="detalle">Detalle</th></tr></thead>
+            <thead><tr><th data-field="indicador">Indicador</th><th data-field="valor" class="r">Valor</th><th data-field="senal">Señal</th><th data-field="medido" title="Medido con BTC 2021–2026: si el precio fue para el lado que marca el indicador">Medido</th><th data-field="detalle">Detalle</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>

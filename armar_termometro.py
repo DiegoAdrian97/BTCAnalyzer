@@ -225,6 +225,12 @@ def onchain(t, c, path):
     vivo = {"dia": u, "rp": rp(u), "rp_pend": (rp(u) - rp(u - 30)) / 30 if (u - 30) in m_mvrv else 0.0,
             "btc_dia": float(np.mean([m_iss[d] / precio[d] for d in dias_iss])),
             "iss_suma364": float(sum(m_iss.get(d, 0.0) for d in range(u - 363, u + 1)))}
+    # bandas de desvio extremo del MVRV (Checkonchain): media y desvio del MVRV de toda la historia (desde 2011) y el
+    # precio realizado de cada semana desde 2017, para dibujarlas (precio realizado x (media + k desvios)).
+    # Medido (medir_mvrv_bandas.py): ver termometro.MVRV_BANDAS
+    hist = [m_mvrv[d] for d in sorted(m_mvrv) if d >= 14975]
+    vivo["mvrv_media"], vivo["mvrv_desvio"] = float(np.mean(hist)), float(np.std(hist))
+    vivo["rp_sem"] = [[d, round(rp(d), 2)] for d in sorted(m_mvrv) if d >= 17167 and (d - 17167) % 7 == 0 and d in m_cap and d in m_sup] + [[u, round(rp(u), 2)]]
     return M, vivo
 
 
