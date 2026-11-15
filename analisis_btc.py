@@ -1523,7 +1523,17 @@ def central(rows, price, candles, now_ms):
         # 2019-22 y 2023-26): estando en zona de compra o de venta, a 1 y 7 dias el precio fue para ese lado como un
         # dia cualquiera (z entre -0,5 y +1,3); a 30 dias mas seguido (61-65% contra 55-58% en compra; 57-58% contra
         # 43-45% en caro o venta) pero sin llegar a z 2 (+0,7 a +1,2). Antes sumaba siempre 1 punto de 4 horas a 1 mes
-        # (el medidor no tiene zona neutral). Se muestra aparte, con su plazo de 6 a 12 meses
+        # (el medidor no tiene zona neutral). Se muestra aparte, con su plazo de 6 a 12 meses.
+        # Para el MES si suma (1 punto): medido tambien desde 2015, a 30 dias fue para el lado de la zona en los tres
+        # tramos y en las dos zonas (compra 81% / 61% / 65% contra 57% / 55% / 58% normal; caro o venta 53% / 58% / 57%
+        # contra 43% / 45% / 43%). Ningun tramo solo llega a z 2 (son ~30 meses independientes cada uno) pero los seis
+        # van para el mismo lado: juntos z +2,6. A 1 y 7 dias no
+        if tm and tf == "1M":
+            z = tm["medidor_zona"]
+            if "compra" in z.lower():
+                _cf(F, "direccion", 1, 1, f"Ciclo: {z.lower()}")
+            elif "venta" in z.lower() or "caro" in z.lower():
+                _cf(F, "direccion", -1, 1, f"Ciclo: {z.lower()}")
         _estirado(F, largo_tf)
         # ----- totales -----
         fz = sum(f[1] * f[2] for f in F if f[0] == "fuerza")

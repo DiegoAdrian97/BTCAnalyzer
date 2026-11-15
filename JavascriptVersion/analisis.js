@@ -384,7 +384,13 @@
         }
       }
       // los libros y el funding no ganaron en las mediciones: ya no suman a la direccion (igual que en Python)
-      // el ciclo ya no suma a la direccion: medido a 1, 7 y 30 dias no llega a z 2 (igual que en Python). Va aparte
+      // el ciclo no suma a la direccion a 1 y 7 dias; para el MES si (1 punto): a 30 dias fue para el lado de la zona en
+      // los tres tramos desde 2015 y en las dos zonas (juntos z +2,6). Igual que en Python
+      if (tm && tf === '1M') {
+        const zl = tm.medidor_zona.toLowerCase();
+        if (zl.includes('compra')) cf('direccion', 1, 1, `Ciclo: ${zl}`);
+        else if (zl.includes('venta') || zl.includes('caro')) cf('direccion', -1, 1, `Ciclo: ${zl}`);
+      }
       // precio estirado (indicadores al reves, fuera de Bollinger, RSI extremo): dicen lo mismo, cuentan juntas (_estirado en Python)
       if (!(tf === '1d' || tf === '1w' || tf === '1M')) {
         [1, -1].forEach((ld) => {

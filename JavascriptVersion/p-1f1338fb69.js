@@ -1337,7 +1337,8 @@
     // medir_formacion.py: en plata, seguir estas señales rinde ~0 pb por operacion (la comision son 10 pb)
     if (c.direccion !== 'neutral' && !['1 día', '1 semana', '1 mes'].includes(plz)) fr.push('Ojo: medido, estas señales aciertan 52–56% pero cuando fallan pierden más de lo que ganan cuando aciertan: el retorno medio es ~0 antes de comisiones. Es contexto, no alcanza sola para operar.');
     { const v = document.getElementById('cc-vivo'), tx = vivoTxt(c, plz); v.textContent = tx; v.hidden = !tx; }
-    if (lc) fr.push(`El ciclo mira meses a un año (${zona.toLowerCase()}): va aparte, no suma a esta dirección.`);
+    if (lc) fr.push(fs.some((f) => /^Ciclo:/.test(f[3])) ? `El ciclo (${zona.toLowerCase()}) ya está sumado en este plazo: a 30 días el precio fue para el lado de la zona más seguido que lo normal.`
+      : `El ciclo mira meses a un año (${zona.toLowerCase()}): va aparte, no suma a esta dirección.`);
     const cc = document.getElementById('cc-txt');
     cc.replaceChildren(fr[0], ...fr.slice(1).map((x) => el('span', 'ab-cc-mas', ` ${x}`)));
   }
