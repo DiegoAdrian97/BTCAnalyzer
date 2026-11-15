@@ -243,6 +243,31 @@ def onchain(t, c, path):
     return M, vivo
 
 
+def medir_cortos(S, c, t):
+    """¿La zona del medidor anticipa el dia, la semana y el mes? (el analisis la sumaba a la direccion de 4 horas a 1
+    mes). Cada dia en cada zona, con el medidor sin mirar el futuro (desde 2019): % de veces que BTC fue para el lado
+    de la zona a 1, 7 y 30 dias contra lo normal de ese tramo. Los dias se pisan: n efectivo = dias / horizonte."""
+    print("\n===== ¿La zona del medidor anticipa el día, la semana y el mes? =====")
+    tramos = (("2019-22", 1546300800000, 1672531200000), ("2023-26", 1672531200000, 4102444800000))
+    grupos = [("COMPRA (las dos zonas)", S >= 0.60, 1), ("CARO O VENTA (las dos zonas)", S < 0.60, -1)]
+    grupos += [(nom, (S >= lo) & (S < hi), 1 if lo >= 0.60 else -1) for lo, hi, nom in ZONAS_S]
+    for hz in (1, 7, 30):
+        fut = np.r_[c[hz:] / c[:-hz] - 1, np.full(hz, np.nan)]
+        for nom, m, lado in grupos:
+            txt = f"  {hz:>2} d  {nom:<30}"
+            for tn, a, b in tramos:
+                ok = np.isfinite(S) & np.isfinite(fut) & (t >= a) & (t < b)
+                sel = ok & m
+                if sel.sum() < 30:
+                    txt += f" | {tn}: pocos ({int(sel.sum())})"
+                    continue
+                base = float(np.mean(fut[ok] > 0)); base = base if lado > 0 else 1 - base
+                ac = float(np.mean((fut[sel] > 0) == (lado > 0)))
+                z = (ac - base) / np.sqrt(max(1e-9, base * (1 - base) / max(1.0, sel.sum() / hz)))
+                txt += f" | {tn}: {int(sel.sum())} d, fue para ese lado {100 * ac:.1f}% (normal {100 * base:.1f}%, z {z:+.1f})"
+            print(txt, flush=True)
+
+
 def main():
     B = json.load(open(sys.argv[1])); t = np.array([b[0] for b in B], float); c = np.array([b[4] for b in B], float)
     fng = None
@@ -286,6 +311,7 @@ def main():
             z[f"mediana_{hz}"] = round(float(np.median(fut[m])) * 100) if m.sum() >= 30 else None
             z[f"dias_{hz}"] = int(m.sum())
         zonas_s.append(z)
+    medir_cortos(S, c, t)
     trf = okc & np.isfinite(fut365)
     fin = LogisticRegression(max_iter=4000).fit(Xc[trf], fut365[trf] > 0)
     modelo = {"intercepto": round(float(fin.intercept_[0]), 6), "pesos": [round(float(w), 6) for w in fin.coef_[0]],
