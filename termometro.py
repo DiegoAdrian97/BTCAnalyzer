@@ -140,7 +140,7 @@ def termometro_alt(moneda, velas_d, price, T=None, now_ms=None):
     z = next(z for z in T["zonas"] if temp < z["hasta"] or z["hasta"] >= 100)
     return {"tabla": "termometro", "moneda": moneda, "medidor": round(min(100.0, max(0.0, (1 - S) * 100)), 1),
             "medidor_zona": zm["nombre"], "m_sube_180": zm["sube_180"], "m_mediana_180": zm["mediana_180"],
-            "m_sube_365": zm["sube_365"], "m_mediana_365": zm["mediana_365"], "avance": round(av * 100),
+            "m_sube_365": zm["sube_365"], "m_mediana_365": zm["mediana_365"], "m_epis": zm.get("episodios_365"), "avance": round(av * 100),
             "funding7": None, "funding_ajuste": 0, "p_ciclo": round(prob * 100),
             "m_zonas": [[q["nombre"], q["sube_365"], q["mediana_365"]] for q in A["zonas"]],
             "temp": round(temp, 1), "zona": z["nombre"], "año": y, "fase": fase(y), "fng": None, "regla": None,
@@ -230,7 +230,7 @@ def termometro(closes_d, price, T=None, fng=None, now_ms=None, f7=None):
         pos_m = min(100.0, max(0.0, (1 - S) * 100))
     return {"tabla": "termometro", "medidor": None if pos_m is None else round(pos_m, 1), "medidor_zona": zm["nombre"] if zm else None,
             "m_sube_180": zm["sube_180"] if zm else None, "m_mediana_180": zm["mediana_180"] if zm else None,
-            "m_sube_365": zm["sube_365"] if zm else None, "m_mediana_365": zm["mediana_365"] if zm else None,
+            "m_sube_365": zm["sube_365"] if zm else None, "m_mediana_365": zm["mediana_365"] if zm else None, "m_epis": zm.get("episodios_365") if zm else None,
             "avance": round(av * 100), "funding7": None if f7 is None else round(f7 * 100, 4), "funding_ajuste": adj, "p_ciclo": None if prob is None else round(prob * 100), "m_zonas": [[q["nombre"], q["sube_365"], q["mediana_365"]] for q in md["zonas"]] if md else [],
             "temp": round(temp, 1), "zona": z["nombre"], "año": y, "fase": fs, "fng": fng, "regla": regla,
             "reglas": cic.get("reglas") or {}, "años": cic.get("años") or [], "ciclos": cic.get("ciclos") or [],

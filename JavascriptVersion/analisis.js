@@ -171,7 +171,7 @@
     const S = md.peso_valuacion * (1 - temp / 100) + (1 - md.peso_valuacion) * prob;
     const zm = A.zonas.find((q) => q.desde <= S && S < q.hasta), z = T.zonas.find((q) => temp < q.hasta || q.hasta >= 100);
     return { tabla: 'termometro', moneda, medidor: rnd(Math.min(100, Math.max(0, (1 - S) * 100)), 1), medidor_zona: zm.nombre,
-      m_sube_180: zm.sube_180, m_mediana_180: zm.mediana_180, m_sube_365: zm.sube_365, m_mediana_365: zm.mediana_365, avance: Math.round(av * 100),
+      m_sube_180: zm.sube_180, m_mediana_180: zm.mediana_180, m_sube_365: zm.sube_365, m_mediana_365: zm.mediana_365, m_epis: zm.episodios_365 ?? null, avance: Math.round(av * 100),
       funding7: null, funding_ajuste: 0, p_ciclo: Math.round(prob * 100), m_zonas: A.zonas.map((q) => [q.nombre, q.sube_365, q.mediana_365]),
       temp: rnd(temp, 1), zona: z.nombre, año: y, fase: fase(y), fng: null, regla: null, reglas: {}, años: [], ciclos: [],
       p_wma200: wma ? rnd(p.wma200, 1) : null, p_dd_ath: rnd(p.dd_ath, 1), p_ret365: rnd(p.ret365, 1), wma200: wma ? rnd(wma, 4) : null,
@@ -225,7 +225,7 @@
       posM = Math.min(100, Math.max(0, (1 - S) * 100));
     }
     return { tabla: 'termometro', medidor: posM === null ? null : rnd(posM, 1), medidor_zona: zm ? zm.nombre : null,
-      m_sube_180: zm ? zm.sube_180 : null, m_mediana_180: zm ? zm.mediana_180 : null, m_sube_365: zm ? zm.sube_365 : null, m_mediana_365: zm ? zm.mediana_365 : null,
+      m_sube_180: zm ? zm.sube_180 : null, m_mediana_180: zm ? zm.mediana_180 : null, m_sube_365: zm ? zm.sube_365 : null, m_mediana_365: zm ? zm.mediana_365 : null, m_epis: zm ? (zm.episodios_365 ?? null) : null,
       avance: Math.round(av * 100), funding7: f7 === null || f7 === undefined ? null : rnd(f7 * 100, 4), funding_ajuste: adj, p_ciclo: prob === null ? null : Math.round(prob * 100), m_zonas: md ? md.zonas.map((q) => [q.nombre, q.sube_365, q.mediana_365]) : [],
       temp: rnd(temp, 1), zona: z.nombre, año: y, fase: fs, fng: fng === undefined ? null : fng, regla,
       reglas: cic.reglas || {}, años: cic.años || [], ciclos: cic.ciclos || [], p_wma200: rnd(p.wma200, 1), p_dd_ath: rnd(p.dd_ath, 1), p_ret365: rnd(p.ret365, 1),

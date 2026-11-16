@@ -2149,7 +2149,7 @@
     t.m_zonas.forEach((z, i) => { const c = el('div'); const bar = el('i', i === zi ? 'on' : ''); bar.style.background = TM_COL[i]; c.append(bar, el('span', '', z[0])); sc.append(c); });
     const pasado = el('p', 'ab-hero-sub'), pm = (x) => `${x > 0 ? '+' : ''}${x}%`;
     pasado.textContent = t.m_sube_365 === null ? 'Todavía no hay suficientes casos en esta zona para medir qué pasó después.'
-      : `Cuando estuvo en esta zona (2019–2026), 12 meses después BTC estaba más arriba el ${t.m_sube_365}% de las veces (mediana ${pm(t.m_mediana_365)}); 6 meses después, el ${t.m_sube_180}% (mediana ${pm(t.m_mediana_180)}).`;
+      : `Cuando estuvo en esta zona (2019–2026), 12 meses después BTC estaba más arriba el ${t.m_sube_365}% de las veces (mediana ${pm(t.m_mediana_365)}); 6 meses después, el ${t.m_sube_180}% (mediana ${pm(t.m_mediana_180)}). ${t.m_epis ? `Son solo ${t.m_epis} episodio${t.m_epis > 1 ? 's' : ''} separado${t.m_epis > 1 ? 's' : ''}` : 'Son pocos episodios separados'}, los días seguidos se parecen entre sí: es una pauta, no una garantía.`;
     const FASE = { bajista: (a) => (a >= 60 ? 'final del año bajista: en esta parte del ciclo suele formarse el piso' : 'año bajista: el miedo todavía puede llevar el precio más abajo'),
       'alcista 1': () => '1er año alcista: recuperación después del piso', 'alcista 2': () => '2º año alcista: suele ser el tramo más fuerte',
       'alcista 3': (a) => (a >= 60 ? 'final del 3er año alcista: en esta parte del ciclo suele formarse el techo' : '3er año alcista: la euforia se acerca al techo del ciclo') };

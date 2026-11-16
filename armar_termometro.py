@@ -224,6 +224,8 @@ def zonas_medidor(S, c, ok):
             z[f"sube_{hz}"] = round(float(np.mean(fut[m] > 0)) * 100) if m.sum() >= 30 else None
             z[f"mediana_{hz}"] = round(float(np.median(fut[m])) * 100) if m.sum() >= 30 else None
             z[f"dias_{hz}"] = int(m.sum())
+            ix = np.flatnonzero(m)
+            z[f"episodios_{hz}"] = int(1 + np.sum(np.diff(ix) > 30)) if len(ix) else 0   # rachas separadas por más de 30 días
         zs.append(z)
     return zs
 
