@@ -1,7 +1,7 @@
 {
- "actualizado": 1794787511496,
+ "actualizado": 1794863057016,
  "desde": 1794769200000,
- "hasta": 1794783600000,
+ "hasta": 1794859200000,
  "plazos": [
   {
    "plazo": "5 min",
@@ -10,7 +10,7 @@
    "n_fuerte": 0,
    "acierto_fuerte": null,
    "retorno_pb": null,
-   "laterales": 5
+   "laterales": 26
   },
   {
    "plazo": "15 min",
@@ -19,25 +19,34 @@
    "n_fuerte": 0,
    "acierto_fuerte": null,
    "retorno_pb": null,
-   "laterales": 5
+   "laterales": 26
   },
   {
    "plazo": "1 hora",
-   "n": 1,
-   "acierto": 100.0,
-   "n_fuerte": 0,
-   "acierto_fuerte": null,
-   "retorno_pb": 39.5,
-   "laterales": 4
+   "n": 14,
+   "acierto": 57.1,
+   "n_fuerte": 5,
+   "acierto_fuerte": 100.0,
+   "retorno_pb": 29.8,
+   "laterales": 12
   },
   {
    "plazo": "4 horas",
+   "n": 4,
+   "acierto": 50.0,
+   "n_fuerte": 1,
+   "acierto_fuerte": 100.0,
+   "retorno_pb": 44.4,
+   "laterales": 19
+  },
+  {
+   "plazo": "1 día",
    "n": 0,
    "acierto": null,
    "n_fuerte": 0,
    "acierto_fuerte": null,
    "retorno_pb": null,
-   "laterales": 2
+   "laterales": 3
   }
  ],
  "senales": [
@@ -45,18 +54,36 @@
    "plazo": "5 min",
    "clave": "indicadores",
    "nombre": "Resumen de indicadores, al revés (4 h o menos)",
-   "n": 5,
-   "acierto": 20.0,
+   "n": 26,
+   "acierto": 50.0,
    "esperado": 53,
+   "estado": "pocos"
+  },
+  {
+   "plazo": "5 min",
+   "clave": "bollinger",
+   "nombre": "Fuera de Bollinger: vuelve adentro (4 h o menos)",
+   "n": 2,
+   "acierto": 100.0,
+   "esperado": 56,
    "estado": "pocos"
   },
   {
    "plazo": "15 min",
    "clave": "indicadores",
    "nombre": "Resumen de indicadores, al revés (4 h o menos)",
-   "n": 4,
-   "acierto": 75.0,
+   "n": 24,
+   "acierto": 50.0,
    "esperado": 53,
+   "estado": "pocos"
+  },
+  {
+   "plazo": "15 min",
+   "clave": "bollinger",
+   "nombre": "Fuera de Bollinger: vuelve adentro (4 h o menos)",
+   "n": 3,
+   "acierto": 66.7,
+   "esperado": 56,
    "estado": "pocos"
   },
   {
@@ -72,17 +99,26 @@
    "plazo": "1 hora",
    "clave": "indicadores",
    "nombre": "Resumen de indicadores, al revés (4 h o menos)",
-   "n": 3,
-   "acierto": 33.3,
+   "n": 22,
+   "acierto": 50.0,
    "esperado": 53,
    "estado": "pocos"
   },
   {
    "plazo": "1 hora",
-   "clave": "divergencia",
-   "nombre": "divergencia",
-   "n": 2,
-   "acierto": 100.0,
+   "clave": "liquidaciones",
+   "nombre": "Liquidaciones, al revés",
+   "n": 13,
+   "acierto": 69.2,
+   "esperado": 52.5,
+   "estado": "pocos"
+  },
+  {
+   "plazo": "1 hora",
+   "clave": "coinciden",
+   "nombre": "15 min, 1 hora y 4 horas coinciden",
+   "n": 9,
+   "acierto": 44.4,
    "esperado": 50,
    "estado": "pocos"
   },
@@ -90,6 +126,15 @@
    "plazo": "1 hora",
    "clave": "oi",
    "nombre": "Open interest",
+   "n": 7,
+   "acierto": 85.7,
+   "esperado": 50,
+   "estado": "pocos"
+  },
+  {
+   "plazo": "1 hora",
+   "clave": "divergencia",
+   "nombre": "divergencia",
    "n": 2,
    "acierto": 100.0,
    "esperado": 50,
@@ -97,29 +142,74 @@
   },
   {
    "plazo": "1 hora",
-   "clave": "liquidaciones",
-   "nombre": "Liquidaciones, al revés",
+   "clave": "barrida",
+   "nombre": "Barrida de liquidez",
    "n": 2,
    "acierto": 50.0,
-   "esperado": 52.5,
-   "estado": "pocos"
-  },
-  {
-   "plazo": "4 horas",
-   "clave": "cuentas",
-   "nombre": "Cuentas long/short",
-   "n": 2,
-   "acierto": 100.0,
-   "esperado": 50,
+   "esperado": 53.5,
    "estado": "pocos"
   },
   {
    "plazo": "4 horas",
    "clave": "indicadores",
    "nombre": "Resumen de indicadores, al revés (4 h o menos)",
+   "n": 23,
+   "acierto": 43.5,
+   "esperado": 53,
+   "estado": "pocos"
+  },
+  {
+   "plazo": "4 horas",
+   "clave": "cuentas",
+   "nombre": "Cuentas long/short",
+   "n": 14,
+   "acierto": 35.7,
+   "esperado": 50,
+   "estado": "pocos"
+  },
+  {
+   "plazo": "4 horas",
+   "clave": "liquidaciones",
+   "nombre": "Liquidaciones, al revés",
+   "n": 13,
+   "acierto": 61.5,
+   "esperado": 52.5,
+   "estado": "pocos"
+  },
+  {
+   "plazo": "4 horas",
+   "clave": "barrida",
+   "nombre": "Barrida de liquidez",
    "n": 2,
    "acierto": 100.0,
-   "esperado": 53,
+   "esperado": 53.5,
+   "estado": "pocos"
+  },
+  {
+   "plazo": "4 horas",
+   "clave": "cvd",
+   "nombre": "Divergencia de CVD",
+   "n": 1,
+   "acierto": 100.0,
+   "esperado": 50,
+   "estado": "pocos"
+  },
+  {
+   "plazo": "1 día",
+   "clave": "cuentas",
+   "nombre": "Cuentas long/short",
+   "n": 3,
+   "acierto": 66.7,
+   "esperado": 50,
+   "estado": "pocos"
+  },
+  {
+   "plazo": "1 día",
+   "clave": "liquidaciones",
+   "nombre": "Liquidaciones, al revés",
+   "n": 1,
+   "acierto": 100.0,
+   "esperado": 52.5,
    "estado": "pocos"
   }
  ],
@@ -127,6 +217,24 @@
   {
    "plazo": "1 hora",
    "puntos": "2,5 a 3,5",
+   "n": 9,
+   "acierto": 33.3
+  },
+  {
+   "plazo": "1 hora",
+   "puntos": "3,5 o más",
+   "n": 5,
+   "acierto": 100.0
+  },
+  {
+   "plazo": "4 horas",
+   "puntos": "2,5 a 3,5",
+   "n": 3,
+   "acierto": 33.3
+  },
+  {
+   "plazo": "4 horas",
+   "puntos": "3,5 o más",
    "n": 1,
    "acierto": 100.0
   }
