@@ -1,5 +1,5 @@
 {
- "actualizado": 1794786794808,
+ "actualizado": 1794787511496,
  "desde": 1794769200000,
  "hasta": 1794783600000,
  "plazos": [
@@ -28,7 +28,7 @@
    "n_fuerte": 0,
    "acierto_fuerte": null,
    "retorno_pb": 39.5,
-   "laterales": 3
+   "laterales": 4
   },
   {
    "plazo": "4 horas",
@@ -37,7 +37,7 @@
    "n_fuerte": 0,
    "acierto_fuerte": null,
    "retorno_pb": null,
-   "laterales": 1
+   "laterales": 2
   }
  ],
  "senales": [
@@ -70,20 +70,20 @@
   },
   {
    "plazo": "1 hora",
+   "clave": "indicadores",
+   "nombre": "Resumen de indicadores, al revés (4 h o menos)",
+   "n": 3,
+   "acierto": 33.3,
+   "esperado": 53,
+   "estado": "pocos"
+  },
+  {
+   "plazo": "1 hora",
    "clave": "divergencia",
    "nombre": "divergencia",
    "n": 2,
    "acierto": 100.0,
    "esperado": 50,
-   "estado": "pocos"
-  },
-  {
-   "plazo": "1 hora",
-   "clave": "indicadores",
-   "nombre": "Resumen de indicadores, al revés (4 h o menos)",
-   "n": 2,
-   "acierto": 50.0,
-   "esperado": 53,
    "estado": "pocos"
   },
   {
@@ -99,8 +99,8 @@
    "plazo": "1 hora",
    "clave": "liquidaciones",
    "nombre": "Liquidaciones, al revés",
-   "n": 1,
-   "acierto": 100.0,
+   "n": 2,
+   "acierto": 50.0,
    "esperado": 52.5,
    "estado": "pocos"
   },
@@ -108,7 +108,7 @@
    "plazo": "4 horas",
    "clave": "cuentas",
    "nombre": "Cuentas long/short",
-   "n": 1,
+   "n": 2,
    "acierto": 100.0,
    "esperado": 50,
    "estado": "pocos"
@@ -117,7 +117,7 @@
    "plazo": "4 horas",
    "clave": "indicadores",
    "nombre": "Resumen de indicadores, al revés (4 h o menos)",
-   "n": 1,
+   "n": 2,
    "acierto": 100.0,
    "esperado": 53,
    "estado": "pocos"
