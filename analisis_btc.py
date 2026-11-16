@@ -1253,7 +1253,7 @@ PLAZOS = [
 # z -6 / -2). No dice nada propio: lo que acierta es el precio estirado, que ya cuenta
 DIV_MEDIDO = set()
 RSI_MEDIDO = {("1 hora", "15m"): ("revierte", "revierte"), ("1 hora", "1h"): ("revierte", "revierte"),
-              ("4 horas", "1h"): (None, "revierte"), ("1 semana", "1d"): ("sigue", None)}
+              ("4 horas", "1h"): (None, "revierte"), ("1 semana", "1d"): ("sigue", "revierte")}
 CTX_MEDIDO = ("oi_1h", "oi_4h", "oi_24h", "long_short")   # su senal solo marca lo que gano en las mediciones
 SHORT_CTX = {"flujo_1 h": "Compras a mercado 1 h", "flujo_4 h": "Compras a mercado 4 h", "oi_1h": "Open interest 1 h",
              "oi_4h": "Open interest 4 h", "oi_24h": "Open interest 24 h", "long_short": "Long/short",
@@ -1616,6 +1616,14 @@ def explain(rows, price, spec):
     # +6,4 / +5,0) y las de 15 min para la proxima hora tambien (52,1% / 51,4%, z +4,9
     # / +2,3; en RSI y MACD a la vez 53,4% / 52,1%); las de 1 h para las proximas 4 horas (51,7% / 52,1%, z +2,1 / +1,7;
     # RSI 52,9% / 52,1%) y las de 4 h para el dia (54,3% / 52,2%, z +2,1 / +0,8) quedan cerca y siguen. En el resto ~50%
+    # Lo unico de estructura que paso, y en el panel de 30 monedas (medir_panel.py, diario 2018-2026, z por meses): una
+    # figura del grafico DIARIO, a 30 dias el precio fue para su lado +5,3 / +2,9 puntos sobre lo normal (z +2,1 / +2,3).
+    # Cuenta solo para el mes
+    if name == "1 mes":
+        for p in get("patron"):
+            if p["tf"] == "1d" and p["clase"] == "grafico" and p["sesgo"] in ("alcista", "bajista"):
+                signals.append((4, p["sesgo"], f"{p['nombre']} en {TF_TXT['1d']}" + (f" → {ap(p['objetivo'])}" if p["objetivo"] else "")))
+                break
     divs = {}
     for d in get("divergencia"):
         if d["tf"] in sig_tfs and (name, d["tf"]) in DIV_MEDIDO:

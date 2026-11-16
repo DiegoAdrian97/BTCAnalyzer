@@ -787,6 +787,35 @@ de 1 hora 2021–2026 (232 huecos de 0,5% o más; tamaño medio 2,2–2,4%): se 
 cierra más seguido hacia el hueco (a 24 horas, 46–49%): es un **nivel que atrae, no una dirección**. Entra como nivel
 ("Hueco del CME · en 3 días se rellenó 67–76%", solo BTC, mientras siga abierto y hasta 7 días) y no suma puntos.
 
+### Panel de 30 monedas, ciclo desde 2015, lead-lag y macro (nov. 2026)
+
+- **Panel** (`medir_panel.py`): las señales del gráfico diario en 30 monedas de Binance spot (2018–2026), a 7 y 30 días,
+  en absoluto y contra la mediana de las demás; el z cuenta meses, no casos (las monedas se mueven juntas). Pasaron dos:
+  **RSI diario ≤ 30 → a 7 días rebota** (+17 / +15 puntos sobre lo normal, z +2,0 / +4,9): suma a la semana. **Figura
+  del gráfico diario → a 30 días va para su lado** (+5,3 / +2,9 puntos, z +2,1 / +2,3): suma al mes. Nada de lo demás
+  (resumen de indicadores, SuperTrend, media de 200, Keltner, MFI, cruce del MACD, Elliott) pasó; las divergencias
+  diarias, contra las demás monedas, van al revés.
+- **Ciclo desde 2015** (`armar_termometro.py`): a 30 días el precio fue para el lado de la zona en los tres tramos
+  (2015–18, 2019–22, 2023–26) y en las dos zonas: compra 81% / 61% / 65% contra 57% / 55% / 58% normal; caro o venta
+  53% / 58% / 57% contra 43% / 45% / 43%. Ningún tramo solo llega a z 2, los seis juntos sí (+2,6): **vuelve a sumar,
+  solo para el mes**. A 1 y 7 días, no.
+- **Lead-lag** (`medir_extra.py leadlag`, velas de 1 minuto 2023–2026): cuando BTC se mueve fuerte y ETH, SOL, XRP o
+  ZEC todavía no, la moneda no lo sigue de forma aprovechable (48–52% y entre −1 y +2 pb por operación; a 5 min más
+  bien al revés). No se suma.
+- **Macro** (`medir_extra.py macro`, cierres diarios de Yahoo 2017–2026): Nasdaq, S&P 500, dólar (DXY), VIX, tasa a 10
+  años y oro, por tendencia de 5 y 20 ruedas y contra su media de 50: ninguno anticipa a BTC a 7 ni a 30 días en los
+  dos tramos. No se suma. (M2 y balance de la Fed siguen sin fuente accesible.)
+- **Chance de tocar la liquidación** (`piso_modelo`): se ajusta a la zona del ciclo de BTC (barato / medio / caro) solo
+  si en los dos tramos esa zona tuvo más o menos caídas fuertes que lo normal para el mismo lado. Hoy (barato) no
+  repite (16% hasta 2019, 6% desde 2020 contra 10%): queda el número de siempre. En zona media sí se usa (15–16%).
+- **Archivo** (`archivar.py`, cada 4 horas, rama `archivo`): cadena de opciones de Deribit (BTC y ETH) y funding / open
+  interest de Hyperliquid y OKX (Bybit bloquea a GitHub), para medir skew, gamma y diferencias entre exchanges cuando
+  junten unos meses.
+- **En vivo** (`medir_central.py`, cada día → `JavascriptVersion/track.json`): acierto real por plazo y por señal,
+  retorno medio en pb y aviso de deriva cuando una señal rinde menos que lo medido (`mediciones.json`, registro único
+  de lo que suma). La conclusión de la página lo muestra desde 100 casos.
+- **Rangos coherentes**: el rango de un plazo más largo nunca queda más angosto que el del anterior.
+
 ### Vela en formación, estructura al revés y retorno en plata (`medir_formacion.py`, nov. 2026)
 
 Tres dudas que quedaban sobre lo que el análisis ya cuenta (BTC 2021–2026, tramos 2021–24 y 2025–26):

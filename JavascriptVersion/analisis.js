@@ -1085,7 +1085,7 @@
   }
   // (plazo|temporalidad) -> [sobrecompra, sobreventa]: medir_rsi.py (igual que RSI_MEDIDO en Python)
   const DIV_MEDIDO = [];     // plazo|temporalidad donde la divergencia cuenta: medir_estructura.py
-  const RSI_MEDIDO = { '1 hora|15m': ['revierte', 'revierte'], '1 hora|1h': ['revierte', 'revierte'], '4 horas|1h': [null, 'revierte'], '1 semana|1d': ['sigue', null] };
+  const RSI_MEDIDO = { '1 hora|15m': ['revierte', 'revierte'], '1 hora|1h': ['revierte', 'revierte'], '4 horas|1h': [null, 'revierte'], '1 semana|1d': ['sigue', 'revierte'] };
   const CTX_MEDIDO = ['oi_1h', 'oi_4h', 'oi_24h', 'long_short'];
   const SHORT_CTX = { 'flujo_1 h': 'Compras a mercado 1 h', 'flujo_4 h': 'Compras a mercado 4 h', oi_1h: 'Open interest 1 h',
     oi_4h: 'Open interest 4 h', oi_24h: 'Open interest 24 h', long_short: 'Long/short', libros: 'Libros de órdenes', funding: 'Funding' };
@@ -1125,6 +1125,11 @@
     });
     // figuras, Wyckoff, patrones de velas, Elliott y cruce del MACD: medidos (medir_estructura.py), no anticipan a favor;
     // siguen en el grafico y en su seccion. Las divergencias, solo donde estuvieron cerca (DIV_MEDIDO). Igual que en Python
+    // figura del grafico diario: cuenta solo para el mes (medir_panel.py, 30 monedas: a 30 dias +3 a +5 puntos). Igual que en Python
+    if (name === '1 mes') {
+      const p = get('patron').find((x) => x.tf === '1d' && x.clase === 'grafico' && (x.sesgo === 'alcista' || x.sesgo === 'bajista'));
+      if (p) signals.push([4, p.sesgo, `${p.nombre} en ${TF_TXT['1d']}${p.objetivo ? ` → ${ap(p.objetivo)}` : ''}`]);
+    }
     const divs = new Map();
     get('divergencia').forEach((d) => {
       if (!sigTfs.includes(d.tf) || !DIV_MEDIDO.includes(`${name}|${d.tf}`)) return;
