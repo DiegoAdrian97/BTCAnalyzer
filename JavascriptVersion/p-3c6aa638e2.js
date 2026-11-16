@@ -6737,10 +6737,25 @@
     if (!n || !n.closest) return null;
     const t = n.closest('.ab-ohlc-pane .ab-ohlc-t');
     if (t) { const k = PANEL[t.closest('.ab-ohlc-pane').dataset.k]; const i = k ? G.findIndex((g) => g[0].test(k)) : -1; return i >= 0 ? [t, i] : null; }
-    const e = n.closest('[data-ayuda]');
-    return e ? [e, +e.dataset.ayuda] : null;
+    const e = n.closest('[data-ayuda]'), tt = n.closest('[data-tit]');
+    if (e) return [e, +e.dataset.ayuda, tt && e.contains(tt) ? tt.dataset.tit : null];
+    return tt ? [tt, -1, tt.dataset.tit] : null;
   };
-  function armar(i) {
+  // Los carteles del navegador (atributo title) no se muestran nunca: su texto pasa a data-tit y sale en el cartel
+  // propio (pedido de Diego). Vale para lo que ya esta y para lo que se agregue o cambie despues
+  const sinTitulo = (x) => {
+    const t = x.getAttribute('title'); x.removeAttribute('title');
+    if (!t) return;
+    x.dataset.tit = t;
+    if (!x.getAttribute('aria-label') && !x.textContent.trim()) x.setAttribute('aria-label', t);
+  };
+  const limpiar = (raiz) => { if (raiz.nodeType !== 1) return; if (raiz.hasAttribute('title')) sinTitulo(raiz); raiz.querySelectorAll('[title]').forEach(sinTitulo); };
+  limpiar(document.documentElement);
+  new MutationObserver((ms) => ms.forEach((m) => {
+    if (m.type === 'attributes') { if (m.target.hasAttribute('title')) sinTitulo(m.target); } else m.addedNodes.forEach(limpiar);
+  })).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['title'] });
+  function armar(i, extra) {
+    if (i < 0) { card.replaceChildren(...String(extra).split('\n').map((l) => mk('p', 'ab-ay-q', l))); return; }
     const [, cat, tit, que, alza, baja, ojo] = G[i];
     const top = mk('div', 'ab-ay-cat'); const dot = mk('i'); dot.style.background = CAT_COL[cat]; top.append(dot, C[cat]);
     const out = [top, mk('div', 'ab-ay-t', tit), mk('p', 'ab-ay-q', que)];
@@ -6751,12 +6766,13 @@
       out.push(lee);
     }
     if (ojo) out.push(mk('p', 'ab-ay-ojo', ojo));
+    if (extra) out.push(mk('p', 'ab-ay-q', extra));
     card.replaceChildren(...out);
   }
-  function mostrar(el, i) {
+  function mostrar(el, i, extra) {
     clearTimeout(tHide);
-    if (actual && actual[0] === el && !card.hidden) return;
-    actual = [el, i]; armar(i);
+    if (actual && actual[0] === el && actual[2] === extra && !card.hidden) return;
+    actual = [el, i, extra]; armar(i, extra);
     card.hidden = false; card.classList.remove('is-in');
     const r = el.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = window.innerHeight;
     const w = card.offsetWidth, h = card.offsetHeight, m = 12;
@@ -6781,7 +6797,7 @@
     if (!k) { if (actual) ocultar(); return; }
     clearTimeout(tShow); clearTimeout(tHide);
     const espera = !card.hidden || Date.now() - caliente < 400 ? 60 : 450;
-    tShow = setTimeout(() => mostrar(k[0], k[1]), espera);
+    tShow = setTimeout(() => mostrar(k[0], k[1], k[2]), espera);
   });
   document.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse' && actual) ocultar(true); }, true);
   // dedo: mantener apretado
@@ -6790,7 +6806,7 @@
     if (e.pointerType === 'mouse') return;
     if (!card.hidden && !card.contains(e.target)) ocultar(true);
     const k = claveDe(e.target); if (!k) return;
-    hold = { x: e.clientX, y: e.clientY, t: setTimeout(() => { hold = null; sinClick = Date.now(); mostrar(k[0], k[1]); if (navigator.vibrate) try { navigator.vibrate(8); } catch (er) { /* sin vibracion */ } }, 450) };
+    hold = { x: e.clientX, y: e.clientY, t: setTimeout(() => { hold = null; sinClick = Date.now(); mostrar(k[0], k[1], k[2]); if (navigator.vibrate) try { navigator.vibrate(8); } catch (er) { /* sin vibracion */ } }, 450) };
   }, true);
   const corta = () => { if (hold) { clearTimeout(hold.t); hold = null; } };
   document.addEventListener('pointermove', (e) => { if (hold && Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > 8) corta(); }, true);
@@ -6799,7 +6815,7 @@
   document.addEventListener('click', (e) => { if (Date.now() - sinClick < 700) { e.preventDefault(); e.stopPropagation(); sinClick = 0; } }, true);
   document.addEventListener('contextmenu', (e) => { if (claveDe(e.target) && (e.pointerType === 'touch' || Date.now() - sinClick < 900)) e.preventDefault(); }, true);
   // teclado
-  document.addEventListener('focusin', (e) => { const k = claveDe(e.target); if (k && e.target.matches(':focus-visible')) mostrar(k[0], k[1]); });
+  document.addEventListener('focusin', (e) => { const k = claveDe(e.target); if (k && e.target.matches(':focus-visible')) mostrar(k[0], k[1], k[2]); });
   document.addEventListener('focusout', () => { if (actual) ocultar(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && actual) ocultar(true); });
   window.addEventListener('scroll', () => { if (actual) ocultar(true); }, { passive: true, capture: true });
