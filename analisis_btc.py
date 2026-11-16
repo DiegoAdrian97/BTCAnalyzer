@@ -1339,7 +1339,7 @@ def _estirado(F, largo_tf):
         return
     for lado in (1, -1):
         g = [f for f in F if f[0] == "direccion" and f[1] == lado and f[3].startswith(_ESTIRADO)
-             and ("suele corregir" in f[3] or not f[3].startswith("Indicadores "))]
+             and ("suele " in f[3] or not f[3].startswith("Indicadores "))]
         if len(g) >= 2:
             w = 0.5
             for f in g:
@@ -1501,7 +1501,7 @@ def central(rows, price, candles, now_ms):
         r_ = marco["rating"]
         if r_ is not None and abs(r_) > 0.1 and not largo_tf:
             _cf(F, "direccion", -1 if r_ > 0 else 1, 1,
-                f"Indicadores {marco['rating_txt'].lower()}: en las próximas horas suele corregir (medido: a favor aciertan 46–48%)")
+                f"Indicadores {marco['rating_txt'].lower()}: {'suele corregir, cuenta para la baja' if r_ > 0 else 'suele rebotar, cuenta para la suba'} (medido: 52–54%)")
         bb = ind_.get("Bandas de Bollinger %B")
         if bb and bb["valor"] is not None and (bb["valor"] >= 100 or bb["valor"] <= 0) and not largo_tf:
             # medido: fuera de banda, la hora siguiente volvio hacia adentro el 56-59% de las veces (los dos tramos). En el
@@ -1590,7 +1590,7 @@ def explain(rows, price, spec):
             # mientras la prediccion lo contaba como bajista
             al = m["rating"] > 0
             if tf not in ("1d", "1w", "1M"):          # diario o mas: medido ~50% a 1, 7 y 30 dias (medir_largos.py), no entra
-                signals.append((pr, "bajista" if al else "alcista", f"Indicadores de {TF_TXT[tf]}: {m['rating_txt'].lower()}, suele corregir (medido)"))
+                signals.append((pr, "bajista" if al else "alcista", f"Indicadores de {TF_TXT[tf]}: {m['rating_txt'].lower()}, {'suele corregir' if al else 'suele rebotar'} (medido)"))
     # RSI en sobrecompra y sobreventa: solo donde se midio que anticipa (medir_rsi.py, cada vela, BTC 2021-2026 y
     # diario 2011-2026, en los dos tramos con z >= 2). Revierte la hora siguiente en velas de 15 min y de 1 h (+3 a +6
     # puntos sobre lo normal) y, en 1 h, la sobreventa tambien a 4 h; el RSI diario en sobrecompra, al reves: la semana

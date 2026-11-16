@@ -368,7 +368,7 @@
       const r_ = marco.rating, largoTf = tf === '1d' || tf === '1w' || tf === '1M';
       if (ok(r_) && Math.abs(r_) > 0.1) {
         // diario o mas: medido ~50% a 1, 7 y 30 dias (medir_largos.py): ni el resumen ni cada indicador cuentan
-        if (!largoTf) cf('direccion', r_ > 0 ? -1 : 1, 1, `Indicadores ${marco.rating_txt.toLowerCase()}: en las próximas horas suele corregir (medido: a favor aciertan 46–48%)`);
+        if (!largoTf) cf('direccion', r_ > 0 ? -1 : 1, 1, `Indicadores ${marco.rating_txt.toLowerCase()}: ${r_ > 0 ? 'suele corregir, cuenta para la baja' : 'suele rebotar, cuenta para la suba'} (medido: 52–54%)`);
       }
       // Elliott ya no suma a la direccion (medir_estructura.py: en 1 h acierta 46-49%, al reves; en 4 h y diario ~50%)
       const bb = ind['Bandas de Bollinger %B'];
@@ -394,7 +394,7 @@
       // precio estirado (indicadores al reves, fuera de Bollinger, RSI extremo): dicen lo mismo, cuentan juntas (_estirado en Python)
       if (!(tf === '1d' || tf === '1w' || tf === '1M')) {
         [1, -1].forEach((ld) => {
-          const g = F.filter((f) => f[0] === 'direccion' && f[1] === ld && ESTIRADO.some((x) => f[3].startsWith(x)) && (f[3].includes('suele corregir') || !f[3].startsWith('Indicadores ')));
+          const g = F.filter((f) => f[0] === 'direccion' && f[1] === ld && ESTIRADO.some((x) => f[3].startsWith(x)) && (f[3].includes('suele ') || !f[3].startsWith('Indicadores ')));
           if (g.length >= 2) g.forEach((f) => { f[2] = 0.5; f[3] += ' · mismo motivo (precio estirado): cuentan juntas'; });
         });
       }
@@ -1112,7 +1112,7 @@
       const m = get('marco', { tf })[0];
       if (Math.abs(m.rating) > 0.1) {   // en 4 h o menos, para el lado que cuenta central (medido: corrige); igual que en Python
         const al = m.rating > 0;
-        if (!['1d', '1w', '1M'].includes(tf)) signals.push([[2, 3][n], al ? 'bajista' : 'alcista', `Indicadores de ${TF_TXT[tf]}: ${m.rating_txt.toLowerCase()}, suele corregir (medido)`]);
+        if (!['1d', '1w', '1M'].includes(tf)) signals.push([[2, 3][n], al ? 'bajista' : 'alcista', `Indicadores de ${TF_TXT[tf]}: ${m.rating_txt.toLowerCase()}, ${al ? 'suele corregir' : 'suele rebotar'} (medido)`]);
       }
     });
     // RSI y MACD de cada temporalidad, como los mira un trader

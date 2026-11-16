@@ -6739,7 +6739,7 @@
     if (t) { const k = PANEL[t.closest('.ab-ohlc-pane').dataset.k]; const i = k ? G.findIndex((g) => g[0].test(k)) : -1; return i >= 0 ? [t, i] : null; }
     const e = n.closest('[data-ayuda]'), tt = n.closest('[data-tit]');
     if (e) return [e, +e.dataset.ayuda, tt && e.contains(tt) ? tt.dataset.tit : null];
-    return tt ? [tt, -1, tt.dataset.tit] : null;
+    return tt && (n === tt ? !tt.firstElementChild : true) && !(tt.firstElementChild && tt.offsetHeight > 120) ? [tt, -1, tt.dataset.tit] : null;
   };
   // Los carteles del navegador (atributo title) no se muestran nunca: su texto pasa a data-tit y sale en el cartel
   // propio (pedido de Diego). Vale para lo que ya esta y para lo que se agregue o cambie despues

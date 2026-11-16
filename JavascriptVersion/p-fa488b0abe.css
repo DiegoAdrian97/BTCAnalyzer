@@ -1331,7 +1331,7 @@
   @media (max-width: 599.98px) { #grafico.ab-fs #tfs button { padding-inline: 2px; } #grafico.ab-fs #tfs { min-width: 0; } }
 
   /* ---------- ayudas ocultas: la tarjeta que explica cada indicador (al pasar el mouse o mantener apretado) ---------- */
-  .ab-ay { position: fixed; z-index: 90; width: min(320px, calc(100vw - 24px)); pointer-events: none; box-sizing: border-box;
+  .ab-ay { position: fixed; z-index: 1100; width: min(320px, calc(100vw - 24px)); pointer-events: none; box-sizing: border-box;
     padding: 14px 16px 15px; border-radius: 18px; color: var(--color-fg); font-family: var(--font-anthropic-sans); font-size: 13.5px; line-height: 1.45;
     background: color-mix(in srgb, var(--cds-surface-popover) 88%, transparent); -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%);
     border: 1px solid color-mix(in srgb, var(--color-fg) 10%, transparent); box-shadow: var(--cds-shadow-popover);
@@ -1387,7 +1387,7 @@
     .ab-vivo-cv b { font-size: 12.5px; }
   }
   /* el detalle de una orden: cuanto entro en cada exchange */
-  .ab-trpop { position: fixed; z-index: 95; width: min(300px, calc(100vw - 24px)); box-sizing: border-box; padding: 13px 15px 14px; border-radius: 18px;
+  .ab-trpop { position: fixed; z-index: 1100; width: min(300px, calc(100vw - 24px)); box-sizing: border-box; padding: 13px 15px 14px; border-radius: 18px;
     color: var(--color-fg); font-family: var(--font-anthropic-sans); font-size: 13px; font-variant-numeric: tabular-nums;
     background: color-mix(in srgb, var(--cds-surface-popover) 90%, transparent); -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%);
     border: 1px solid color-mix(in srgb, var(--color-fg) 10%, transparent); box-shadow: var(--cds-shadow-popover); opacity: 0; transform: translateY(4px); transition: opacity .14s, transform .16s cubic-bezier(.2, .8, .2, 1); }
