@@ -1,0 +1,8 @@
+t,plazo,precio,direccion,puntos,a_favor,en_contra,fuerza,senales
+1794873600000,1 día,64855.4,neutral,0,0,0,baja,
+1794873600000,1 hora,64855.4,neutral,1,1,0,baja,indicadores:1
+1794873600000,1 mes,64855.4,neutral,1,1,0,baja,ciclo:1
+1794873600000,1 semana,64855.4,neutral,1,1,0,baja,rsi:1
+1794873600000,15 min,64855.4,neutral,1,1,0,baja,indicadores:1
+1794873600000,4 horas,64855.4,neutral,1,1,0,baja,indicadores:1
+1794873600000,5 min,64855.4,neutral,1,1,0,baja,indicadores:1
