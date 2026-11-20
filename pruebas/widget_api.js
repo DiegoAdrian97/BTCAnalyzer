@@ -44,5 +44,12 @@ const llamar = async (fn, clave) => new Promise((ok) => {
   const ps = pos.posiciones([{ symbol: 'NCSKMSTR2USD-USDT', positionAmt: '2', avgPrice: '300' }, { symbol: 'MSTR-USDT', positionAmt: '-1', avgPrice: '1' },
     { symbol: '1000PEPE-USDT', positionAmt: '1', avgPrice: '1' }]);
   assert.deepStrictEqual(Object.keys(ps).sort(), ['1000PEPE', 'MSTR']);
+  // margen de BingX = lo que queda (lo puesto + el resultado): cuadra con su liquidacion -> lo puesto = margen - resultado
+  const q = pos.posiciones([{ symbol: 'BTC-USDT', positionAmt: '0.05', positionSide: 'LONG', avgPrice: '80000', margin: '1000',
+    unrealizedProfit: '-500', liquidationPrice: '50000', markPrice: '70000' }]);
+  assert.strictEqual(q.BTC.puesto, 1500, 'lo puesto = 1000 + 500');
+  const x = pos.posiciones([{ symbol: 'BTC-USDT', positionAmt: '0.05', avgPrice: '80000', margin: '1000', unrealizedProfit: '-500',
+    liquidationPrice: '20000', markPrice: '70000' }]);
+  assert.strictEqual(x.BTC.puesto, 1000, 'si no cuadra con la liquidacion (margen cruzado), tal cual');
   console.log('widget_api: todo bien');
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -36,6 +36,14 @@ function activo(symbol) {
   return m ? m[1] : b;
 }
 
+/** BingX da como margen lo que QUEDA (lo puesto mas el resultado): su liquidacion lo confirma (cantidad x distancia a la
+ * liquidacion = ese margen). Lo puesto = ese menos el resultado. Si no cuadra (p. ej. margen cruzado), se toma tal cual. */
+function margenPuesto(p) {
+  if (!p || !p.margen) return p ? p.margen || 0 : 0;
+  const neto = p.liquidacion && p.marca && Math.abs((p.signo || 1) * p.cantidad * (p.marca - p.liquidacion) - p.margen) < 0.15 * p.margen;
+  return neto ? p.margen - (p.resultado || 0) : p.margen;
+}
+
 /** Posiciones por cripto (BTC-USDT -> BTC), en el formato de plan_compras.json "posiciones" mas lo que da BingX. */
 function posiciones(data) {
   const out = {};
@@ -50,6 +58,7 @@ function posiciones(data) {
       resultado: +p.unrealizedProfit || 0, marca: +p.markPrice || null,
       // para el precio de equilibrio: lo ya realizado (comisiones pagadas y funding, negativo si costo) y, si BingX lo da, el suyo
       realizado: +p.realisedProfit || 0, equilibrio: +(p.breakEvenPrice || p.breakevenPrice || 0) || null };
+    out[m].puesto = margenPuesto(out[m]);
   });
   return out;
 }

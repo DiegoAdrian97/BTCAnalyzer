@@ -4145,6 +4145,14 @@
     const ej = bxEjecutadas(c.moneda, d);
     return ej ? ej.has(c) : tocada(c, d);
   };
+  // BingX da como margen lo que QUEDA (lo puesto mas el resultado): su liquidacion lo confirma (cantidad x distancia a la
+  // liquidacion = ese margen). Lo puesto = ese menos el resultado. Si no cuadra (p. ej. margen cruzado), se toma tal cual.
+  function margenPuesto(p) {
+    if (p && p.puesto !== undefined) return p.puesto;                // ya lo calcula /api/posiciones
+    if (!p || !p.margen) return p ? p.margen || 0 : 0;
+    const neto = p.liquidacion && p.marca && Math.abs((p.signo || 1) * p.cantidad * (p.marca - p.liquidacion) - p.margen) < 0.15 * p.margen;
+    return neto ? p.margen - (p.resultado || 0) : p.margen;
+  }
   function planEstado(m, d) {
     const P = reglas(), mt = P.mantenimiento || {}, r = mt[m] !== undefined ? mt[m] : (mt.otras !== undefined ? mt.otras : 0.01);
     const cs = comprasDe(m), vivo = BX.ok ? (BX.posiciones || {})[m] : undefined;
@@ -4162,9 +4170,10 @@
       nocional = sum(hechas, (c) => c.orden); cantidad = sum(hechas, (c) => c.orden / c.precio);
     }
     const liqDe = (n, q, mg) => (q > 0 ? Math.max(0, (n - mg) / (q * (1 - r))) : null);
-    const out = { moneda: m, hechas: hechas.length, total: cs.length, precio: d ? d.precio : null, margen, base: !!base, bingx: !!vivo };
+    const puesto = vivo ? margen - (vivo.margen - margenPuesto(vivo)) : margen;     // para las cuentas: lo puesto, no lo que queda
+    const out = { moneda: m, hechas: hechas.length, total: cs.length, precio: d ? d.precio : null, margen, margen_puesto: puesto, base: !!base, bingx: !!vivo };
     if (cantidad <= 0 || !d) return out;
-    const prom = nocional / cantidad, valor = cantidad * d.precio, liq = vivo && vivo.liquidacion ? vivo.liquidacion : liqDe(nocional, cantidad, margen);
+    const prom = nocional / cantidad, valor = cantidad * d.precio, liq = vivo && vivo.liquidacion ? vivo.liquidacion : liqDe(nocional, cantidad, puesto);
     // Precio de equilibrio (como el de BingX): el que deja la posicion en cero contando comisiones y funding. Con BingX: el
     // suyo si lo da; si no, la entrada con lo ya realizado (comisiones pagadas y funding) y la comision de cerrar. Sin
     // BingX: la entrada mas la comision de abrir y la de cerrar (taker, 0,05% por defecto; "comision" en el plan)
@@ -4174,21 +4183,21 @@
         : (prom * (1 + fee)) / (1 - fee);
     // resultado: con BingX, el suyo (precio de marca) movido en vivo como el total de arriba; sin BingX, al precio de ahora
     const pnl = vivo ? pnlMoneda(m) : valor - nocional;
-    Object.assign(out, { promedio: prom, equilibrio: eq, cantidad, nocional, valor, pnl, pnl_pct: (pnl / margen) * 100,
-      apalancamiento_real: valor / (margen + valor - nocional), liquidacion: liq, dist_liq: liq ? (1 - liq / d.precio) * 100 : null });
+    Object.assign(out, { promedio: prom, equilibrio: eq, cantidad, nocional, valor, pnl, pnl_pct: (pnl / puesto) * 100,
+      apalancamiento_real: valor / (puesto + pnl), liquidacion: liq, dist_liq: liq ? (1 - liq / d.precio) * 100 : null });
     // si el precio baja hasta la liquidacion, antes se ejecutan las compras que faltan: la liquidacion de verdad es esta
     const pend = cs.filter((c) => !hechas.includes(c));
-    if (pend.length) out.liq_plan = liqDe(nocional + sum(pend, (c) => c.orden), cantidad + sum(pend, (c) => c.orden / c.precio), margen + sum(pend, (c) => c.orden / lev));
+    if (pend.length) out.liq_plan = liqDe(nocional + sum(pend, (c) => c.orden), cantidad + sum(pend, (c) => c.orden / c.precio), puesto + sum(pend, (c) => c.orden / lev));
     const g = P.ganancias;
     if (g) out.ganancias = Array.from({ length: g.niveles || 4 }, (_, i) => { const k = i + 1, px = eq * (1 + g.cada * k);    // sobre el equilibrio
       return { k, precio: px, vender: cantidad * g.vender, usdt: cantidad * g.vender * px, alcanzado: d.alto !== undefined && d.alto >= px }; });
     const pz = P.piramidar;
     if (pz) {
       const lmax = pz.liq_max * (cs.length ? Math.min(...cs.map((c) => c.precio)) : prom), k = lmax * (1 - r);
-      let a = d.precio > k ? (k * cantidad - nocional + margen) / (1 - k / d.precio) : 0;
-      a = Math.max(0, Math.min(a, lev * margen - nocional));
+      let a = d.precio > k ? (k * cantidad - nocional + puesto) / (1 - k / d.precio) : 0;
+      a = Math.max(0, Math.min(a, lev * puesto - nocional));
       out.piramidar = { disponible: d.precio >= eq * (1 + pz.cada), desde: eq * (1 + pz.cada), sumar: a, monedas: a / d.precio,
-        liq_nueva: liqDe(nocional + a, cantidad + a / d.precio, margen), liq_max: lmax };
+        liq_nueva: liqDe(nocional + a, cantidad + a / d.precio, puesto), liq_max: lmax };
     }
     return out;
   }
@@ -4233,7 +4242,11 @@
       { const c = el('div'), sm = el('small', '', 'Precio de equilibrio'); sm.title = 'El que deja la posición en cero con las comisiones de BingX (y el funding pagado): como el de BingX.';
         c.append(sm, el('b', '', fp(e.equilibrio)), el('small', '', `entrada ${fp(e.promedio)}`)); kv.append(c); }
       cell('Resultado', `${sgn(e.pnl)} USDT (${sgn(e.pnl_pct, f1)}%)`, e.pnl >= 0 ? 'ab-pos-ok' : 'ab-pos-bad');
-      cell('Margen', `${f0(e.margen)} USDT`); cell('Posición', `${f0(e.valor)} USDT`); cell('Apalancamiento real', `${f1(e.apalancamiento_real)}x`);
+      { const c = el('div'), sm = el('small', '', 'Margen');
+        sm.title = 'Lo que queda de margen en la posición (como en BingX): lo que perdés si la liquidan.';
+        c.append(sm, el('b', '', `${f0(e.margen)} USDT`));
+        if (Math.abs(e.margen_puesto - e.margen) >= 1) c.append(el('small', '', `queda · pusiste ${f0(e.margen_puesto)}`));
+        kv.append(c); } cell('Posición', `${f0(e.valor)} USDT`); cell('Apalancamiento real', `${f1(e.apalancamiento_real)}x`);
       cell('Liquidación', e.liquidacion ? `${fp(e.liquidacion)} (${f0(e.dist_liq)}% abajo)` : 'no se liquida', e.liquidacion && e.dist_liq < 15 ? 'ab-pos-bad' : '');
       box.append(kv);
       const lr = e.liq_plan || e.liquidacion, pp = lr ? pisoProb(m, d.precio, lr) : null, n95 = pisoNivel(m, d.precio, 95), n90 = pisoNivel(m, d.precio, 90);
@@ -4328,7 +4341,7 @@
       if (!PNL.ref[m] && a) PNL.ref[m] = a;                // si al leer BingX todavia no habia precio: el primero que llega
       const r0 = PNL.ref[m];
       const r = (p.resultado || 0) + (a && r0 ? (p.signo || 1) * p.cantidad * (a - r0) : 0);
-      total += r; margen += p.margen || 0;
+      total += r; margen += margenPuesto(p);
       return [m, r];
     }).sort((x, y) => Math.abs(y[1]) - Math.abs(x[1]));
     return { total, margen, pct: margen ? (total / margen) * 100 : null, por };
@@ -4340,7 +4353,7 @@
     if (box.hidden) return;
     const sg = (x, f = f2) => `${x >= 0 ? '+' : '−'}${f(Math.abs(x))}`, b = document.getElementById('pnl-total');
     b.textContent = `${sg(v.total)} USDT`; b.className = v.total >= 0 ? 'ab-pos-ok' : 'ab-pos-bad';
-    document.getElementById('pnl-pct').textContent = v.pct === null ? '' : `${sg(v.pct, f1)}% sobre ${f0(v.margen)} USDT de margen`;
+    document.getElementById('pnl-pct').textContent = v.pct === null ? '' : `${sg(v.pct, f1)}% sobre ${f0(v.margen)} USDT de margen puesto`;
     const por = document.getElementById('pnl-por'); por.replaceChildren();
     v.por.forEach(([m, r]) => { const s = el('span', r >= 0 ? 'ab-pos-ok' : 'ab-pos-bad', `${m} ${sg(r)}`); por.append(s); });
     document.getElementById('pnl-vivo').classList.toggle('quieto', !PNL.ws || Date.now() - PNL.t > 5000);
