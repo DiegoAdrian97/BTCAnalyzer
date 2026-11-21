@@ -1,0 +1,8 @@
+t,plazo,precio,direccion,puntos,a_favor,en_contra,fuerza,senales
+1795219200000,1 día,58916.6,neutral,2,2,0,media,cuentas:1;liquidaciones:1
+1795219200000,1 hora,58916.6,neutral,2,2,0,media,indicadores:1;liquidaciones:1
+1795219200000,1 mes,58916.6,neutral,1,1,0,baja,ciclo:1
+1795219200000,1 semana,58916.6,neutral,1,1,0,baja,rsi:1
+1795219200000,15 min,58916.6,neutral,1,1,0,media,indicadores:1
+1795219200000,4 horas,58916.6,sube,3,3,0,media,bollinger:0.5;cuentas:1;indicadores:0.5;liquidaciones:1
+1795219200000,5 min,58916.6,neutral,1,1,0,baja,indicadores:1
