@@ -1,0 +1,8 @@
+t,plazo,precio,direccion,puntos,a_favor,en_contra,fuerza,senales
+1795305600000,1 día,60186.9,neutral,0,0,0,baja,
+1795305600000,1 hora,60186.9,neutral,0,0,0,baja,
+1795305600000,1 mes,60186.9,neutral,1,1,0,baja,ciclo:1
+1795305600000,1 semana,60186.9,neutral,1,1,0,baja,rsi:1
+1795305600000,15 min,60186.9,neutral,1,1,0,baja,indicadores:1
+1795305600000,4 horas,60186.9,neutral,1,1,0,baja,indicadores:1
+1795305600000,5 min,60186.9,neutral,1,1,0,baja,indicadores:1
