@@ -104,3 +104,10 @@ t,plazo,precio,direccion,puntos,a_favor,en_contra,fuerza,senales
 1795442400000,15 min,63796.3,neutral,-1,0,1,alta,bollinger:-0.5;indicadores:-0.5
 1795442400000,4 horas,63796.3,neutral,-2,0,2,media,bollinger:-0.5;indicadores:-0.5;liquidaciones:-1
 1795442400000,5 min,63796.3,neutral,-1,0,1,media,bollinger:-0.5;indicadores:-0.5
+1795446000000,1 día,62811.3,neutral,0,1,1,baja,fibonacci:1;liquidaciones:-1
+1795446000000,1 hora,62811.3,neutral,-2,0,2,alta,indicadores:-1;liquidaciones:-1
+1795446000000,1 mes,62811.3,neutral,1,1,0,baja,ciclo:1
+1795446000000,1 semana,62811.3,neutral,0,0,0,baja,
+1795446000000,15 min,62811.3,neutral,-1,0,1,alta,indicadores:-1
+1795446000000,4 horas,62811.3,neutral,-1,1,2,alta,fibonacci:1;indicadores:-1;liquidaciones:-1
+1795446000000,5 min,62811.3,neutral,-1,0,1,alta,indicadores:-1
