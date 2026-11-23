@@ -90,3 +90,10 @@ t,plazo,precio,direccion,puntos,a_favor,en_contra,fuerza,senales
 1795435200000,15 min,61397,neutral,0,0,0,baja,
 1795435200000,4 horas,61397,neutral,-1,0,1,media,liquidaciones:-1
 1795435200000,5 min,61397,neutral,-1,0,1,baja,indicadores:-1
+1795438800000,1 día,61275.1,neutral,0,0,0,baja,
+1795438800000,1 hora,61275.1,neutral,-1,0,1,media,indicadores:-1
+1795438800000,1 mes,61275.1,neutral,1,1,0,baja,ciclo:1
+1795438800000,1 semana,61275.1,neutral,1,1,0,baja,rsi:1
+1795438800000,15 min,61275.1,neutral,1,1,0,media,indicadores:1
+1795438800000,4 horas,61275.1,neutral,0,0,0,media,
+1795438800000,5 min,61275.1,neutral,1,1,0,baja,indicadores:1
