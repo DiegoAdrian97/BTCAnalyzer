@@ -1,7 +1,7 @@
 {
- "actualizado": 1795473702581,
+ "actualizado": 1795555022307,
  "desde": 1794769200000,
- "hasta": 1795471200000,
+ "hasta": 1795554000000,
  "plazos": [
   {
    "plazo": "5 min",
@@ -10,7 +10,7 @@
    "n_fuerte": 0,
    "acierto_fuerte": null,
    "retorno_pb": null,
-   "laterales": 127
+   "laterales": 150
   },
   {
    "plazo": "15 min",
@@ -19,25 +19,25 @@
    "n_fuerte": 0,
    "acierto_fuerte": null,
    "retorno_pb": null,
-   "laterales": 127
+   "laterales": 150
   },
   {
    "plazo": "1 hora",
-   "n": 47,
-   "acierto": 51.1,
-   "n_fuerte": 19,
-   "acierto_fuerte": 63.2,
-   "retorno_pb": 23.4,
-   "laterales": 79
+   "n": 54,
+   "acierto": 53.7,
+   "n_fuerte": 21,
+   "acierto_fuerte": 61.9,
+   "retorno_pb": 25.3,
+   "laterales": 95
   },
   {
    "plazo": "4 horas",
-   "n": 21,
-   "acierto": 52.4,
-   "n_fuerte": 10,
-   "acierto_fuerte": 70.0,
-   "retorno_pb": -27.7,
-   "laterales": 102
+   "n": 26,
+   "acierto": 53.8,
+   "n_fuerte": 13,
+   "acierto_fuerte": 69.2,
+   "retorno_pb": -19.5,
+   "laterales": 120
   },
   {
    "plazo": "1 día",
@@ -46,7 +46,7 @@
    "n_fuerte": 0,
    "acierto_fuerte": null,
    "retorno_pb": null,
-   "laterales": 103
+   "laterales": 126
   },
   {
    "plazo": "1 semana",
@@ -55,7 +55,7 @@
    "n_fuerte": 0,
    "acierto_fuerte": null,
    "retorno_pb": null,
-   "laterales": 28
+   "laterales": 48
   }
  ],
  "senales": [
@@ -63,8 +63,8 @@
    "plazo": "5 min",
    "clave": "indicadores",
    "nombre": "Resumen de indicadores, al revés (4 h o menos)",
-   "n": 113,
-   "acierto": 51.3,
+   "n": 134,
+   "acierto": 50.0,
    "esperado": 53,
    "estado": "ok"
   },
@@ -72,8 +72,8 @@
    "plazo": "5 min",
    "clave": "bollinger",
    "nombre": "Fuera de Bollinger: vuelve adentro (4 h o menos)",
-   "n": 10,
-   "acierto": 70.0,
+   "n": 11,
+   "acierto": 72.7,
    "esperado": 56,
    "estado": "pocos"
   },
@@ -81,7 +81,7 @@
    "plazo": "15 min",
    "clave": "indicadores",
    "nombre": "Resumen de indicadores, al revés (4 h o menos)",
-   "n": 114,
+   "n": 137,
    "acierto": 47.4,
    "esperado": 53,
    "estado": "ok"
@@ -90,8 +90,8 @@
    "plazo": "15 min",
    "clave": "bollinger",
    "nombre": "Fuera de Bollinger: vuelve adentro (4 h o menos)",
-   "n": 16,
-   "acierto": 56.2,
+   "n": 17,
+   "acierto": 52.9,
    "esperado": 56,
    "estado": "pocos"
   },
@@ -108,8 +108,8 @@
    "plazo": "1 hora",
    "clave": "indicadores",
    "nombre": "Resumen de indicadores, al revés (4 h o menos)",
-   "n": 111,
-   "acierto": 48.6,
+   "n": 133,
+   "acierto": 48.1,
    "esperado": 53,
    "estado": "ok"
   },
@@ -117,17 +117,17 @@
    "plazo": "1 hora",
    "clave": "liquidaciones",
    "nombre": "Liquidaciones, al revés",
-   "n": 91,
-   "acierto": 49.5,
+   "n": 114,
+   "acierto": 48.2,
    "esperado": 52.5,
-   "estado": "pocos"
+   "estado": "ok"
   },
   {
    "plazo": "1 hora",
    "clave": "oi",
    "nombre": "Open interest",
-   "n": 35,
-   "acierto": 62.9,
+   "n": 38,
+   "acierto": 63.2,
    "esperado": 50,
    "estado": "pocos"
   },
@@ -144,9 +144,18 @@
    "plazo": "1 hora",
    "clave": "rsi",
    "nombre": "RSI extremo: posible reversión (15 min y 1 h)",
-   "n": 17,
-   "acierto": 58.8,
+   "n": 18,
+   "acierto": 61.1,
    "esperado": 54.5,
+   "estado": "pocos"
+  },
+  {
+   "plazo": "1 hora",
+   "clave": "barrida",
+   "nombre": "Barrida de liquidez",
+   "n": 16,
+   "acierto": 50.0,
+   "esperado": 53.5,
    "estado": "pocos"
   },
   {
@@ -156,15 +165,6 @@
    "n": 11,
    "acierto": 63.6,
    "esperado": 56,
-   "estado": "pocos"
-  },
-  {
-   "plazo": "1 hora",
-   "clave": "barrida",
-   "nombre": "Barrida de liquidez",
-   "n": 10,
-   "acierto": 40.0,
-   "esperado": 53.5,
    "estado": "pocos"
   },
   {
@@ -196,21 +196,21 @@
   },
   {
    "plazo": "4 horas",
-   "clave": "indicadores",
-   "nombre": "Resumen de indicadores, al revés (4 h o menos)",
-   "n": 94,
-   "acierto": 53.2,
-   "esperado": 53,
-   "estado": "pocos"
+   "clave": "liquidaciones",
+   "nombre": "Liquidaciones, al revés",
+   "n": 111,
+   "acierto": 55.0,
+   "esperado": 52.5,
+   "estado": "ok"
   },
   {
    "plazo": "4 horas",
-   "clave": "liquidaciones",
-   "nombre": "Liquidaciones, al revés",
-   "n": 88,
-   "acierto": 58.0,
-   "esperado": 52.5,
-   "estado": "pocos"
+   "clave": "indicadores",
+   "nombre": "Resumen de indicadores, al revés (4 h o menos)",
+   "n": 110,
+   "acierto": 52.7,
+   "esperado": 53,
+   "estado": "ok"
   },
   {
    "plazo": "4 horas",
@@ -223,20 +223,20 @@
   },
   {
    "plazo": "4 horas",
+   "clave": "barrida",
+   "nombre": "Barrida de liquidez",
+   "n": 14,
+   "acierto": 57.1,
+   "esperado": 53.5,
+   "estado": "pocos"
+  },
+  {
+   "plazo": "4 horas",
    "clave": "bollinger",
    "nombre": "Fuera de Bollinger: vuelve adentro (4 h o menos)",
    "n": 13,
    "acierto": 69.2,
    "esperado": 56,
-   "estado": "pocos"
-  },
-  {
-   "plazo": "4 horas",
-   "clave": "barrida",
-   "nombre": "Barrida de liquidez",
-   "n": 10,
-   "acierto": 60.0,
-   "esperado": 53.5,
    "estado": "pocos"
   },
   {
@@ -252,8 +252,8 @@
    "plazo": "4 horas",
    "clave": "cvd",
    "nombre": "Divergencia de CVD",
-   "n": 2,
-   "acierto": 100.0,
+   "n": 6,
+   "acierto": 83.3,
    "esperado": 50,
    "estado": "pocos"
   },
@@ -279,7 +279,7 @@
    "plazo": "1 día",
    "clave": "liquidaciones",
    "nombre": "Liquidaciones, al revés",
-   "n": 71,
+   "n": 91,
    "acierto": 54.9,
    "esperado": 52.5,
    "estado": "pocos"
@@ -294,10 +294,19 @@
    "estado": "pocos"
   },
   {
+   "plazo": "1 día",
+   "clave": "fibonacci",
+   "nombre": "fibonacci",
+   "n": 2,
+   "acierto": 0.0,
+   "esperado": 50,
+   "estado": "pocos"
+  },
+  {
    "plazo": "1 semana",
    "clave": "rsi",
    "nombre": "RSI extremo: posible reversión (15 min y 1 h)",
-   "n": 23,
+   "n": 43,
    "acierto": 0.0,
    "esperado": 54.5,
    "estado": "pocos"
@@ -307,26 +316,26 @@
   {
    "plazo": "1 hora",
    "puntos": "2,5 a 3,5",
-   "n": 28,
-   "acierto": 42.9
+   "n": 33,
+   "acierto": 48.5
   },
   {
    "plazo": "1 hora",
    "puntos": "3,5 o más",
-   "n": 19,
-   "acierto": 63.2
+   "n": 21,
+   "acierto": 61.9
   },
   {
    "plazo": "4 horas",
    "puntos": "2,5 a 3,5",
-   "n": 11,
-   "acierto": 36.4
+   "n": 13,
+   "acierto": 38.5
   },
   {
    "plazo": "4 horas",
    "puntos": "3,5 o más",
-   "n": 10,
-   "acierto": 70.0
+   "n": 13,
+   "acierto": 69.2
   }
  ]
 }
