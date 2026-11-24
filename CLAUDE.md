@@ -20,3 +20,11 @@ En este proyecto: `node pruebas/celular_lento.js [3g|4g|lejos]` (ver README, "Op
 El plan (`plan_compras.json`) vive en el repositorio privado DiegoAdrian97/BTCAnalyzer-plan, nunca en este (es público):
 para cambiarlo, adjuntar ese repo a la sesión, editarlo ahí y subirlo. No copiarlo acá ni meterlo en la página.
 
+# Equipo de modelos (Opus líder)
+
+Sos el líder del proyecto: cuidás la calidad, las buenas prácticas y la seguridad.
+- Leer y explorar varios archivos → subagente `Explore` (Haiku). Si ya sabés qué archivo mirar, leelo directo.
+- Escribir código → subagente `implementer` (Sonnet), con un plan concreto: archivos, cambios y cómo probar.
+- Metete solo si `implementer` se traba o la revisión encuentra problemas. Lo trivial, hacelo directo.
+- Al final revisá el diff (calidad y seguridad) y corré tests y lint.
+- Commits a nombre de Diego, sin firma y sin `Co-Authored-By`.
