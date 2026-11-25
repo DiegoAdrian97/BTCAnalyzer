@@ -235,7 +235,7 @@ def _traer_libro(dia):
 # senales = "clave:puntos;clave:puntos;..." (puntos = lado x peso; la clave sale del texto de cada señal).
 # medir_central.py lo lee y dice cuanto acerto cada plazo y cada señal.
 CENTRAL_COL = "t,plazo,precio,direccion,puntos,a_favor,en_contra,fuerza,senales,t_real"
-_CLAVES = (("Casos parecidos", "casos"), ("Indicadores", "indicadores"), ("Precio arriba de la banda", "bollinger"),
+_CLAVES = (("Casos parecidos", "casos"), ("Modelo estadístico", "modelo"), ("Indicadores", "indicadores"), ("Precio arriba de la banda", "bollinger"),
            ("Precio debajo de la banda", "bollinger"), ("Posible reversión", "rsi"), ("Posible rebote", "rsi"),
            ("RSI de", "rsi_sigue"), ("MACD de", "macd"), ("Divergencia de CVD", "cvd"), ("En spot se", "absorcion"),
            ("Barrida de liquidez", "barrida"), ("Elliott", "elliott"), ("Más liquidaciones", "liquidaciones"),

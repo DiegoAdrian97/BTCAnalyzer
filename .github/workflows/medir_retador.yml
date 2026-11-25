@@ -1,5 +1,5 @@
 name: Laboratorio retador (¿un modelo le gana a la tasa normal fuera de muestra?)
-# Cada domingo y a mano: baja velas 1h de BTCUSDT, corre medir_retador.py (walk-forward) y deja resultados/retador.json
+# Cada domingo y a mano: baja velas 1h de BTCUSDT, corre medir_retador.py (walk-forward) y deja resultados/retador.json y JavascriptVersion/modelo_direccion.json (si pasa la compuerta)
 # y resultados/retador.txt. No cambia nada de lo que muestra la página. El push de resultados/ no vuelve a disparar esto.
 on:
   workflow_dispatch:
@@ -24,5 +24,5 @@ jobs:
       - name: Subir resultados
         run: |
           git config user.name "github-actions[bot]"; git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add resultados/ 2>/dev/null || exit 0
+          git add resultados/ JavascriptVersion/modelo_direccion.json 2>/dev/null || exit 0
           git diff --cached --quiet || { git commit -qm "resultados: laboratorio retador"; git pull -q --rebase; git push -q; }

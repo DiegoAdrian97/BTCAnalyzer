@@ -343,7 +343,7 @@
         }
         rows.forEach((e) => {
           if (e.tabla === 'explicacion' && e.plazo === nombrePlazo && e.tipo === 'senal' && (e.sesgo === 'alcista' || e.sesgo === 'bajista')
-            && !e.texto.startsWith('Indicadores de') && !e.texto.startsWith('Casos parecidos')) cf('direccion', e.sesgo === 'alcista' ? 1 : -1, 1, e.texto);
+            && !e.texto.startsWith('Indicadores de') && !e.texto.startsWith('Casos parecidos') && !e.texto.startsWith('Modelo estadístico')) cf('direccion', e.sesgo === 'alcista' ? 1 : -1, 1, e.texto);
         });
       }   // sin plazo propio (30 min): figuras y divergencias no anticipan (medir_estructura.py), no suman
       if (p && nombrePlazo === '1 hora' && (p.coinciden === 'alcista' || p.coinciden === 'bajista'))     // medido: 54,0% contra 51,5%
@@ -423,7 +423,7 @@
       if (fuerza === 'alta') R.push('Se viene movimiento fuerte: revisá stops y tamaño');
       if ((lado === 'sube' && enContra >= 0.6 * aFavor) || (lado === 'baja' && aFavor >= 0.6 * enContra)) R.push('Hay señales en contra casi tan fuertes: dirección poco firme');
       // el titular sale de los puntos; si la probabilidad del mismo plazo (la que muestra la pagina) dice lo contrario, avisarlo
-      if (p && ok(p.sube) && ok(p.base) && ((lado === 'sube' && p.sube < p.base) || (lado === 'baja' && p.sube > p.base))) R.push(`Los casos parecidos dicen lo contrario: cierra arriba ${ar(p.sube, 0)}% (normal ${ar(p.base, 0)}%)`);
+      if (p && ok(p.sube) && ok(p.base) && ((lado === 'sube' && p.sube < p.base) || (lado === 'baja' && p.sube > p.base))) R.push(`${p.fuente_sube === 'modelo' ? 'El modelo estadístico dice' : 'Los casos parecidos dicen'} lo contrario: cierra arriba ${ar(p.sube, 0)}% (normal ${ar(p.base, 0)}%)`);
       out.push({ tabla: 'central', tf, plazo: p ? nombrePlazo : null, fuerza, fuerza_puntos: fz, prob_fuerte: nz(prob), prob_normal: nz(base),
         direccion: lado, direccion_puntos: dr, a_favor: aFavor, en_contra: enContra, primero_arriba: p ? nz(p.primero_arriba) : null,
         rango_min: p ? p.min : null, rango_max: p ? p.max : null, hasta: p ? p.hora : null, obj_arriba: p ? p.obj_arriba : null, obj_abajo: p ? p.obj_abajo : null,
@@ -766,6 +766,89 @@
     }
     out.min = rp(price * (1 + lo / 100)); out.max = rp(price * (1 + hi / 100));
     return out;
+  }
+
+  // Modelo estadistico de direccion (medir_retador.py -> modelo_direccion.json, con compuerta: solo los H cuya ventaja fuera
+  // de muestra tiene el limite inferior del IC90 > 0; worker.js lo baja a root.MODELO_DIRECCION). Logistica L2 con los
+  // rasgos de 1 h sin volumen taker, para el plazo "1 hora" (H=1) y "4 horas" (H=4). Igual que rasgos_direccion / prob_modelo
+  // de analisis_btc.py
+  const MODELO_PLAZO = { '5m|12': 1, '30m|8': 4 };         // tf|velas del plazo -> H del modelo (en horas)
+  const RASGOS_DIRECCION = ['ret_1', 'ret_2', 'ret_4', 'ret_8', 'ret_24', 'ret_72', 'ret_168', 'vol_24', 'vol_168', 'vol_cociente',
+    'rsi_14', 'dist_ema_20', 'dist_ema_50', 'dist_ema_200', 'rango_pos_24', 'rango_pos_168', 'vol_z', 'hora_sin', 'hora_cos', 'dia_semana'];
+  const std1 = (xs) => { const m = xs.reduce((a, x) => a + x, 0) / xs.length; return Math.sqrt(xs.reduce((a, x) => a + (x - m) ** 2, 0) / (xs.length - 1)); };
+
+  /** Los rasgos sin taker de la ultima vela (se toma como cerrada), en el orden de RASGOS_DIRECCION; null si hay menos de 169 velas. */
+  function rasgosDireccion(velas1h) {
+    const n = velas1h.length;
+    if (n < 169) return null;
+    const t = velas1h.map((b) => b[0]), h = velas1h.map((b) => b[2]), l = velas1h.map((b) => b[3]), c = velas1h.map((b) => b[4]), vol = velas1h.map((b) => b[5]);
+    const lc = c.map(Math.log), i = n - 1;
+    const r1 = []; for (let k = i - 167; k <= i; k++) r1.push(lc[k] - lc[k - 1]);
+    const v24 = std1(r1.slice(-24)), v168 = std1(r1);
+    const emas = {};
+    [20, 50, 200].forEach((k) => { const a = 2 / (k + 1); let m = c[0]; for (const x of c) m = m + a * (x - m); emas[k] = m; });
+    const g = [0], p = [0];
+    for (let k = 1; k < n; k++) { g.push(Math.max(c[k] - c[k - 1], 0)); p.push(Math.max(c[k - 1] - c[k], 0)); }
+    let ag = g.slice(1, 15).reduce((a, x) => a + x, 0) / 14, ap = p.slice(1, 15).reduce((a, x) => a + x, 0) / 14;
+    for (let k = 15; k < n; k++) { ag = (ag * 13 + g[k]) / 14; ap = (ap * 13 + p[k]) / 14; }
+    const rsi = ap === 0 ? 100 : 100 - 100 / (1 + ag / ap);
+    const x = [1, 2, 4, 8, 24, 72, 168].map((k) => lc[i] - lc[i - k]).concat([v24, v168, v24 / v168, rsi]);
+    [20, 50, 200].forEach((k) => x.push(Math.log(c[i] / emas[k]) / v168));
+    [24, 168].forEach((w) => { const mn = Math.min(...l.slice(i - w + 1)), mx = Math.max(...h.slice(i - w + 1)); x.push(mx > mn ? (c[i] - mn) / (mx - mn) : 0.5); });
+    const v168s = vol.slice(-168), s168 = std1(v168s);
+    x.push(s168 > 0 ? (vol.slice(-24).reduce((a, y) => a + y, 0) / 24 - v168s.reduce((a, y) => a + y, 0) / 168) / s168 : 0);
+    const hora = Math.floor(t[i] / HOUR_MS) % 24;
+    return x.concat([Math.sin(2 * Math.PI * hora / 24), Math.cos(2 * Math.PI * hora / 24), (Math.floor(t[i] / DAY_MS) + 3) % 7]);
+  }
+
+  /** Las velas de 1 h cerradas mas la vela en curso tomada como cerrada al precio actual (abre donde cerro la ultima; maximo y
+   *  minimo de las de 5 min de esa hora y del precio; volumen de la ultima hora cerrada). null si falta una vela cerrada. */
+  function velasDireccion(h1, c5, price, nowMs) {
+    const t0 = Math.floor(nowMs / HOUR_MS) * HOUR_MS;
+    if (!h1.length || h1[h1.length - 1][0] !== t0 - HOUR_MS) return null;
+    const last = h1[h1.length - 1], o = last[4], dentro = c5.filter((b) => b[0] >= t0);
+    return h1.concat([[t0, o, Math.max(o, price, ...dentro.map((b) => b[2])), Math.min(o, price, ...dentro.map((b) => b[3])), price, last[5]]]);
+  }
+
+  /** {H: modelo} con los H del json bien armados (rasgos en el orden esperado, todo finito); el resto se descarta. */
+  function modeloValido(j) {
+    const out = {}, fin = (a) => Array.isArray(a) && a.every((v) => typeof v === 'number' && Number.isFinite(v));
+    Object.entries((j && typeof j === 'object' && j.H) || {}).forEach(([k, m]) => {
+      if (!m || !Array.isArray(m.rasgos) || m.rasgos.length !== RASGOS_DIRECCION.length || m.rasgos.some((r, q) => r !== RASGOS_DIRECCION[q])) return;
+      const n = RASGOS_DIRECCION.length, esc = m.escala;
+      if (!fin(m.media) || !fin(esc) || !fin(m.coef) || m.media.length !== n || esc.length !== n || m.coef.length !== n) return;
+      if (!fin([m.intercepto, m.normal, m.u10, m.ventaja]) || Math.min(...esc) <= 0 || !(m.u10 > 0 && m.u10 < 0.5) || !(m.normal > 0 && m.normal < 100)) return;
+      out[Number(k)] = { media: m.media, escala: esc, coef: m.coef, intercepto: m.intercepto, normal: m.normal, u10: m.u10, ventaja: m.ventaja };
+    });
+    return out;
+  }
+  let modeloVisto, modeloValidado = {};
+  function modeloActual() {
+    if (root.MODELO_DIRECCION !== modeloVisto) { modeloVisto = root.MODELO_DIRECCION; modeloValidado = modeloValido(modeloVisto); }
+    return modeloValidado;
+  }
+
+  /** Probabilidad de cerrar arriba a H horas segun el modelo; null si no hay modelo para ese H o algun rasgo no es finito. */
+  function probModelo(H, velas1h) {
+    const m = modeloActual()[H];
+    const x = m && velas1h && rasgosDireccion(velas1h);
+    if (!x || !x.every(Number.isFinite)) return null;
+    let z = m.intercepto; for (let k = 0; k < x.length; k++) z += m.coef[k] * (x[k] - m.media[k]) / m.escala[k];
+    if (!Number.isFinite(z)) return null;
+    return z >= 0 ? 1 / (1 + Math.exp(-z)) : Math.exp(z) / (1 + Math.exp(z));
+  }
+
+  /** Con modelo para este plazo: sube = el del modelo (el de los casos parecidos queda en sube_casos), base = su tasa normal
+   *  y veredicto solo si |p - 0.5| >= u10. Modifica y devuelve prob; sin modelo no toca nada. */
+  function aplicarModelo(prob, tf, h, velas1h) {
+    const H = MODELO_PLAZO[`${tf}|${h}`], p = H === undefined ? null : probModelo(H, velas1h);
+    if (p === null) return prob;
+    const m = modeloActual()[H];
+    prob.sube_casos = prob.sube;
+    prob.sube = rnd(p * 100, 1); prob.baja = rnd(100 - p * 100, 1); prob.base = rnd(m.normal, 1);
+    prob.fuente_sube = 'modelo'; prob.modelo_ventaja = rnd(m.ventaja, 2);
+    prob.veredicto = Math.abs(p - 0.5) < m.u10 ? 'Casi moneda' : p > 0.5 ? 'Sesgo alcista' : 'Sesgo bajista';
+    return prob;
   }
 
   /** Todo lo que se puede decir de las proximas h velas a partir de las situaciones parecidas (ya con lo aprendido). */
@@ -1179,7 +1262,7 @@
       }
     });
     if (main.veredicto !== 'Casi moneda') {
-      signals.push([2, main.veredicto === 'Sesgo alcista' ? 'alcista' : 'bajista', `Casos parecidos: cerró arriba ${ar(main.sube)}% (normal ${ar(main.base)}%)`]);
+      signals.push([2, main.veredicto === 'Sesgo alcista' ? 'alcista' : 'bajista', `${main.fuente_sube === 'modelo' ? 'Modelo estadístico: cierra' : 'Casos parecidos: cerró'} arriba ${ar(main.sube)}% (normal ${ar(main.base)}%)`]);
     }
     if (sigTfs.includes('4h')) {   // tocando un Fibonacci de 90 dias que rebota mas que un nivel cualquiera
       const fz = get('nivel').filter((n) => n.fib && n.rebote >= 55 && Math.abs(n.distancia) <= 0.4);
@@ -1297,6 +1380,8 @@
       const bar = tf === '5m' ? live5m : formingFrom5m(candles['5m'], live5m, tf, closed[closed.length - 1][0]);
       full[tf] = bar ? closed.concat([bar]) : closed;
     });
+    // velas de 1 h (365 dias: sobra para que la EMA 200 converja) con la vela en curso al precio actual, para el modelo de direccion
+    const v1h = Object.keys(modeloActual()).length ? velasDireccion(candles['1h'], full['5m'], price, now) : null;
     const rows = [], entries = [], byTf = {}, series = {};
 
     Object.entries(TIMEFRAMES).forEach(([tf, [days, horizons]]) => {
@@ -1341,6 +1426,7 @@
 
       horizons.forEach((h) => {
         const [prob, tg] = horizonStats(tf, series[tf], h, price, tune(tf, series[tf], h));
+        aplicarModelo(prob, tf, h, v1h);
         rows.push({ tabla: 'probabilidad', ...prob });
         tg.forEach((t) => rows.push({ tabla: 'objetivo', tf, horizonte: prob.horizonte, hora: prob.hora, ...t }));
         entries.push([bars[i][0] + tfMs, tf, h, closes[i], prob.sube, prob.min_crudo, prob.max_crudo, { m: prob.mediana, a: prob.obj_arriba, b: prob.obj_abajo, ta: prob.toca_arriba, tb: prob.toca_abajo, pa: prob.primero_arriba }]);
@@ -1368,6 +1454,7 @@
     PLAZOS.forEach(([name, tf, h]) => {
       const fit = tune(tf, series[tf], h);
       const [prob, tg] = horizonStats(tf, series[tf], h, price, fit);
+      aplicarModelo(prob, tf, h, v1h);
       rows.push({ tabla: 'plazo', plazo: name, ...prob });
       learningRows(name, tf, h, fit).forEach((r) => rows.push(r));
       tg.forEach((t) => rows.push({ tabla: 'objetivo_plazo', plazo: name, ...t }));
@@ -1502,7 +1589,7 @@
     return { rows, log };
   }
 
-  const Analisis = { ictFilas, piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, DIAS_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, factoresVivos, rango80, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, fibTramo, compresion, perfilHoras, central, liqReales, calificarUltimas };
+  const Analisis = { ictFilas, piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, DIAS_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, factoresVivos, rango80, rasgosDireccion, velasDireccion, probModelo, aplicarModelo, modeloValido, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, fibTramo, compresion, perfilHoras, central, liqReales, calificarUltimas };
   root.Analisis = Analisis;
   if (typeof module !== 'undefined' && module.exports) module.exports = Analisis;
 })(typeof self !== 'undefined' ? self : globalThis);

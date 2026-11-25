@@ -715,6 +715,152 @@ def refrescar_track():
         return False
 
 
+# Modelo estadistico de direccion (medir_retador.py -> JavascriptVersion/modelo_direccion.json, con compuerta: solo los
+# H cuya ventaja fuera de muestra tiene el limite inferior del IC90 > 0). Logistica L2 con los rasgos de 1 h sin volumen
+# taker, para el plazo "1 hora" (H=1) y "4 horas" (H=4). Mismo codigo que rasgosDireccion / probModelo de analisis.js
+MODELO_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "JavascriptVersion", "modelo_direccion.json")
+MODELO_URL = "https://raw.githubusercontent.com/DiegoAdrian97/BTCAnalyzer/main/JavascriptVersion/modelo_direccion.json"
+MODELO_PLAZO = {("5m", 12): 1, ("30m", 8): 4}          # (tf, velas) del plazo -> H del modelo (en horas)
+RASGOS_DIRECCION = ["ret_1", "ret_2", "ret_4", "ret_8", "ret_24", "ret_72", "ret_168", "vol_24", "vol_168", "vol_cociente",
+                    "rsi_14", "dist_ema_20", "dist_ema_50", "dist_ema_200", "rango_pos_24", "rango_pos_168", "vol_z",
+                    "hora_sin", "hora_cos", "dia_semana"]
+MODELO_DIRECCION = {}                                   # {H: modelo} ya validados
+_MODELO_LEIDO = False
+
+
+def _std1(xs):
+    """Desvio con ddof=1 (como numpy con ddof=1)."""
+    m = sum(xs) / len(xs)
+    return math.sqrt(sum((x - m) ** 2 for x in xs) / (len(xs) - 1))
+
+
+def rasgos_direccion(velas_1h):
+    """Los rasgos sin taker de la ultima vela (la ultima se toma como cerrada), en el orden de RASGOS_DIRECCION. Mismo
+    calculo que medir_retador.rasgos: EMA con semilla en la primera vela, RSI de Wilder con semilla en la media de las
+    primeras 14 variaciones. None si hay menos de 169 velas. Velas: [t, o, h, l, c, v] cada 1 h."""
+    n = len(velas_1h)
+    if n < 169:
+        return None
+    t, h, l, c, vol = ([b[k] for b in velas_1h] for k in (0, 2, 3, 4, 5))
+    lc = [math.log(x) for x in c]
+    i = n - 1
+    r1 = [lc[k] - lc[k - 1] for k in range(i - 167, i + 1)]
+    v24, v168 = _std1(r1[-24:]), _std1(r1)
+    emas = {}
+    for k in (20, 50, 200):
+        a, m = 2.0 / (k + 1), c[0]
+        for x in c:
+            m = m + a * (x - m)
+        emas[k] = m
+    g = [0.0] + [max(c[k] - c[k - 1], 0.0) for k in range(1, n)]
+    p = [0.0] + [max(c[k - 1] - c[k], 0.0) for k in range(1, n)]
+    ag, ap = sum(g[1:15]) / 14, sum(p[1:15]) / 14
+    for k in range(15, n):
+        ag, ap = (ag * 13 + g[k]) / 14, (ap * 13 + p[k]) / 14
+    rsi = 100.0 if ap == 0 else 100.0 - 100.0 / (1.0 + ag / ap)
+    x = [lc[i] - lc[i - k] for k in (1, 2, 4, 8, 24, 72, 168)] + [v24, v168, v24 / v168, rsi]
+    x += [math.log(c[i] / emas[k]) / v168 for k in (20, 50, 200)]
+    for w in (24, 168):
+        mn, mx = min(l[i - w + 1:]), max(h[i - w + 1:])
+        x.append((c[i] - mn) / (mx - mn) if mx > mn else 0.5)
+    v168s = vol[-168:]
+    s168 = _std1(v168s)
+    x.append((sum(vol[-24:]) / 24 - sum(v168s) / 168) / s168 if s168 > 0 else 0.0)
+    hora = (t[i] // bg.HOUR_MS) % 24
+    return x + [math.sin(2 * math.pi * hora / 24), math.cos(2 * math.pi * hora / 24), (t[i] // 86_400_000 + 3) % 7]
+
+
+def velas_direccion(h1, c5, price, now_ms):
+    """Las velas de 1 h cerradas mas la vela en curso tomada como cerrada al precio actual (asi la prediccion sale
+    "desde ahora"). La vela en curso abre donde cerro la ultima, su maximo y minimo salen de las de 5 min de esa hora y
+    de `price`, y su volumen es el de la ultima hora cerrada (el parcial no es comparable con horas completas).
+    None si falta alguna vela cerrada (la grilla horaria tiene que ser continua)."""
+    t0 = now_ms // bg.HOUR_MS * bg.HOUR_MS
+    if not h1 or h1[-1][0] != t0 - bg.HOUR_MS:
+        return None
+    o = h1[-1][4]
+    adentro = [b for b in c5 if b[0] >= t0]
+    hi = max([o, price] + [b[2] for b in adentro])
+    lo = min([o, price] + [b[3] for b in adentro])
+    return list(h1) + [[t0, o, hi, lo, price, h1[-1][5]]]
+
+
+def prob_modelo(H, velas_1h):
+    """Probabilidad de que BTC cierre arriba a H horas segun el modelo; None si no hay modelo para ese H o algun rasgo no es finito."""
+    m = MODELO_DIRECCION.get(H)
+    x = m and velas_1h and rasgos_direccion(velas_1h)
+    if not x or not all(math.isfinite(v) for v in x):
+        return None
+    z = m["intercepto"] + sum(w * (v - mu) / sc for w, v, mu, sc in zip(m["coef"], x, m["media"], m["escala"]))
+    if not math.isfinite(z):
+        return None
+    return 1.0 / (1.0 + math.exp(-z)) if z >= 0 else math.exp(z) / (1.0 + math.exp(z))
+
+
+def aplicar_modelo(prob, tf, h, velas_1h):
+    """Si hay modelo para este plazo: sube = el del modelo (el de los casos parecidos queda en sube_casos), base = su tasa
+    normal y veredicto solo si |p - 0.5| >= u10. Modifica y devuelve `prob`; sin modelo no toca nada."""
+    H = MODELO_PLAZO.get((tf, h))
+    p = None if H is None else prob_modelo(H, velas_1h)
+    if p is None:
+        return prob
+    m = MODELO_DIRECCION[H]
+    prob["sube_casos"] = prob["sube"]
+    prob["sube"], prob["baja"], prob["base"] = round(p * 100, 1), round(100 - p * 100, 1), round(m["normal"], 1)
+    prob["fuente_sube"], prob["modelo_ventaja"] = "modelo", round(m["ventaja"], 2)
+    prob["veredicto"] = ("Casi moneda" if abs(p - 0.5) < m["u10"] else "Sesgo alcista" if p > 0.5 else "Sesgo bajista")
+    return prob
+
+
+def modelo_valido(j):
+    """{H: modelo} con los H del json que estan bien armados (rasgos en el orden esperado, todo finito); el resto se descarta."""
+    out = {}
+    for k, m in ((j.get("H") if isinstance(j, dict) else None) or {}).items():
+        try:
+            n = len(RASGOS_DIRECCION)
+            nums = [*m["media"], *m["escala"], *m["coef"], m["intercepto"], m["normal"], m["u10"], m["ventaja"]]
+            if m["rasgos"] != RASGOS_DIRECCION or not (len(m["media"]) == len(m["escala"]) == len(m["coef"]) == n) \
+                    or not all(isinstance(v, (int, float)) and math.isfinite(v) for v in nums) \
+                    or min(m["escala"]) <= 0 or not 0 < m["u10"] < 0.5 or not 0 < m["normal"] < 100:
+                continue
+            out[int(k)] = {f: m[f] for f in ("media", "escala", "coef", "intercepto", "normal", "u10", "ventaja")}
+        except (KeyError, TypeError, ValueError):
+            continue
+    return out
+
+
+def usar_modelo(j):
+    global MODELO_DIRECCION
+    MODELO_DIRECCION = modelo_valido(j)
+
+
+def leer_modelo_local():
+    """Al arrancar: el modelo_direccion.json del repo, si existe (si no sirve, todo sigue como antes)."""
+    global _MODELO_LEIDO
+    _MODELO_LEIDO = True
+    try:
+        with open(MODELO_FILE, encoding="utf-8") as fh:
+            usar_modelo(json.load(fh))
+    except Exception:
+        pass
+
+
+def refrescar_modelo():
+    """Modo servidor, cada 6 h: baja el modelo de GitHub. Si falla queda el anterior; nunca rompe el analisis."""
+    global _MODELO_LEIDO
+    _MODELO_LEIDO = True
+    try:
+        import urllib.request
+        with urllib.request.urlopen(urllib.request.Request(MODELO_URL, headers={"User-Agent": "analisis-btc"}), timeout=15) as r:
+            usar_modelo(json.loads(r.read().decode("utf-8")))
+        return True
+    except Exception as e:
+        print(f"(modelo_direccion.json no disponible: {type(e).__name__}; queda el anterior)", flush=True)
+        if not MODELO_DIRECCION:
+            leer_modelo_local()
+        return False
+
+
 def rango_80(tf, h, o, k, price, factores=None):
     """El rango del 80% de las proximas h velas: min/max ya ajustados con lo medido en vivo (ajuste_vivo = factor usado,
     None si no se aplico) y los crudos (min_crudo/max_crudo: lo que se registra en el historial, para que la medicion
@@ -1536,7 +1682,7 @@ def central(rows, price, candles, now_ms):
                 _cf(F, "direccion", 1 if sesgo == "alcista" else -1, w, txt)
             for e in rows:
                 if e.get("tabla") == "explicacion" and e["plazo"] == nombre_plazo and e["tipo"] == "senal" and e["sesgo"] in ("alcista", "bajista") \
-                        and not e["texto"].startswith(("Indicadores de", "Casos parecidos")):
+                        and not e["texto"].startswith(("Indicadores de", "Casos parecidos", "Modelo estadístico")):
                     _cf(F, "direccion", 1 if e["sesgo"] == "alcista" else -1, 1, e["texto"])
         # (sin plazo propio, velas de 30 min: las figuras y las divergencias no se midieron ahi y en el resto no
         # anticipan: no suman)
@@ -1634,7 +1780,7 @@ def central(rows, price, candles, now_ms):
             R.append("Hay señales en contra casi tan fuertes: dirección poco firme")
         # el titular sale de los puntos; si la probabilidad del mismo plazo (la que muestra la pagina) dice lo contrario, avisarlo
         if p and p.get("sube") is not None and p.get("base") is not None and ((lado == "sube" and p["sube"] < p["base"]) or (lado == "baja" and p["sube"] > p["base"])):
-            R.append(f"Los casos parecidos dicen lo contrario: cierra arriba {ar(p['sube'], 0)}% (normal {ar(p['base'], 0)}%)")
+            R.append(f"{'El modelo estadístico dice' if p.get('fuente_sube') == 'modelo' else 'Los casos parecidos dicen'} lo contrario: cierra arriba {ar(p['sube'], 0)}% (normal {ar(p['base'], 0)}%)")
         out.append({"tabla": "central", "tf": tf, "plazo": nombre_plazo if p else None,
                     "fuerza": fuerza, "fuerza_puntos": fz, "prob_fuerte": prob, "prob_normal": base,
                     "direccion": lado, "direccion_puntos": dr, "a_favor": a_favor, "en_contra": en_contra,
@@ -1711,7 +1857,7 @@ def explain(rows, price, spec):
             signals.append((3, c["senal"], f"{SHORT_CTX[c['clave']]}: {lc1(c['detalle'].split('.')[0].split(':')[0])}"))
     if main["veredicto"] != "Casi moneda":
         signals.append((2, "alcista" if main["veredicto"] == "Sesgo alcista" else "bajista",
-                        f"Casos parecidos: cerró arriba {ar(main['sube'])}% (normal {ar(main['base'])}%)"))
+                        f"{'Modelo estadístico: cierra' if main.get('fuente_sube') == 'modelo' else 'Casos parecidos: cerró'} arriba {ar(main['sube'])}% (normal {ar(main['base'])}%)"))
     if "4h" in sig_tfs:     # tocando un Fibonacci de 90 dias que rebota mas que un nivel cualquiera
         fz = [n for n in get("nivel") if n.get("fib") and n["rebote"] >= 55 and abs(n["distancia"]) <= 0.4]
         if fz:
@@ -1849,6 +1995,8 @@ def log_and_score(entries, closes_by_tf):
 def analyze():
     if not _TRACK_LEIDO:
         leer_track_local()
+    if not _MODELO_LEIDO:
+        leer_modelo_local()
     bgx, src = exchange("bingx"), candle_source()
     # los pedidos de red van en paralelo: velas de todas las temporalidades a la vez, y los libros de ordenes
     # (que se piden como mucho cada 20 s) se bajan mientras se calcula lo demas
@@ -1875,6 +2023,8 @@ def analyze():
         full[tf] = candles[tf] + [bar] if bar else candles[tf]
     price = float(api("bingx", bgx.fetch_ticker, SYMBOL)["last"])
     now_ms = int(time.time() * 1000)
+    # velas de 1 h (365 dias: sobra para que la EMA 200 converja) con la vela en curso al precio actual, para el modelo de direccion
+    v1h = velas_direccion(candles["1h"], full["5m"], price, now_ms) if MODELO_DIRECCION else None
     rows, entries, by_tf, series = [], [], {}, {}
 
     for tf, (days, horizons) in TIMEFRAMES.items():
@@ -1929,6 +2079,7 @@ def analyze():
 
         for h in horizons:
             prob, tg = horizon_stats(tf, series[tf], h, price, tune(tf, series[tf], h))
+            aplicar_modelo(prob, tf, h, v1h)
             rows.append({"tabla": "probabilidad", **prob})
             rows += [{"tabla": "objetivo", "tf": tf, "horizonte": prob["horizonte"], "hora": prob["hora"], **t} for t in tg]
             entries.append((bars[-1][0] + tf_ms, tf, h, closes[-1], prob["sube"], prob["min_crudo"], prob["max_crudo"], {c: prob.get(k) for c, k in (("m", "mediana"), ("a", "obj_arriba"), ("b", "obj_abajo"), ("ta", "toca_arriba"), ("tb", "toca_abajo"), ("pa", "primero_arriba"))}))
@@ -1956,6 +2107,7 @@ def analyze():
     for name, tf, h, *_ in PLAZOS:
         fit = tune(tf, series[tf], h)
         prob, tg = horizon_stats(tf, series[tf], h, price, fit)
+        aplicar_modelo(prob, tf, h, v1h)
         rows.append({"tabla": "plazo", "plazo": name, **prob})
         rows += learning_rows(name, tf, h, fit)
         rows += [{"tabla": "objetivo_plazo", "plazo": name, **t} for t in tg]
@@ -2413,6 +2565,7 @@ def run_live(every, public=False):
                     print("Código del análisis actualizado: se usa la versión nueva desde este análisis.")
                 if public and time.time() - track_t > 6 * 3600:   # rangos recalibrados con lo medido en vivo (cada 6 h)
                     live_mod.refrescar_track()
+                    live_mod.refrescar_modelo()
                     track_t = time.time()
                 data = {"rows": live_mod.analyze(), "pagina": page_version()}
                 try:

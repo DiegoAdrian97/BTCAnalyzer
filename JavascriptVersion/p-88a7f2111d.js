@@ -5934,8 +5934,10 @@
     later(() => { u.style.flexBasis = up + '%'; d.style.flexBasis = (100 - up) + '%'; bm.style.left = `calc(${base}% - 1px)`; });
     const v = document.getElementById('verdict'); v.textContent = `Al cierre: ${p.veredicto.toLowerCase()}`;
     v.style.color = p.veredicto === 'Sesgo alcista' ? 'var(--color-ok)' : p.veredicto === 'Sesgo bajista' ? 'var(--color-bad)' : 'var(--color-fg-muted)';
-    document.getElementById('prob-base').textContent = (p.pocos_casos ? 'Pocos casos: poco confiable · ' : '')
-      + `margen ±${f0(num(p.margen))} pts · línea = normal ${f0(base)}%`;
+    // con el modelo estadistico (medido fuera de muestra) el margen de los casos parecidos no aplica: va su nota
+    document.getElementById('prob-base').textContent = p.fuente_sube === 'modelo' && num(p.modelo_ventaja) !== null
+      ? `modelo estadístico, medido fuera de muestra: ventaja ${num(p.modelo_ventaja) < 0 ? '−' : '+'}${f1(Math.abs(num(p.modelo_ventaja)))}% sobre lo normal · línea = normal ${f0(base)}%`
+      : (p.pocos_casos ? 'Pocos casos: poco confiable · ' : '') + `margen ±${f0(num(p.margen))} pts · línea = normal ${f0(base)}%`;
 
     const goals = pick(rows, 'objetivo_plazo').filter((t) => t.plazo === S.plazo).map((t) => ({ p: num(t.precio), prob: num(t.prob), up: t.lado === 'arriba' }));
     const items = goals.concat([{ p: price, now: true }]).sort((a, b) => b.p - a.p);

@@ -47,6 +47,8 @@ def plazo_1h(sin_ventaja, pu):
 
 SPEC_1H = ["1 hora", "5m", 12, ["15m", "1h"], ["flujo_1 h", "flujo_4 h", "oi_1h"], "15 min"]
 CASOS = {f"{sv}_{pu}": plazo_1h(sv, pu) for sv in (True, False) for pu in (30.0, 50.0, 70.0)}
+CASOS["modelo"] = [{**r, "sube": 57.0, "base": 50.4, "veredicto": "Sesgo alcista", "fuente_sube": "modelo", "sube_casos": 44.8, "modelo_ventaja": 0.46}
+                   if r["tabla"] == "plazo" else r for r in plazo_1h(False, 70.0)]
 LOG_ENTRADAS = [[2000, "1h", 4, 100.0, 55.0, 95.0, 105.0], [3000, "1h", 4, 100.0, 50.0, 99.0, 101.0], [4000, "4h", 3, 100.0, 40.0, 90.0, 110.0]]
 LOG_CIERRES = {"1h": [[1000 + 4 * 3_600_000, 101.0], [2000 + 4 * 3_600_000, 104.0], [3000 + 4 * 3_600_000, 102.0]], "4h": [[4000 + 3 * 14_400_000, 95.0]]}
 
@@ -122,6 +124,40 @@ FC_FLUJO = [FC["filas"] + [{"tabla": "flujo", "t": _HC, "cvd_div": cd, "absorcio
             for cd, ab, ch, sb in (("alcista", "alcista", -1.8, "alcista"), ("bajista", "bajista", 2.1, "bajista"))]
 
 
+# modelo estadistico de direccion: un modelo_direccion.json de prueba (H=1 con u10 chico: da sesgo; H=4 con u10 grande: casi
+# moneda) y velas de 1 h con hora alineada, la vela en curso al precio actual y las de 5 min de esa hora; sin modelo, todo igual
+_st = random.getstate(); random.seed(11)
+VA = velas(1200, 3_600_000, 60000, 0.006, t0=1_700_000_000_000 - 1_700_000_000_000 % 3_600_000)
+random.setstate(_st)
+M_T0 = VA[-1][0] + 3_600_000
+M_AHORA, M_PRECIO = M_T0 + 17 * 60_000, round(VA[-1][4] * 1.003, 2)
+M_C5 = [[M_T0 + k * 300_000, VA[-1][4], VA[-1][4] * (1.004 if k == 2 else 1.001), VA[-1][4] * (0.9985 if k == 1 else 0.9995), VA[-1][4] * 1.002, 5.0] for k in range(4)]
+M_FUERA = [[M_T0 - 300_000, 1, 1, 1, 1, 1]]                                   # una de 5 min de antes de la hora: no cuenta
+_x0 = A.rasgos_direccion(VA)
+_g = random.Random(5)
+MODELO = {"actualizado": 1, "H": {str(H): {"rasgos": list(A.RASGOS_DIRECCION), "media": [x * 0.9 for x in _x0], "escala": [abs(x) * 0.6 + 0.2 for x in _x0],
+                                          "coef": [_g.gauss(0, 0.25) for _ in _x0], "intercepto": _g.gauss(0, 0.1), "normal": nrm, "u10": u10,
+                                          "ventaja": vj, "ic90": [vj - 0.3, vj + 0.3], "n_ef": 5000.0}
+                                  for H, nrm, u10, vj in ((1, 50.4, 0.001, 0.46), (4, 51.1, 0.45, -0.2))}}
+MODELO_MAL = {"H": {"1": {**MODELO["H"]["1"], "rasgos": MODELO["H"]["1"]["rasgos"][::-1]}, "4": {**MODELO["H"]["4"], "escala": [0.0] + MODELO["H"]["4"]["escala"][1:]},
+                    "2": {**MODELO["H"]["1"], "coef": MODELO["H"]["1"]["coef"][:-1]}, "x": 5}}
+M_PROB = {"tf": "5m", "horizonte": "1 hora", "velas": 12, "sube": 47.3, "baja": 52.7, "base": 49.1, "sube_crudo": 46.0, "veredicto": "Casi moneda", "sin_ventaja": False}
+M_CASOS = [("5m", 12, True), ("30m", 8, True), ("5m", 3, True), ("1h", 4, True), ("30m", 8, False)]      # (tf, h, con velas)
+
+
+def modelo_py():
+    A.usar_modelo(MODELO)
+    vs = A.velas_direccion(VA, M_C5 + M_FUERA, M_PRECIO, M_AHORA)
+    out = {"rasgos": A.rasgos_direccion(VA), "velas": vs, "rasgos_vivo": A.rasgos_direccion(vs), "p": [A.prob_modelo(H, vs) for H in (1, 4, 2)],
+           "corto": [A.prob_modelo(1, vs[-100:]), A.prob_modelo(1, None), A.rasgos_direccion(vs[-168:])],
+           "falta": [A.velas_direccion(VA[:-1], M_C5, M_PRECIO, M_AHORA), A.velas_direccion([], M_C5, M_PRECIO, M_AHORA)],
+           "filas": [A.aplicar_modelo(dict(M_PROB), tf, h, vs if con else None) for tf, h, con in M_CASOS],
+           "validos": sorted(A.modelo_valido(MODELO_MAL)), "validos_ok": sorted(A.modelo_valido(MODELO))}
+    A.usar_modelo({})
+    out["sin_modelo"] = [A.aplicar_modelo(dict(M_PROB), tf, h, vs) for tf, h, _ in M_CASOS] + [A.prob_modelo(1, vs)]
+    return out
+
+
 # rango del 80% recalibrado con lo medido en vivo: un track.json de prueba con "rangos" (factor_80 por (tf, h)); sin track, igual que antes
 TRACK = {"rangos": [
     {"tf": "1h", "h": 4, "n_ef": 410.5, "factor_80": 1.2, "cobertura_factor": 80.1},
@@ -158,6 +194,12 @@ def rango_py():
     return {"F": F[-50:], "puntajes": pts, "factor": A.rango_factor(pts), "sin_vol": A.rango_factor(A.rango_puntajes(c, st, None, 6, 200, len(c) - 7, ventana=900))}
 
 
+def central_modelo(d):
+    """Las filas del analisis central con la probabilidad de cada plazo venida del modelo (sube = normal + d)."""
+    return [{**r, "fuente_sube": "modelo", "sube": r["base"] + d, "veredicto": "Sesgo alcista" if d > 0 else "Sesgo bajista"}
+            if r.get("tabla") == "plazo" and r.get("base") is not None else r for r in FC["filas"]]
+
+
 def py():
     piv = ind.zigzag(H4)
     raw = {"oi": [[b[0] + 3_600_000, 1000 + i] for i, b in enumerate(H1[-40:])], "ls": [1.2 + i / 100 for i in range(25)],
@@ -190,6 +232,8 @@ def py():
         "liq_perfil": ind.liq_perfil([b[:5] for b in H1[-400:]], LIQ_OI, LIQ_LS, 3_600_000, 5 * 86_400_000, H1[-1][4],
                                      escala=ind.liq_escala(LIQ_OI, {"bitget": 1.2e9, "hyperliquid": 2.6e9, "mexc": 0, "x": None})),
         "central_flujo": [A.central(f, FC["precio"], {"1h": H1, "4h": H4}, FC["ahora"]) for f in FC_FLUJO],
+        "central_modelo": [A.central(central_modelo(d), FC["precio"], {"1h": H1, "4h": H4}, FC["ahora"]) for d in (20, -20)],
+        "modelo": modelo_py(),
         "base_perp": [A.base_perp(61300, 61234.5, "Bybit"), A.base_perp(61190, 61234.5, "Bybit"), A.base_perp(61240, 61234.5, "Bybit")],
         "_ctx_raw": raw,
     }
@@ -226,6 +270,17 @@ console.log(JSON.stringify({
   liq_perfil: Ind.liqPerfil(d.H1.slice(-400).map((b) => b.slice(0, 5)), d.LIQ_OI, d.LIQ_LS, 3600000, 5 * 86400000, d.H1[d.H1.length - 1][4], 0.12, 0.0025, Ind.LIQ_NIVELES, Ind.LIQ_MANT,
     Ind.liqEscala(d.LIQ_OI, { bitget: 1.2e9, hyperliquid: 2.6e9, mexc: 0, x: null })),
   central_flujo: d.FC_FLUJO.map((f) => A.central(f, d.FC.precio, { "1h": d.H1, "4h": d.H4 }, d.FC.ahora)),
+  central_modelo: [20, -20].map((x) => A.central(d.FC.filas.map((r) => (r.tabla === 'plazo' && r.base !== null && r.base !== undefined ? { ...r, fuente_sube: 'modelo', sube: r.base + x, veredicto: x > 0 ? 'Sesgo alcista' : 'Sesgo bajista' } : r)), d.FC.precio, { "1h": d.H1, "4h": d.H4 }, d.FC.ahora)),
+  modelo: (() => { globalThis.MODELO_DIRECCION = d.MODELO;
+    const vs = A.velasDireccion(d.VA, d.M_C5.concat(d.M_FUERA), d.M_PRECIO, d.M_AHORA);
+    const out = { rasgos: A.rasgosDireccion(d.VA), velas: vs, rasgos_vivo: A.rasgosDireccion(vs), p: [1, 4, 2].map((H) => A.probModelo(H, vs)),
+      corto: [A.probModelo(1, vs.slice(-100)), A.probModelo(1, null), A.rasgosDireccion(vs.slice(-168))],
+      falta: [A.velasDireccion(d.VA.slice(0, -1), d.M_C5, d.M_PRECIO, d.M_AHORA), A.velasDireccion([], d.M_C5, d.M_PRECIO, d.M_AHORA)],
+      filas: d.M_CASOS.map(([tf, h, con]) => A.aplicarModelo({ ...d.M_PROB }, tf, h, con ? vs : null)),
+      validos: Object.keys(A.modeloValido(d.MODELO_MAL)).map(Number).sort((a, b) => a - b), validos_ok: Object.keys(A.modeloValido(d.MODELO)).map(Number).sort((a, b) => a - b) };
+    globalThis.MODELO_DIRECCION = {};
+    out.sin_modelo = d.M_CASOS.map(([tf, h]) => A.aplicarModelo({ ...d.M_PROB }, tf, h, vs)).concat([A.probModelo(1, vs)]);
+    delete globalThis.MODELO_DIRECCION; return out; })(),
   base_perp: [A.basePerp(61300, 61234.5, 'Bybit'), A.basePerp(61190, 61234.5, 'Bybit'), A.basePerp(61240, 61234.5, 'Bybit')],
   rango: (() => { const c = d.H1.map((b) => b[4]), e50 = Ind.ema(c, 50), e200 = Ind.ema(c, 200), rsi = Ind.rsi(c), mh = Ind.macd(c)[2];
     const st = Apr.estados(Apr.rasgos(d.H1, 60, e50, e200, rsi, mh), 2), F = A.volEscala(d.H1, 60, 4, false);
@@ -267,7 +322,8 @@ def main():
     entrada = {"FC": FC, "H1": H1, "H4": H4, "D1": D1, "ALT": ALT, "AHORA": AHORA, "raw": raw, "LIQ": LIQ,
                "CASOS": CASOS, "SPEC_1H": SPEC_1H, "LOG_ENTRADAS": LOG_ENTRADAS, "LOG_CIERRES": LOG_CIERRES,
                "OPC_LIBRO": OPC_LIBRO, "OPC_DVOL": OPC_DVOL, "OPC_AHORA": OPC_AHORA, "FLUJO": FLUJO, "CME": CME, "FC_FLUJO": FC_FLUJO, "LIQ_OI": LIQ_OI, "LIQ_LS": LIQ_LS,
-               "TRACK": TRACK, "RANGO_O": RANGO_O, "RANGO_CASOS": RANGO_CASOS}
+               "TRACK": TRACK, "RANGO_O": RANGO_O, "RANGO_CASOS": RANGO_CASOS,
+               "VA": VA, "M_C5": M_C5, "M_FUERA": M_FUERA, "M_PRECIO": M_PRECIO, "M_AHORA": M_AHORA, "MODELO": MODELO, "MODELO_MAL": MODELO_MAL, "M_PROB": M_PROB, "M_CASOS": M_CASOS}
     out = subprocess.run(["node", "-e", JS, RAIZ], input=json.dumps(entrada), capture_output=True, text=True)
     if out.returncode:
         raise SystemExit("node fallo:\n" + out.stderr[-2000:])
@@ -283,6 +339,14 @@ def main():
             or not all(c["min"] < c["min_crudo"] and c["max"] > c["max_crudo"] for c in (rv["con"][0], rv["con"][3], rv["con"][6])) \
             or not (rv["con"][4]["min"] > rv["con"][4]["min_crudo"] and rv["con"][4]["max"] < rv["con"][4]["max_crudo"]):
         raise SystemExit(f"rango_vivo: el ajuste no se aplica como se espera: {aplicados}")
+    mo = p["modelo"]
+    f, f4 = mo["filas"][0], mo["filas"][1]
+    if mo["validos"] != [] or mo["validos_ok"] != [1, 4] or mo["p"][2] is not None or mo["p"][0] is None or any(x is not None for x in mo["corto"]) \
+            or any(x is not None for x in mo["falta"]) or f["fuente_sube"] != "modelo" or f["sube_casos"] != 47.3 or f["sube"] != round(mo["p"][0] * 100, 1) \
+            or f["base"] != 50.4 or f["veredicto"] not in ("Sesgo alcista", "Sesgo bajista") or f4["veredicto"] != "Casi moneda" \
+            or "fuente_sube" in mo["filas"][2] or "fuente_sube" in mo["filas"][3] or "fuente_sube" in mo["filas"][4] \
+            or mo["sin_modelo"] != [M_PROB] * 5 + [None] or mo["velas"][-1][4] != M_PRECIO or mo["velas"][-1][2] <= M_PRECIO:
+        raise SystemExit(f"modelo: no se comporta como se espera: {mo['filas'][:2]} {mo['p']} {mo['validos']} {mo['validos_ok']}")
     print(f"comparados: {', '.join(p)} · contexto ({len(js_ctx[0])} filas en JS)")
     if err:
         print(f"{len(err)} diferencias:\n  " + "\n  ".join(err[:40]))

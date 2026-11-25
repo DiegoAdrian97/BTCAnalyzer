@@ -50,6 +50,8 @@ async function cargarModelos() {
     fetch('termometro.json', { cache: 'no-cache', signal: AbortSignal.timeout(15000) }).then((r) => r.json()).then((j) => { self.TERMOMETRO = j; }).catch(() => { /* queda el anterior */ }),
     // lo medido en vivo (cada 6 h lo actualiza GitHub): recalibra el rango del 80%
     fetch('track.json', { cache: 'no-cache', signal: AbortSignal.timeout(15000) }).then((r) => r.json()).then((j) => { self.TRACK = j; }).catch(() => { /* queda el anterior o sin ajuste */ }),
+    // el modelo estadistico de direccion (lo sube GitHub si pasa la compuerta): sin archivo o con error, todo sigue como antes
+    fetch('modelo_direccion.json', { cache: 'no-cache', signal: AbortSignal.timeout(15000) }).then((r) => (r.ok ? r.json() : null)).then((j) => { if (j) self.MODELO_DIRECCION = j; }).catch(() => { /* queda el anterior o sin modelo */ }),
     fetch('modelo_fuerte.json', { cache: 'no-cache', signal: AbortSignal.timeout(15000) }).then((r) => r.json()).then((j) => { self.MODELO_FUERTE = j; }).catch(() => { /* queda el anterior o la tabla */ }),
   ]);
   self.JSON_T = Date.now();
