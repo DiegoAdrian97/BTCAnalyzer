@@ -49,15 +49,15 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
 <script>/* si el estilo no llega (falla de red o un despliegue a medias), se pide de nuevo sin cache: antes quedaba la pagina sin estilo */
 window.abCss = function () { try { var n = (window.abCssN = (window.abCssN || 0) + 1); if (n > 3) return;
-  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'p-96f71a914e.css?r=' + Date.now(); l.onerror = function () { setTimeout(window.abCss, 1500 * n); };
+  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'p-5c1ba81933.css?r=' + Date.now(); l.onerror = function () { setTimeout(window.abCss, 1500 * n); };
   document.head.appendChild(l); } catch (e) {} };
 addEventListener('load', function () { try { if (!getComputedStyle(document.documentElement).getPropertyValue('--ab-css')) window.abCss(); } catch (e) {} });</script>
-<link rel="stylesheet" href="p-96f71a914e.css" onerror="abCss()">
-<script>window.AB_PAGINA = "194d2d8b73";</script>
+<link rel="stylesheet" href="p-5c1ba81933.css" onerror="abCss()">
+<script>window.AB_PAGINA = "e363b097b0";</script>
 <script defer src="app.js?v=9dc1d35019"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-1ff8b43b3a.js"></script>
+<script defer src="p-308aeb0a0f.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -196,7 +196,8 @@ addEventListener('load', function () { try { if (!getComputedStyle(document.docu
     <div class="ab-rs-card">
       <b id="rs-dir" class="ab-rs-dir">—</b>
       <small id="rs-prob" class="ab-rs-prob"></small>
-      <p class="ab-rs-rg" id="rs-rango" hidden></p>
+      <div class="ab-pbar" id="rs-bar" hidden></div>
+      <div class="ab-rs-rg" id="rs-rango" hidden></div>
       <p class="ab-rs-niv" id="rs-niv" hidden></p>
       <p class="ab-rs-aviso" id="rs-aviso" hidden></p>
       <p class="ab-rs-ciclo" id="rs-ciclo" hidden></p>
@@ -328,7 +329,10 @@ addEventListener('load', function () { try { if (!getComputedStyle(document.docu
     </div>
   </section>
 
+  <h3 class="ab-subt" id="creo-h-vivo" hidden>En vivo (lo que pasó de verdad)</h3>
   <div class="ab-apr-top" id="creo-vivo" hidden></div>
+  <div class="ab-viv-g" id="creo-graf" hidden></div>
+  <h3 class="ab-subt ab-subt-rep" id="creo-h-repaso">Repaso histórico</h3>
   <section class="ab-card" id="aprendizaje" aria-labelledby="apr-t" data-source="analisis">
     <div class="ab-card-head"><h2 id="apr-t">Cómo viene aprendiendo</h2><span class="ab-kicker" id="apr-k"></span></div>
     <div class="ab-apr-top">
@@ -394,6 +398,7 @@ addEventListener('load', function () { try { if (!getComputedStyle(document.docu
       <div class="ab-more-body">
         <p class="ab-note">"Señal" es lo que dice cada indicador con su regla de siempre (la de TradingView). "Medido" es lo que pasó de verdad después, con BTC 2021–2026: en 15 min, 1 h y 4 h casi ninguno anticipa a favor, y los de tendencia (medias, Ichimoku, VWAP, OBV, Bull Bear Power) suelen ir <b>al revés</b>: el precio corrige. Por eso la predicción los cuenta al revés en 4 h o menos.</p>
         <div class="ab-votes" id="votes"></div>
+        <button type="button" class="ab-chipbtn ab-ind-todas" id="ind-todas" aria-pressed="false" hidden>Ver todas</button>
         <div class="ab-tbl-box">
           <table class="ab-tbl" id="ind-table" data-source="analisis" data-row-key="tf,indicador">
             <thead><tr><th data-field="indicador">Indicador</th><th data-field="valor" class="r">Valor</th><th data-field="senal">Señal</th><th data-field="medido" title="Medido con BTC 2021–2026: si el precio fue para el lado que marca el indicador">Medido</th><th data-field="detalle">Detalle</th></tr></thead>

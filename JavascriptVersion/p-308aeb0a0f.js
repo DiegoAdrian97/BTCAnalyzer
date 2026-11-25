@@ -809,6 +809,53 @@
   // ---------- la respuesta: el resultado final del analisis, una sola vez y arriba de todo ----------
   // Sale de la fila 'central' (donde convergen todos los calculos). El detalle de como se llego va en el analisis
   // completo, en 6 partes (ver PARTES), sin repetir la conclusion.
+  // barra partida sube/baja con la marca de "lo normal" (la tasa base del plazo)
+  function rsBarra(box, up, base) {
+    box.hidden = up === null; box.replaceChildren(); if (up === null) return;
+    const u = Math.max(0, Math.min(100, up)), d = 100 - u, pc = (v) => `${f0(v)}%`;
+    box.setAttribute('role', 'img');
+    box.setAttribute('aria-label', `Sube ${pc(u)}, baja ${pc(d)}${base !== null ? `. Lo normal: ${pc(base)}` : ''}`);
+    const t = el('div', 'ab-pbar-t'), a = el('span', 'u', u >= 14 ? `▲ ${pc(u)}` : ''), b = el('span', 'd', d >= 14 ? `▼ ${pc(d)}` : '');
+    a.style.flexGrow = u; b.style.flexGrow = d; t.append(a, b); box.append(t);
+    if (base !== null) {
+      const m = Math.max(0, Math.min(100, base)), l = el('span', `ab-pbar-l${m < 14 ? ' ini' : m > 86 ? ' fin' : ''}`, 'normal');
+      const k = el('i', 'ab-pbar-m'); k.style.left = l.style.left = `${m}%`; box.append(k, l);
+    }
+  }
+  // mini eje de precios: banda del rango, precio de ahora, soporte y resistencia; los rotulos se reparten en carriles para no pisarse
+  function rsEje(box, v) {
+    box.replaceChildren();
+    const mk = [], pon = (p, k, txt) => { if (p !== null) mk.push({ p, k, txt }); };
+    pon(v.ahora, 'ah', `ahora ${fp(v.ahora)}`); pon(v.so, 'so', `soporte ${v.so === null ? '' : fp(v.so)}`); pon(v.re, 're', `resistencia ${v.re === null ? '' : fp(v.re)}`);
+    pon(v.lo, 'lo', v.lo === null ? '' : fp(v.lo)); pon(v.hi, 'hi', v.hi === null ? '' : fp(v.hi));
+    if (!mk.length || (v.lo === null) !== (v.hi === null) && mk.length < 2) return false;
+    const mn = Math.min(...mk.map((x) => x.p)), mx = Math.max(...mk.map((x) => x.p)), sp = mx - mn || Math.abs(mn) * 0.002 || 1;
+    const d0 = mn - sp * 0.16, d1 = mx + sp * 0.16, pos = (p) => ((p - d0) / (d1 - d0)) * 100;
+    const W = box.clientWidth || box.parentElement.clientWidth - 32 || 300;
+    const lanes = { up: [], dn: [], dn2: [] }, orden = { ah: ['up', 'dn', 'dn2'], so: ['dn', 'up', 'dn2'], re: ['dn', 'up', 'dn2'], lo: ['up', 'dn', 'dn2'], hi: ['up', 'dn', 'dn2'] };
+    mk.sort((a, b) => 'ah so re lo hi'.indexOf(a.k) - 'ah so re lo hi'.indexOf(b.k)).forEach((x) => {
+      const w = x.txt.length * 6.3 + 8, c = Math.max(w / 2, Math.min(W - w / 2, (pos(x.p) / 100) * W));
+      x.w = w; x.c = c; x.lane = orden[x.k].find((ln) => lanes[ln].every((o) => Math.abs(o.c - c) >= (o.w + w) / 2 + 4));
+      if (x.lane) lanes[x.lane].push(x);
+    });
+    const LH = 15, TH = 18, hayUp = lanes.up.length > 0, y0 = hayUp ? LH + 2 : 0, yTr = y0 + TH / 2;
+    const ej = el('div', 'ab-eje'); box.append(ej);
+    ej.style.height = `${y0 + TH + (lanes.dn.length ? LH + 2 : 0) + (lanes.dn2.length ? LH : 0)}px`;
+    const tr = el('i', 'ab-eje-tr'); tr.style.top = `${yTr}px`; ej.append(tr);
+    if (v.lo !== null && v.hi !== null) { const b = el('i', 'ab-eje-band'); b.style.top = `${y0 + 3}px`; b.style.left = `${pos(v.lo)}%`; b.style.width = `${pos(v.hi) - pos(v.lo)}%`; ej.append(b); }
+    mk.forEach((x) => {
+      if (x.k === 'lo' || x.k === 'hi') return;
+      const t = el('i', `ab-eje-m ${x.k}`); t.style.left = `${pos(x.p)}%`; t.style.top = `${yTr}px`; ej.append(t);
+    });
+    mk.forEach((x) => {
+      if (!x.lane) return;
+      const l = el('span', `ab-eje-l ${x.k}`, x.txt); l.style.left = `${(x.c / W) * 100}%`;
+      l.style.top = `${x.lane === 'up' ? 0 : y0 + TH + 2 + (x.lane === 'dn2' ? LH : 0)}px`; ej.append(l);
+    });
+    const hay = v.lo !== null && v.hi !== null;
+    if (hay) { const cap = el('small', 'ab-eje-cap'); cap.append(el('i', 'ab-eje-sw'), '8 de cada 10 veces termina dentro'); box.append(cap); }
+    return true;
+  }
   function drawRespuesta(rows, sum, c) {
     const sec = document.getElementById('respuesta'); sec.hidden = !c; if (!c) return;
     const plazo = CE_PLAZO[c.tf];
@@ -821,14 +868,12 @@
     dw.dataset.corto = vz.dir === 'sube' ? '▲ Suba probable' : vz.dir === 'baja' ? '▼ Baja probable' : 'Sin dirección clara';
     dw.textContent = vz.dir === 'sube' ? '▲ Más probable que suba' : vz.dir === 'baja' ? '▼ Más probable que baje' : 'Sin dirección clara';
     const pr = document.getElementById('rs-prob');
-    pr.textContent = vz.p && okv(vz.up) ? `Sube ${f0(vz.up)}% · baja ${f0(100 - vz.up)}%` : '';
+    pr.textContent = '';   // la barra partida ya dice sube/baja
+    rsBarra(document.getElementById('rs-bar'), vz.p && okv(vz.up) ? num(vz.up) : null, vz.p && okv(vz.base) ? num(vz.base) : null);
     const lo = num(c.rango_min), hi = num(c.rango_max), so = num(c.soporte), re = num(c.resistencia);
-    const rg = document.getElementById('rs-rango'); rg.hidden = !(okv(lo) && okv(hi));
-    if (!rg.hidden) rg.replaceChildren(`Lo esperable: que termine entre ${fp(lo)} y ${fp(hi)}`, el('small', '', '8 de cada 10 veces'));
-    const nv = document.getElementById('rs-niv'); nv.hidden = !(okv(so) || okv(re)); nv.replaceChildren();
-    if (okv(so)) nv.append('Soporte ', el('span', 's', fp(so)));
-    if (okv(so) && okv(re)) nv.append(' · ');
-    if (okv(re)) nv.append('Resistencia ', el('span', 'e', fp(re)));
+    const rg = document.getElementById('rs-rango'), nv = document.getElementById('rs-niv');
+    const eje = rsEje(rg, { lo: okv(lo) ? lo : null, hi: okv(hi) ? hi : null, so: okv(so) ? so : null, re: okv(re) ? re : null, ahora: sum && okv(sum.precio) ? num(sum.precio) : null });
+    rg.hidden = !eje; nv.hidden = true; nv.replaceChildren();   // los niveles ya van en el eje
     const pf = num(c.prob_fuerte), pn = num(c.prob_normal), av = document.getElementById('rs-aviso');
     av.hidden = !(c.fuerza === 'alta' || (okv(pf) && okv(pn) && pn > 0 && pf >= 2 * pn));
     av.textContent = '⚡ Puede moverse fuerte (más del doble de lo normal)';
@@ -852,7 +897,7 @@
     ['parte-mov', 'Cuánto se puede mover', ['movimiento', 'ce-fuerza', 'tug-wrap', 'likely']],
     ['parte-niv', 'Niveles: hasta dónde', ['ce-mapa', 'niveles', 'probabilidades']],
     ['parte-ctx', 'Qué está pasando', ['que-pasa', 'fed-line', 'news-line', 'calendario', 'senales', 'ctx-vacio']],
-    ['parte-conf', 'Cuánto le creo', ['creo-vivo', 'apr-line', 'aprendizaje', 'aciertos']],
+    ['parte-conf', 'Cuánto le creo', ['creo-h-vivo', 'creo-vivo', 'creo-graf', 'creo-h-repaso', 'apr-line', 'aprendizaje', 'aciertos']],
     ['parte-herr', 'Herramientas', ['lm-abrir', 'ondas', 'indicadores']],
   ];
   (function armarPartes() {
@@ -1282,15 +1327,55 @@
   }
   // "Cuánto le creo", arriba de todo: lo medido en vivo del plazo elegido (track.json: probabilidades y rangos, medir_vivo.py)
   function drawCreoVivo(rows) {
-    const box = document.getElementById('creo-vivo'), pz = (rows || G.rows || []).find((r) => r.tabla === 'plazo' && r.plazo === S.plazo);
+    const box = document.getElementById('creo-vivo'), gr = document.getElementById('creo-graf'), pz = (rows || G.rows || []).find((r) => r.tabla === 'plazo' && r.plazo === S.plazo);
     const pb = pz && TRACK && (TRACK.probabilidades || []).find((x) => x.tf === pz.tf && x.h === pz.velas), rg = pz && TRACK && (TRACK.rangos || []).find((x) => x.tf === pz.tf && x.h === pz.velas);
-    box.hidden = !(pb || rg); if (box.hidden) return;
+    gr.hidden = document.getElementById('creo-h-vivo').hidden = !(pb || rg); box.hidden = !pb; if (gr.hidden) return;
     const coma = (v, d = 1) => String(Math.abs(v).toFixed(d)).replace('.', ',');
     const pocos = 'pocos datos todavía', ficha = (k, v, sub) => { const d = el('div', 'ab-apr-stat'); d.append(el('small', '', k), el('b', '', v), el('span', '', sub)); return d; };
     const nv = pb && !pb.pocos && pb.ventaja_normal != null;
     box.replaceChildren(...[
-      pb ? ficha('Ventaja sobre lo normal', nv ? `${pb.ventaja_normal >= 0 ? '+' : '−'}${coma(pb.ventaja_normal)}%` : '—', nv ? `${Math.round(pb.n_ef_normal)} efectivos` : pocos) : null,
-      rg ? ficha('El rango se cumplió', rg.pocos ? '—' : `${coma(rg.cobertura, 0)}%`, rg.pocos ? pocos : 'meta 80%') : null].filter(Boolean));
+      pb ? ficha('Ventaja sobre lo normal', nv ? `${pb.ventaja_normal >= 0 ? '+' : '−'}${coma(pb.ventaja_normal)}%` : '—', nv ? `${Math.round(pb.n_ef_normal)} efectivos` : pocos) : null
+    ].filter(Boolean));
+    gr.replaceChildren(...[pb ? vivoCalib(pb) : null, rg ? vivoCobertura(rg) : null].filter(Boolean));
+  }
+  // diagrama de confiabilidad: lo que dijo (x) contra lo que pasó (y) por tramo; la diagonal es "justo lo que dijo"; el tamano del punto es la cantidad de casos
+  function vivoCalib(pb) {
+    const w = el('figure', 'ab-viv-f'); w.append(el('figcaption', '', 'Lo que dijo contra lo que pasó'));
+    const bins = (pb.calibracion || []).filter((b) => okv(b.prob) && okv(b.real) && num(b.n) > 0), tot = bins.reduce((a, b) => a + num(b.n), 0);
+    if (tot < 30 || bins.filter((b) => num(b.n) >= 5).length < 2) { w.append(el('p', 'ab-viv-vacio', 'Todavía hay pocos datos para dibujarlo.')); return w; }
+    const vals = bins.flatMap((b) => [num(b.prob), num(b.real)]);
+    let a = Math.max(0, Math.floor((Math.min(...vals) - 6) / 10) * 10), z = Math.min(100, Math.ceil((Math.max(...vals) + 6) / 10) * 10);
+    while (z - a < 40) { if (a > 0) a -= 10; if (z - a < 40 && z < 100) z += 10; }
+    const W = 320, H = 232, L = 40, R = 10, T = 8, B = 36, pw = W - L - R, ph = H - T - B, xp = (v) => L + ((v - a) / (z - a)) * pw, yp = (v) => T + ph - ((v - a) / (z - a)) * ph;
+    const NS = 'http://www.w3.org/2000/svg', mk = (t, at, txt) => { const n = document.createElementNS(NS, t); Object.entries(at).forEach(([k, v]) => n.setAttribute(k, v)); if (txt !== undefined) n.textContent = txt; return n; };
+    const svg = mk('svg', { viewBox: `0 0 ${W} ${H}`, class: 'ab-viv-svg', role: 'img', 'aria-label': 'Lo que dijo contra lo que pasó, por tramo de probabilidad' });
+    const paso = z - a > 50 ? 20 : 10;
+    for (let v = a; v <= z; v += paso) {
+      svg.append(mk('line', { x1: L, x2: W - R, y1: yp(v), y2: yp(v), class: 'g' }), mk('line', { x1: xp(v), x2: xp(v), y1: T, y2: T + ph, class: 'g' }),
+        mk('text', { x: L - 6, y: yp(v) + 3.5, class: 't', 'text-anchor': 'end' }, `${v}%`), mk('text', { x: xp(v), y: T + ph + 14, class: 't', 'text-anchor': 'middle' }, `${v}%`));
+    }
+    svg.append(mk('line', { x1: xp(a), y1: yp(a), x2: xp(z), y2: yp(z), class: 'dg' }),
+      mk('text', { x: xp(z) - 4, y: yp(z) + 12, class: 't', 'text-anchor': 'end' }, 'justo lo que dijo'),
+      mk('text', { x: L + pw / 2, y: H - 4, class: 't e', 'text-anchor': 'middle' }, 'lo que dijo'),
+      mk('text', { x: 10, y: T + ph / 2, class: 't e', 'text-anchor': 'middle', transform: `rotate(-90 10 ${T + ph / 2})` }, 'lo que pasó'));
+    const mx = Math.max(...bins.map((b) => num(b.n)));
+    bins.forEach((b) => {
+      const r = 4 + Math.sqrt(num(b.n) / mx) * 6, c = mk('circle', { cx: xp(num(b.prob)), cy: yp(num(b.real)), r, class: `p${num(b.n) < 5 ? ' ch' : ''}` });
+      c.append(mk('title', {}, `Dijo ${f0(num(b.prob))}% · pasó ${f0(num(b.real))}% · ${b.n} casos`)); svg.append(c);
+    });
+    w.append(svg, el('small', 'ab-viv-n', 'El tamaño del punto es la cantidad de casos.'));
+    return w;
+  }
+  // cobertura del rango: cuantas veces el precio termino adentro del rango del 80%, contra la meta
+  function vivoCobertura(rg) {
+    const w = el('figure', 'ab-viv-f'); w.append(el('figcaption', '', 'Rango: veces que terminó adentro'));
+    if (rg.pocos || !okv(rg.cobertura)) { w.append(el('p', 'ab-viv-vacio', 'Todavía hay pocos datos para medirlo.')); return w; }
+    const v = Math.max(0, Math.min(100, num(rg.cobertura)));
+    const m = el('div', 'ab-meter'); m.setAttribute('role', 'img'); m.setAttribute('aria-label', `Cobertura ${f0(v)}%, meta 80%`);
+    const f = el('i', 'ab-meter-f'); f.style.width = `${v}%`; const t = el('i', 'ab-meter-m'); t.style.left = '80%';
+    const ml = el('span', 'ab-meter-l', 'meta 80%'); ml.style.left = '80%';
+    m.append(f, t, ml); w.append(el('b', 'ab-meter-n', `${f0(v)}%`), m, el('small', 'ab-viv-n', `${rg.n} casos medidos`));
+    return w;
   }
   function drawConclusion(rows) {
     const sec = document.getElementById('conclusion'), c = centralDe(rows || G.rows);
@@ -1320,7 +1405,8 @@
 
   // Las explicaciones largas (como se calcula, que significa) quedan en 2 lineas: se abren tocandolas. La pagina era muy
   // larga (4.300 px en la compu, 5.200 en el celu). Las que abriste quedan abiertas.
-  const NOTA_ABIERTA = new Set();
+  let IND_TODAS = false;   // "Todos los indicadores": agrupados o fila por fila
+  const NOTA_ABIERTA = new Set(), EX_MAS = new Set();   // EX_MAS: las explicaciones largas de "Qué estás viendo" que abriste
   function plegarNotas() {
     root.querySelectorAll(':is(.ab-card, .ab-parte-c) .ab-note:not([data-pl]), .ab-card .ab-hero-sub.ab-larga:not([data-pl])').forEach((n) => {
       const t = n.textContent.trim();
@@ -2735,11 +2821,11 @@
     // baja a la izquierda, sube a la derecha: el lado mas ancho es el que se toco primero mas veces
     const tug = document.getElementById('first-split'); tug.replaceChildren();
     if (pu !== null) {
-      const d = el('div', 'ab-tug-d'), u = el('div', 'ab-tug-u');
-      d.append(el('b', '', `${f0(100 - pu)}%`), el('span', '', `▼ baja a ${fp(num(p.obj_abajo))}`));
-      u.append(el('span', '', `sube a ${fp(num(p.obj_arriba))} ▲`), el('b', '', `${f0(pu)}%`));
-      d.style.flexBasis = '50%'; u.style.flexBasis = '50%';
-      tug.append(d, u, el('i', 'ab-tug-mid'));
+      const d = el('div', 'ab-tug-d'), u = el('div', 'ab-tug-u'), lab = el('div', 'ab-tug-lab'), bar = el('div', 'ab-tug-bar');
+      const ld = el('span', 'd'), lu = el('span', 'u');
+      ld.append(el('i', '', '▼'), `baja a ${fp(num(p.obj_abajo))} · ${f0(100 - pu)}%`); lu.append(el('i', '', '▲'), `sube a ${fp(num(p.obj_arriba))} · ${f0(pu)}%`);
+      lab.append(ld, lu); d.style.flexBasis = '50%'; u.style.flexBasis = '50%';
+      bar.append(d, u, el('i', 'ab-tug-mid')); tug.append(lab, bar);
       later(() => { d.style.flexBasis = (100 - pu) + '%'; u.style.flexBasis = pu + '%'; });
       document.getElementById('first-mg').textContent = `${f0(num(p.distancia))} USD para cada lado` + (num(p.factor) === 0 ? ' · sin ventaja aprendida: 50/50'
         : p.sin_ventaja ? ' · en su repaso no le ganó a lo normal: no lo toma como predicción' : ` · ±${f0(num(p.margen_primero))} pts`);
@@ -3202,6 +3288,51 @@
     }
     ctx.restore();
   }
+  // pronostico del plazo: franja tenue entre A y B desde ahora hasta la hora del plazo, y la mediana (el precio mas probable) a puntos.
+  // Con el Abanico prendido, el abanico ya dibuja su propia mediana: queda solo la franja.
+  function dibPronostico(ctx, w, h) {
+    const d = G.d, pr = d && d.pron, P = G.P; if (!pr) return;
+    const half = (X(d.lastT + d.tfMs) - X(d.lastT)) / 2 || 3;
+    const xs = X(d.lastT) + half, xe = X(pr.t) - half, yt = Y(pr.hi), yb = Y(pr.lo);
+    if (xs === null || xe === null || yt === null || yb === null || xs >= w) return;
+    const x1 = Math.min(Math.max(xe, xs + 6), w - 1), y0 = Math.min(yt, yb), y1 = Math.max(yt, yb);
+    ctx.save(); ctx.globalAlpha = dimA('abanico');
+    ctx.fillStyle = alpha(P.fg, 0.1); ctx.fillRect(xs, y0, x1 - xs, Math.max(2, y1 - y0));
+    ctx.fillStyle = alpha(P.fg, 0.28); ctx.fillRect(xs, y0, x1 - xs, 1); ctx.fillRect(xs, y1, x1 - xs, 1); ctx.fillRect(x1 - 1, y0, 1, y1 - y0 + 1);
+    const ym = pr.med !== null && !abaVigente(S.tf) ? Y(pr.med) : null;
+    if (ym !== null) {
+      ctx.setLineDash([3, 3]); ctx.lineWidth = 1.5; ctx.strokeStyle = alpha(P.fg, 0.75);
+      ctx.beginPath(); ctx.moveTo(xs, Math.round(ym) + 0.5); ctx.lineTo(x1, Math.round(ym) + 0.5); ctx.stroke(); ctx.setLineDash([]);
+    }
+    ctx.restore();
+  }
+  // el rotulo va en la capa de arriba: las lineas de precio (VAL, POC...) no lo cruzan
+  function dibPronosticoRotulo(ctx, w, h) {
+    const d = G.d, pr = d && d.pron, P = G.P; if (!pr) return;
+    const half = (X(d.lastT + d.tfMs) - X(d.lastT)) / 2 || 3;
+    const xs = X(d.lastT) + half, xe = X(pr.t) - half, yt = Y(pr.hi), yb = Y(pr.lo);
+    if (xs === null || xe === null || yt === null || yb === null || xs >= w) return;
+    const x1 = Math.min(Math.max(xe, xs + 6), w - 1), y0 = Math.min(yt, yb), y1 = Math.max(yt, yb);
+    const ym = pr.med !== null && !abaVigente(S.tf) ? Y(pr.med) : null;
+    ctx.save(); ctx.globalAlpha = dimA('abanico');
+    // rotulo en una pastilla con fondo (el perfil de volumen puede quedar atras): a la derecha de la franja; si no entra, adentro
+    ctx.font = `600 10px ${P.font}`;
+    const l1 = pr.txt, l2 = ym !== null ? `más probable ${fp(pr.med)}` : '';
+    const w1 = ctx.measureText(l1).width; ctx.font = `500 10px ${P.font}`;
+    const tw = Math.max(w1, l2 ? ctx.measureText(l2).width : 0), bw = tw + 12, bh = l2 ? 30 : 18;
+    const fuera = x1 + 4 + bw < w - 2, bx = fuera ? x1 + 4 : Math.max(2, Math.min(xs, w - bw - 2));
+    // la pastilla se corre para no taparse con las etiquetas de las lineas de precio (soporte, VAH, precio actual y su cuenta regresiva)
+    const ocup = G.plines.map((pl) => Y(pl.options().price)).filter((y) => y !== null).map((y) => [y - 11, y + 11]);
+    const yp = Y(d.price); if (yp !== null) ocup.push([yp - 12, yp + 34]);
+    const libre = (t) => ocup.every(([a, b]) => t + bh <= a || t >= b), tope = h - bh - 34;
+    let by = Math.max(4, Math.min(tope, (y0 + y1) / 2 - bh / 2));
+    for (let k = 1; k < 12 && !libre(by); k++) { const c = [by + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 8, by]; const t = Math.max(4, Math.min(tope, c[0])); if (libre(t)) { by = t; break; } }
+    ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 6); ctx.fillStyle = alpha(P.panel, 0.9); ctx.fill();
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+    ctx.font = `600 10px ${P.font}`; ctx.fillStyle = alpha(P.fg, 0.9); ctx.fillText(l1, bx + 6, by + (l2 ? 9 : 9.5));
+    if (l2) { ctx.font = `500 10px ${P.font}`; ctx.fillStyle = alpha(P.fg, 0.65); ctx.fillText(l2, bx + 6, by + 22); }
+    ctx.restore();
+  }
   function abaLeyenda(tf) {
     if (!S.layers.abanico || ['1w', '1M'].includes(tf)) return null;
     const a = ABA.res;
@@ -3288,6 +3419,7 @@
         ctx.globalAlpha = 1;
       }
     }
+    dibPronostico(ctx, w, h);
     dibAbanico(ctx, w, h, S.tf);
     if (L.ict) { ctx.save(); ctx.globalAlpha = dimA('ict'); dibIct(ctx, w, h, d.icts, X, Y, P, half, d.narrow); ctx.restore(); }
     if (L.vp) { ctx.save(); ctx.globalAlpha = dimA('vp'); dibPerfil(ctx, w, h, perfilVisible(G.chart, d.all), Y, P, d.narrow, G.plines); ctx.restore(); }
@@ -3402,6 +3534,7 @@
       ctx.fillText('LIQUID.', w - 3, narrow ? 54 : 40);
       ctx.globalAlpha = 1;
     }
+    dibPronosticoRotulo(ctx, w, h);
     if (G.med) drawMed(ctx, w, h);
   }
 
@@ -4548,7 +4681,9 @@
     G.ln = chart.addSeries(LW.AreaSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, ...quiet, lineWidth: 2,
       crosshairMarkerVisible: true, crosshairMarkerRadius: 4, lineType: 0 });
     G.c = chart.addSeries(LW.CandlestickSeries, { priceFormat: { type: 'custom', formatter: (v) => fp(v), minMove: 0.0001 }, upColor: P.up, downColor: P.dn, borderVisible: false, wickUpColor: P.up, wickDownColor: P.dn,
-      priceLineStyle: LW.LineStyle.Dotted, priceLineWidth: 1 });
+      priceLineStyle: LW.LineStyle.Dotted, priceLineWidth: 1,
+      // que la franja del pronostico (A-B) entre en la escala de precios
+      autoscaleInfoProvider: (orig) => { const r = orig(), pr = G.d && G.d.pron; return r && pr ? { ...r, priceRange: { minValue: Math.min(r.priceRange.minValue, pr.lo), maxValue: Math.max(r.priceRange.maxValue, pr.hi) } } : r; } });
     G.markers = LW.createSeriesMarkers(G.c, []);
     G.under = new Capa(drawUnder, 'bottom');
     // cuanto falta para que cierre la vela, debajo de la etiqueta del precio (como en TradingView)
@@ -5612,6 +5747,9 @@
       icts: L.ict ? pick(rows, 'ict', tf) : [],
       bb: all.filter((b) => b.bu !== null).map((b) => ({ t: b.t, u: b.bu, l: b.bl })),
       pz: pzr ? { t: num(pzr.t_hasta), txt: `${S.plazo} · ${pzr.hora.slice(-5)} h` } : null,
+      // pronostico del plazo elegido: la franja entre A y B (el mismo rango de la tarjeta) hasta la hora del plazo, y la mediana si esta
+      pron: pzr && okv(pzr.min) && okv(pzr.max) && okv(pzr.t_hasta) && num(pzr.t_hasta) > lastA.t ? { t: num(pzr.t_hasta), lo: num(pzr.min), hi: num(pzr.max), med: okv(pzr.mediana) ? num(pzr.mediana) : null,
+        txt: hastaTxt({ hasta: pzr.hora, plazo: S.plazo }).replace(/^ · /, '') } : null,
       ondaCur: mk ? mk.elliott_curso : null, ondaObj: mk ? num(mk.elliott_objetivo) : null, lastOsc, narrow,
       cruce: mk && mk.macd_cruce ? `cruzó ${mk.macd_cruce === 'alcista' ? 'al alza' : 'a la baja'}` : '' };
     const d = G.d;
@@ -5620,7 +5758,8 @@
     // la vista (zoom y desplazamiento) se conserva entre analisis del mismo activo y temporalidad; al cambiar de activo
     // se vuelve a la vista por defecto con la escala de precios automatica (antes quedaba el rango del activo anterior:
     // de ZEC a BTC, el eje seguia en ~1.300)
-    const otroActivo = G.mon !== MON(), keep = G.tf === tf && !otroActivo ? ts.getVisibleLogicalRange() : null;
+    const otroActivo = G.mon !== MON(), keep = G.tf === tf && !otroActivo && !!G.pronOn === !!d.pron ? ts.getVisibleLogicalRange() : null;   // si aparece o desaparece el pronostico, se acomoda el lugar de la derecha
+    G.pronOn = !!d.pron;
     if (G.tf !== tf || G.mon !== MON()) G.med = null;
     G.dibujando = true;
     d.cdata = all.map((b) => ({ ms: b.t, bar: { time: T2(b.t), open: b.o, high: b.h, low: b.l, close: b.c } }));
@@ -5726,9 +5865,25 @@
 
     // que estas viendo: una linea por cada cosa dibujada, solo de las capas activas
     const leg = document.getElementById('legend'); leg.replaceChildren();
-    const item = (k, sw, title, text) => {
+    // cada cosa en UNA linea corta (que es + el dato clave); la explicacion larga queda detras de "mas"
+    const CORTOS = { sr: 'Líneas punteadas: soporte y resistencia', fib: 'Líneas violetas: niveles de Fibonacci', mvrv: 'Bandas MVRV: zonas de compra y de venta',
+      opc: 'Línea violeta: dolor máximo de opciones', plan: 'Tu plan: compras, promedio y ganancias', ondas: 'Círculos: conteo de ondas de Elliott',
+      fvg: 'Franjas: huecos (FVG) sin llenar', ema: 'Azul y naranja: EMA 20 y EMA 50', ema2: 'Gris gruesa: EMA 200, tendencia de fondo',
+      libro: 'Manchas azul y amarillo: libro de órdenes', vp: 'Fucsia y barras: VWAP y perfil de volumen', flujo: 'Paneles de delta y CVD: compras menos ventas',
+      pos: 'Tu caja de posición: objetivo y stop', bb: 'Banda gris: Bollinger (20 velas)', liq: 'Barras junto al eje: liquidaciones',
+      futuro: 'Velas transparentes: un camino parecido', pron: 'Franja a la derecha: rango esperado del plazo' };
+    const cortar = (t, n) => { const x = String(t).split(/(?<=[.;])\s/)[0].replace(/[.;]$/, ''); return x.length <= n ? x : `${x.slice(0, n).replace(/\s+\S*$/, '')}…`; };
+    const item = (k, sw, title, text, corto) => {
       const r = el('div', 'ab-ex-item ab-ex-link'), i = el('i'); Object.assign(i.style, sw);
-      const t = el('span'); t.append(el('b', '', title), ' ', text); r.append(i, t); leg.append(r);
+      const cs = corto || CORTOS[k === 'ema' && /^Línea gris/.test(title) ? 'ema2' : k], cut = cs ? cs.indexOf(': ') : -1;
+      const t = el('span', 'ab-ex-lin');
+      if (cs && cut > 0) t.append(el('b', '', cs.slice(0, cut + 1)), ` ${cs.slice(cut + 2)}`); else t.append(el('b', '', cs || title), cs ? '' : ` ${cortar(text, 48)}`);
+      const idm = `${k}|${title}`, det = el('p', 'ab-ex-det'), mas = el('button', 'ab-ex-mas', 'más'); mas.type = 'button';
+      det.append(el('b', '', title), ` ${text}`); det.hidden = !EX_MAS.has(idm); mas.textContent = det.hidden ? 'más' : 'menos'; mas.setAttribute('aria-expanded', String(!det.hidden));
+      const alt = (e) => { e.stopPropagation(); det.hidden = !det.hidden; mas.textContent = det.hidden ? 'más' : 'menos'; mas.setAttribute('aria-expanded', String(!det.hidden)); if (det.hidden) EX_MAS.delete(idm); else EX_MAS.add(idm); };
+      mas.addEventListener('click', alt); mas.addEventListener('pointerdown', (e) => e.stopPropagation()); mas.addEventListener('pointerenter', (e) => e.stopPropagation());
+      mas.addEventListener('keydown', (e) => e.stopPropagation());
+      r.append(i, t, mas, det); leg.append(r);
       r.dataset.ex = k; r.setAttribute('role', 'button'); r.tabIndex = 0;
       // mouse: al pasar por encima se ve; clic lo marca o desmarca. Dedo: mantener apretado lo muestra mientras se
       // sostiene (ver exHold); un toque corto lo marca o desmarca; deslizar no hace nada
@@ -5741,12 +5896,14 @@
     };
     const CC = (c) => ({ background: c }), DD = (c) => ({ background: 'transparent', border: `1.5px dashed ${c}` });
     d.figs.forEach((p) => item(`pat-grafico-${p.nombre}`, p.estado === 'confirmado' ? CC(colOf(p.sesgo)) : DD(colOf(p.sesgo)),
-      `${p.estado === 'confirmado' ? '✓' : 'Posible'} ${p.nombre.toLowerCase()}:`, p.descripcion));
+      `${p.estado === 'confirmado' ? '✓' : 'Posible'} ${p.nombre.toLowerCase()}:`, p.descripcion,
+      `${p.estado === 'confirmado' ? '✓' : 'Posible'} ${p.nombre.toLowerCase()}: ${num(p.objetivo) !== null ? `objetivo ${fp(num(p.objetivo))}` : cortar(p.descripcion, 36)}`));
     if (L.patrones) d.divs.forEach((v) => item(v.key, CC(v.tipo === 'alcista' ? P.up : P.dn), `Divergencia ${v.tipo} (${v.names.join(' + ')}):`,
       v.tipo === 'bajista' ? `el precio hizo un máximo más alto (${fp(v.p1)} → ${fp(v.p2)}) pero ${v.names.join(' y ')} no acompañó: la suba pierde fuerza.`
-        : `el precio hizo un mínimo más bajo (${fp(v.p1)} → ${fp(v.p2)}) pero ${v.names.join(' y ')} no acompañó: la baja pierde fuerza.`));
+        : `el precio hizo un mínimo más bajo (${fp(v.p1)} → ${fp(v.p2)}) pero ${v.names.join(' y ')} no acompañó: la baja pierde fuerza.`,
+      `Divergencia ${v.tipo} (${v.names.join(' + ')}): ${v.tipo === 'bajista' ? 'la suba pierde fuerza' : 'la baja pierde fuerza'}`));
     if (L.patrones) pick(rows, 'patron', tf).filter((p) => p.clase === 'vela' && byT.has(num(p.t))).forEach((p) =>
-      item(`pat-vela-${p.nombre}`, CC(colOf(p.sesgo)), `Flechita · ${p.nombre}:`, p.descripcion));
+      item(`pat-vela-${p.nombre}`, CC(colOf(p.sesgo)), `Flechita · ${p.nombre}:`, p.descripcion, `Flechita · ${p.nombre}: ${cortar(p.descripcion, 32)}`));
     if (G.plines.length) item('sr', DD(P.mute), 'Líneas punteadas con etiqueta en el eje:',
       `resistencia y soporte más cercanos para el plazo de ${S.plazo}${L.patrones && d.figs.some((p) => num(p.objetivo) !== null) ? ' y el objetivo de cada figura' : ''}.`);
     if (d.fib && d.fibs.length) {
@@ -5754,7 +5911,7 @@
         d.fib.mano ? 'el Fibonacci que acomodaste, del punto de inicio (100%) al de fin (0%). Arrastrá los puntos para cambiarlo o la diagonal para moverlo entero.'
           : 'Fibonacci del swing de 90 días, del inicio (100%) al fin (0%); el texto dice cuántas veces rebotó el precio en cada nivel (más fuerte si rebotó 55% o más). Arrastrá los puntos (o la diagonal) para ajustarlo, como en TradingView.');
       if (d.fib.mano) {
-        const it = leg.querySelector('[data-ex="fib"] span'), bt = el('button', 'ab-ex-limpiar', 'Volver al automático'); bt.type = 'button';
+        const it = leg.querySelector('[data-ex="fib"] .ab-ex-lin'), bt = el('button', 'ab-ex-limpiar', 'Volver al automático'); bt.type = 'button';
         bt.style.margin = '4px 0 0'; bt.addEventListener('click', (e) => { e.stopPropagation(); delete FIBU[MON()]; guardarFib(); if (S.rows) drawChart(S.rows, S.sum); });
         if (it) it.append(document.createElement('br'), bt);
       }
@@ -5766,7 +5923,8 @@
       'el "dolor máximo" de las opciones del viernes: el precio donde más opciones vencen sin valor. Cerca del vencimiento a veces atrae al precio.');
     if (d.plan) item('plan', DD(P.fg), 'Tu plan (líneas grises con nombre):',
       'compras que faltan (rayada: orden puesta; punteada: falta cargarla), tu precio promedio, la próxima toma de ganancias y la liquidación aproximada.');
-    { const ab = abaLeyenda(tf); if (ab) item('abanico', DD(P.fg), ab[0], ab[1]); }
+    { const ab = abaLeyenda(tf); if (ab) item('abanico', DD(P.fg), ab[0], ab[1], `${ab[0]} ${/^lo que pasó/.test(ab[1]) ? 'qué pasó en casos parecidos' : cortar(ab[1], 40)}`); }
+    if (d.pron) item('pron', CC(alpha(P.fg, 0.1)), 'Franja a la derecha del gráfico:', `donde terminó el precio el 80% de las veces en casos parecidos, desde ahora ${d.pron.txt}${d.pron.med !== null ? '; la línea punteada es el precio más probable' : ''}.`);
     if (ghosts.length) item('futuro', DD(P.mute), 'Velas transparentes a la derecha:',
       `un camino real del ${ghosts[0].desde.split('-').reverse().join('/')}, cuando ${MON()} estaba en una situación parecida, llevado al precio de hoy. La zona gris es donde terminó el 80% de esos casos y la línea vertical, la hora del plazo elegido.`);
     if (L.ondas && giros.some((g) => g.w)) item('ondas', { background: 'transparent', border: `1.5px solid ${P.fg}`, borderRadius: '50%', width: '10px', height: '10px' },
@@ -5811,7 +5969,8 @@
       const mTxt = mk && mk.macd_cruce ? `el MACD acaba de cruzar ${mk.macd_cruce === 'alcista' ? 'por encima de su señal: impulso a favor de la suba' : 'por debajo de su señal: impulso a favor de la baja'}`
         : lastOsc.macd >= lastOsc.sig ? 'el MACD está por encima de su señal (impulso alcista)' : 'el MACD está por debajo de su señal (impulso bajista)';
       item('osc', { background: `linear-gradient(90deg, ${P.c2} 50%, ${P.c0} 50%)` }, 'Paneles de abajo:',
-        `RSI ${rTxt}; ${mTxt}. Las barras son la diferencia entre las dos líneas. Si hay divergencias, se marcan con la misma línea en el precio y en el indicador.`);
+        `RSI ${rTxt}; ${mTxt}. Las barras son la diferencia entre las dos líneas. Si hay divergencias, se marcan con la misma línea en el precio y en el indicador.`,
+        `Paneles de abajo: RSI ${f0(rv)} · MACD ${mk && mk.macd_cruce ? `cruzó ${mk.macd_cruce}` : lastOsc.macd >= lastOsc.sig ? 'alcista' : 'bajista'}`);
     }
     const nAca = leg.children.length;
     // en las otras temporalidades: todas las figuras, divergencias y patrones de velas que encontro el analisis.
@@ -5833,7 +5992,12 @@
       leg.append(el('p', 'ab-ex-sub', 'En otras temporalidades (tocá para verlo en el gráfico)'));
       otros.forEach(([t2, sw, title, text]) => {
         const r = el('div', 'ab-ex-item ab-ex-link ab-ex-otro'), i = el('i'); Object.assign(i.style, sw);
-        const t = el('span'); t.append(el('em', 'ab-ex-tf', TF_TXT[t2] || t2), el('b', '', title), ' ', text); r.append(i, t);
+        const t = el('span', 'ab-ex-lin'); t.append(el('em', 'ab-ex-tf', TF_TXT[t2] || t2), el('b', '', title), ` ${cortar(text, 40)}`);
+        const idm = `${t2}|${title}`, det = el('p', 'ab-ex-det'), mas = el('button', 'ab-ex-mas', EX_MAS.has(idm) ? 'menos' : 'más'); mas.type = 'button'; det.append(text); det.hidden = !EX_MAS.has(idm);
+        mas.setAttribute('aria-expanded', String(!det.hidden));
+        mas.addEventListener('click', (e) => { e.stopPropagation(); det.hidden = !det.hidden; mas.textContent = det.hidden ? 'más' : 'menos'; mas.setAttribute('aria-expanded', String(!det.hidden)); if (det.hidden) EX_MAS.delete(idm); else EX_MAS.add(idm); });
+        mas.addEventListener('keydown', (e) => e.stopPropagation());
+        r.append(i, t, mas, det);
         r.setAttribute('role', 'button'); r.tabIndex = 0; r.title = `Ver en ${TF_TXT[t2] || t2}`;
         const ir = () => setTf(t2);
         r.addEventListener('click', ir); r.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
@@ -5944,7 +6108,7 @@
     const ext = d3.extent(lv.map((r) => r.p).concat([price]));
     const y = d3.scaleLinear(ext, [H - 14, 14]);
     const svg = d3.select(box).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Niveles clave a escala');
-    const axisX = Math.round(W * .52);
+    const axisX = Math.round(W * .57);
     svg.append('line').attr('x1', axisX).attr('x2', axisX).attr('y1', 8).attr('y2', H - 8).style('stroke', 'var(--color-border-line)').style('stroke-width', 2);
     svg.append('rect').attr('x', axisX - 3).attr('y', y(ext[1])).attr('width', 6).attr('height', Math.max(0, y(price) - y(ext[1]))).attr('rx', 3)
       .style('fill', 'var(--color-ok)').style('fill-opacity', .25);
@@ -5972,7 +6136,10 @@
       g.append('path').attr('d', `M${axisX - 6},${it.y} L${axisX - 16},${it.ly} L${axisX - 22},${it.ly}`).style('fill', 'none').style('stroke', 'var(--color-border-line)');
       g.append('text').attr('x', axisX - 26).attr('y', it.ly).attr('dy', '.34em').attr('text-anchor', 'end').style('fill', 'var(--color-fg)').text(it.name.replace(/ \(estimada\)/, ''))
         .each(function () {      // se mide una vez y se corta en proporcion (antes, una medicion cada dos letras)
-          const max = axisX - 30, s = this.textContent, L = this.getComputedTextLength();
+          const max = axisX - 30, s = this.textContent;
+          let L = this.getComputedTextLength();
+          if (!(L > max)) return;
+          const k = Math.max(0.84, max / L); this.style.fontSize = `${Math.round(k * 100)}%`; L = this.getComputedTextLength();   // primero se achica un poco la letra; si igual no entra, se corta
           if (!(L > max)) return;
           let n = Math.max(4, Math.floor(s.length * max / L) - 1); this.textContent = s.slice(0, n) + '…';
           while (n > 4 && this.getComputedTextLength() > max) { n -= 2; this.textContent = s.slice(0, n) + '…'; }
@@ -6045,15 +6212,32 @@
       later(() => parts.forEach(([i, k]) => { i.style.flexBasis = (k / tot * 100) + '%'; }));
     });
     const tb = document.querySelector('#ind-table tbody'); tb.replaceChildren();
+    // filas consecutivas iguales (mismo grupo, misma señal y mismo "medido") en una sola: "EMA 10–200 (8) · ▼ Bajista · ▲ rebota"
+    const filas = pick(rows, 'indicador', S.tf).map((r) => ({ r, med: indMedido(r) })), runs = [];
+    filas.forEach((f) => {
+      const k = `${f.r.grupo}|${f.r.senal}|${f.med.textContent}`, u = runs[runs.length - 1];
+      if (!IND_TODAS && u && u.k === k) u.fs.push(f); else runs.push({ k, fs: [f] });
+    });
+    const nGrp = runs.filter((u) => u.fs.length > 1).length, btn = document.getElementById('ind-todas');
+    btn.hidden = !nGrp && !IND_TODAS; btn.textContent = IND_TODAS ? 'Agrupar los iguales' : `Ver todas (${filas.length})`; btn.setAttribute('aria-pressed', String(IND_TODAS));
+    const nombreGrupo = (fs) => {
+      const nm = fs.map((f) => f.r.indicador), m = nm.map((n) => /^(.*?)\s*(\d+(?:[.,]\d+)?)\s*$/.exec(n));
+      if (m.every(Boolean) && new Set(m.map((x) => x[1])).size === 1) { const v = m.map((x) => parseFloat(x[2].replace(',', '.'))); return `${m[0][1]} ${Math.min(...v)}–${Math.max(...v)}`; }
+      return nm.length === 2 ? `${nm[0]} y ${nm[1]}` : `${nm[0]} … ${nm[nm.length - 1]}`;
+    };
     let group = null;
-    pick(rows, 'indicador', S.tf).forEach((r) => {
+    runs.forEach(({ fs }) => {
+      const r = fs[0].r, multi = fs.length > 1;
       if (r.grupo !== group) { group = r.grupo; const g = el('tr', 'ab-g'); const td = el('td', '', group); td.colSpan = 5; g.append(td); tb.append(g); }
-      const tr = el('tr'); tr.dataset.key = `${encodeURIComponent(r.tf)},${encodeURIComponent(r.indicador)}`;
+      const tr = el('tr', multi ? 'ab-grp' : ''); tr.dataset.key = `${encodeURIComponent(r.tf)},${encodeURIComponent(r.indicador)}`;
       const sig = el('td'); const chip = el('span', 'ab-sigchip ab-' + r.senal, r.senal === 'compra' ? '▲ Alcista' : r.senal === 'venta' ? '▼ Bajista' : '• Neutral'); sig.append(chip);
-      const det = el('td', '', r.detalle); if (!r.vota) det.append(el('span', 'ab-novote', (r.detalle ? ' · ' : '') + 'no vota'));
-      tr.append(el('td', '', r.indicador), el('td', 'r', r.valor === null ? '' : f2(num(r.valor))), sig, indMedido(r), det); tb.append(tr);
+      const det = el('td', '', multi ? '' : r.detalle); if (!multi && !r.vota) det.append(el('span', 'ab-novote', (r.detalle ? ' · ' : '') + 'no vota'));
+      const nom = el('td', '', multi ? `${nombreGrupo(fs)} (${fs.length})` : r.indicador); if (multi) { nom.title = fs.map((f) => f.r.indicador).join(', '); if (nom.textContent.length <= 18) nom.className = 'ab-nw'; }
+      if (!multi && (r.detalle || !r.vota)) nom.append(el('small', 'ab-ind-det', `${r.detalle || ''}${r.vota ? '' : `${r.detalle ? ' · ' : ''}no vota`}`));   // en pantallas angostas el detalle baja debajo del nombre
+      tr.append(nom, el('td', 'r', multi || r.valor === null ? '' : f2(num(r.valor))), sig, fs[0].med, det); tb.append(tr);
     });
   }
+  document.getElementById('ind-todas').addEventListener('click', () => { IND_TODAS = !IND_TODAS; if (S.rows) drawIndicators(S.rows); });
 
   // lo que paso de verdad despues de cada señal (medir_senales.py, BTC 2021-2026, cada 4 h, en 2021-24 y en 2025-26):
   // por temporalidad, dos letras = la hora siguiente y las 4 siguientes (en velas de 4 h: 4 h y 24 h).
@@ -6081,16 +6265,16 @@
     if (!hits.length) { box.append(el('p', 'ab-note', 'Cada predicción queda registrada. Los aciertos aparecen cuando se cumple el plazo de cada una, desde las próximas corridas.')); return; }
     const tbl = el('table', 'ab-tbl'); tbl.setAttribute('data-source', 'analisis'); tbl.setAttribute('data-row-key', 'tf,horizonte');
     const hr = el('tr');
-    [['tf', 'Velas'], ['horizonte', 'Plazo'], ['pronosticos', 'Casos'], ['aciertos', 'Aciertos'], ['brier', 'Brier'], ['en_rango', 'En rango 80%']].forEach(([f, t]) => { const th = el('th', '', t); th.setAttribute('data-field', f); hr.append(th); });
+    [['tf', 'Velas'], ['horizonte', 'Plazo'], ['pronosticos', 'Casos'], ['aciertos', 'Aciertos'], ['brier', 'Brier'], ['en_rango', 'En rango 80%']].forEach(([f, t]) => { const th = el('th', ['tf', 'horizonte'].includes(f) ? '' : 'r', t); th.setAttribute('data-field', f); hr.append(th); });
     const th = el('thead'); th.append(hr); const tb = el('tbody');
     const pc = (v) => (num(v) === null ? '—' : `${f1(num(v))}%`);
     hits.forEach((h) => { const tr = el('tr'); tr.dataset.key = `${encodeURIComponent(h.tf)},${encodeURIComponent(h.horizonte)}`;
       const er = num(h.en_rango), cr = num(h.con_rango) || 0;
-      [h.tf, h.horizonte, h.pronosticos, pc(h.aciertos), num(h.brier) === null ? '—' : ar.format('.3f')(num(h.brier))].forEach((v) => tr.append(el('td', '', String(v))));
+      [h.tf, h.horizonte, h.pronosticos, pc(h.aciertos), num(h.brier) === null ? '—' : ar.format('.3f')(num(h.brier))].forEach((v, i) => tr.append(el('td', i > 1 ? 'r' : '', String(v))));
       // con menos de 10 casos el porcentaje no dice nada (2 de 2 es "100%"): se muestra apagado y se avisa
       if ((num(h.pronosticos) || 0) < 10) { tr.children[3].style.color = 'var(--mute)'; tr.children[3].title = 'Pocos casos todavía: el porcentaje no dice nada'; tr.children[3].textContent += ' · pocos'; }
       // el rango es honesto si queda cerca de 80%: muy por debajo, el cono es angosto; muy por arriba, exagera
-      const td = el('td', '', er === null ? '—' : `${f1(er)}% (${cr})`);
+      const td = el('td', 'r', er === null ? '—' : `${f1(er)}% (${cr})`);
       if (er !== null && cr >= 30) { td.style.color = Math.abs(er - 80) <= 7 ? 'var(--color-ok)' : 'var(--color-warn)'; td.title = Math.abs(er - 80) <= 7 ? 'Cerca del 80%: el rango es honesto' : er < 80 ? 'Debajo del 80%: el rango viene angosto' : 'Arriba del 80%: el rango viene ancho'; }
       tr.append(td); tb.append(tr); });
     tbl.append(th, tb); box.append(tbl, el('p', 'ab-note', 'Brier mide la calidad de las probabilidades: 0,250 es tirar una moneda; menos es mejor. "En rango 80%": cuántas veces el precio terminó dentro del rango que anunció (lo honesto es cerca de 80%).'));
@@ -6120,7 +6304,9 @@
   const hms = (t) => new Date(t).toLocaleTimeString('es-AR', { ...tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
   const trActivo = () => TR.abierto && !document.hidden && MON() !== 'MELI';
   // lugar a la derecha de la ultima vela para el libro (en velas)
-  const vivoHueco = (nb) => (TR.abierto ? Math.ceil(nb * 0.24) : 0);
+  // el pronostico (franja hasta la hora del plazo + su rotulo) necesita lugar a la derecha de la ultima vela
+  const pronHueco = (nb) => (G.d && G.d.pron ? Math.min(Math.ceil(nb * 0.5), Math.ceil((G.d.pron.t - G.d.lastT) / G.d.tfMs) + Math.ceil((126 * nb) / Math.max(200, G.chart.timeScale().width()))) : 0);
+  const vivoHueco = (nb) => Math.max(TR.abierto ? Math.ceil(nb * 0.24) : 0, pronHueco(nb));
 
   function trCerrar() {
     TR.gen++; clearInterval(TR.ping);
