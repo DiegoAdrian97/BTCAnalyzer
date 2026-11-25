@@ -71,6 +71,11 @@ def _api(metodo, ruta, cuerpo=None, crudo=False):
     return data.decode() if crudo else json.loads(data or b"{}")
 
 
+def _no_existe(e):
+    """True si la lectura fallo porque el archivo todavia no existe (404); cualquier otra cosa es un fallo para reintentar."""
+    return isinstance(e, urllib.error.HTTPError) and e.code == 404
+
+
 def _ruta(tf, dia):
     return f"{CARPETA}/{tf}/{dia}.csv"
 
@@ -87,8 +92,10 @@ def _traer(tf, dia):
         else:
             with urllib.request.urlopen(f"https://raw.githubusercontent.com/{REPO}/{RAMA}/{_ruta(tf, dia)}", timeout=15) as r:
                 texto = r.read().decode()
-    except Exception:
-        return                                   # todavia no existe (o sin red): se arranca vacio
+    except Exception as e:
+        if not _no_existe(e):
+            _cargados.discard((tf, dia))         # sin red: se reintenta (y no se sube el dia hasta cargarlo)
+        return                                   # todavia no existe: se arranca vacio
     filas = _datos.setdefault((tf, dia), {})
     for linea in texto.splitlines()[1:]:
         c = linea.split(",")
@@ -211,7 +218,9 @@ def _traer_libro(dia):
         else:
             with urllib.request.urlopen(f"https://raw.githubusercontent.com/{REPO}/{RAMA}/{_ruta('libro', dia)}", timeout=15) as r:
                 texto = r.read().decode()
-    except Exception:
+    except Exception as e:
+        if not _no_existe(e):
+            _cargados.discard(("libro", dia))
         return
     filas = _libro.setdefault(dia, {})
     for linea in texto.splitlines()[1:]:
@@ -221,10 +230,11 @@ def _traer_libro(dia):
 
 # ---------- la conclusion de cada hora (para medir con aciertos reales que señal funciona) ----------
 # Una fila por hora y por plazo, con lo primero que dijo el analisis central despues de cerrar la hora:
-# historial/BTC/central/<dia>.csv:  t, plazo, precio, direccion, puntos, a_favor, en_contra, fuerza, senales
+# historial/BTC/central/<dia>.csv:  t, plazo, precio, direccion, puntos, a_favor, en_contra, fuerza, senales, t_real
+# t = la hora redondeada (la clave); precio y t_real (ms) son del momento real del analisis (las filas viejas no tienen t_real).
 # senales = "clave:puntos;clave:puntos;..." (puntos = lado x peso; la clave sale del texto de cada señal).
 # medir_central.py lo lee y dice cuanto acerto cada plazo y cada señal.
-CENTRAL_COL = "t,plazo,precio,direccion,puntos,a_favor,en_contra,fuerza,senales"
+CENTRAL_COL = "t,plazo,precio,direccion,puntos,a_favor,en_contra,fuerza,senales,t_real"
 _CLAVES = (("Casos parecidos", "casos"), ("Indicadores", "indicadores"), ("Precio arriba de la banda", "bollinger"),
            ("Precio debajo de la banda", "bollinger"), ("Posible reversión", "rsi"), ("Posible rebote", "rsi"),
            ("RSI de", "rsi_sigue"), ("MACD de", "macd"), ("Divergencia de CVD", "cvd"), ("En spot se", "absorcion"),
@@ -265,7 +275,7 @@ def anotar_central(rows, ahora_ms=None):
                     sen[k] = round(sen.get(k, 0) + f[1] * f[2], 2)
             filas[(str(t), c["plazo"])] = ",".join([str(t), c["plazo"], _txt(precio), c.get("direccion") or "", _txt(c.get("direccion_puntos")),
                                                     _txt(c.get("a_favor")), _txt(c.get("en_contra")), c.get("fuerza") or "",
-                                                    ";".join(f"{k}:{_txt(v)}" for k, v in sorted(sen.items()))])
+                                                    ";".join(f"{k}:{_txt(v)}" for k, v in sorted(sen.items())), str(int(ahora_ms))])
             _sucios.add(("central", dia))
         for d in [d for d in _central if d < _dia(t - DIAS_EN_MEMORIA * 864e5) and ("central", d) not in _sucios]:
             _central.pop(d, None)
@@ -282,13 +292,15 @@ def _traer_central(dia):
         else:
             with urllib.request.urlopen(f"https://raw.githubusercontent.com/{REPO}/{RAMA}/{_ruta('central', dia)}", timeout=15) as r:
                 texto = r.read().decode()
-    except Exception:
+    except Exception as e:
+        if not _no_existe(e):
+            _cargados.discard(("central", dia))
         return
     filas = _central.setdefault(dia, {})
     for linea in texto.splitlines()[1:]:
         p = linea.split(",")
         if len(p) >= 9:
-            filas.setdefault((p[0], p[1]), linea)
+            filas.setdefault((p[0], p[1]), linea + "," * (len(p) < 10))      # filas viejas: sin t_real (queda vacio)
 
 
 def _csv(tf, dia):
@@ -312,9 +324,13 @@ def subir_si_toca(forzar=False):
         return
     _ultima_subida = time.time()
     with _lock:
-        cambios = {_ruta(tf, dia): _csv(tf, dia) for tf, dia in _sucios}
-        pendientes = set(_sucios)
-        _sucios.clear()
+        for tf, dia in [k for k in _sucios if k not in _cargados]:       # un dia que no se pudo leer se reintenta antes de subir
+            _traer_libro(dia) if tf == "libro" else _traer_central(dia) if tf == "central" else _traer(tf, dia)
+        pendientes = {k for k in _sucios if k in _cargados}              # el resto sigue sucio: subirlo pisaria lo que hay en GitHub
+        cambios = {_ruta(tf, dia): _csv(tf, dia) for tf, dia in pendientes}
+        _sucios.difference_update(pendientes)
+    if not cambios:
+        return
     threading.Thread(target=_subir, args=(cambios, pendientes), daemon=True).start()
 
 

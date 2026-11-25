@@ -675,7 +675,8 @@ def horizon_stats(tf, s, h, price, fit):
     # contra la tasa normal moderada igual que la prediccion: si aprendio que no hay ventaja (confianza 0), es moneda
     edge = up - (apr.ajustar(b["up"] / 100, f) * 100 if fit.get("p_sube") is not None else b["up"])
     # margen de error del 95%: con pocos casos, una diferencia chica contra la tasa normal es ruido
-    margin = 196 * ((o["up"] / 100) * (1 - o["up"] / 100) / o["n"]) ** 0.5 * f
+    # (los resultados a h velas de casos vecinos se pisan: cuentan como 1 de cada h)
+    margin = 196 * ((o["up"] / 100) * (1 - o["up"] / 100) / max(1, o["n"] / h)) ** 0.5 * f
     L = fit.get("learn") or {}
     # si en su repaso honesto no le gano a la tasa base, una diferencia contra lo normal no es una ventaja: es ruido
     sin_ventaja = L.get("habilidad") is not None and L["habilidad"] <= 0
@@ -1471,25 +1472,25 @@ def central(rows, price, candles, now_ms):
         # anticipan: no suman)
         if p and nombre_plazo == "1 hora" and p.get("coinciden") in ("alcista", "bajista"):
             # medido (medir_contexto.py): asi la de 1 hora acerto 54,0% contra 51,5%, en los dos tramos
-            _cf(F, "direccion", 1 if p["coinciden"] == "alcista" else -1, 1, "15 min, 1 hora y 4 horas apuntan para el mismo lado (medido: acierta 54% contra 51,5%)")
+            _cf(F, "direccion", 1 if p["coinciden"] == "alcista" else -1, 1, "15 min, 1 hora y 4 horas apuntan para el mismo lado (medido)")
         # Flujo de compras y barridas de liquidez. Medido (medir_flujo.py, BTC 1 h 2021-2026): entran solo las que ganaron
         # en los dos tramos (z >= 2, el mismo lado). El delta, el VWAP y el POC tambien cuentan al reves a 1-4 h, pero
         # dicen lo mismo que los indicadores de abajo (el precio que corrige): no se suman dos veces.
         if fl and tf in ("1h", "4h"):
             if tf == "1h" and fl.get("cvd_div") == "bajista":
-                _cf(F, "direccion", -1, 1, "Divergencia de CVD: el precio hizo máximo de 24 h pero las compras agresivas no acompañan (medido: la hora siguiente bajó 56–57%)")
+                _cf(F, "direccion", -1, 1, "Divergencia de CVD: el precio hizo máximo de 24 h pero las compras agresivas no acompañan (medido)")
             if tf == "4h" and fl.get("cvd_div") == "alcista":
-                _cf(F, "direccion", 1, 1, "Divergencia de CVD: el precio hizo mínimo de 24 h pero las ventas agresivas se agotan (medido: las 4 h siguientes subieron 57–60%)")
+                _cf(F, "direccion", 1, 1, "Divergencia de CVD: el precio hizo mínimo de 24 h pero las ventas agresivas se agotan (medido)")
             if tf == "4h" and fl.get("absorcion") == "alcista":
-                _cf(F, "direccion", 1, 1, f"En spot se compra mientras el precio cae ({arp(fl['cambio_24h'])} en 24 h): absorción (medido: las 4 h siguientes subieron 57–60%)")
+                _cf(F, "direccion", 1, 1, f"En spot se compra mientras el precio cae ({arp(fl['cambio_24h'])} en 24 h): absorción (medido)")
             if tf == "4h" and fl.get("absorcion") == "bajista":
-                _cf(F, "direccion", -1, 1, f"En spot se vende mientras el precio sube ({arp(fl['cambio_24h'])} en 24 h) (medido: las 4 h siguientes bajaron 53–54%)")
+                _cf(F, "direccion", -1, 1, f"En spot se vende mientras el precio sube ({arp(fl['cambio_24h'])} en 24 h) (medido)")
         if tf in ("1h", "4h"):
             bar = next((x for x in barridas if 0 <= now_ms - (x["t"] + 3600000) < 3600000), None)
             if bar:
                 al = bar["sesgo"] == "alcista"
                 _cf(F, "direccion", 1 if al else -1, 1, f"Barrida de liquidez en 1 h: la mecha pasó el {'mínimo' if al else 'máximo'} de 20 velas ({ap(bar['bajo'])}) y cerró adentro "
-                    + ("(medido: la hora siguiente fue para ese lado 53–54%)" if tf == "1h" else "(medido: las 4 h siguientes fueron para ese lado 54–55%)"))
+                    + "(medido)")
         # Medido (medir_direccion.py, BTC 1 h 2021-2026): a 1 y 4 horas los indicadores de tendencia aciertan MENOS que una
         # moneda (el resumen 45,6-48,1%; SuperTrend, Ichimoku, VWAP, OBV, Chaikin y SAR 45-49%, en los dos tramos): despues
         # de que marcan fuerte, el precio suele corregir. En 4 h o menos cuentan al reves (peso 1, solo el resumen: los
@@ -1501,7 +1502,7 @@ def central(rows, price, candles, now_ms):
         r_ = marco["rating"]
         if r_ is not None and abs(r_) > 0.1 and not largo_tf:
             _cf(F, "direccion", -1 if r_ > 0 else 1, 1,
-                f"Indicadores {marco['rating_txt'].lower()}: {'suele corregir, cuenta para la baja' if r_ > 0 else 'suele rebotar, cuenta para la suba'} (medido: 52–54%)")
+                f"Indicadores {marco['rating_txt'].lower()}: {'suele corregir, cuenta para la baja' if r_ > 0 else 'suele rebotar, cuenta para la suba'} (medido)")
         bb = ind_.get("Bandas de Bollinger %B")
         if bb and bb["valor"] is not None and (bb["valor"] >= 100 or bb["valor"] <= 0) and not largo_tf:
             # medido: fuera de banda, la hora siguiente volvio hacia adentro el 56-59% de las veces (los dos tramos). En el
@@ -1514,9 +1515,9 @@ def central(rows, price, candles, now_ms):
         # dos tramos (suelen juntarse donde el precio viene de correr: corrige). Cuenta al reves, de 1 hora a 1 dia
         if arriba + abajo >= 10 and tf in ("1h", "4h", "1d"):
             if arriba >= 1.5 * abajo:
-                _cf(F, "direccion", -1, 1, f"Más liquidaciones arriba ({ar(arriba, 0)} M de shorts) que abajo ({ar(abajo, 0)} M): medido, el precio suele ir para el otro lado (52–53%)")
+                _cf(F, "direccion", -1, 1, f"Más liquidaciones arriba ({ar(arriba, 0)} M de shorts) que abajo ({ar(abajo, 0)} M): medido, el precio suele ir para el otro lado")
             elif abajo >= 1.5 * arriba:
-                _cf(F, "direccion", 1, 1, f"Más liquidaciones abajo ({ar(abajo, 0)} M de longs) que arriba ({ar(arriba, 0)} M): medido, el precio suele ir para el otro lado (52–53%)")
+                _cf(F, "direccion", 1, 1, f"Más liquidaciones abajo ({ar(abajo, 0)} M de longs) que arriba ({ar(arriba, 0)} M): medido, el precio suele ir para el otro lado")
         # los libros de ordenes y el funding no ganaron en las mediciones ("quedan como contexto, sin peso"): ya no suman a
         # la direccion (se ven en el contexto). Asi lo que dice cada parte de la app sale de lo mismo, sin contradecirse
         # El ciclo (medidor) ya no suma a la direccion. Medido (armar_termometro.py medir_cortos, sin mirar el futuro,
@@ -1561,10 +1562,13 @@ def central(rows, price, candles, now_ms):
             R.append("Se viene movimiento fuerte: revisá stops y tamaño")
         if (lado == "sube" and en_contra >= 0.6 * a_favor) or (lado == "baja" and a_favor >= 0.6 * en_contra):
             R.append("Hay señales en contra casi tan fuertes: dirección poco firme")
+        # el titular sale de los puntos; si la probabilidad del mismo plazo (la que muestra la pagina) dice lo contrario, avisarlo
+        if p and p.get("sube") is not None and p.get("base") is not None and ((lado == "sube" and p["sube"] < p["base"]) or (lado == "baja" and p["sube"] > p["base"])):
+            R.append(f"Los casos parecidos dicen lo contrario: cierra arriba {ar(p['sube'], 0)}% (normal {ar(p['base'], 0)}%)")
         out.append({"tabla": "central", "tf": tf, "plazo": nombre_plazo if p else None,
                     "fuerza": fuerza, "fuerza_puntos": fz, "prob_fuerte": prob, "prob_normal": base,
                     "direccion": lado, "direccion_puntos": dr, "a_favor": a_favor, "en_contra": en_contra,
-                    "prob_sube": p.get("primero_arriba") if p else None,
+                    "primero_arriba": p.get("primero_arriba") if p else None,
                     "rango_min": p["min"] if p else None, "rango_max": p["max"] if p else None, "hasta": p["hora"] if p else None,
                     "obj_arriba": p["obj_arriba"] if p else None, "obj_abajo": p["obj_abajo"] if p else None,
                     "toca_arriba": p.get("toca_arriba") if p else None, "toca_abajo": p.get("toca_abajo") if p else None,
@@ -1737,8 +1741,15 @@ def log_and_score(entries, closes_by_tf):
             rows = [r for r in csv.reader(f) if len(r) in (5, 7)]     # 5: registros viejos, sin el rango
     seen = {(r[0], r[1], r[2]) for r in rows}
     fmt = lambda x: f"{x:.{dec_precio(x)}f}"
+    def precio_ok(tf, h, p, lo, hi):
+        # un precio fuera de su propio rango (min -10%, max +10%) es un dato roto: no se anota
+        if lo is not None and hi is not None and not lo * 0.9 <= p <= hi * 1.1:
+            print(f"Aviso: no anoto {tf} +{h} ({p}): fuera de su rango {lo}-{hi}")
+            return False
+        return True
     rows += [[str(t), tf, str(h), fmt(p), f"{pr:.1f}"] + ([] if lo is None or hi is None else [fmt(lo), fmt(hi)])
-             for t, tf, h, p, pr, lo, hi, *_ in entries if (str(t), tf, str(h)) not in seen]   # *_: lo demas (historial.py)
+             for t, tf, h, p, pr, lo, hi, *_ in entries
+             if (str(t), tf, str(h)) not in seen and precio_ok(tf, h, p, lo, hi)]   # *_: lo demas (historial.py)
     rows = rows[-20000:]        # como la version JS: el registro no crece sin limite (se lee y se escribe cada analisis)
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(LOG_FILE, "w", newline="") as f:

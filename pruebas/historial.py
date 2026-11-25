@@ -70,7 +70,7 @@ h.anotar_central(filas, 1794402000000 + 65_000)
 h.anotar_central([filas[0], {**filas[1], "direccion": "sube"}], 1794402000000 + 120_000)        # misma hora: no se pisa
 csv = h._csv("central", "2026-11-11").splitlines()
 assert csv[0] == h.CENTRAL_COL and len(csv) == 2, csv
-assert csv[1] == "1794402000000,1 hora,70000.5,baja,-3,1,4,media,casos:-3;indicadores:-0.5;patron:1;rsi:-0.5", csv[1]
+assert csv[1] == "1794402000000,1 hora,70000.5,baja,-3,1,4,media,casos:-3;indicadores:-0.5;patron:1;rsi:-0.5,1794402065000", csv[1]
 assert h.clave_senal("Más liquidaciones arriba (20 M de shorts)") == "liquidaciones" and h.clave_senal("algo raro") == "otra"
 assert h._ruta("central", "2026-11-11") == "historial/BTC/central/2026-11-11.csv"
 print("historial: conclusión de cada hora bien")

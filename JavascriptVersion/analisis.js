@@ -347,20 +347,20 @@
         });
       }   // sin plazo propio (30 min): figuras y divergencias no anticipan (medir_estructura.py), no suman
       if (p && nombrePlazo === '1 hora' && (p.coinciden === 'alcista' || p.coinciden === 'bajista'))     // medido: 54,0% contra 51,5%
-        cf('direccion', p.coinciden === 'alcista' ? 1 : -1, 1, '15 min, 1 hora y 4 horas apuntan para el mismo lado (medido: acierta 54% contra 51,5%)');
+        cf('direccion', p.coinciden === 'alcista' ? 1 : -1, 1, '15 min, 1 hora y 4 horas apuntan para el mismo lado (medido)');
       // flujo de compras y barridas de liquidez (medir_flujo.py; como en Python: solo lo que gano en los dos tramos)
       if (fl && (tf === '1h' || tf === '4h')) {
-        if (tf === '1h' && fl.cvd_div === 'bajista') cf('direccion', -1, 1, 'Divergencia de CVD: el precio hizo máximo de 24 h pero las compras agresivas no acompañan (medido: la hora siguiente bajó 56–57%)');
-        if (tf === '4h' && fl.cvd_div === 'alcista') cf('direccion', 1, 1, 'Divergencia de CVD: el precio hizo mínimo de 24 h pero las ventas agresivas se agotan (medido: las 4 h siguientes subieron 57–60%)');
-        if (tf === '4h' && fl.absorcion === 'alcista') cf('direccion', 1, 1, `En spot se compra mientras el precio cae (${arp(fl.cambio_24h)} en 24 h): absorción (medido: las 4 h siguientes subieron 57–60%)`);
-        if (tf === '4h' && fl.absorcion === 'bajista') cf('direccion', -1, 1, `En spot se vende mientras el precio sube (${arp(fl.cambio_24h)} en 24 h) (medido: las 4 h siguientes bajaron 53–54%)`);
+        if (tf === '1h' && fl.cvd_div === 'bajista') cf('direccion', -1, 1, 'Divergencia de CVD: el precio hizo máximo de 24 h pero las compras agresivas no acompañan (medido)');
+        if (tf === '4h' && fl.cvd_div === 'alcista') cf('direccion', 1, 1, 'Divergencia de CVD: el precio hizo mínimo de 24 h pero las ventas agresivas se agotan (medido)');
+        if (tf === '4h' && fl.absorcion === 'alcista') cf('direccion', 1, 1, `En spot se compra mientras el precio cae (${arp(fl.cambio_24h)} en 24 h): absorción (medido)`);
+        if (tf === '4h' && fl.absorcion === 'bajista') cf('direccion', -1, 1, `En spot se vende mientras el precio sube (${arp(fl.cambio_24h)} en 24 h) (medido)`);
       }
       if (tf === '1h' || tf === '4h') {
         const bar = barridas.find((x) => now - (x.t + 3600000) >= 0 && now - (x.t + 3600000) < 3600000);
         if (bar) {
           const al = bar.sesgo === 'alcista';
           cf('direccion', al ? 1 : -1, 1, `Barrida de liquidez en 1 h: la mecha pasó el ${al ? 'mínimo' : 'máximo'} de 20 velas (${ap(bar.bajo)}) y cerró adentro `
-            + (tf === '1h' ? '(medido: la hora siguiente fue para ese lado 53–54%)' : '(medido: las 4 h siguientes fueron para ese lado 54–55%)'));
+            + '(medido)');
         }
       }
       // medido (medir_direccion.py): a 1 y 4 h los indicadores de tendencia aciertan menos que una moneda (46-48%): en 4 h o
@@ -368,7 +368,7 @@
       const r_ = marco.rating, largoTf = tf === '1d' || tf === '1w' || tf === '1M';
       if (ok(r_) && Math.abs(r_) > 0.1) {
         // diario o mas: medido ~50% a 1, 7 y 30 dias (medir_largos.py): ni el resumen ni cada indicador cuentan
-        if (!largoTf) cf('direccion', r_ > 0 ? -1 : 1, 1, `Indicadores ${marco.rating_txt.toLowerCase()}: ${r_ > 0 ? 'suele corregir, cuenta para la baja' : 'suele rebotar, cuenta para la suba'} (medido: 52–54%)`);
+        if (!largoTf) cf('direccion', r_ > 0 ? -1 : 1, 1, `Indicadores ${marco.rating_txt.toLowerCase()}: ${r_ > 0 ? 'suele corregir, cuenta para la baja' : 'suele rebotar, cuenta para la suba'} (medido)`);
       }
       // Elliott ya no suma a la direccion (medir_estructura.py: en 1 h acierta 46-49%, al reves; en 4 h y diario ~50%)
       const bb = ind['Bandas de Bollinger %B'];
@@ -379,8 +379,8 @@
       if (arriba + abajo >= 10) {
         // medido (medir_nuevo.py): no es un iman; el precio suele ir para el otro lado (52-53%), de 1 hora a 1 dia
         if (['1h', '4h', '1d'].includes(tf)) {
-          if (arriba >= 1.5 * abajo) cf('direccion', -1, 1, `Más liquidaciones arriba (${ar(arriba, 0)} M de shorts) que abajo (${ar(abajo, 0)} M): medido, el precio suele ir para el otro lado (52–53%)`);
-          else if (abajo >= 1.5 * arriba) cf('direccion', 1, 1, `Más liquidaciones abajo (${ar(abajo, 0)} M de longs) que arriba (${ar(arriba, 0)} M): medido, el precio suele ir para el otro lado (52–53%)`);
+          if (arriba >= 1.5 * abajo) cf('direccion', -1, 1, `Más liquidaciones arriba (${ar(arriba, 0)} M de shorts) que abajo (${ar(abajo, 0)} M): medido, el precio suele ir para el otro lado`);
+          else if (abajo >= 1.5 * arriba) cf('direccion', 1, 1, `Más liquidaciones abajo (${ar(abajo, 0)} M de longs) que arriba (${ar(arriba, 0)} M): medido, el precio suele ir para el otro lado`);
         }
       }
       // los libros y el funding no ganaron en las mediciones: ya no suman a la direccion (igual que en Python)
@@ -422,8 +422,10 @@
       if (eventos.length && eventos[0] - now <= 24 * 3600000) R.push(`Dato fuerte de EE.UU. en ${Math.max(1, roundEven((eventos[0] - now) / 3600000))} h: el precio se mueve más`);
       if (fuerza === 'alta') R.push('Se viene movimiento fuerte: revisá stops y tamaño');
       if ((lado === 'sube' && enContra >= 0.6 * aFavor) || (lado === 'baja' && aFavor >= 0.6 * enContra)) R.push('Hay señales en contra casi tan fuertes: dirección poco firme');
+      // el titular sale de los puntos; si la probabilidad del mismo plazo (la que muestra la pagina) dice lo contrario, avisarlo
+      if (p && ok(p.sube) && ok(p.base) && ((lado === 'sube' && p.sube < p.base) || (lado === 'baja' && p.sube > p.base))) R.push(`Los casos parecidos dicen lo contrario: cierra arriba ${ar(p.sube, 0)}% (normal ${ar(p.base, 0)}%)`);
       out.push({ tabla: 'central', tf, plazo: p ? nombrePlazo : null, fuerza, fuerza_puntos: fz, prob_fuerte: nz(prob), prob_normal: nz(base),
-        direccion: lado, direccion_puntos: dr, a_favor: aFavor, en_contra: enContra, prob_sube: p ? nz(p.primero_arriba) : null,
+        direccion: lado, direccion_puntos: dr, a_favor: aFavor, en_contra: enContra, primero_arriba: p ? nz(p.primero_arriba) : null,
         rango_min: p ? p.min : null, rango_max: p ? p.max : null, hasta: p ? p.hora : null, obj_arriba: p ? p.obj_arriba : null, obj_abajo: p ? p.obj_abajo : null,
         toca_arriba: p ? nz(p.toca_arriba) : null, toca_abajo: p ? nz(p.toca_abajo) : null, esperado_usd: mv && corto ? mv.esperado_usd : null,
         elliott_objetivo: nz(marco.elliott_objetivo), soporte: sop, resistencia: res, invalida: inv ? inv.texto : null, riesgo: R, factores: F });
@@ -744,7 +746,8 @@
     // contra la tasa normal moderada igual que la prediccion: si aprendio que no hay ventaja (confianza 0), es moneda
     const edge = up - (fit.p_sube !== null && fit.p_sube !== undefined ? Apr.ajustar(b.up / 100, f) * 100 : b.up);
     // margen de error del 95%: con pocos casos, una diferencia chica contra la tasa normal es ruido
-    const margin = 196 * Math.sqrt(((o.up / 100) * (1 - o.up / 100)) / o.n) * f;
+    // (los resultados a h velas de casos vecinos se pisan: cuentan como 1 de cada h)
+    const margin = 196 * Math.sqrt(((o.up / 100) * (1 - o.up / 100)) / Math.max(1, o.n / h)) * f;
     const L = fit.learn || {};
     // si en su repaso honesto no le gano a la tasa base, una diferencia contra lo normal no es una ventaja: es ruido
     const sinVentaja = L.habilidad !== undefined && L.habilidad !== null && L.habilidad <= 0;

@@ -71,6 +71,71 @@
       "nombre": "Zona del ciclo (1 mes)",
       "esperado": null,
       "fuente": "armar_termometro.py medir_cortos (2015-2026)"
+    },
+    "divergencia": {
+      "nombre": "Divergencia de precio e indicador",
+      "esperado": null,
+      "fuente": "sin medir todavía"
+    },
+    "fibonacci": {
+      "nombre": "Nivel de Fibonacci",
+      "esperado": null,
+      "fuente": "sin medir todavía"
+    },
+    "macd": {
+      "nombre": "MACD",
+      "esperado": null,
+      "fuente": "sin medir todavía"
+    },
+    "elliott": {
+      "nombre": "Ondas de Elliott",
+      "esperado": null,
+      "fuente": "sin medir todavía"
+    },
+    "sma200": {
+      "nombre": "Media simple de 200",
+      "esperado": null,
+      "fuente": "sin medir todavía"
+    },
+    "wyckoff": {
+      "nombre": "Wyckoff",
+      "esperado": null,
+      "fuente": "sin medir todavía"
+    },
+    "supertrend": {
+      "nombre": "SuperTrend",
+      "esperado": null,
+      "fuente": "sin medir todavía"
+    },
+    "ichimoku": {
+      "nombre": "Nube de Ichimoku",
+      "esperado": null,
+      "fuente": "sin medir todavía"
+    },
+    "vwap": {
+      "nombre": "VWAP",
+      "esperado": null,
+      "fuente": "sin medir todavía"
+    },
+    "obv": {
+      "nombre": "OBV",
+      "esperado": null,
+      "fuente": "sin medir todavía"
+    },
+    "chaikin": {
+      "nombre": "Chaikin",
+      "esperado": null,
+      "fuente": "sin medir todavía"
+    },
+    "sar": {
+      "nombre": "Parabolic SAR",
+      "esperado": null,
+      "fuente": "sin medir todavía"
+    },
+    "otra": {
+      "nombre": "Otras señales",
+      "esperado": null,
+      "fuente": "sin medir todavía"
     }
   },
   "descartadas": [

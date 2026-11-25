@@ -3296,7 +3296,7 @@
     // 2. direccion
     bloque('ce-dir', c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '', '¿Para dónde?', [
       vTira(c.a_favor, c.en_contra),
-      okv(c.prob_sube) ? vMedidor(num(c.prob_sube), 50, 'toca primero arriba', null, num(c.prob_sube) >= 50 ? 'up' : 'dn') : null], [lista('direccion')]);
+      okv(c.primero_arriba) ? vMedidor(num(c.primero_arriba), 50, 'toca primero arriba', null, num(c.primero_arriba) >= 50 ? 'up' : 'dn') : null], [lista('direccion')]);
     // 3. mapa de precios: rango, objetivos y niveles en una escalera, con el precio de ahora en su lugar
     const ahora = sum && okv(sum.precio) ? num(sum.precio) : null;
     const pts = [];
