@@ -1,5 +1,5 @@
 {
- "actualizado": 1795570926151,
+ "actualizado": 1795571887252,
  "desde": 1794769200000,
  "hasta": 1795568400000,
  "plazos": [
@@ -345,13 +345,13 @@
    "tf": "5m",
    "h": 3,
    "horizonte": "15 min",
-   "n": 2839,
-   "n_ef": 946.3,
+   "n": 2840,
+   "n_ef": 946.7,
    "brier": 0.2533,
    "ventaja_50": -1.33,
    "ventaja_normal": -0.27,
-   "n_normal": 2839,
-   "n_ef_normal": 946.3,
+   "n_normal": 2840,
+   "n_ef_normal": 946.7,
    "clima_dias": 26.1,
    "logloss": 0.6998,
    "calibracion": [
@@ -365,7 +365,7 @@
     {
      "desde": 40,
      "hasta": 60,
-     "n": 2786,
+     "n": 2787,
      "prob": 47.7,
      "real": 53.9
     },
@@ -382,20 +382,20 @@
    "tf": "15m",
    "h": 4,
    "horizonte": "1 hora",
-   "n": 968,
-   "n_ef": 242.0,
+   "n": 969,
+   "n_ef": 242.2,
    "brier": 0.2501,
    "ventaja_50": -0.05,
-   "ventaja_normal": -0.08,
-   "n_normal": 968,
-   "n_ef_normal": 242.0,
+   "ventaja_normal": -0.1,
+   "n_normal": 969,
+   "n_ef_normal": 242.2,
    "clima_dias": 26.1,
    "logloss": 0.6934,
    "calibracion": [
     {
      "desde": 40,
      "hasta": 60,
-     "n": 968,
+     "n": 969,
      "prob": 50.2,
      "real": 47.1
     }
@@ -405,15 +405,15 @@
    "tf": "5m",
    "h": 12,
    "horizonte": "1 hora",
-   "n": 2833,
-   "n_ef": 236.1,
-   "brier": 0.2518,
-   "ventaja_50": -0.71,
-   "ventaja_normal": -0.47,
-   "n_normal": 2833,
-   "n_ef_normal": 236.1,
+   "n": 2836,
+   "n_ef": 236.3,
+   "brier": 0.2517,
+   "ventaja_50": -0.7,
+   "ventaja_normal": -0.48,
+   "n_normal": 2836,
+   "n_ef_normal": 236.3,
    "clima_dias": 26.1,
-   "logloss": 0.6968,
+   "logloss": 0.6967,
    "calibracion": [
     {
      "desde": 20,
@@ -425,9 +425,9 @@
     {
      "desde": 40,
      "hasta": 60,
-     "n": 2730,
+     "n": 2733,
      "prob": 47.7,
-     "real": 48.5
+     "real": 48.4
     },
     {
      "desde": 60,
@@ -479,22 +479,22 @@
    "tf": "15m",
    "h": 16,
    "horizonte": "4 horas",
-   "n": 956,
+   "n": 957,
    "n_ef": 59.8,
-   "brier": 0.2462,
-   "ventaja_50": 1.5,
-   "ventaja_normal": 0.52,
-   "n_normal": 956,
+   "brier": 0.2461,
+   "ventaja_50": 1.54,
+   "ventaja_normal": 0.55,
+   "n_normal": 957,
    "n_ef_normal": 59.8,
    "clima_dias": 26.1,
-   "logloss": 0.6857,
+   "logloss": 0.6855,
    "calibracion": [
     {
      "desde": 20,
      "hasta": 40,
-     "n": 24,
-     "prob": 35.8,
-     "real": 66.7
+     "n": 25,
+     "prob": 35.9,
+     "real": 64.0
     },
     {
      "desde": 40,
@@ -743,37 +743,45 @@
    "n_ef": 1082.0,
    "cobertura": 64.7,
    "ancho": 0.427,
-   "winkler": 0.928
+   "winkler": 0.928,
+   "factor_80": 1.49,
+   "cobertura_factor": 79.9
   },
   {
    "tf": "5m",
    "h": 3,
    "horizonte": "15 min",
-   "n": 2839,
-   "n_ef": 946.3,
+   "n": 2840,
+   "n_ef": 946.7,
    "cobertura": 76.3,
    "ancho": 0.799,
-   "winkler": 1.436
+   "winkler": 1.435,
+   "factor_80": 1.099,
+   "cobertura_factor": 80.0
   },
   {
    "tf": "15m",
    "h": 4,
    "horizonte": "1 hora",
-   "n": 968,
-   "n_ef": 242.0,
+   "n": 969,
+   "n_ef": 242.2,
    "cobertura": 74.7,
    "ancho": 1.481,
-   "winkler": 3.073
+   "winkler": 3.071,
+   "factor_80": 1.157,
+   "cobertura_factor": 80.1
   },
   {
    "tf": "5m",
    "h": 12,
    "horizonte": "1 hora",
-   "n": 2833,
-   "n_ef": 236.1,
-   "cobertura": 78.4,
+   "n": 2836,
+   "n_ef": 236.3,
+   "cobertura": 78.5,
    "ancho": 1.59,
-   "winkler": 2.899
+   "winkler": 2.897,
+   "factor_80": 1.055,
+   "cobertura_factor": 80.0
   },
   {
    "tf": "30m",
@@ -783,17 +791,21 @@
    "n_ef": 121.8,
    "cobertura": 72.1,
    "ancho": 1.952,
-   "winkler": 4.429
+   "winkler": 4.429,
+   "factor_80": 1.264,
+   "cobertura_factor": 79.9
   },
   {
    "tf": "15m",
    "h": 16,
    "horizonte": "4 horas",
-   "n": 956,
+   "n": 957,
    "n_ef": 59.8,
    "cobertura": 77.1,
    "ancho": 3.262,
-   "winkler": 5.744,
+   "winkler": 5.741,
+   "factor_80": 1.094,
+   "cobertura_factor": 79.9,
    "pocos": true
   },
   {
@@ -805,6 +817,8 @@
    "cobertura": 73.3,
    "ancho": 3.017,
    "winkler": 5.678,
+   "factor_80": 1.183,
+   "cobertura_factor": 80.7,
    "pocos": true
   },
   {
@@ -816,6 +830,8 @@
    "cobertura": 70.8,
    "ancho": 2.631,
    "winkler": 5.495,
+   "factor_80": 1.307,
+   "cobertura_factor": 80.0,
    "pocos": true
   },
   {
@@ -827,6 +843,8 @@
    "cobertura": 75.6,
    "ancho": 4.381,
    "winkler": 7.315,
+   "factor_80": 1.137,
+   "cobertura_factor": 80.2,
    "pocos": true
   },
   {
@@ -838,6 +856,8 @@
    "cobertura": 64.4,
    "ancho": 4.586,
    "winkler": 9.263,
+   "factor_80": 1.42,
+   "cobertura_factor": 81.4,
    "pocos": true
   },
   {
@@ -849,6 +869,8 @@
    "cobertura": 74.9,
    "ancho": 7.663,
    "winkler": 12.365,
+   "factor_80": 1.179,
+   "cobertura_factor": 80.3,
    "pocos": true
   },
   {
@@ -860,6 +882,8 @@
    "cobertura": 64.3,
    "ancho": 6.414,
    "winkler": 13.432,
+   "factor_80": 1.382,
+   "cobertura_factor": 78.6,
    "pocos": true
   },
   {
@@ -871,6 +895,8 @@
    "cobertura": 33.3,
    "ancho": 9.711,
    "winkler": 37.656,
+   "factor_80": 2.476,
+   "cobertura_factor": 88.9,
    "pocos": true
   },
   {
@@ -882,6 +908,8 @@
    "cobertura": 28.6,
    "ancho": 14.173,
    "winkler": 65.078,
+   "factor_80": 2.403,
+   "cobertura_factor": 71.4,
    "pocos": true
   }
  ]
