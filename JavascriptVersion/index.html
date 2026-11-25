@@ -49,15 +49,15 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
 <script>/* si el estilo no llega (falla de red o un despliegue a medias), se pide de nuevo sin cache: antes quedaba la pagina sin estilo */
 window.abCss = function () { try { var n = (window.abCssN = (window.abCssN || 0) + 1); if (n > 3) return;
-  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'p-8c8808e7c9.css?r=' + Date.now(); l.onerror = function () { setTimeout(window.abCss, 1500 * n); };
+  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'p-4cfbcf805a.css?r=' + Date.now(); l.onerror = function () { setTimeout(window.abCss, 1500 * n); };
   document.head.appendChild(l); } catch (e) {} };
 addEventListener('load', function () { try { if (!getComputedStyle(document.documentElement).getPropertyValue('--ab-css')) window.abCss(); } catch (e) {} });</script>
-<link rel="stylesheet" href="p-8c8808e7c9.css" onerror="abCss()">
-<script>window.AB_PAGINA = "398ce6d02c";</script>
+<link rel="stylesheet" href="p-4cfbcf805a.css" onerror="abCss()">
+<script>window.AB_PAGINA = "24e398be3a";</script>
 <script defer src="app.js?v=4cfcba3d47"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-ff31362ed2.js"></script>
+<script defer src="p-db6f94fac8.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -193,11 +193,14 @@ addEventListener('load', function () { try { if (!getComputedStyle(document.docu
   <!-- el analisis central: todos los calculos convergen en 5 puntos, en la temporalidad elegida (fila 'central') -->
   <section class="ab-card ab-resp" id="respuesta" aria-labelledby="rs-t" data-source="analisis" hidden>
     <div class="ab-rs-h"><h2 id="rs-t">En la próxima hora</h2><span class="ab-kicker" id="rs-k"></span></div>
-    <div class="ab-rs-top">
-      <div class="ab-rs-d"><b id="rs-dir" class="ab-rs-dir">—</b><small id="rs-prob" class="ab-rs-prob"></small><small id="rs-sen"></small></div>
-      <div class="ab-rs-mov" id="rs-mov"></div>
+    <div class="ab-rs-card">
+      <b id="rs-dir" class="ab-rs-dir">—</b>
+      <small id="rs-prob" class="ab-rs-prob"></small>
+      <p class="ab-rs-rg" id="rs-rango" hidden></p>
+      <p class="ab-rs-niv" id="rs-niv" hidden></p>
+      <p class="ab-rs-aviso" id="rs-aviso" hidden></p>
+      <p class="ab-rs-ciclo" id="rs-ciclo" hidden></p>
     </div>
-    <div class="ab-rs-rango" id="rs-rango" hidden></div>
     <div class="ab-ce-riesgo" id="rs-riesgo" hidden></div>
   </section>
   <section class="ab-card ab-centro" id="centro" aria-labelledby="ce-t" data-source="analisis" hidden>

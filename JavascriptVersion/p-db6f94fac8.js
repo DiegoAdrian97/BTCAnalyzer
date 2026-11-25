@@ -811,41 +811,30 @@
   // completo, en 6 partes (ver PARTES), sin repetir la conclusion.
   function drawRespuesta(rows, sum, c) {
     const sec = document.getElementById('respuesta'); sec.hidden = !c; if (!c) return;
-    const ahora = sum && okv(sum.precio) ? num(sum.precio) : null;
     const plazo = CE_PLAZO[c.tf];
     document.documentElement.classList.toggle('ab-plazo-largo', /^1 (semana|mes)$/.test(S.plazo));   // el ciclo, en la vista simple, solo a 1 semana o 1 mes
     document.getElementById('rs-t').textContent = plazo ? `En ${plazoTxt(plazo)}` : `Velas de ${TF_TXT[c.tf] || c.tf}`;
     document.getElementById('rs-k').textContent = `${MON()}${hastaTxt(c)}`;
     // veredicto: el de la probabilidad del plazo (lo medido); la direccion por puntos queda como linea secundaria
     const vz = veredictoPlazo(rows, c);
-    const dw = document.getElementById('rs-dir'); dw.className = `ab-rs-dir ${vz.dir}`.trim(); dw.textContent = vz.txt;
-    const pr = document.getElementById('rs-prob'); pr.replaceChildren();
-    if (vz.p) { pr.append(`Cierra arriba ${f0(vz.up)}% · lo normal ${f0(vz.base)}%`); if (vz.p.fuente_sube === 'modelo') pr.append(el('span', '', ' · modelo medido')); }
-    const cnt = (x) => String(num(x) || 0).replace('.', ',');
-    document.getElementById('rs-sen').textContent = `Señales técnicas: ▲ ${cnt(c.a_favor)} · ▼ ${cnt(c.en_contra)}`;
-    // movimiento fuerte: la chance contra lo normal, en una barra
-    const pf = num(c.prob_fuerte), pn = num(c.prob_normal), mv = document.getElementById('rs-mov');
-    mv.className = `ab-rs-mov${c.fuerza === 'alta' ? ' alta' : c.fuerza === 'media' ? ' media' : ''}`;
-    mv.hidden = !okv(pf);                       // sin dato (plazos largos) no se muestra la tarjeta
-    if (okv(pf)) {
-      const tope = Math.max(pf, (pn || 0) * 2, 10);
-      mv.replaceChildren(el('small', '', 'Movimiento fuerte'), el('b', '', c.fuerza === 'alta' ? `⚡ ${f0(pf)}%` : `${f0(pf)}%`),
-        Object.assign(el('span', 'ab-rs-bar'), { innerHTML: `<i style="width:${Math.min(100, pf / tope * 100).toFixed(1)}%"></i>${okv(pn) ? `<u style="left:${Math.min(100, pn / tope * 100).toFixed(1)}%"></u>` : ''}` }),
-        el('span', 'ab-rs-sub', okv(pn) ? `lo normal: ${f0(pn)}%` : ''));
-    } else mv.replaceChildren();
-    // rango: barra con el piso y el techo, el precio de ahora y el soporte y la resistencia mas cercanos
-    const rg = document.getElementById('rs-rango'), lo = num(c.rango_min), hi = num(c.rango_max), so = num(c.soporte), re = num(c.resistencia);
-    if (okv(lo) && okv(hi)) {
-      const vals = [lo, hi, so, re, ahora].filter((x) => okv(x) && x > 0), mn = Math.min(...vals), mx = Math.max(...vals), w = mx - mn || 1;
-      const x = (v) => `${((v - mn) / w * 92 + 4).toFixed(2)}%`;
-      const bar = el('div', 'ab-rs-rbar');
-      bar.innerHTML = `<i class="r" style="left:${x(lo)};width:calc(${x(hi)} - ${x(lo)})"></i>${okv(so) ? `<i class="s" style="left:${x(so)}"></i>` : ''}${okv(re) ? `<i class="e" style="left:${x(re)}"></i>` : ''}${ahora ? `<i class="a" style="left:${x(ahora)}"></i>` : ''}`;
-      const et = el('div', 'ab-rs-rlbl');
-      const lab = (cls, k, v) => { const s = el('span', cls); s.append(el('small', '', k), el('b', '', fp(v))); return s; };
-      const mid = el('span', 'm'); mid.append(el('small', '', '8 de cada 10 veces termina entre'), el('b', '', `${fp(lo)} y ${fp(hi)}`));
-      et.append(okv(so) ? lab('s', 'Soporte', so) : el('span'), mid, okv(re) ? lab('e', 'Resistencia', re) : el('span'));
-      rg.replaceChildren(bar, et); rg.hidden = false;
-    } else rg.hidden = true;
+    const dw = document.getElementById('rs-dir'); dw.className = `ab-rs-dir ${vz.dir}`.trim();
+    dw.dataset.corto = vz.dir === 'sube' ? '▲ Suba probable' : vz.dir === 'baja' ? '▼ Baja probable' : 'Sin dirección clara';
+    dw.textContent = vz.dir === 'sube' ? '▲ Más probable que suba' : vz.dir === 'baja' ? '▼ Más probable que baje' : 'Sin dirección clara';
+    const pr = document.getElementById('rs-prob');
+    pr.textContent = vz.p && okv(vz.up) ? `Sube ${f0(vz.up)}% · baja ${f0(100 - vz.up)}%` : '';
+    const lo = num(c.rango_min), hi = num(c.rango_max), so = num(c.soporte), re = num(c.resistencia);
+    const rg = document.getElementById('rs-rango'); rg.hidden = !(okv(lo) && okv(hi));
+    if (!rg.hidden) rg.replaceChildren(`Lo esperable: que termine entre ${fp(lo)} y ${fp(hi)}`, el('small', '', '8 de cada 10 veces'));
+    const nv = document.getElementById('rs-niv'); nv.hidden = !(okv(so) || okv(re)); nv.replaceChildren();
+    if (okv(so)) nv.append('Soporte ', el('span', 's', fp(so)));
+    if (okv(so) && okv(re)) nv.append(' · ');
+    if (okv(re)) nv.append('Resistencia ', el('span', 'e', fp(re)));
+    const pf = num(c.prob_fuerte), pn = num(c.prob_normal), av = document.getElementById('rs-aviso');
+    av.hidden = !(c.fuerza === 'alta' || (okv(pf) && okv(pn) && pn > 0 && pf >= 2 * pn));
+    av.textContent = '⚡ Puede moverse fuerte (más del doble de lo normal)';
+    const tmr = pick(rows, 'termometro')[0], cl = document.getElementById('rs-ciclo');
+    cl.hidden = !(tmr && okv(tmr.medidor) && /^1 (semana|mes)$/.test(S.plazo));
+    if (!cl.hidden) cl.textContent = `Ciclo: ${tmr.medidor_zona} (${f0(num(tmr.medidor))}/100)`;
     // el aviso si hay riesgo (el de "los casos parecidos dicen lo contrario" ya no hace falta: el veredicto de arriba es ese)
     const rz = document.getElementById('rs-riesgo'), rsk = c.riesgo.filter((t) => !/ lo contrario: /.test(t)); rz.hidden = !rsk.length;
     rz.replaceChildren(el('b', '', '⚠ Atención: '), rsk.join(' · '));
@@ -1206,7 +1195,7 @@
     document.getElementById('mini-p').textContent = pe && pe.firstChild ? pe.firstChild.textContent : '—';
     const mc = document.getElementById('mini-c'); mc.textContent = c ? c.textContent : ''; mc.className = c ? c.className : '';
     const d = document.getElementById('rs-dir'), f = document.querySelector('#ce-tira [data-k="fz"] b');
-    document.getElementById('mini-h').textContent = d && d.textContent !== '—' ? `${d.textContent}${f && !/^No/.test(f.textContent) ? ' · ⚡ fuerte' : ''}` : '';
+    document.getElementById('mini-h').textContent = d && d.textContent !== '—' ? `${d.dataset.corto || d.textContent}${f && !/^No/.test(f.textContent) ? ' · ⚡ fuerte' : ''}` : '';
   }
   if ('IntersectionObserver' in window) {
     const ojo = new IntersectionObserver(([e]) => {

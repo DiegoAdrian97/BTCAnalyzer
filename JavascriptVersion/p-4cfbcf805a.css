@@ -2063,6 +2063,20 @@
   .ab-rs-d .ab-rs-prob span { color: var(--t2-mute); font-weight: 500; }
   .ab-rs-d .ab-rs-prob:empty, #rs-sen:empty { display: none; }
 
+  /* la vista simple: una sola tarjeta con la respuesta en palabras */
+  .ab-rs-card { display: grid; gap: 8px; padding: 16px; border-radius: 14px; background: var(--t2-sunk); border: 1px solid var(--t2-line); }
+  .ab-rs-card > p, .ab-rs-card > small { margin: 0; }
+  .ab-rs-card [hidden] { display: none !important; }
+  .ab-rs-card .ab-rs-prob { font-size: 13px; color: var(--t2-mute); font-weight: 500; font-variant-numeric: tabular-nums; margin-top: 0; }
+  .ab-rs-rg { font-size: 1.05rem; font-weight: 600; line-height: 1.35; padding-top: 10px; border-top: 1px solid var(--t2-line); font-variant-numeric: tabular-nums; }
+  .ab-rs-rg small { display: block; margin-top: 2px; font-size: 12px; font-weight: 500; color: var(--t2-mute); }
+  .ab-rs-niv { font-size: 13px; color: var(--t2-mute); font-variant-numeric: tabular-nums; }
+  .ab-rs-niv .s { color: var(--color-ok); font-weight: 600; } .ab-rs-niv .e { color: var(--color-bad); font-weight: 600; }
+  .ab-rs-aviso { font-size: 13.5px; font-weight: 600; color: var(--color-warn); }
+  .ab-rs-ciclo { font-size: 13px; color: var(--t2-mute); padding-top: 8px; border-top: 1px solid var(--t2-line); }
+  .ab-rs-card .ab-rs-prob:empty { display: none; }
+  html:not(.ab-simple) .ab-rs-ciclo, html.ab-simple #rs-riesgo { display: none !important; }
+  html.ab-simple .ab-hoja > .ab-tm-tab, html.ab-simple #orden-btn, html.ab-simple #grafico:not(.ab-fs) > #ex-box { display: none !important; }
   .ab-gauge-med { display: block; margin-top: 4px; font-size: 11.5px; line-height: 1.35; max-width: 32ch; justify-self: center; }
 
   :root { --ab-css: 1; }   /* marca: la pagina comprueba con esto que el estilo cargo */
