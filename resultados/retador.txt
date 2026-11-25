@@ -5,8 +5,10 @@ Ventaja = 1 - Brier/Brier de la tasa normal (365 días), con IC90 por bootstrap 
 tasa normal: Brier 0.2500  log loss 0.6931
 logística: Brier 0.2487  ventaja +0.50% [+0.36, +0.65]  log loss 0.6906
 LightGBM: Brier 0.2486  ventaja +0.56% [+0.38, +0.77]  log loss 0.6912
+logística sin taker: Brier 0.2487  ventaja +0.51% [+0.39, +0.64]  log loss 0.6905
 abstención logística: top 10%: acierto 56.4% n_ef 2373 bruto -0.3 neto -10.3 pb; top 20%: acierto 56.5% n_ef 5822 bruto +1.0 neto -9.0 pb
 abstención LightGBM: top 10%: acierto 58.2% n_ef 5177 bruto +2.1 neto -7.9 pb; top 20%: acierto 56.5% n_ef 9151 bruto +1.2 neto -8.8 pb
+abstención logística sin taker: top 10%: acierto 56.2% n_ef 2390 bruto -0.3 neto -10.3 pb; top 20%: acierto 56.7% n_ef 5811 bruto +0.7 neto -9.3 pb
 ventaja por régimen de 168 h (logíst./LGBM): sube>5% (n_ef 6918): +0.6%/+0.5%; baja>5% (n_ef 5037): +0.5%/+0.6%; medio (n_ef 22197): +0.5%/+0.6%
 rango 90d tal cual: cobertura 79.4% (meta 80), ancho 0.91%, Winkler 1.74
 rango 90d escalado por vol: cobertura 76.9% (meta 80), ancho 0.85%, Winkler 1.67
@@ -14,8 +16,10 @@ rango 90d escalado por vol: cobertura 76.9% (meta 80), ancho 0.85%, Winkler 1.67
 tasa normal: Brier 0.2500  log loss 0.6931
 logística: Brier 0.2489  ventaja +0.46% [+0.22, +0.71]  log loss 0.6909
 LightGBM: Brier 0.2496  ventaja +0.16% [-0.11, +0.45]  log loss 0.6929
+logística sin taker: Brier 0.2487  ventaja +0.51% [+0.26, +0.77]  log loss 0.6906
 abstención logística: top 10%: acierto 57.3% n_ef 561 bruto +9.4 neto -0.6 pb; top 20%: acierto 57.1% n_ef 1354 bruto +4.9 neto -5.1 pb
 abstención LightGBM: top 10%: acierto 55.4% n_ef 1414 bruto +2.3 neto -7.7 pb; top 20%: acierto 54.7% n_ef 2396 bruto +1.4 neto -8.6 pb
+abstención logística sin taker: top 10%: acierto 58.1% n_ef 576 bruto +7.3 neto -2.7 pb; top 20%: acierto 57.6% n_ef 1392 bruto +5.4 neto -4.6 pb
 ventaja por régimen de 168 h (logíst./LGBM): sube>5% (n_ef 1730): +0.6%/+0.3%; baja>5% (n_ef 1258): +0.9%/+0.4%; medio (n_ef 5549): +0.3%/+0.1%
 rango 90d tal cual: cobertura 79.3% (meta 80), ancho 1.89%, Winkler 3.53
 rango 90d escalado por vol: cobertura 76.6% (meta 80), ancho 1.78%, Winkler 3.45
@@ -23,11 +27,13 @@ rango 90d escalado por vol: cobertura 76.6% (meta 80), ancho 1.78%, Winkler 3.45
 tasa normal: Brier 0.2502  log loss 0.6935
 logística: Brier 0.2495  ventaja +0.28% [-0.18, +0.75]  log loss 0.6921
 LightGBM: Brier 0.2519  ventaja -0.68% [-1.22, -0.10]  log loss 0.7016
+logística sin taker: Brier 0.2496  ventaja +0.23% [-0.28, +0.73]  log loss 0.6924
 abstención logística: top 10%: acierto 56.3% n_ef 84 bruto +39.8 neto +29.8 pb; top 20%: acierto 55.9% n_ef 217 bruto +18.4 neto +8.4 pb
 abstención LightGBM: top 10%: acierto 51.6% n_ef 633 bruto -5.5 neto -15.5 pb; top 20%: acierto 51.6% n_ef 831 bruto -5.1 neto -15.1 pb
+abstención logística sin taker: top 10%: acierto 55.3% n_ef 83 bruto +23.5 neto +13.5 pb; top 20%: acierto 55.3% n_ef 216 bruto +8.2 neto -1.8 pb
 ventaja por régimen de 168 h (logíst./LGBM): sube>5% (n_ef 288): +1.2%/-0.2%; baja>5% (n_ef 209): +0.4%/-0.2%; medio (n_ef 924): -0.0%/-0.9%
 rango 90d tal cual: cobertura 79.0% (meta 80), ancho 5.29%, Winkler 8.88
 rango 90d escalado por vol: cobertura 74.9% (meta 80), ancho 4.97%, Winkler 8.95
-Veredicto H=1 h: logística le gana a la tasa normal (lím. inf. IC90 +0.36%); LightGBM le gana a la tasa normal (lím. inf. IC90 +0.38%)
-Veredicto H=4 h: logística le gana a la tasa normal (lím. inf. IC90 +0.22%); LightGBM no le gana a la tasa normal (lím. inf. IC90 -0.11%)
-Veredicto H=24 h: logística no le gana a la tasa normal (lím. inf. IC90 -0.18%); LightGBM no le gana a la tasa normal (lím. inf. IC90 -1.22%)
+Veredicto H=1 h: logística le gana a la tasa normal (lím. inf. IC90 +0.36%); LightGBM le gana a la tasa normal (lím. inf. IC90 +0.38%); logística sin taker le gana a la tasa normal (lím. inf. IC90 +0.39%)
+Veredicto H=4 h: logística le gana a la tasa normal (lím. inf. IC90 +0.22%); LightGBM no le gana a la tasa normal (lím. inf. IC90 -0.11%); logística sin taker le gana a la tasa normal (lím. inf. IC90 +0.26%)
+Veredicto H=24 h: logística no le gana a la tasa normal (lím. inf. IC90 -0.18%); LightGBM no le gana a la tasa normal (lím. inf. IC90 -1.22%); logística sin taker no le gana a la tasa normal (lím. inf. IC90 -0.28%)
