@@ -1,58 +1,48 @@
 {
- "actualizado": 1795555022307,
+ "actualizado": 1795570244278,
  "desde": 1794769200000,
- "hasta": 1795554000000,
+ "hasta": 1795568400000,
  "plazos": [
-  {
-   "plazo": "5 min",
-   "n": 0,
-   "acierto": null,
-   "n_fuerte": 0,
-   "acierto_fuerte": null,
-   "retorno_pb": null,
-   "laterales": 150
-  },
-  {
-   "plazo": "15 min",
-   "n": 0,
-   "acierto": null,
-   "n_fuerte": 0,
-   "acierto_fuerte": null,
-   "retorno_pb": null,
-   "laterales": 150
-  },
   {
    "plazo": "1 hora",
    "n": 54,
+   "n_ef": 54,
    "acierto": 53.7,
    "n_fuerte": 21,
+   "n_ef_fuerte": 21,
    "acierto_fuerte": 61.9,
    "retorno_pb": 25.3,
-   "laterales": 95
+   "laterales": 99
   },
   {
    "plazo": "4 horas",
-   "n": 26,
-   "acierto": 53.8,
-   "n_fuerte": 13,
-   "acierto_fuerte": 69.2,
-   "retorno_pb": -19.5,
-   "laterales": 120
+   "n": 28,
+   "n_ef": 7,
+   "acierto": 53.6,
+   "n_fuerte": 14,
+   "n_ef_fuerte": 4,
+   "acierto_fuerte": 64.3,
+   "retorno_pb": -18.5,
+   "laterales": 122
   },
   {
    "plazo": "1 día",
    "n": 0,
+   "n_ef": 0,
    "acierto": null,
    "n_fuerte": 0,
+   "n_ef_fuerte": 0,
    "acierto_fuerte": null,
    "retorno_pb": null,
-   "laterales": 126
+   "laterales": 130
   },
   {
    "plazo": "1 semana",
    "n": 0,
+   "n_ef": 0,
    "acierto": null,
    "n_fuerte": 0,
+   "n_ef_fuerte": 0,
    "acierto_fuerte": null,
    "retorno_pb": null,
    "laterales": 48
@@ -60,56 +50,12 @@
  ],
  "senales": [
   {
-   "plazo": "5 min",
-   "clave": "indicadores",
-   "nombre": "Resumen de indicadores, al revés (4 h o menos)",
-   "n": 134,
-   "acierto": 50.0,
-   "esperado": 53,
-   "estado": "ok"
-  },
-  {
-   "plazo": "5 min",
-   "clave": "bollinger",
-   "nombre": "Fuera de Bollinger: vuelve adentro (4 h o menos)",
-   "n": 11,
-   "acierto": 72.7,
-   "esperado": 56,
-   "estado": "pocos"
-  },
-  {
-   "plazo": "15 min",
-   "clave": "indicadores",
-   "nombre": "Resumen de indicadores, al revés (4 h o menos)",
-   "n": 137,
-   "acierto": 47.4,
-   "esperado": 53,
-   "estado": "ok"
-  },
-  {
-   "plazo": "15 min",
-   "clave": "bollinger",
-   "nombre": "Fuera de Bollinger: vuelve adentro (4 h o menos)",
-   "n": 17,
-   "acierto": 52.9,
-   "esperado": 56,
-   "estado": "pocos"
-  },
-  {
-   "plazo": "15 min",
-   "clave": "divergencia",
-   "nombre": "divergencia",
-   "n": 2,
-   "acierto": 50.0,
-   "esperado": 50,
-   "estado": "pocos"
-  },
-  {
    "plazo": "1 hora",
    "clave": "indicadores",
    "nombre": "Resumen de indicadores, al revés (4 h o menos)",
-   "n": 133,
-   "acierto": 48.1,
+   "n": 137,
+   "n_ef": 137,
+   "acierto": 48.2,
    "esperado": 53,
    "estado": "ok"
   },
@@ -117,8 +63,9 @@
    "plazo": "1 hora",
    "clave": "liquidaciones",
    "nombre": "Liquidaciones, al revés",
-   "n": 114,
-   "acierto": 48.2,
+   "n": 118,
+   "n_ef": 118,
+   "acierto": 48.3,
    "esperado": 52.5,
    "estado": "ok"
   },
@@ -127,6 +74,7 @@
    "clave": "oi",
    "nombre": "Open interest",
    "n": 38,
+   "n_ef": 38,
    "acierto": 63.2,
    "esperado": 50,
    "estado": "pocos"
@@ -136,6 +84,7 @@
    "clave": "coinciden",
    "nombre": "15 min, 1 hora y 4 horas coinciden",
    "n": 19,
+   "n_ef": 19,
    "acierto": 47.4,
    "esperado": 50,
    "estado": "pocos"
@@ -145,6 +94,7 @@
    "clave": "rsi",
    "nombre": "RSI extremo: posible reversión (15 min y 1 h)",
    "n": 18,
+   "n_ef": 18,
    "acierto": 61.1,
    "esperado": 54.5,
    "estado": "pocos"
@@ -154,6 +104,7 @@
    "clave": "barrida",
    "nombre": "Barrida de liquidez",
    "n": 16,
+   "n_ef": 16,
    "acierto": 50.0,
    "esperado": 53.5,
    "estado": "pocos"
@@ -163,6 +114,7 @@
    "clave": "bollinger",
    "nombre": "Fuera de Bollinger: vuelve adentro (4 h o menos)",
    "n": 11,
+   "n_ef": 11,
    "acierto": 63.6,
    "esperado": 56,
    "estado": "pocos"
@@ -172,6 +124,7 @@
    "clave": "cvd",
    "nombre": "Divergencia de CVD",
    "n": 3,
+   "n_ef": 3,
    "acierto": 66.7,
    "esperado": 50,
    "estado": "pocos"
@@ -179,8 +132,9 @@
   {
    "plazo": "1 hora",
    "clave": "divergencia",
-   "nombre": "divergencia",
+   "nombre": "Divergencia de precio e indicador",
    "n": 2,
+   "n_ef": 2,
    "acierto": 100.0,
    "esperado": 50,
    "estado": "pocos"
@@ -190,6 +144,7 @@
    "clave": "casos",
    "nombre": "Casos parecidos",
    "n": 1,
+   "n_ef": 1,
    "acierto": 0.0,
    "esperado": 50,
    "estado": "pocos"
@@ -198,25 +153,28 @@
    "plazo": "4 horas",
    "clave": "liquidaciones",
    "nombre": "Liquidaciones, al revés",
-   "n": 111,
-   "acierto": 55.0,
+   "n": 115,
+   "n_ef": 29,
+   "acierto": 54.8,
    "esperado": 52.5,
-   "estado": "ok"
+   "estado": "pocos"
   },
   {
    "plazo": "4 horas",
    "clave": "indicadores",
    "nombre": "Resumen de indicadores, al revés (4 h o menos)",
-   "n": 110,
-   "acierto": 52.7,
+   "n": 114,
+   "n_ef": 28,
+   "acierto": 52.6,
    "esperado": 53,
-   "estado": "ok"
+   "estado": "pocos"
   },
   {
    "plazo": "4 horas",
    "clave": "cuentas",
    "nombre": "Cuentas long/short",
    "n": 33,
+   "n_ef": 8,
    "acierto": 45.5,
    "esperado": 50,
    "estado": "pocos"
@@ -225,8 +183,9 @@
    "plazo": "4 horas",
    "clave": "barrida",
    "nombre": "Barrida de liquidez",
-   "n": 14,
-   "acierto": 57.1,
+   "n": 16,
+   "n_ef": 4,
+   "acierto": 56.2,
    "esperado": 53.5,
    "estado": "pocos"
   },
@@ -235,6 +194,7 @@
    "clave": "bollinger",
    "nombre": "Fuera de Bollinger: vuelve adentro (4 h o menos)",
    "n": 13,
+   "n_ef": 3,
    "acierto": 69.2,
    "esperado": 56,
    "estado": "pocos"
@@ -244,6 +204,7 @@
    "clave": "rsi",
    "nombre": "RSI extremo: posible reversión (15 min y 1 h)",
    "n": 9,
+   "n_ef": 2,
    "acierto": 66.7,
    "esperado": 54.5,
    "estado": "pocos"
@@ -252,16 +213,18 @@
    "plazo": "4 horas",
    "clave": "cvd",
    "nombre": "Divergencia de CVD",
-   "n": 6,
-   "acierto": 83.3,
+   "n": 7,
+   "n_ef": 2,
+   "acierto": 71.4,
    "esperado": 50,
    "estado": "pocos"
   },
   {
    "plazo": "4 horas",
    "clave": "fibonacci",
-   "nombre": "fibonacci",
+   "nombre": "Nivel de Fibonacci",
    "n": 2,
+   "n_ef": 0,
    "acierto": 0.0,
    "esperado": 50,
    "estado": "pocos"
@@ -271,6 +234,7 @@
    "clave": "absorcion",
    "nombre": "Absorción en spot",
    "n": 1,
+   "n_ef": 0,
    "acierto": 100.0,
    "esperado": 50,
    "estado": "pocos"
@@ -279,8 +243,9 @@
    "plazo": "1 día",
    "clave": "liquidaciones",
    "nombre": "Liquidaciones, al revés",
-   "n": 91,
-   "acierto": 54.9,
+   "n": 95,
+   "n_ef": 4,
+   "acierto": 52.6,
    "esperado": 52.5,
    "estado": "pocos"
   },
@@ -289,6 +254,7 @@
    "clave": "cuentas",
    "nombre": "Cuentas long/short",
    "n": 33,
+   "n_ef": 1,
    "acierto": 66.7,
    "esperado": 50,
    "estado": "pocos"
@@ -296,8 +262,9 @@
   {
    "plazo": "1 día",
    "clave": "fibonacci",
-   "nombre": "fibonacci",
+   "nombre": "Nivel de Fibonacci",
    "n": 2,
+   "n_ef": 0,
    "acierto": 0.0,
    "esperado": 50,
    "estado": "pocos"
@@ -307,6 +274,7 @@
    "clave": "rsi",
    "nombre": "RSI extremo: posible reversión (15 min y 1 h)",
    "n": 43,
+   "n_ef": 0,
    "acierto": 0.0,
    "esperado": 54.5,
    "estado": "pocos"
@@ -328,14 +296,14 @@
   {
    "plazo": "4 horas",
    "puntos": "2,5 a 3,5",
-   "n": 13,
-   "acierto": 38.5
+   "n": 14,
+   "acierto": 42.9
   },
   {
    "plazo": "4 horas",
    "puntos": "3,5 o más",
-   "n": 13,
-   "acierto": 69.2
+   "n": 14,
+   "acierto": 64.3
   }
  ]
 }
