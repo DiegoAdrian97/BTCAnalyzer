@@ -116,6 +116,7 @@
   .ab-qp-all > summary { flex-wrap: wrap; }
   .ab-qp-res { flex-basis: 100%; order: 9; color: var(--mute); font-size: var(--cds-font-size-body); line-height: 1.35; }
   .ab-qp-res:empty, .ab-qp-all[open] .ab-qp-res { display: none; }
+  #qp-news-t[hidden], #qp-news-n[hidden], #qp-news[hidden], #calendario[hidden], #senales[hidden], #books[hidden], #books-h[hidden], #ctx-vacio[hidden], #creo-vivo[hidden] { display: none !important; }
   .ab-qp-car { flex: none; width: 9px; height: 9px; margin-inline: 2px 4px; border-right: 2px solid var(--mute); border-bottom: 2px solid var(--mute); transform: translateY(-2px) rotate(45deg); transition: transform .2s; }
   .ab-qp-all[open] .ab-qp-car { transform: translateY(2px) rotate(-135deg); }
   .ab-more { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
@@ -496,7 +497,7 @@
     .ab-only-touch { display: inline; } .ab-only-mouse { display: none; }
   }
   .ab-sigchip { white-space: nowrap; }
-  .ab-conclu { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 12px; padding: 12px 16px; margin: 0 0 var(--cds-gap-md, 16px);
+  .ab-conclu { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; padding: 12px 16px; margin: 0 0 var(--cds-gap-md, 16px);
     border-radius: var(--cds-radius, 14px); background: var(--soft); }
   .ab-conclu[hidden] { display: none; }
   /* ---------- analisis central ---------- */
@@ -514,6 +515,7 @@
      "Ver el analisis completo" y queda recordado en el telefono ---------- */
   html.ab-simple :is(#que-espero, #aprendizaje, #mas-detalle, #scen-note, #mov-txt, #apr-line, #fed-line, #news-line, #r-cal,
     #gauge-votes, #strip, #mov-k, #pred-n, #mov-vol, #mov-normal, .ab-cc-mas, #cmp-foot-bx, #cmp-foot-plan, #pos-bx-nota, #pos-foot-plan, #qp-note) { display: none !important; }
+  html.ab-simple:not(.ab-plazo-largo) .ab-hoja > .ab-tm-tab { display: none !important; }
   html.ab-simple .ab-pills .ab-pill:nth-child(n+3) { display: none; }           /* quedan 24 h y 7 dias */
   html.ab-simple #prediccion :is(.ab-tug-wrap, .ab-likely) { display: none; }   /* queda la conclusion y su titular */
   html.ab-simple .ab-card > .ab-note, html.ab-simple .ab-hero-main > .ab-note { display: none; }
@@ -1868,6 +1870,7 @@
   .ab-rs-top { gap: 10px !important; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) !important; align-items: stretch !important; }
   .ab-rs-top > .ab-rs-d { grid-column: 1; grid-row: 1; display: grid; align-content: center; padding: 14px 16px; border-radius: 14px; background: var(--t2-sunk); border: 1px solid var(--t2-line); position: relative; }
   .ab-rs-top > .ab-rs-dial { grid-column: 1; grid-row: 1; justify-self: end; align-self: center; margin-right: 14px; width: 58px !important; height: 33px !important; }
+  .ab-rs-mov[hidden] { display: none !important; }
   .ab-rs-top > .ab-rs-mov { grid-column: 2; grid-row: 1; padding: 14px 16px; border-radius: 14px; background: var(--t2-sunk); border: 1px solid var(--t2-line); }
   @media (max-width: 999.98px) { .ab-rs-top { grid-template-columns: minmax(0, 1fr) !important; } .ab-rs-top > .ab-rs-mov { grid-column: 1; grid-row: 2; } .ab-rs-top > .ab-rs-dial { align-self: center !important; margin-top: 0; } }
   .ab-rs-dir { font-size: clamp(1.9rem, 3vw, 2.4rem) !important; font-weight: 700 !important; }
@@ -1936,6 +1939,8 @@
   #ce-dir > .ab-v-tira > b { font-size: 14px; }
   /* las estadisticas: tres por fila tambien en la hoja (antes una debajo de la otra) */
   .ab .ab-hoja .ab-apr-top { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .ab .ab-hoja #creo-vivo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ab-hoja #creo-vivo .ab-apr-stat span { display: block; }   /* aca la cifra de apoyo (efectivos, meta) es parte del dato */
   .ab-hoja .ab-apr-stat { padding: 10px 12px !important; border-radius: 14px; align-content: start; }
   .ab-hoja .ab-apr-stat small { font-size: 11.5px; line-height: 1.25; }
   .ab-hoja .ab-apr-stat b { font-size: 1.4rem !important; }
@@ -2052,10 +2057,11 @@
   .ab-hoja .ab-tm-tab { flex-wrap: wrap; row-gap: 6px; }
 
   /* posibilidad de reversion por RSI, en la respuesta */
-  .ab-rs-rev { margin-top: 8px; padding: 7px 12px; border-radius: 12px; font-size: 13px; background: var(--t2-sunk); border: 1px solid var(--vidrio-borde); cursor: help; }
-  .ab-rs-rev[hidden] { display: none; }
-  .ab-rs-rev.dn b { color: var(--color-bad); } .ab-rs-rev.up b { color: var(--color-ok); }
-  .ab-rs-rev span { color: var(--t2-mute); }
+  /* la linea de la probabilidad y la de las señales tecnicas, debajo del veredicto */
+  .ab-rs-d small { margin-top: 5px; line-height: 1.35; font-variant-numeric: tabular-nums; }
+  .ab-rs-d .ab-rs-prob { font-size: 13.5px; color: var(--t2-ink); font-weight: 600; margin-top: 7px; }
+  .ab-rs-d .ab-rs-prob span { color: var(--t2-mute); font-weight: 500; }
+  .ab-rs-d .ab-rs-prob:empty, #rs-sen:empty { display: none; }
 
   .ab-gauge-med { display: block; margin-top: 4px; font-size: 11.5px; line-height: 1.35; max-width: 32ch; justify-self: center; }
 

@@ -36,7 +36,7 @@
     const d = el('div', `ab-v-med ${cls || ''}`.trim()), v = Math.max(0, Math.min(100, +p || 0));
     const bar = el('span', 'ab-v-med-b'), f = el('i'), r = el('u'); f.style.width = `${v}%`; bar.append(f);
     if (ref !== null && ref !== undefined) { r.style.left = `${ref}%`; r.title = `referencia: ${ref}%`; bar.append(r); }
-    d.append(el('b', '', `${Math.round(v)}%`), el('small', '', k), bar); if (sub) d.append(el('span', 'ab-v-med-s', sub));
+    d.append(el('b', '', `${Math.round(v)}%`), ' ', el('small', '', k), ' ', bar); if (sub) d.append(' ', el('span', 'ab-v-med-s', sub));   // los espacios no se ven (es una grilla) pero separan el texto copiado
     d.setAttribute('role', 'img'); d.setAttribute('aria-label', `${k}: ${Math.round(v)}%${sub ? ` · ${sub}` : ''}`); return d;
   };
   // ficha chica: icono + dato (con color por lado)
@@ -713,14 +713,14 @@
     if (window.abNotif) window.abNotif.filas(rows);
     drawCompras();
     drawLearningSiCambia(rows);
-    drawGauge(rows);
     drawChart(rows, sum);
     document.getElementById('prob-tf').textContent = `a ${S.plazo}`;
     document.getElementById('ond-tf').textContent = TF_TXT[S.tf]; document.getElementById('ind-tf').textContent = TF_TXT[S.tf];
+    limpiarContexto(rows); plegarNotas();
     Object.keys(PEREZOSOS).forEach(perezoso);
     placeTf(); placeSc();
     connectLive();
-    G.rows = rows; drawConclusion(rows);
+    G.rows = rows; drawConclusion(rows); drawCreoVivo(rows);
     drawCentro(rows, sum);
     plazosBordes(); if (MINI.classList.contains('on')) miniPintar();
     plegarNotas();
@@ -813,29 +813,26 @@
     const sec = document.getElementById('respuesta'); sec.hidden = !c; if (!c) return;
     const ahora = sum && okv(sum.precio) ? num(sum.precio) : null;
     const plazo = CE_PLAZO[c.tf];
+    document.documentElement.classList.toggle('ab-plazo-largo', /^1 (semana|mes)$/.test(S.plazo));   // el ciclo, en la vista simple, solo a 1 semana o 1 mes
     document.getElementById('rs-t').textContent = plazo ? `En ${plazoTxt(plazo)}` : `Velas de ${TF_TXT[c.tf] || c.tf}`;
     document.getElementById('rs-k').textContent = `${MON()}${hastaTxt(c)}`;
-    // direccion: palabra grande y un dial con cuanta fuerza tiene (a favor menos en contra)
-    const af = num(c.a_favor) || 0, ec = num(c.en_contra) || 0, sc = af + ec > 0 ? (af - ec) / (af + ec) : 0;
-    const dir = c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '';
-    const dw = document.getElementById('rs-dir'); dw.className = `ab-rs-dir ${dir}`.trim();
-    dw.textContent = dir === 'sube' ? '▲ Sube' : dir === 'baja' ? '▼ Baja' : '◆ Lateral';
-    const fuerzaTxt = Math.abs(sc) >= 0.6 ? 'con fuerza' : Math.abs(sc) >= 0.25 ? 'moderada' : 'sin fuerza';
-    document.getElementById('rs-dir-k').textContent = dir ? `Dirección ${fuerzaTxt}` : 'Sin dirección clara';
-    const ang = Math.PI * (1 - (sc + 1) / 2), nx = 32 + 24 * Math.cos(ang), ny = 32 - 24 * Math.sin(ang);
-    document.getElementById('rs-dial').innerHTML = `<path d="M6 32 A26 26 0 0 1 58 32" fill="none" stroke="url(#rs-g)" stroke-width="6" stroke-linecap="round"/>
-      <defs><linearGradient id="rs-g" x1="0" x2="1"><stop offset="0" stop-color="var(--color-bad)"/><stop offset=".5" stop-color="var(--line)"/><stop offset="1" stop-color="var(--color-ok)"/></linearGradient></defs>
-      <line x1="32" y1="32" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="var(--ink)" stroke-width="2.4" stroke-linecap="round"/><circle cx="32" cy="32" r="3.2" fill="var(--ink)"/>`;
-    document.getElementById('rs-dial').setAttribute('aria-label', `Fuerza de la dirección: ${fuerzaTxt}`);
+    // veredicto: el de la probabilidad del plazo (lo medido); la direccion por puntos queda como linea secundaria
+    const vz = veredictoPlazo(rows, c);
+    const dw = document.getElementById('rs-dir'); dw.className = `ab-rs-dir ${vz.dir}`.trim(); dw.textContent = vz.txt;
+    const pr = document.getElementById('rs-prob'); pr.replaceChildren();
+    if (vz.p) { pr.append(`Cierra arriba ${f0(vz.up)}% · lo normal ${f0(vz.base)}%`); if (vz.p.fuente_sube === 'modelo') pr.append(el('span', '', ' · modelo medido')); }
+    const cnt = (x) => String(num(x) || 0).replace('.', ',');
+    document.getElementById('rs-sen').textContent = `Señales técnicas: ▲ ${cnt(c.a_favor)} · ▼ ${cnt(c.en_contra)}`;
     // movimiento fuerte: la chance contra lo normal, en una barra
     const pf = num(c.prob_fuerte), pn = num(c.prob_normal), mv = document.getElementById('rs-mov');
     mv.className = `ab-rs-mov${c.fuerza === 'alta' ? ' alta' : c.fuerza === 'media' ? ' media' : ''}`;
+    mv.hidden = !okv(pf);                       // sin dato (plazos largos) no se muestra la tarjeta
     if (okv(pf)) {
       const tope = Math.max(pf, (pn || 0) * 2, 10);
       mv.replaceChildren(el('small', '', 'Movimiento fuerte'), el('b', '', c.fuerza === 'alta' ? `⚡ ${f0(pf)}%` : `${f0(pf)}%`),
         Object.assign(el('span', 'ab-rs-bar'), { innerHTML: `<i style="width:${Math.min(100, pf / tope * 100).toFixed(1)}%"></i>${okv(pn) ? `<u style="left:${Math.min(100, pn / tope * 100).toFixed(1)}%"></u>` : ''}` }),
         el('span', 'ab-rs-sub', okv(pn) ? `lo normal: ${f0(pn)}%` : ''));
-    } else mv.replaceChildren(el('small', '', 'Movimiento fuerte'), el('b', '', '—'));
+    } else mv.replaceChildren();
     // rango: barra con el piso y el techo, el precio de ahora y el soporte y la resistencia mas cercanos
     const rg = document.getElementById('rs-rango'), lo = num(c.rango_min), hi = num(c.rango_max), so = num(c.soporte), re = num(c.resistencia);
     if (okv(lo) && okv(hi)) {
@@ -849,46 +846,24 @@
       et.append(okv(so) ? lab('s', 'Soporte', so) : el('span'), mid, okv(re) ? lab('e', 'Resistencia', re) : el('span'));
       rg.replaceChildren(bar, et); rg.hidden = false;
     } else rg.hidden = true;
-    // la frase que lo junta (la de la conclusion) y el aviso si hay riesgo
-    const cc = document.getElementById('cc-txt'), rt = document.getElementById('rs-txt');
-    { const fs = (c.factores || []).filter((f) => f[0] === 'direccion');
-      const top = (sg) => fs.filter((f) => Math.sign(f[1]) === sg).sort((a, b) => b[2] - a[2]);
-      const f = (k, sg) => {
-        const l = top(sg); if (!l.length) return null;
-        const d = el('span', `ab-v-acuerdo ${sg > 0 ? 'up' : 'dn'}`); d.title = l.map((x) => `${sg > 0 ? '▲' : '▼'} ${x[3]}`).join('\n');
-        d.append(el('i', '', sg > 0 ? '▲' : '▼'), el('small', '', `${k} · ${String(sg > 0 ? num(c.a_favor) : num(c.en_contra)).replace('.', ',')}`), el('b', '', corto_(l[0][3]) + (l.length > 1 ? ` y ${l.length - 1} más` : '')));
-        return d;
-      };
-      rt.replaceChildren(...[f('A favor de la suba', 1), f('A favor de la baja', -1)].filter(Boolean));
-      rt.title = cc ? cc.textContent.trim() : ''; rt.setAttribute('aria-label', rt.title); }
-    const rz = document.getElementById('rs-riesgo'); rz.hidden = !c.riesgo.length;
-    rz.replaceChildren(el('b', '', '⚠ Atención: '), c.riesgo.join(' · '));
-    // posibilidad de reversion por RSI, en el grafico que miras (lo medido de esa temporalidad: medir_rsi.py)
-    let rv = document.getElementById('rs-rev');
-    if (!rv) { rv = el('div', 'ab-rs-rev'); rv.id = 'rs-rev'; rz.after(rv); }
-    const mk = rows.find((x) => x.tabla === 'marco' && x.tf === S.tf), rsi = mk ? num(mk.rsi) : NaN;
-    rv.hidden = !(isFinite(rsi) && (rsi >= 70 || rsi <= 30));
-    if (!rv.hidden) {
-      const alto = rsi >= 70, tfx = TF_TXT[S.tf] || S.tf, med = RSI_REV[S.tf];
-      const tit = med === 'revierte' ? (alto ? '⟲ Posible reversión a la baja' : '⟲ Posible rebote')
-        : med === 'sigue' && alto ? '↗ Sobrecompra: suele seguir' : alto ? 'RSI en sobrecompra' : 'RSI en sobreventa';
-      rv.className = `ab-rs-rev ${med === 'revierte' ? (alto ? 'dn' : 'up') : med === 'sigue' && alto ? 'up' : ''}`.trim();
-      rv.replaceChildren(el('b', '', tit), el('span', '', ` · RSI de ${tfx} ${f0(rsi)}`));
-      rv.title = med === 'revierte' ? `Medido (BTC 2021–2026): con el RSI de ${tfx} ${alto ? 'en sobrecompra, la hora siguiente corrigió' : 'en sobreventa, la hora siguiente rebotó'} 3 a 6 puntos más seguido que lo normal${!alto && S.tf === '1h' ? ', y también en las 4 horas siguientes' : ''}. Es una posibilidad, no una certeza.`
-        : med === 'sigue' && alto ? 'Medido (BTC 2011–2026): con el RSI diario en sobrecompra, la semana siguiente siguió subiendo más seguido que lo normal (no revierte).'
-          : med === 'nada' ? `Medido: en velas de ${tfx}, la sobrecompra y la sobreventa no anticiparon la reversión (~50%).` : `En velas de ${tfx} no se midió si anticipa la reversión.`;
-    }
+    // el aviso si hay riesgo (el de "los casos parecidos dicen lo contrario" ya no hace falta: el veredicto de arriba es ese)
+    const rz = document.getElementById('rs-riesgo'), rsk = c.riesgo.filter((t) => !/ lo contrario: /.test(t)); rz.hidden = !rsk.length;
+    rz.replaceChildren(el('b', '', '⚠ Atención: '), rsk.join(' · '));
   }
-  // que hace el RSI extremo en cada temporalidad (medir_rsi.py): revierte la hora siguiente en 15 min y 1 h; en el diario
-  // la sobrecompra sigue; en 4 h, el resto del diario y el semanal no anticipa
-  const RSI_REV = { '15m': 'revierte', '1h': 'revierte', '4h': 'nada', '1d': 'sigue', '1w': 'nada' };
+  // el veredicto de la probabilidad del plazo (fila 'plazo'): ▲ Sube / ▼ Baja solo con sesgo; si no, "Sin dirección clara"
+  function veredictoPlazo(rows, c) {
+    const p = pick(rows, 'plazo').find((r) => r.plazo === S.plazo) || pick(rows, 'plazo').find((r) => r.tf === c.tf);
+    if (!p) { const d = c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : ''; return { p: null, dir: d, txt: d === 'sube' ? '▲ Sube' : d === 'baja' ? '▼ Baja' : 'Sin dirección clara' }; }
+    const alc = p.veredicto === 'Sesgo alcista', baj = p.veredicto === 'Sesgo bajista';
+    return { p, dir: alc ? 'sube' : baj ? 'baja' : '', up: num(p.sube), base: num(p.base), txt: alc ? '▲ Sube' : baj ? '▼ Baja' : 'Sin dirección clara' };
+  }
   // ---------- el analisis completo: 6 partes, cada una con su resumen en una linea y el detalle al abrirla ----------
   const PARTES = [
-    ['parte-dir', 'Cómo se llegó a la dirección', ['conclusion', 'ce-dir', 'sesgo', 'prediccion', ['que-espero', 'Todas las señales, una por una']]],
+    ['parte-dir', 'Cómo se llegó a la dirección', ['conclusion', 'ce-dir', 'prediccion', ['que-espero', 'Todas las señales, una por una']]],
     ['parte-mov', 'Cuánto se puede mover', ['movimiento', 'ce-fuerza', 'tug-wrap', 'likely']],
     ['parte-niv', 'Niveles: hasta dónde', ['ce-mapa', 'niveles', 'probabilidades']],
-    ['parte-ctx', 'Qué está pasando', ['que-pasa', 'fed-line', 'news-line', 'calendario', 'senales']],
-    ['parte-conf', 'Cuánto le creo', ['apr-line', 'aprendizaje', 'aciertos']],
+    ['parte-ctx', 'Qué está pasando', ['que-pasa', 'fed-line', 'news-line', 'calendario', 'senales', 'ctx-vacio']],
+    ['parte-conf', 'Cuánto le creo', ['creo-vivo', 'apr-line', 'aprendizaje', 'aciertos']],
     ['parte-herr', 'Herramientas', ['lm-abrir', 'ondas', 'indicadores']],
   ];
   (function armarPartes() {
@@ -1230,8 +1205,8 @@
     document.getElementById('mini-mon').textContent = MON();
     document.getElementById('mini-p').textContent = pe && pe.firstChild ? pe.firstChild.textContent : '—';
     const mc = document.getElementById('mini-c'); mc.textContent = c ? c.textContent : ''; mc.className = c ? c.className : '';
-    const d = document.querySelector('#ce-tira [data-k="dir"] b'), f = document.querySelector('#ce-tira [data-k="fz"] b');
-    document.getElementById('mini-h').textContent = d ? `${d.textContent}${f && !/^No/.test(f.textContent) ? ' · ⚡ fuerte' : ''}` : '';
+    const d = document.getElementById('rs-dir'), f = document.querySelector('#ce-tira [data-k="fz"] b');
+    document.getElementById('mini-h').textContent = d && d.textContent !== '—' ? `${d.textContent}${f && !/^No/.test(f.textContent) ? ' · ⚡ fuerte' : ''}` : '';
   }
   if ('IntersectionObserver' in window) {
     const ojo = new IntersectionObserver(([e]) => {
@@ -1298,7 +1273,7 @@
   // mediciones.json: cuanto acierta la direccion segun los puntos netos (medido). Si no cargan, no se muestra nada
   let TRACK = null, MEDIC = null;
   const traerJson = (f) => fetch(f).then((r) => (r.ok ? r.json() : Promise.reject())).catch(() => fetch(`https://raw.githubusercontent.com/DiegoAdrian97/BTCAnalyzer/main/JavascriptVersion/${f}`).then((r) => r.json()));
-  traerJson('track.json').then((j) => { TRACK = j; if (G.rows) drawConclusion(); }).catch(() => {});
+  traerJson('track.json').then((j) => { TRACK = j; if (G.rows) { drawConclusion(); drawCreoVivo(); } }).catch(() => {});
   traerJson('mediciones.json').then((j) => { MEDIC = j; if (G.rows) drawConclusion(); }).catch(() => {});
   function vivoTxt(c, plz) {
     const out = [], corto = !['1 día', '1 semana', '1 mes'].includes(plz), pts = Math.abs(num(c.direccion_puntos));
@@ -1314,17 +1289,19 @@
       const der = (TRACK.senales || []).filter((x) => x.plazo === plz && x.estado === 'deriva');
       if (der.length) out.push(`⚠ En vivo rinde menos de lo medido: ${der.map((x) => `${x.nombre} (${String(x.acierto).replace('.', ',')}% de ${x.n})`).join('; ')}.`);
     }
-    // probabilidades y rangos (medir_vivo.py): el (tf, velas) de la fila `plazo` del analisis
-    const pz = ((G.rows || []).find((r) => r.tabla === 'plazo' && r.plazo === plz)) || null;
-    const pb = pz && TRACK && (TRACK.probabilidades || []).find((x) => x.tf === pz.tf && x.h === pz.velas), rg = pz && TRACK && (TRACK.rangos || []).find((x) => x.tf === pz.tf && x.h === pz.velas);
-    const coma = (v, d = 1) => String(Math.abs(v).toFixed(d)).replace('.', ',');
-    if (pb || rg) {
-      const pocos = 'pocos datos todavía', v = [];
-      if (pb) v.push(`Ventaja sobre lo normal: ${pb.pocos || pb.ventaja_normal == null ? pocos : `${pb.ventaja_normal >= 0 ? '+' : '−'}${coma(pb.ventaja_normal)}% (${Math.round(pb.n_ef_normal)} efectivos)`}.`);
-      if (rg) v.push(`Rango: ${rg.pocos ? pocos : `cobertura ${coma(rg.cobertura, 0)}% (meta 80%)`}.`);
-      out.push(v.join(' '));
-    }
     return out.join(' ');
+  }
+  // "Cuánto le creo", arriba de todo: lo medido en vivo del plazo elegido (track.json: probabilidades y rangos, medir_vivo.py)
+  function drawCreoVivo(rows) {
+    const box = document.getElementById('creo-vivo'), pz = (rows || G.rows || []).find((r) => r.tabla === 'plazo' && r.plazo === S.plazo);
+    const pb = pz && TRACK && (TRACK.probabilidades || []).find((x) => x.tf === pz.tf && x.h === pz.velas), rg = pz && TRACK && (TRACK.rangos || []).find((x) => x.tf === pz.tf && x.h === pz.velas);
+    box.hidden = !(pb || rg); if (box.hidden) return;
+    const coma = (v, d = 1) => String(Math.abs(v).toFixed(d)).replace('.', ',');
+    const pocos = 'pocos datos todavía', ficha = (k, v, sub) => { const d = el('div', 'ab-apr-stat'); d.append(el('small', '', k), el('b', '', v), el('span', '', sub)); return d; };
+    const nv = pb && !pb.pocos && pb.ventaja_normal != null;
+    box.replaceChildren(...[
+      pb ? ficha('Ventaja sobre lo normal', nv ? `${pb.ventaja_normal >= 0 ? '+' : '−'}${coma(pb.ventaja_normal)}%` : '—', nv ? `${Math.round(pb.n_ef_normal)} efectivos` : pocos) : null,
+      rg ? ficha('El rango se cumplió', rg.pocos ? '—' : `${coma(rg.cobertura, 0)}%`, rg.pocos ? pocos : 'meta 80%') : null].filter(Boolean));
   }
   function drawConclusion(rows) {
     const sec = document.getElementById('conclusion'), c = centralDe(rows || G.rows);
@@ -1335,7 +1312,6 @@
     const pon = (id, t, cls) => { const e = document.getElementById(id); e.textContent = t || '—'; e.className = cls || ''; };
     document.getElementById('cc-hora-k').textContent = `Dirección · ${plz}`;
     pon('cc-hora', dTxt, c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '');
-    pon('cc-ind', `▲ ${String(num(c.a_favor)).replace('.', ',')} · ▼ ${String(num(c.en_contra)).replace('.', ',')}`, num(c.a_favor) > num(c.en_contra) ? 'sube' : num(c.en_contra) > num(c.a_favor) ? 'baja' : '');
     const tab = document.getElementById('tm-tab'), zona = tab && !tab.hidden ? (document.getElementById('tm-zona') || {}).textContent || '' : '';
     const zch = document.getElementById('tm-mvrv'), zonas = zch && !zch.hidden ? zch.textContent : '';
     const lc = /compra/i.test(zona) ? 1 : /venta|cara/i.test(zona) ? -1 : 0;
@@ -1358,9 +1334,9 @@
   const NOTA_ABIERTA = new Set();
   function plegarNotas() {
     root.querySelectorAll(':is(.ab-card, .ab-parte-c) .ab-note:not([data-pl]), .ab-card .ab-hero-sub.ab-larga:not([data-pl])').forEach((n) => {
-      n.dataset.pl = '1';
       const t = n.textContent.trim();
-      if (t.length < 90 || n.closest('.ab-tm-panel, #compras, #posiciones, .ab-nt-modal')) return;
+      if (t.length < 90 || n.closest('.ab-tm-panel, #compras, #posiciones, .ab-nt-modal')) return;   // las vacías o cortas se revisan de nuevo cuando se llenen
+      n.dataset.pl = '1';
       n.classList.add('ab-plegable'); n.tabIndex = 0; n.setAttribute('role', 'button');
       const abierta = NOTA_ABIERTA.has(t.slice(0, 60));
       n.classList.toggle('abierta', abierta); n.setAttribute('aria-expanded', String(abierta));
@@ -1380,6 +1356,15 @@
   const PEREZOSOS = { probabilidades: () => drawProbs(S.rows, S.sum), senales: () => drawSignals(S.rows), niveles: () => drawLevels(S.rows, S.sum),
     ondas: () => drawWaves(S.rows), indicadores: () => drawIndicators(S.rows), aciertos: () => drawHits(S.rows) };
   const pendiente = new Set();
+  // "Qué está pasando": no se muestran bloques vacíos ni con error; si no queda nada, una sola línea
+  function limpiarContexto(rows) {
+    const $ = (id) => document.getElementById(id), vis = (id) => !$(id).hidden;
+    const hayFlujo = pick(rows, 'contexto').some((c) => c.clave !== 'error') || pick(rows, 'libro').length > 0;
+    $('senales').hidden = !hayFlujo;
+    const hayNoticias = vis('que-pasa') && !!$('qp-news').querySelector('a');
+    ['qp-news-t', 'qp-news-n', 'qp-news'].forEach((id) => { $(id).hidden = !hayNoticias; });
+    $('ctx-vacio').hidden = hayNoticias || (vis('que-pasa') && vis('qp-clima')) || vis('calendario') || hayFlujo || vis('fed-line') || vis('news-line');
+  }
   function perezoso(id) {
     const d = document.getElementById(id);
     if (d && !d.open) { pendiente.add(id); return; }
@@ -2374,7 +2359,6 @@
     const nb = document.getElementById('qp-news'); nb.replaceChildren();
     document.getElementById('qp-news-t').textContent = strong ? `Noticias de esas horas` : 'Noticias de las últimas 24 h';
     document.getElementById('qp-news-n').textContent = rel.length ? `${rel.length}` : '';
-    if (!rel.length) nb.append(el('p', 'ab-note', news.length ? 'Sin noticias relevantes en esas horas.' : 'No se pudieron leer las noticias ahora.'));
     rel.forEach((n) => {
       const a = el('a', 'ab-qp-n'); a.href = n.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
       const meta = el('span');
@@ -2503,6 +2487,7 @@
       const b = el('button', '', ''); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(CAL_VISTA === k));
       b.append(txt, el('small', '', n)); b.addEventListener('click', () => { CAL_VISTA = k; drawCalendario(rows); }); seg.append(b);
     });
+    { const det = document.getElementById('calendario'); if (det) det.hidden = !(viene.length || salio.length); }   // sin eventos, no se muestra
     const lista = CAL_VISTA === 'viene' ? viene : salio;
     const out = [seg];
     if (!lista.length) out.push(el('p', 'ab-note', CAL_VISTA === 'viene' ? 'Sin eventos en los próximos días.' : 'Sin datos de la última semana.'));
@@ -2884,7 +2869,7 @@
       CONF.txt = () => {
         // con medidores: la marca es el 50% (tirar una moneda). El detalle, en el title
         const ln = document.getElementById('apr-line');
-        if (casos.length < 10) { delete ln.dataset.pc; return [el('b', '', 'Confianza ahora'), vMedidor(casos.length * 10, null, 'juntando casos', `${casos.length} de 10 predicciones a ${S.plazo}`)]; }
+        if (casos.length < 10) { delete ln.dataset.pc; return [el('b', '', 'Confianza ahora'), el('span', 'ab-note', `Juntando casos · ${casos.length} de 10 predicciones a ${S.plazo}`)]; }
         const tot = pc(casos) * 100;
         if (sel.length < 10) {
           ln.dataset.pc = f0(tot); ln.dataset.res = `Acertó la dirección ${f0(tot)}% de ${f0(casos.length)} (pocos momentos parecidos: ${sel.length})`;
@@ -2970,43 +2955,6 @@
       tr.append(c0, c1, el('td', 'r', sg(ho)), el('td', 'r', f === 0 ? '50/50' : `×${ar.format(',.2f')(f)}`));
       tr.addEventListener('click', () => setPlazo(r.plazo));
       tb.append(tr);
-    });
-  }
-
-  // ---------- sesgo ----------
-  function drawGauge(rows) {
-    const marcos = pick(rows, 'marco');
-    const cur = marcos.find((m) => m.tf === S.tf);
-    document.getElementById('sesgo-tf').textContent = TF_TXT[S.tf];
-    const svg = d3.select('#gauge'); svg.selectAll('*').remove();
-    const cx = 110, cy = 104, arc = d3.arc().innerRadius(74).outerRadius(92).cornerRadius(3);
-    // los tramos con los mismos cortes que el texto (neutral entre −0,1 y 0,1; fuerte desde ±0,5): antes eran 5 iguales y la
-    // aguja podia estar en el gris con el texto diciendo "Bajista"
-    const segs = [['var(--color-bad)', 1, -1, -0.5], ['var(--color-bad)', .5, -0.5, -0.1], ['var(--color-fg-muted)', .35, -0.1, 0.1], ['var(--color-ok)', .5, 0.1, 0.5], ['var(--color-ok)', 1, 0.5, 1]];
-    const ang = (x) => ((x + 1) / 2) * Math.PI - Math.PI / 2;
-    segs.forEach(([c, o, x0, x1]) => svg.append('path').attr('transform', `translate(${cx},${cy})`)
-      .attr('d', arc({ startAngle: ang(x0) + .02, endAngle: ang(x1) - .02 })).style('fill', c).style('fill-opacity', o));
-    [['Bajista', 12, 'start'], ['Neutral', cx, 'middle'], ['Alcista', 208, 'end']].forEach(([t, x0, anc], k) =>
-      svg.append('text').attr('x', x0).attr('y', k === 1 ? 6 : 124).attr('text-anchor', anc).style('fill', 'var(--color-fg-muted)').style('font-size', '10px').text(t));
-    const nd = svg.append('g').attr('class', 'ab-needle').style('transform', 'rotate(-90deg)');
-    nd.append('path').attr('d', `M${cx - 4},${cy} L${cx},${cy - 66} L${cx + 4},${cy} Z`).style('fill', 'var(--color-fg)');
-    svg.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 8).style('fill', 'var(--color-fg)');
-    svg.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 3).style('fill', 'var(--color-panel)');
-    if (cur) {
-      later(() => nd.style('transform', `rotate(${num(cur.rating) * 90}deg)`));
-      const t = document.getElementById('gauge-txt'); t.textContent = cur.rating_txt; t.setAttribute('data-where', `tabla=marco&tf=${S.tf}`);
-      { const gm = document.getElementById('gauge-med'), lg = ['1d', '1w', '1M'].includes(S.tf);
-        gm.textContent = Math.abs(num(cur.rating)) <= 0.1 ? '' : lg ? 'Regla clásica de cada indicador. Medido en velas diarias y semanales: a 1, 7 y 30 días acierta ~50%, así que no suma a la predicción.'
-          : `Regla clásica de cada indicador. Medido: en ${TF_TXT[S.tf] || S.tf}, cuando marcan ${num(cur.rating) > 0 ? 'alcista' : 'bajista'} el precio suele corregir, así que la predicción lo cuenta ${num(cur.rating) > 0 ? 'a favor de la baja' : 'a favor de la suba'}.`; }
-      document.getElementById('gauge-votes').textContent = `Medias ${cur.ma_compra}↑ ${cur.ma_venta}↓ · osciladores ${cur.osc_compra}↑ ${cur.osc_venta}↓ · orden de las medias: ${cur.tendencia.toLowerCase()}`;
-    }
-    const strip = document.getElementById('strip'); strip.replaceChildren();
-    marcos.forEach((m) => {
-      const r = num(m.rating);
-      const b = el('button'); b.type = 'button'; b.setAttribute('aria-pressed', String(m.tf === S.tf)); b.title = `${TF_TXT[m.tf]}: ${m.rating_txt}`;
-      const i = el('i'); i.style.background = r > .1 ? 'var(--color-ok)' : r < -.1 ? 'var(--color-bad)' : 'var(--color-fg-muted)';
-      i.style.opacity = String(.35 + Math.min(1, Math.abs(r) * 1.6) * .65);
-      b.append(el('span', '', m.tf === '1w' ? '1S' : m.tf), i); b.addEventListener('click', () => setTf(m.tf)); strip.append(b);
     });
   }
 
@@ -5921,24 +5869,8 @@
     const p = pick(rows, 'plazo').find((r) => r.plazo === S.plazo);
     document.getElementById('prob-tf').textContent = `a ${S.plazo}`;
     if (!p) return;
-    const up = num(p.sube), base = num(p.base), price = num(sum.precio);
+    const price = num(sum.precio);
     document.getElementById('prob-when').textContent = `Hasta las ${p.hora.slice(-5)} h del ${p.hora.slice(0, 5)}`;
-    const split = document.getElementById('split'); split.replaceChildren();
-    // las cifras van afuera de la barra (con 10% no entraban adentro y se cortaban)
-    const u = el('div', 'ab-sp-u'), d = el('div', 'ab-sp-d'), bm = el('div', 'ab-sp-base');
-    u.style.flexBasis = '50%'; d.style.flexBasis = '50%'; bm.style.left = '50%'; split.append(u, d, bm);
-    split.title = `Cierra arriba ${f0(up)}% · abajo ${f0(100 - up)}%`;
-    let ley = document.getElementById('split-ley');
-    if (!ley) { ley = el('div', 'ab-split-ley'); ley.id = 'split-ley'; split.after(ley); }
-    ley.replaceChildren(el('b', 'up', `▲ Cierra arriba ${f0(up)}%`), el('b', 'dn', `${f0(100 - up)}% abajo ▼`));
-    later(() => { u.style.flexBasis = up + '%'; d.style.flexBasis = (100 - up) + '%'; bm.style.left = `calc(${base}% - 1px)`; });
-    const v = document.getElementById('verdict'); v.textContent = `Al cierre: ${p.veredicto.toLowerCase()}`;
-    v.style.color = p.veredicto === 'Sesgo alcista' ? 'var(--color-ok)' : p.veredicto === 'Sesgo bajista' ? 'var(--color-bad)' : 'var(--color-fg-muted)';
-    // con el modelo estadistico (medido fuera de muestra) el margen de los casos parecidos no aplica: va su nota
-    document.getElementById('prob-base').textContent = p.fuente_sube === 'modelo' && num(p.modelo_ventaja) !== null
-      ? `modelo estadístico, medido fuera de muestra: ventaja ${num(p.modelo_ventaja) < 0 ? '−' : '+'}${f1(Math.abs(num(p.modelo_ventaja)))}% sobre lo normal · línea = normal ${f0(base)}%`
-      : (p.pocos_casos ? 'Pocos casos: poco confiable · ' : '') + `margen ±${f0(num(p.margen))} pts · línea = normal ${f0(base)}%`;
-
     const goals = pick(rows, 'objetivo_plazo').filter((t) => t.plazo === S.plazo).map((t) => ({ p: num(t.precio), prob: num(t.prob), up: t.lado === 'arriba' }));
     const items = goals.concat([{ p: price, now: true }]).sort((a, b) => b.p - a.p);
     const box = document.getElementById('ladder'); box.replaceChildren();
@@ -5970,12 +5902,13 @@
   // ---------- senales ----------
   function drawSignals(rows) {
     const tiles = document.getElementById('tiles'); tiles.replaceChildren();
-    pick(rows, 'contexto').forEach((c) => {
+    pick(rows, 'contexto').filter((c) => c.clave !== 'error').forEach((c) => {
       const t = el('div', 'ab-tile ab-sig-' + c.senal);
       const h = el('div', 'ab-tile-t'); h.append(el('i'), c.titulo);
       t.append(h, el('div', 'ab-tile-v', c.valor), el('div', 'ab-tile-d', c.detalle)); tiles.append(t);
     });
     const books = document.getElementById('books'); books.replaceChildren();
+    books.hidden = document.getElementById('books-h').hidden = !pick(rows, 'libro').length;
     pick(rows, 'libro').forEach((b) => {
       const imb = num(b.desequilibrio), w = Math.min(50, Math.abs(imb) / 1.2);
       const row = el('div', 'ab-book' + (b.en_total ? '' : ' ab-off'));
@@ -5988,10 +5921,19 @@
   }
 
   // ---------- niveles a escala ----------
+  // a escala se ven los 4 niveles mas cercanos arriba y los 4 mas cercanos abajo; el boton despliega el resto
+  let NIV_TODOS = false, NIV_ULT = null;
+  document.getElementById('lv-mas').addEventListener('click', () => { NIV_TODOS = !NIV_TODOS; if (NIV_ULT) drawLevels(...NIV_ULT); });
   function drawLevels(rows, sum) {
+    NIV_ULT = [rows, sum];
     const box = document.getElementById('levels'); box.replaceChildren();
     const price = num(sum.precio);
-    const lv = pick(rows, 'nivel').map((r) => ({ name: r.nombre, p: num(r.precio), d: num(r.distancia) })).filter((r) => Math.abs(r.d) <= 8);
+    const todos = pick(rows, 'nivel').map((r) => ({ name: r.nombre, p: num(r.precio), d: num(r.distancia) })).filter((r) => Math.abs(r.d) <= 8);
+    const cerca = (a, b) => Math.abs(a.d) - Math.abs(b.d);
+    const lv = NIV_TODOS || todos.length <= 8 ? todos
+      : todos.filter((r) => r.p > price).sort(cerca).slice(0, 4).concat(todos.filter((r) => r.p <= price).sort(cerca).slice(0, 4));
+    const mas = document.getElementById('lv-mas'); mas.hidden = todos.length <= 8;
+    mas.textContent = NIV_TODOS ? 'Ver solo los más cercanos' : `Ver los ${todos.length} niveles`; mas.setAttribute('aria-expanded', String(NIV_TODOS));
     if (!lv.length) return;
     const W = Math.max(260, box.clientWidth), H = Math.max(360, lv.length * 19 + 40);
     const ext = d3.extent(lv.map((r) => r.p).concat([price]));

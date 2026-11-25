@@ -18,7 +18,7 @@ const LOG = [];
 // ---- la app, como la sirve Vercel
 const reglas = (() => { try { return JSON.parse(fs.readFileSync(path.join(RAIZ, 'vercel.json'))).headers || []; } catch (e) { return []; } })();
 const aRe = (src) => new RegExp('^' + src.replace(/\(\.\*\)/g, '.*').replace(/\//g, '\\/') + '$');
-const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.txt': 'text/plain' };
+const TIPOS = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.txt': 'text/plain' };
 const app = http.createServer((q, r) => {
   const p = new URL(q.url, 'http://x').pathname.replace(/^\/$/, '/index.html'), f = path.join(RAIZ, p);
   if (p.startsWith('/api/') || !f.startsWith(RAIZ) || !fs.existsSync(f)) { r.writeHead(404); return r.end('{}'); }
