@@ -28,7 +28,7 @@ jobs:
           run-id: ${{ inputs.corrida || '42893655992' }}
           github-token: ${{ github.token }}
       - run: python datos_entrenamiento.py
-      - run: python -u -W ignore medir_noticias_ia.py velas_1h.json eventos.json --dias 88 | tee noticias_ia.txt
+      - run: set -o pipefail; python -u -W ignore medir_noticias_ia.py velas_1h.json eventos.json --dias 88 | tee noticias_ia.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:

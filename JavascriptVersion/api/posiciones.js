@@ -119,26 +119,57 @@ function claveOk(dada, esperada) {
   return a.length === b.length && b.length >= 8 && crypto.timingSafeEqual(a, b);
 }
 
+// Intentos fallidos de clave por IP, en memoria: 5 en 10 minutos -> 429 hasta que pase la ventana
+const FALLOS = new Map(), VENTANA = 600000, MAX_FALLOS = 5, ESPERA_MS = 800;
+
+function ipDe(req) {
+  const h = String((req.headers && req.headers['x-forwarded-for']) || '').split(',')[0].trim();
+  return h || (req.socket && req.socket.remoteAddress) || 'desconocida';
+}
+
+/** Verifica la clave (x-clave). Si falla: espera ~800 ms, cuenta el intento y responde 401 (o 429 si ya hubo demasiados).
+ *  Devuelve true si la clave es correcta; si no, ya respondio. */
+async function autorizar(req, res, clave) {
+  const ip = ipDe(req), ahora = Date.now();
+  const previos = (FALLOS.get(ip) || []).filter((t) => ahora - t < VENTANA);
+  if (previos.length >= MAX_FALLOS) {
+    FALLOS.set(ip, previos);
+    res.setHeader('Retry-After', String(Math.ceil((VENTANA - (ahora - previos[0])) / 1000)));
+    res.status(429).send(JSON.stringify({ ok: false, error: 'Demasiados intentos, probá más tarde' }));
+    return false;
+  }
+  if (claveOk(req.headers['x-clave'], clave)) return true;
+  previos.push(ahora);
+  FALLOS.set(ip, previos);
+  if (FALLOS.size > 500) for (const [k, v] of FALLOS) if (!v.some((t) => ahora - t < VENTANA)) FALLOS.delete(k);
+  await new Promise((r) => setTimeout(r, ESPERA_MS));
+  res.status(401).send(JSON.stringify({ ok: false, error: 'Contraseña incorrecta' }));
+  return false;
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store, private');
   const { BINGX_API_KEY: key, BINGX_API_SECRET: secret, POSICIONES_CLAVE: clave } = process.env;
-  if (!key || !secret || !clave) { res.status(503).send(JSON.stringify({ ok: false, error: 'Faltan las variables BINGX_API_KEY, BINGX_API_SECRET y POSICIONES_CLAVE en Vercel' })); return; }
-  if (!claveOk(req.headers['x-clave'], clave)) { res.status(401).send(JSON.stringify({ ok: false, error: 'Contraseña incorrecta' })); return; }
+  if (!key || !secret || !clave) { console.error('posiciones: faltan BINGX_API_KEY, BINGX_API_SECRET o POSICIONES_CLAVE'); res.status(503).send(JSON.stringify({ ok: false, error: 'Servicio no configurado' })); return; }
+  if (!(await autorizar(req, res, clave))) return;
   let planError = null;
-  const planP = leerPlan().catch((e) => { planError = String(e.message || e).slice(0, 120); return planCache ? planCache[1] : null; });
+  const planP = leerPlan().catch((e) => { console.error('posiciones: plan:', String(e.message || e).slice(0, 200)); planError = 'No se pudo leer el plan'; return planCache ? planCache[1] : null; });
   try {
     const [pos, ord, plan, cap] = await Promise.all([pedir('/openApi/swap/v2/user/positions', {}, key, secret),
       pedir('/openApi/swap/v2/trade/openOrders', {}, key, secret).catch(() => null), planP, capital(key, secret).catch(() => null)]);
     res.status(200).send(JSON.stringify({ ok: true, hora: Date.now(), posiciones: posiciones(pos), ordenes: ord ? ordenes(ord) : null, capital: cap, plan, plan_error: planError }));
   } catch (e) {
     // BingX fallo: el plan igual va (la contraseña ya se verifico)
-    res.status(502).send(JSON.stringify({ ok: false, error: String(e.message || e).slice(0, 200), plan: await planP, plan_error: planError }));
+    console.error('posiciones: BingX:', String(e.message || e).slice(0, 200));
+    res.status(502).send(JSON.stringify({ ok: false, error: 'No se pudieron leer las posiciones', plan: await planP, plan_error: planError }));
   }
 };
 module.exports.firmar = firmar;
 module.exports.pedir = pedir;
 module.exports.capital = capital;
 module.exports.claveOk = claveOk;
+module.exports.autorizar = autorizar;
+module.exports._fallos = FALLOS;
 module.exports.posiciones = posiciones;
 module.exports.ordenes = ordenes;

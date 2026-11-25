@@ -182,18 +182,27 @@
     // pedido en vez de repetirlo: antes se bajaban dos veces y las dos escrituras se pisaban.
     // las diarias se guardan con toda la historia (DIAS_LARGOS, para la semanal y la mensual) en otra clave: la de antes
     // tenia 1.500 dias y solo se le suman las nuevas
-    function updateCandles(src, tf, days, now) {
-      const key = `${pre()}velas:${src}:${tf}${days > TIMEFRAMES[tf][0] ? ':largo' : ''}`;
-      if (!velasEnVuelo[key]) velasEnVuelo[key] = bajarVelas(key, src, tf, days, now).finally(() => { delete velasEnVuelo[key]; });
+    // puerta: una promesa que se abre cuando ya llegaron las velas del grafico; las descargas grandes (la primera vez)
+    // de las otras temporalidades esperan ahi para que el grafico no compita con ellas por la red
+    const claveVelas = (src, tf, days) => `${pre()}velas:${src}:${tf}${days > TIMEFRAMES[tf][0] ? ':largo' : ''}`;
+    /** Si ya hay historia de esta temporalidad guardada (si no, es la primera vez: descarga grande). */
+    async function hayVelas(src, tf) {
+      const key = claveVelas(src, tf, TIMEFRAMES[tf][0]), m = memVelas.get(SYM), v = (m && m.get(key)) || (await dbGet(key));
+      return !!(v && v.length);
+    }
+    function updateCandles(src, tf, days, now, puerta = null) {
+      const key = claveVelas(src, tf, days);
+      if (!velasEnVuelo[key]) velasEnVuelo[key] = bajarVelas(key, src, tf, days, now, puerta).finally(() => { delete velasEnVuelo[key]; });
       return velasEnVuelo[key];
     }
-    async function bajarVelas(key, src, tf, days, now) {
+    async function bajarVelas(key, src, tf, days, now, puerta) {
       const tfMs = TF_MS[tf], limit = src === 'binance' ? 1500 : src === 'bitget' ? 200 : 1000, mem = memDe(SYM);
       let candles = mem.get(key) || (await dbGet(key)) || [];
       const before = candles.length, ultAntes = before ? candles[before - 1][0] : 0;
       let since = candles.length ? candles[candles.length - 1][0] + tfMs : now - days * DAY;
       while (since + tfMs <= now) {
         const falta = Math.ceil((now - since) / tfMs) + 1;
+        if (puerta && falta > limit) await puerta;
         let batch;
         if (src !== 'bitget' && falta > limit) {
           // varias paginas (la primera vez, o despues de dias sin abrir): todas juntas. Antes iban una detras de otra:
@@ -215,7 +224,7 @@
       if (candles.length && candles[0][0] < now - days * DAY) candles = candles.filter((c) => c[0] >= now - days * DAY);
       // se guarda si llego alguna vela (antes solo si cambiaba el largo: con la ventana llena entra una y sale otra, el
       // largo queda igual y el telefono se quedaba con las velas viejas; al abrir la app habia que bajar todo lo que faltaba)
-      if (candles.length !== before || (candles.length && candles[candles.length - 1][0] !== ultAntes)) await dbSet(key, candles);
+      if (candles.length !== before || (candles.length && candles[candles.length - 1][0] !== ultAntes)) dbSet(key, candles);     // sin esperar: escribir ~9.000 velas en el telefono demoraba el grafico
       mem.set(key, candles);
       return candles;
     }
@@ -356,7 +365,7 @@
       ]);
       return { perp, spot };
     }
-    return { updateCandles, lastTwo, contextRaw, liqRaw, booksRaw, opcionesRaw, flujoRaw };
+    return { updateCandles, hayVelas, lastTwo, contextRaw, liqRaw, booksRaw, opcionesRaw, flujoRaw };
   }
 
   /** Junta todo lo que necesita el analisis. onProgress recibe textos para la pantalla de espera. */
@@ -367,30 +376,42 @@
    * piden los libros (unos 100 KB de 4 exchanges), el mapa de liquidaciones ni las opciones: se usa lo que hubiera de
    * hace poco o nada. Ese analisis solo se ve un instante al elegir el activo, hasta que llega el completo (1-3 s).
    */
-  async function recolectar(onProgress, sym = 'BTCUSDT', { liviano = false } = {}) {
-    const { updateCandles, lastTwo, contextRaw, liqRaw, booksRaw, opcionesRaw, flujoRaw } = fuentes(sym), pre = () => prefijo(sym);
+  const TF_GRAFICO = '1h';      // la temporalidad con la que la pagina dibuja el grafico al abrir
+  async function recolectar(onProgress, sym = 'BTCUSDT', { liviano = false, alGrafico = null } = {}) {
+    const { updateCandles, hayVelas, lastTwo, contextRaw, liqRaw, booksRaw, opcionesRaw, flujoRaw } = fuentes(sym), pre = () => prefijo(sym);
     const now = Date.now();
     const src = SOLO_BITGET.has(sym) ? 'bitget' : isBanned('binance') ? 'bybit' : 'binance';
     const mem = memDe(sym, !liviano);
+    // la primera vez (sin historia guardada) el grafico va primero: lo demas (libros, contexto, noticias...) arranca
+    // cuando llegan sus velas, para no competir con ellas por la red. Despues, todo a la vez como siempre.
+    let abrir = null;
+    const puerta = alGrafico ? new Promise((r) => { abrir = r; setTimeout(r, 6000); }) : null;
+    const sinHistoria = !!alGrafico && !(await hayVelas(src, TF_GRAFICO));
+    const luego = (fn) => (sinHistoria ? puerta.then(fn) : fn());
+    if (alGrafico && sinHistoria && onProgress) onProgress('Bajando el gráfico…');
     // libros cada 60 s (antes 20 s): son lo mas pesado de cada ciclo y los muros no cambian tan rapido
-    const booksP = liviano ? Promise.resolve(reciente(`${pre()}libros`, 15 * 60000, [])) : cached(`${pre()}libros`, 60000, booksRaw).catch(() => []);
-    const ctxP = cached(`${pre()}contexto`, 60000, contextRaw).catch(() => null);
+    const booksP = liviano ? Promise.resolve(reciente(`${pre()}libros`, 15 * 60000, [])) : luego(() => cached(`${pre()}libros`, 60000, booksRaw).catch(() => []));
+    const ctxP = luego(() => cached(`${pre()}contexto`, 60000, contextRaw).catch(() => null));
     // noticias, ETF y prima de Coinbase: las junta la funcion del servidor (las paginas no pueden leer esas fuentes)
     // cada accion tiene sus propias noticias (empresa, region, sector y bolsa); las criptos comparten las de BTC
     const accion = ACCIONES_APP.has(sym) ? sym.replace('USDT', '') : null, extK = accion ? `externo:${accion}` : 'externo';
-    const extP = cached(extK, liviano ? 30 * 60000 : 600000, async () => {
+    const extP = luego(() => cached(extK, liviano ? 30 * 60000 : 600000, async () => {
       const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), ESPERA_MS);
       try { const r = await fetch(accion ? `api/contexto?moneda=${accion}` : 'api/contexto', { cache: 'no-store', signal: ctl.signal }); if (!r.ok) throw new Error(r.status); return r.json(); } finally { clearTimeout(tm); }
-    }).catch(() => null);
-    const liqP = liviano ? Promise.resolve(reciente(`${pre()}liquidaciones`, 30 * 60000, null)) : cached(`${pre()}liquidaciones`, 300000, liqRaw).catch(() => null);
-    const opcP = sym !== 'BTCUSDT' ? Promise.resolve(null) : liviano ? Promise.resolve(reciente('opciones', 30 * 60000, null)) : cached('opciones', 600000, opcionesRaw).catch(() => null);
+    }).catch(() => null));
+    const liqP = liviano ? Promise.resolve(reciente(`${pre()}liquidaciones`, 30 * 60000, null)) : luego(() => cached(`${pre()}liquidaciones`, 300000, liqRaw).catch(() => null));
+    const opcP = sym !== 'BTCUSDT' ? Promise.resolve(null) : liviano ? Promise.resolve(reciente('opciones', 30 * 60000, null)) : luego(() => cached('opciones', 600000, opcionesRaw).catch(() => null));
     // flujo de compras: velas de 1 h, cambia una vez por hora (se pide cada 5 min por si la anterior no habia cerrado)
     const sinFlujo = sym !== 'BTCUSDT';                       // medido solo en BTC (medir_flujo.py)
-    const fluP = sinFlujo ? Promise.resolve(null) : liviano ? Promise.resolve(reciente(`${pre()}flujo`, 3600000, null)) : cached(`${pre()}flujo`, 300000, flujoRaw).catch(() => null);
+    const fluP = sinFlujo ? Promise.resolve(null) : liviano ? Promise.resolve(reciente(`${pre()}flujo`, 3600000, null)) : luego(() => cached(`${pre()}flujo`, 300000, flujoRaw).catch(() => null));
     const candles = {};
     let done = 0;
+    // el grafico primero: las velas de TF_GRAFICO salen antes y se avisan (alGrafico) sin esperar al resto
     await Promise.all(Object.entries(TIMEFRAMES).map(async ([tf, [days]]) => {
-      candles[tf] = await updateCandles(src, tf, tf === '1d' ? Math.max(days, DIAS_LARGOS) : days, now);
+      const esGrafico = tf === TF_GRAFICO;
+      try { candles[tf] = await updateCandles(src, tf, tf === '1d' ? Math.max(days, DIAS_LARGOS) : days, now, esGrafico ? null : puerta); }
+      finally { if (esGrafico && abrir) abrir(); }
+      if (esGrafico && alGrafico) { try { alGrafico(candles[tf]); } catch (e) { /* el grafico adelantado es un extra */ } }
       done += 1;
       if (onProgress) onProgress(`Velas listas: ${done} de 6 temporalidades`);
     }));

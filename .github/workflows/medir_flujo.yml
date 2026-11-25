@@ -16,7 +16,7 @@ jobs:
         with: { python-version: "3.12" }
       - uses: actions/cache@v4
         with: { path: datos_medicion, key: flujo-btc-v1 }
-      - run: python -u medir_flujo.py | tee flujo.txt
+      - run: set -o pipefail; python -u medir_flujo.py | tee flujo.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: medicion-flujo, path: flujo.txt }

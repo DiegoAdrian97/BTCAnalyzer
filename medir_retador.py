@@ -4,16 +4,21 @@ Velas 1h de BTCUSDT perpetuo (data.binance.vision, desde 2021). Para H en (1, 4,
 prediccion hecha al cierre de la vela t con datos <= t. Walk-forward: 2 años de entrenamiento, reentrena cada mes y
 predice el mes siguiente (purga de H velas + embargo de H). Modelos: tasa normal (365 dias previos), logistica L2 y
 LightGBM chico calibrado con isotonica, y la logistica sin el volumen taker ("logistica_sin_taker": la app no lo
-tiene; sus rasgos son los de rasgos_ultima). Metricas: Brier, ventaja sobre la tasa normal con IC90 por bootstrap en
+tiene; sus rasgos son los de rasgos_ultima) y la "logistica_perfil" (los mismos rasgos sin taker mas 2 del perfil de volumen de las
+ultimas 24 velas de 1 h: distancia del cierre al POC en volatilidades de 168 h y posicion dentro de la zona de valor, recortada a
+[-1, 2]; ver indicadores.perfil_volumen, el mismo calculo que la app). Metricas: Brier, ventaja sobre la tasa normal con IC90 por bootstrap en
 bloques, log loss, abstencion (10% / 20% mas confiadas), regimenes y rangos a H (cuantiles 10/90 de 90 dias).
-Escribe resultados/retador.json y resultados/retador.txt. Con compuerta (limite inferior del IC90 de la ventaja de la
-logistica sin taker > 0 en H=1 o H=4) tambien JavascriptVersion/modelo_direccion.json, el modelo que usa la app. Necesita numpy, scikit-learn y lightgbm
+Escribe resultados/retador.json y resultados/retador.txt. Con compuerta tambien JavascriptVersion/modelo_direccion.json, el modelo que usa la app: por cada H (1 y 4) va la
+variante sin taker o la con perfil, la de mayor limite inferior del IC90 de la ventaja, y solo si ese limite es > 0. Necesita numpy, scikit-learn y lightgbm
 (NO estan en requirements.txt, que usa Render): lo corre .github/workflows/medir_retador.yml.
 """
-import csv, io, json, os, sys, time, urllib.error, urllib.request, warnings, zipfile
+import csv, io, json, math, os, sys, time, urllib.error, urllib.request, warnings, zipfile
 from datetime import date, datetime, timedelta, timezone
 
 import numpy as np
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import indicadores as ind  # noqa: E402  (perfil_volumen: el mismo calculo que la app)
 
 HORAS = (1, 4, 24)
 HMS = 3600000
@@ -22,7 +27,9 @@ COSTO_PB = 10.0                 # puntos basicos por jugada (ida y vuelta)
 SEMILLA = 12345
 EPS = 0.01                      # las probabilidades se recortan a [EPS, 1-EPS] (log loss finito)
 V90 = 90 * 24                   # ventana de 90 dias en horas
-MODELOS = ("logistica", "lightgbm", "logistica_sin_taker")
+MODELOS = ("logistica", "lightgbm", "logistica_sin_taker", "logistica_perfil")
+RASGOS_PERFIL = ("dist_poc", "pos_zona_valor")             # al final de la matriz de rasgos; solo los usa "logistica_perfil"
+VARIANTES_APP = ("logistica_sin_taker", "logistica_perfil")  # las que puede exportar modelo_direccion
 H_APP = (1, 4)                  # horizontes que usa la app (plazos "1 hora" y "4 horas")
 MODELO_JSON = os.path.join(os.path.dirname(os.path.abspath(__file__)), "JavascriptVersion", "modelo_direccion.json")
 ANIO = 365 * 24
@@ -174,11 +181,22 @@ def rasgos(v):
     add("hora_sin", np.sin(2 * np.pi * hora / 24))
     add("hora_cos", np.cos(2 * np.pi * hora / 24))
     add("dia_semana", ((v["t"] // 86400000) + 3) % 7)
+    # perfil de volumen de las ultimas 24 velas (la vela t incluida): POC y zona de valor del 70%
+    dist, pos = np.full(n, np.nan), np.full(n, np.nan)
+    barras = np.column_stack([v["t"], v["o"], h, l, c, vol]).tolist()
+    for t in range(23, n):
+        pf = ind.perfil_volumen(barras[t - 23:t + 1])
+        if pf is not None:
+            dist[t] = math.log(c[t] / pf["poc"])
+            pos[t] = min(2.0, max(-1.0, (c[t] - pf["val"]) / (pf["vah"] - pf["val"])))
+    with np.errstate(all="ignore"):
+        add(RASGOS_PERFIL[0], dist / v168)
+    add(RASGOS_PERFIL[1], pos)
     return np.column_stack(cols), nom
 
 
 def rasgos_ultima(velas):
-    """Rasgos SIN taker de la ultima vela: (vector, nombres), con exactamente el calculo de `rasgos`. `velas` = lista de
+    """Rasgos SIN taker de la ultima vela (los 20 de siempre y los 2 del perfil de volumen): (vector, nombres), con exactamente el calculo de `rasgos`. `velas` = lista de
     [t, o, h, l, c, v(, taker)] consecutivas cada 1 h. Es la referencia con la que se prueba rasgos_direccion de la app."""
     v = armar(velas)
     v["taker"] = False
@@ -191,8 +209,15 @@ def _meses(t):
     return ((t + HMS) // 1000).astype("datetime64[s]").astype("datetime64[M]").astype(np.int64)
 
 
-def walk_forward(v, X, ok, H, meses_ini=24, arboles=300, cols_st=None):
-    """Predicciones fuera de muestra a H. Devuelve dict de arrays alineados (una fila por prediccion)."""
+def columnas(nom):
+    """Indices de las columnas de cada variante: base (con taker, sin perfil: la logistica y LightGBM de siempre), sin taker, y sin taker + perfil."""
+    sin_pf = [i for i, n in enumerate(nom) if n not in RASGOS_PERFIL]
+    st = [i for i in sin_pf if nom[i] != "taker_24"]
+    return {"base": sin_pf, "sin_taker": st, "perfil": st + [i for i, n in enumerate(nom) if n in RASGOS_PERFIL]}
+
+
+def walk_forward(v, X, ok, H, meses_ini=24, arboles=300, cols=None):
+    """Predicciones fuera de muestra a H. Devuelve dict de arrays alineados (una fila por prediccion). `cols` = columnas()."""
     from sklearn.isotonic import IsotonicRegression
     from sklearn.linear_model import LogisticRegression
     from sklearn.preprocessing import StandardScaler
@@ -202,8 +227,12 @@ def walk_forward(v, X, ok, H, meses_ini=24, arboles=300, cols_st=None):
     y[:n - H] = c[H:] > c[:n - H]
     mes = _meses(v["t"])
     cl = lambda p: np.clip(p, EPS, 1 - EPS)
-    cols_st = list(range(X.shape[1])) if cols_st is None else cols_st          # columnas de la variante sin taker
-    cab = ["idx", "y", "p_normal", "p_log", "p_lgb", "u10_log", "u20_log", "u10_lgb", "u20_lgb", "p_log_st", "u10_log_st", "u20_log_st"]
+    if cols is None:
+        cols = {"base": list(range(X.shape[1]))}
+        cols["sin_taker"] = cols["perfil"] = cols["base"]
+    Xb = X[:, cols["base"]]
+    cab = ["idx", "y", "p_normal", "p_log", "p_lgb", "u10_log", "u20_log", "u10_lgb", "u20_lgb", "p_log_st", "u10_log_st", "u20_log_st",
+           "p_log_pf", "u10_log_pf", "u20_log_pf"]
     sal = {k: [] for k in cab}
     for M in range(int(mes[0]) + meses_ini, int(mes[-1]) + 1):
         i0, i1 = np.searchsorted(mes, M, "left"), np.searchsorted(mes, M, "right")
@@ -214,30 +243,34 @@ def walk_forward(v, X, ok, H, meses_ini=24, arboles=300, cols_st=None):
         if len(te) == 0 or len(tr) < 500:
             continue
         p_n = y[max(0, i0 - ANIO - H + 1):i0 - H + 1].mean()      # solo resultados ya conocidos al inicio del mes
-        sc = StandardScaler().fit(X[tr])
-        lr = LogisticRegression(C=0.1, max_iter=1000).fit(sc.transform(X[tr]), y[tr])
-        p_l = cl(lr.predict_proba(sc.transform(X[te]))[:, 1])
-        d = np.abs(cl(lr.predict_proba(sc.transform(X[tr]))[:, 1]) - 0.5)
+        sc = StandardScaler().fit(Xb[tr])
+        lr = LogisticRegression(C=0.1, max_iter=1000).fit(sc.transform(Xb[tr]), y[tr])
+        p_l = cl(lr.predict_proba(sc.transform(Xb[te]))[:, 1])
+        d = np.abs(cl(lr.predict_proba(sc.transform(Xb[tr]))[:, 1]) - 0.5)
         u_l = (np.quantile(d, 0.90), np.quantile(d, 0.80))
-        Xs = X[:, cols_st]                                        # misma logistica, sin el volumen taker
-        sc_s = StandardScaler().fit(Xs[tr])
-        lr_s = LogisticRegression(C=0.1, max_iter=1000).fit(sc_s.transform(Xs[tr]), y[tr])
-        p_ls = cl(lr_s.predict_proba(sc_s.transform(Xs[te]))[:, 1])
-        d = np.abs(cl(lr_s.predict_proba(sc_s.transform(Xs[tr]))[:, 1]) - 0.5)
-        u_ls = (np.quantile(d, 0.90), np.quantile(d, 0.80))
+        var = {}
+        for nombre in ("sin_taker", "perfil"):                    # misma logistica sin el volumen taker; y esa mas los rasgos del perfil
+            Xs = X[:, cols[nombre]]
+            sc_s = StandardScaler().fit(Xs[tr])
+            lr_s = LogisticRegression(C=0.1, max_iter=1000).fit(sc_s.transform(Xs[tr]), y[tr])
+            d = np.abs(cl(lr_s.predict_proba(sc_s.transform(Xs[tr]))[:, 1]) - 0.5)
+            var[nombre] = (cl(lr_s.predict_proba(sc_s.transform(Xs[te]))[:, 1]), np.quantile(d, 0.90), np.quantile(d, 0.80))
+        p_ls, u_ls = var["sin_taker"][0], var["sin_taker"][1:]
+        p_lp, u_lp = var["perfil"][0], var["perfil"][1:]
         k = int(len(tr) * 0.8)
         a, b = tr[:max(k - H, 1)], tr[k:]                         # 80% antiguo ajusta, 20% reciente calibra (hueco de H)
         gb = lgb.LGBMClassifier(n_estimators=arboles, learning_rate=0.03, num_leaves=15, min_child_samples=200,
                                 subsample=0.8, subsample_freq=1, random_state=7, verbose=-1, n_jobs=2)
-        gb.fit(X[a], y[a])
-        raw_b = gb.predict_proba(X[b])[:, 1]
+        gb.fit(Xb[a], y[a])
+        raw_b = gb.predict_proba(Xb[b])[:, 1]
         iso = IsotonicRegression(y_min=0.0, y_max=1.0, out_of_bounds="clip").fit(raw_b, y[b])
-        p_g = cl(iso.predict(gb.predict_proba(X[te])[:, 1]))
+        p_g = cl(iso.predict(gb.predict_proba(Xb[te])[:, 1]))
         d = np.abs(cl(iso.predict(raw_b)) - 0.5)                  # umbral con el entrenamiento (tramo de calibracion)
         u_g = (np.quantile(d, 0.90), np.quantile(d, 0.80))
         m = len(te)
         for kk, val in zip(cab, (te, y[te], np.full(m, p_n), p_l, p_g, np.full(m, u_l[0]), np.full(m, u_l[1]),
-                                 np.full(m, u_g[0]), np.full(m, u_g[1]), p_ls, np.full(m, u_ls[0]), np.full(m, u_ls[1]))):
+                                 np.full(m, u_g[0]), np.full(m, u_g[1]), p_ls, np.full(m, u_ls[0]), np.full(m, u_ls[1]),
+                                 p_lp, np.full(m, u_lp[0]), np.full(m, u_lp[1]))):
             sal[kk].append(val)
     if not sal["idx"]:
         return None
@@ -270,7 +303,7 @@ def _abst(p, y, ret, u, H):
 
 def _rangos(v, r1, ew, idx, H):
     """Cuantiles 10/90 de los retornos a H de los 90 dias previos: (a) tal cual, (b) escalados por vol EWMA / vol 90d."""
-    lc, n = np.log(v["c"]), len(v["c"])
+    lc = np.log(v["c"])
     rH = lc[H:] - lc[:-H]                                          # rH[s] se conoce en s+H
     fin = idx - H                                                  # ultimo s ya conocido al cierre de t
     ok = fin >= V90 - 1
@@ -296,7 +329,7 @@ def _rangos(v, r1, ew, idx, H):
 
 
 def evaluar_H(v, X, nom, ok, ew, H, meses_ini, arboles, n_boot):
-    wf = walk_forward(v, X, ok, H, meses_ini, arboles, [i for i, n in enumerate(nom) if n != "taker_24"])
+    wf = walk_forward(v, X, ok, H, meses_ini, arboles, columnas(nom))
     if wf is None:
         return None
     idx, y = wf["idx"], wf["y"].astype(float)
@@ -304,7 +337,7 @@ def evaluar_H(v, X, nom, ok, ew, H, meses_ini, arboles, n_boot):
     ret = c[idx + H] / c[idx] - 1
     rng = np.random.default_rng(SEMILLA + H)
     L = max(H, 24)
-    ps = {"normal": wf["p_normal"], "logistica": wf["p_log"], "lightgbm": wf["p_lgb"], "logistica_sin_taker": wf["p_log_st"]}
+    ps = {"normal": wf["p_normal"], "logistica": wf["p_log"], "lightgbm": wf["p_lgb"], "logistica_sin_taker": wf["p_log_st"], "logistica_perfil": wf["p_log_pf"]}
     perd = {k: (p - y) ** 2 for k, p in ps.items()}
     r168 = np.exp(X[idx, nom.index("ret_168")]) - 1
     regs = {"sube_mas_5pct": r168 > 0.05, "baja_mas_5pct": r168 < -0.05}
@@ -317,7 +350,7 @@ def evaluar_H(v, X, nom, ok, ew, H, meses_ini, arboles, n_boot):
             lo, hi = _bloques(perd[k], perd["normal"], L, n_boot, rng)
             m["ventaja"] = float(1 - perd[k].sum() / perd["normal"].sum())
             m["ventaja_ic90"] = [lo, hi]
-            u = {"logistica": "log", "lightgbm": "lgb", "logistica_sin_taker": "log_st"}[k]
+            u = {"logistica": "log", "lightgbm": "lgb", "logistica_sin_taker": "log_st", "logistica_perfil": "log_pf"}[k]
             m["abstencion"] = {"top10": _abst(p, y, ret, wf["u10_" + u], H), "top20": _abst(p, y, ret, wf["u20_" + u], H)}
             m["regimen"] = {r: {"n": int(s.sum()), "n_ef": float(s.sum()) / H,
                                 "ventaja": float(1 - perd[k][s].sum() / perd["normal"][s].sum()) if s.sum() else None}
@@ -383,7 +416,7 @@ def _f(x, d=1, signo=False):
 def resumen(res):
     m = res["meta"]
     dia = lambda ms: datetime.fromtimestamp(ms / 1000, timezone.utc).strftime("%Y-%m-%d")
-    nombre = {"logistica": "logística", "lightgbm": "LightGBM", "logistica_sin_taker": "logística sin taker"}
+    nombre = {"logistica": "logística", "lightgbm": "LightGBM", "logistica_sin_taker": "logística sin taker", "logistica_perfil": "logística con perfil"}
     L = ["Laboratorio retador BTCUSDT 1h: fuera de muestra, walk-forward mensual (no cambia nada de la página)",
          f"Datos {dia(m['desde'])} a {dia(m['hasta'])}: {m['velas']} velas, taker {'sí' if m['taker'] else 'no'}, "
          f"{m['meses_entrenamiento_inicial']} meses de entrenamiento inicial, purga y embargo de H velas.",
@@ -425,36 +458,52 @@ def resumen(res):
     return "\n".join(L + ver) + "\n"
 
 
+def elegir_variante(res, H):
+    """La variante de la app para este H: de las que no necesitan taker (sin taker o con perfil), la de mayor limite inferior
+    del IC90 de la ventaja, y solo si ese limite es > 0. Devuelve (nombre, metricas) o None. En empate gana la sin taker."""
+    r = (res.get("por_H") or {}).get(str(H))
+    cand = []
+    for nombre in VARIANTES_APP:
+        m = ((r or {}).get("modelos") or {}).get(nombre)
+        if m and m["ventaja_ic90"][0] is not None and m["ventaja_ic90"][0] > 0:
+            cand.append((nombre, m))
+    return max(cand, key=lambda x: x[1]["ventaja_ic90"][0]) if cand else None     # max devuelve el primero en empate
+
+
 def modelo_direccion(filas, res, horizontes=H_APP, ahora_ms=None, objetos=None):
-    """El modelo que usa la app, con compuerta: para cada H, si el limite inferior del IC90 de la ventaja de la logistica
-    sin taker (fuera de muestra, en `res`) es > 0, se ajusta con TODOS los datos y se devuelve {"actualizado", "H": {...}}.
-    Un H que no pasa no va (y si ninguno pasa, "H" queda vacio). ventaja e ic90 en %, normal en %, u10 en probabilidad.
-    Si `objetos` es un dict, deja ahi (scaler, logistica) de cada H (para las pruebas)."""
+    """El modelo que usa la app, con compuerta: para cada H se elige la variante sin taker o la con perfil (la de mayor limite
+    inferior del IC90 de la ventaja fuera de muestra, en `res`; tiene que ser > 0), se ajusta con TODOS los datos y se devuelve
+    {"actualizado", "H": {...}}. Un H que no pasa no va (y si ninguno pasa, "H" queda vacio). Cada H lleva "variante" y los
+    nombres de los "rasgos" que usa (la app los calcula por nombre). ventaja e ic90 en %, normal en %, u10 en probabilidad.
+    Si `objetos` es un dict, deja ahi (scaler, logistica, columnas) de cada H (para las pruebas)."""
     from sklearn.linear_model import LogisticRegression
     from sklearn.preprocessing import StandardScaler
     out = {"actualizado": int(time.time() * 1000 if ahora_ms is None else ahora_ms), "H": {}}
     v = armar(filas)
     v["taker"] = False
     X, nom = rasgos(v)
+    cols = columnas(nom)
     ok = np.isfinite(X).all(1)
     ok[:WARM] = False
     c, n = v["c"], len(v["c"])
     for H in horizontes:
-        r = (res.get("por_H") or {}).get(str(H))
-        m = ((r or {}).get("modelos") or {}).get("logistica_sin_taker")
-        if not m or m["ventaja_ic90"][0] is None or not m["ventaja_ic90"][0] > 0:
+        eleg = elegir_variante(res, H)
+        if eleg is None:
             continue
+        variante, m = eleg
+        ci = cols["perfil"] if variante == "logistica_perfil" else cols["sin_taker"]
+        Xv = X[:, ci]
         y = np.zeros(n, bool)
         y[:n - H] = c[H:] > c[:n - H]
         tr = np.arange(WARM, n - H)                               # solo velas con resultado ya conocido
         tr = tr[ok[tr]]
-        sc = StandardScaler().fit(X[tr])
-        lr = LogisticRegression(C=0.1, max_iter=1000).fit(sc.transform(X[tr]), y[tr])
+        sc = StandardScaler().fit(Xv[tr])
+        lr = LogisticRegression(C=0.1, max_iter=1000).fit(sc.transform(Xv[tr]), y[tr])
         if objetos is not None:
-            objetos[H] = (sc, lr)
-        d = np.abs(np.clip(lr.predict_proba(sc.transform(X[tr]))[:, 1], EPS, 1 - EPS) - 0.5)
+            objetos[H] = (sc, lr, ci)
+        d = np.abs(np.clip(lr.predict_proba(sc.transform(Xv[tr]))[:, 1], EPS, 1 - EPS) - 0.5)
         out["H"][str(H)] = {
-            "rasgos": list(nom), "media": sc.mean_.tolist(), "escala": sc.scale_.tolist(),
+            "variante": variante, "rasgos": [nom[i] for i in ci], "media": sc.mean_.tolist(), "escala": sc.scale_.tolist(),
             "coef": lr.coef_[0].tolist(), "intercepto": float(lr.intercept_[0]),
             "normal": float(y[max(0, n - H - ANIO):n - H].mean() * 100),
             "u10": float(np.quantile(d, 0.90)),
@@ -482,7 +531,8 @@ def main():
     mod = _limpio(modelo_direccion(filas, res))
     with open(MODELO_JSON, "w", encoding="utf-8") as f:
         json.dump(mod, f, ensure_ascii=False, indent=1)
-    print(f"modelo_direccion.json: H con compuerta aprobada: {sorted(mod['H'], key=int) or 'ninguno'}")
+    print("modelo_direccion.json: H con compuerta aprobada: "
+          + (", ".join(f"{H} ({mod['H'][H]['variante']})" for H in sorted(mod["H"], key=int)) or "ninguno"))
 
 
 if __name__ == "__main__":

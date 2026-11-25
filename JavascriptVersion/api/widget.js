@@ -9,8 +9,8 @@ module.exports = async (req, res) => {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store, private');
   const { BINGX_API_KEY: key, BINGX_API_SECRET: secret, POSICIONES_CLAVE: clave } = process.env;
-  if (!key || !secret || !clave) { res.status(503).send(JSON.stringify({ ok: false, error: 'Faltan las variables de BingX en Vercel' })); return; }
-  if (!P.claveOk(req.headers['x-clave'], clave)) { res.status(401).send(JSON.stringify({ ok: false, error: 'Contraseña incorrecta' })); return; }
+  if (!key || !secret || !clave) { console.error('widget: faltan BINGX_API_KEY, BINGX_API_SECRET o POSICIONES_CLAVE'); res.status(503).send(JSON.stringify({ ok: false, error: 'Servicio no configurado' })); return; }
+  if (!(await P.autorizar(req, res, clave))) return;
   try {
     const [pos, cap] = await Promise.all([P.pedir('/openApi/swap/v2/user/positions', {}, key, secret), P.capital(key, secret).catch(() => null)]);
     const ps = P.posiciones(pos), r2 = (x) => Math.round(x * 100) / 100;
@@ -20,6 +20,7 @@ module.exports = async (req, res) => {
     res.status(200).send(JSON.stringify({ ok: true, hora: Date.now(), capital: cap ? cap.total : null, futuros: cap ? cap.futuros : null,
       otras: cap ? cap.otras : null, parcial: !cap || cap.parcial, pnl: r2(pnl), margen: r2(margen), pnl_pct: margen ? r2((pnl / margen) * 100) : null, por }));
   } catch (e) {
-    res.status(502).send(JSON.stringify({ ok: false, error: String(e.message || e).slice(0, 200) }));
+    console.error('widget: BingX:', String(e.message || e).slice(0, 200));
+    res.status(502).send(JSON.stringify({ ok: false, error: 'No se pudieron leer los datos' }));
   }
 };

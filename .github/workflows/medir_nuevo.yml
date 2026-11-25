@@ -17,7 +17,7 @@ jobs:
       - run: pip install numpy
       - uses: actions/cache@v4
         with: { path: datos_medicion, key: nuevo-btc-v1 }
-      - run: python -u medir_nuevo.py | tee nuevo.txt
+      - run: set -o pipefail; python -u medir_nuevo.py | tee nuevo.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: medicion-nuevo, path: nuevo.txt }

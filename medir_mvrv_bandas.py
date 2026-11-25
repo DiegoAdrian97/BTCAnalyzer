@@ -13,7 +13,6 @@ Aca, con CoinMetrics (gratis, diario desde 2010):
 Uso: python medir_mvrv_bandas.py
 """
 import json, math, urllib.request
-from datetime import date, timedelta
 
 CAB = {"User-Agent": "analista-btc-medicion"}
 

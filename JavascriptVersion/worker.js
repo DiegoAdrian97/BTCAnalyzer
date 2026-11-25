@@ -17,7 +17,9 @@ const MOVIDA = 0.0003;              // con el precio a menos de 0,03% del ultimo
 const GUARDAR_CADA = 5 * 60000;     // el ultimo analisis en el telefono (y siempre al salir de la app)
 let pausado = true, ACTIVO = 'BTCUSDT', todos = [], numero = 0, proximo = 0, ultimoFondo = 0;
 let corriendo = false, pedirActivo = false, despertar = null, interrumpir = null;
-const hecho = {}, guardado = {}, mostrado = {};
+const hecho = {}, guardado = {}, mostrado = {}, publicado = {}, conGuardado = {};   // publicado: activos con su primer analisis completo ya enviado
+let primerAnalisis = 0;                                             // cuando se publico el primer analisis del activo a la vista
+const ESPERA_FONDO = 60000;                                         // los activos de fondo esperan 60 s despues de ese analisis
 let previo = null, sinGuardar = null;     // lo que se uso en el ultimo analisis del activo a la vista; filas por guardar
 
 /** En los textos del analisis dice BTC: para otro activo se cambia el nombre. */
@@ -30,13 +32,26 @@ function renombrar(rows, mon) {
   });
 }
 
+/** Los de fondo no compiten por la red con el activo a la vista: arrancan 60 s despues de su primer analisis publicado (cambiar de activo no vuelve a esperar). */
+const fondoLibre = () => primerAnalisis > 0 && Date.now() - primerAnalisis >= ESPERA_FONDO;
+
+/** Analisis parcial: apenas llegan las velas del grafico se mandan solas (con el precio) para que la pagina dibuje el
+ *  grafico mientras sigue el analisis. Solo si el activo todavia no tiene nada en pantalla (ver app.js). */
+function adelantarGrafico(sym, velas) {
+  if (sym !== ACTIVO || publicado[sym] || conGuardado[sym] || !velas || !velas.length) return;
+  const v = velas.slice(-300), ult = v[v.length - 1][4], ref = v[Math.max(0, v.length - 25)][4];
+  const rows = [{ tabla: 'resumen', precio: ult, cambio_24h: Math.round((ult / ref - 1) * 1e4) / 100 }];
+  v.forEach((x) => rows.push({ tabla: 'vela', tf: '1h', t: x[0], o: x[1], h: x[2], l: x[3], c: x[4], v: x[5], en_curso: false }));
+  postMessage({ tipo: 'analisis', rows, parcial: true, numero: 0, sym });
+}
+
 /** Al abrir la app o elegir otro activo: el ultimo analisis guardado en el telefono, al toque (despues llega el nuevo). */
 async function mostrarGuardado(sym) {
   if (mostrado[sym]) return;
   mostrado[sym] = true;
   try {
     const u = await Datos.ultimo(sym);
-    if (u && u.rows && sym === ACTIVO) postMessage({ tipo: 'analisis', rows: u.rows, numero: 0, guardado: true, hora: u.hora, sym });
+    if (u && u.rows && sym === ACTIVO) { conGuardado[sym] = true; postMessage({ tipo: 'analisis', rows: u.rows, numero: 0, guardado: true, hora: u.hora, sym }); }
   } catch (e) { /* sin guardado */ }
 }
 
@@ -97,8 +112,13 @@ function guardarFilas() {
 async function cicloActivo() {
   const t0 = Date.now(), sym = ACTIVO;
   try {
-    // los modelos y las velas no dependen uno del otro: se bajan a la vez
-    const [input] = await Promise.all([conTope(Datos.recolectar((texto) => postMessage({ tipo: 'progreso', texto, sym }), sym)), cargarModelos(), modeloDe(sym.replace('USDT', ''))]);
+    // los modelos y las velas no dependen uno del otro: se bajan a la vez (la primera vez, los modelos esperan a que
+    // lleguen las velas del grafico para no competir con ellas por la red)
+    let abrirG = null;
+    const graficoListo = publicado[sym] ? Promise.resolve() : new Promise((r) => { abrirG = r; setTimeout(r, 6000); });
+    const alGrafico = (v) => { if (abrirG) abrirG(); adelantarGrafico(sym, v); };
+    const [input] = await Promise.all([conTope(Datos.recolectar((texto) => postMessage({ tipo: 'progreso', texto, sym }), sym, { alGrafico }).finally(() => { if (abrirG) abrirG(); })),
+      graficoListo.then(cargarModelos), graficoListo.then(() => modeloDe(sym.replace('USDT', '')))]);
     if (sym !== ACTIVO) return;                    // eligieron otro activo mientras bajaban los datos: no se calcula este
     const f = firma(sym, input);
     hecho[sym] = Date.now();
@@ -106,6 +126,7 @@ async function cicloActivo() {
     const rows = calcular(sym, input);
     previo = f; numero += 1;
     postMessage({ tipo: 'analisis', rows, numero, ms: Date.now() - t0, fuente: input.fuente, sym });
+    publicado[sym] = true; if (!primerAnalisis) primerAnalisis = Date.now();
     sinGuardar = { sym, rows };
     if (Date.now() - (guardado[sym] || 0) > GUARDAR_CADA) guardarFilas();
   } catch (e) {
@@ -133,6 +154,7 @@ async function cicloFondo(sym) {
 
 function siguienteFondo() {
   const ahora = Date.now();
+  if (!fondoLibre()) return null;
   return todos.filter((s) => s !== ACTIVO && ahora - (hecho[s] || 0) > FONDO_CADA).sort((a, b) => (hecho[a] || 0) - (hecho[b] || 0))[0] || null;
 }
 const dormir = (ms) => new Promise((r) => { despertar = r; setTimeout(r, ms); });
@@ -149,7 +171,8 @@ async function bucle() {
     }
     const s = Date.now() - ultimoFondo >= FONDO_PAUSA && proximo - Date.now() > 2500 ? siguienteFondo() : null;
     if (s) { await cicloFondo(s); continue; }
-    await dormir(Math.max(250, Math.min(proximo, ultimoFondo + FONDO_PAUSA) - Date.now()));
+    const abre = primerAnalisis && !fondoLibre() ? primerAnalisis + ESPERA_FONDO : 0;      // que no se duerma de mas si la espera de los de fondo vence antes
+    await dormir(Math.max(250, Math.min(proximo, ultimoFondo + FONDO_PAUSA, abre || Infinity) - Date.now()));
   }
   corriendo = false;
 }

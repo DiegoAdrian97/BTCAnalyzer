@@ -16,8 +16,8 @@ Ideas:
 
 Uso: python medir_velas.py [carpeta de datos, por defecto datos_medicion]   (PLAZOS="1 hora,4 horas" para algunos)
 """
-import bisect, json, math, os, sys, time
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+import json, math, os, time
+from concurrent.futures import ProcessPoolExecutor
 
 import medir_contexto as mc
 import indicadores as ind

@@ -21,6 +21,7 @@ jobs:
       - run: pip install numpy lightgbm scikit-learn
       - run: python datos_entrenamiento.py
       - run: |
+          set -o pipefail
           V=velas_1h.json; if [ "$MON" != BTC ]; then V=velas_1h_$MON.json; fi
           python -u -W ignore medir_ideas_kronos.py "$V" eventos.json "$MON" | tee "ideas_$MON.txt"
         env: { MON: "${{ matrix.moneda }}" }

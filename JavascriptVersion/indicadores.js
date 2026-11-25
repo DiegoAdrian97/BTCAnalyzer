@@ -1178,6 +1178,30 @@
       ['R3', h + 2 * (p - l)], ['S3', l - 2 * (h - p)]];
   }
 
+  /** Igual que perfil_volumen en indicadores.py (ver ahi la explicacion): {poc, vah, val} de las velas [t, o, h, l, c, v], o null. */
+  function perfilVolumen(velas, n = 48) {
+    const bs = velas.filter((b) => b[5] > 0 && b[2] >= b[3]);
+    if (bs.length < 5) return null;
+    let lo = Infinity, hi = -Infinity;
+    bs.forEach((b) => { lo = Math.min(lo, b[3]); hi = Math.max(hi, b[2]); });
+    if (!(hi > lo)) return null;
+    const paso = (hi - lo) / n, vol = new Array(n).fill(0);
+    bs.forEach((b) => {
+      const k0 = Math.max(0, Math.min(n - 1, Math.floor((b[3] - lo) / paso))), k1 = Math.max(0, Math.min(n - 1, Math.floor((b[2] - lo) / paso)));
+      const parte = b[5] / (k1 - k0 + 1);
+      for (let k = k0; k <= k1; k++) vol[k] += parte;
+    });
+    let poc = 0;
+    for (let k = 1; k < n; k++) if (vol[k] > vol[poc]) poc = k;
+    let tot = 0; for (const x of vol) tot += x;
+    let a = poc, z = poc, acc = vol[poc];
+    while (acc < tot * 0.7 && (a > 0 || z < n - 1)) {
+      const va = a > 0 ? vol[a - 1] : -1, vz = z < n - 1 ? vol[z + 1] : -1;
+      if (vz >= va) acc += vol[++z]; else acc += vol[--a];
+    }
+    return { poc: lo + (poc + 0.5) * paso, vah: lo + (z + 1) * paso, val: lo + a * paso };
+  }
+
   // ---------- conceptos ICT / SMC: order blocks, breakers, IFVG, barridas de liquidez y Power of Three ----------
   /** Igual que ict() en indicadores.py (ver ahi la explicacion). Devuelve [zonas y eventos, estadistica]. */
   function ict(bars, atr, tfMin = 60, horizon = 6, lookback = 1000, sigue = 400) {
@@ -1314,7 +1338,7 @@
     ar, rnd, roundEven, sma, ema, rma, wma, hma, vwma, rsi, stoch, stochRsi, cci, williamsR, momentum, macd,
     awesome, bullBearPower, ultimate, dmi, atrW, mfi, cmf, obv, bollinger, keltner, psar, supertrend, ichimoku,
     vwapSession, calificar, ratingTxt, divergencia, fvg, zigzag, elliott, mapaLiquidaciones, liqPerfil, liqEscala, LIQ_NIVELES, LIQ_MANT, patronesVelas,
-    estadisticaVelas, patronGrafico, figuraLineas, wyckoff, divergencias, pivotes, ict, ictDescripcion, ICT_NOMBRE, flujoSenales, huecoCme,
+    estadisticaVelas, patronGrafico, figuraLineas, wyckoff, divergencias, pivotes, perfilVolumen, ict, ictDescripcion, ICT_NOMBRE, flujoSenales, huecoCme,
   };
   root.Ind = Ind;
   if (typeof module !== 'undefined' && module.exports) module.exports = Ind;

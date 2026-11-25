@@ -8,7 +8,6 @@ ribbons, Fear & Greed y el RSI semanal como zona de venta; NUPL es el MVRV escri
 armar_termometro.py llama a calcular() cada semana y guarda el resultado en termometro.json ("zonas"); la pagina lo
 termina con el precio de ahora: para los que dependen del precio guarda un multiplicador (valor = precio x k).
 """
-import math
 
 import numpy as np
 

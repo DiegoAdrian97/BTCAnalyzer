@@ -17,7 +17,7 @@ jobs:
       - run: pip install numpy
       - uses: actions/cache@v4
         with: { path: datos_medicion, key: senales-btc-v1 }
-      - run: python -u medir_rsi.py | tee rsi.txt
+      - run: set -o pipefail; python -u medir_rsi.py | tee rsi.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: medicion-rsi, path: rsi.txt }

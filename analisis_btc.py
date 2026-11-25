@@ -724,6 +724,9 @@ MODELO_PLAZO = {("5m", 12): 1, ("30m", 8): 4}          # (tf, velas) del plazo -
 RASGOS_DIRECCION = ["ret_1", "ret_2", "ret_4", "ret_8", "ret_24", "ret_72", "ret_168", "vol_24", "vol_168", "vol_cociente",
                     "rsi_14", "dist_ema_20", "dist_ema_50", "dist_ema_200", "rango_pos_24", "rango_pos_168", "vol_z",
                     "hora_sin", "hora_cos", "dia_semana"]
+# rasgos del perfil de volumen de las ultimas 24 velas de 1 h (el modelo con perfil los pide por nombre, ademas de los de arriba)
+RASGOS_PERFIL = ["dist_poc", "pos_zona_valor"]
+RASGOS_APP = RASGOS_DIRECCION + RASGOS_PERFIL           # los que sabe calcular rasgos_direccion, en este orden
 MODELO_DIRECCION = {}                                   # {H: modelo} ya validados
 _MODELO_LEIDO = False
 
@@ -735,8 +738,9 @@ def _std1(xs):
 
 
 def rasgos_direccion(velas_1h):
-    """Los rasgos sin taker de la ultima vela (la ultima se toma como cerrada), en el orden de RASGOS_DIRECCION. Mismo
-    calculo que medir_retador.rasgos: EMA con semilla en la primera vela, RSI de Wilder con semilla en la media de las
+    """Los rasgos sin taker de la ultima vela (la ultima se toma como cerrada), en el orden de RASGOS_APP (los de
+    RASGOS_DIRECCION y despues los 2 del perfil de volumen de las ultimas 24 velas: NaN si el perfil no se puede armar).
+    Mismo calculo que medir_retador.rasgos: EMA con semilla en la primera vela, RSI de Wilder con semilla en la media de las
     primeras 14 variaciones. None si hay menos de 169 velas. Velas: [t, o, h, l, c, v] cada 1 h."""
     n = len(velas_1h)
     if n < 169:
@@ -767,7 +771,13 @@ def rasgos_direccion(velas_1h):
     s168 = _std1(v168s)
     x.append((sum(vol[-24:]) / 24 - sum(v168s) / 168) / s168 if s168 > 0 else 0.0)
     hora = (t[i] // bg.HOUR_MS) % 24
-    return x + [math.sin(2 * math.pi * hora / 24), math.cos(2 * math.pi * hora / 24), (t[i] // 86_400_000 + 3) % 7]
+    x += [math.sin(2 * math.pi * hora / 24), math.cos(2 * math.pi * hora / 24), (t[i] // 86_400_000 + 3) % 7]
+    # perfil de volumen de las ultimas 24 velas: distancia del cierre al POC (en volatilidades de 168 h) y posicion en la
+    # zona de valor ((c - VAL) / (VAH - VAL), recortada a [-1, 2])
+    pf = ind.perfil_volumen(velas_1h[-24:])
+    if pf is None:
+        return x + [math.nan, math.nan]
+    return x + [math.log(c[i] / pf["poc"]) / v168, min(2.0, max(-1.0, (c[i] - pf["val"]) / (pf["vah"] - pf["val"])))]
 
 
 def velas_direccion(h1, c5, price, now_ms):
@@ -786,10 +796,15 @@ def velas_direccion(h1, c5, price, now_ms):
 
 
 def prob_modelo(H, velas_1h):
-    """Probabilidad de que BTC cierre arriba a H horas segun el modelo; None si no hay modelo para ese H o algun rasgo no es finito."""
+    """Probabilidad de que BTC cierre arriba a H horas segun el modelo; None si no hay modelo para ese H o algun rasgo que
+    pide no es finito. Los rasgos se toman por nombre (los del json, en su orden)."""
     m = MODELO_DIRECCION.get(H)
     x = m and velas_1h and rasgos_direccion(velas_1h)
-    if not x or not all(math.isfinite(v) for v in x):
+    if not x:
+        return None
+    por_nombre = dict(zip(RASGOS_APP, x))
+    x = [por_nombre.get(nombre) for nombre in m["rasgos"]]
+    if not all(v is not None and math.isfinite(v) for v in x):
         return None
     z = m["intercepto"] + sum(w * (v - mu) / sc for w, v, mu, sc in zip(m["coef"], x, m["media"], m["escala"]))
     if not math.isfinite(z):
@@ -813,17 +828,19 @@ def aplicar_modelo(prob, tf, h, velas_1h):
 
 
 def modelo_valido(j):
-    """{H: modelo} con los H del json que estan bien armados (rasgos en el orden esperado, todo finito); el resto se descarta."""
+    """{H: modelo} con los H del json que estan bien armados (rasgos que la app sabe calcular, todo finito); el resto se descarta."""
     out = {}
     for k, m in ((j.get("H") if isinstance(j, dict) else None) or {}).items():
         try:
-            n = len(RASGOS_DIRECCION)
+            n = len(m["rasgos"])
             nums = [*m["media"], *m["escala"], *m["coef"], m["intercepto"], m["normal"], m["u10"], m["ventaja"]]
-            if m["rasgos"] != RASGOS_DIRECCION or not (len(m["media"]) == len(m["escala"]) == len(m["coef"]) == n) \
+            # los rasgos se piden por nombre: si alguno no se sabe calcular (o se repite), ese H queda sin modelo
+            if not isinstance(m["rasgos"], list) or n == 0 or len(set(m["rasgos"])) != n or not set(m["rasgos"]) <= set(RASGOS_APP) \
+                    or not (len(m["media"]) == len(m["escala"]) == len(m["coef"]) == n) \
                     or not all(isinstance(v, (int, float)) and math.isfinite(v) for v in nums) \
                     or min(m["escala"]) <= 0 or not 0 < m["u10"] < 0.5 or not 0 < m["normal"] < 100:
                 continue
-            out[int(k)] = {f: m[f] for f in ("media", "escala", "coef", "intercepto", "normal", "u10", "ventaja")}
+            out[int(k)] = {f: m[f] for f in ("rasgos", "media", "escala", "coef", "intercepto", "normal", "u10", "ventaja")}
         except (KeyError, TypeError, ValueError):
             continue
     return out
@@ -1446,8 +1463,28 @@ def patterns(tf, bars, pivots, e20, horizon, tf_min, partial=False):
 
 
 def lc1(s):
-    """Primera letra en minuscula, sin tocar siglas como R1 u onda C."""
+    """Primera letra en minuscula, sin tocar siglas como R1, POC o EMA 200 (dos mayusculas seguidas) ni onda C."""
+    if s[:2].isupper():
+        return s
     return s[:1].lower() + s[1:]
+
+
+# Perfil de volumen de las ultimas 48 velas de la temporalidad de cada plazo (POC, VAH y VAL). Medido (texto de la pagina): el
+# precio suele volver hacia el POC y los bordes suelen frenarlo, asi que entran como soporte/resistencia candidatos con el mismo
+# criterio que los demas niveles. NO suman a la direccion (repite lo que dicen los indicadores)
+PERFIL_NIVELES = (("poc", "POC del perfil"), ("vah", "borde del perfil (VAH)"), ("val", "borde del perfil (VAL)"))
+
+
+def perfil_plazo(bars):
+    """{poc, vah, val} (redondeados como los demas precios) de las ultimas 48 velas de `bars`, o None si no se puede armar."""
+    pf = ind.perfil_volumen(bars[-48:])
+    return None if pf is None else {k: rp(v) for k, v in pf.items()}
+
+
+def niveles_perfil(plazo_row):
+    """Los 3 niveles del perfil de una fila `plazo`, con la forma de las filas "nivel" (nombre, precio)."""
+    pf = (plazo_row or {}).get("perfil")
+    return [{"nombre": nombre, "precio": pf[k]} for k, nombre in PERFIL_NIVELES] if pf else []
 
 
 # plazo: (temporalidad con mas casos para ese plazo, velas, temporalidades cuyas senales pesan,
@@ -1594,8 +1631,6 @@ def central(rows, price, candles, now_ms):
     hs = next(iter(pick("horas")), None)
     tm = next(iter(pick("termometro")), None)
     liq = pick("liquidacion")
-    libros = pick("libro")
-    fu = next((c for c in pick("contexto") if c.get("clave") == "funding"), None)
     iv = next((c for c in pick("contexto") if c.get("clave") == "opciones_iv"), None)
     eventos = sorted(r["t"] for r in pick("evento") if r.get("t") and r["t"] > now_ms)
     # decision de tasa de la Fed. Medido (medir_fed.py, 45 decisiones 2021-2026): la hora del anuncio se movio en mediana
@@ -1764,10 +1799,11 @@ def central(rows, price, candles, now_ms):
         # (ATR) de esa temporalidad. Antes eran los mas cercanos a secas: en la semanal y la mensual quedaba un muro
         # del libro de ordenes a 0,1% del precio. Si no hay ninguno tan lejos, el mas lejano que haya.
         lejos = 0.5 * (marco.get("atr_pct") or 0) / 100 * price
-        sop = max((n["precio"] for n in niveles if n["precio"] <= price - lejos and n["precio"] < price),
-                  default=min((n["precio"] for n in niveles if n["precio"] < price), default=None))
-        res = min((n["precio"] for n in niveles if n["precio"] >= price + lejos and n["precio"] > price),
-                  default=max((n["precio"] for n in niveles if n["precio"] > price), default=None))
+        cand = niveles + niveles_perfil(p)               # ademas, el perfil de volumen de este plazo
+        sop = max((n["precio"] for n in cand if n["precio"] <= price - lejos and n["precio"] < price),
+                  default=min((n["precio"] for n in cand if n["precio"] < price), default=None))
+        res = min((n["precio"] for n in cand if n["precio"] >= price + lejos and n["precio"] > price),
+                  default=max((n["precio"] for n in cand if n["precio"] > price), default=None))
         inval = next((e["texto"] for e in rows if e.get("tabla") == "explicacion" and e["plazo"] == nombre_plazo and e["tipo"] == "invalida"), None) if p else None
         # ----- riesgo -----
         R = []
@@ -1910,7 +1946,7 @@ def explain(rows, price, spec):
     # el mismo soporte y la misma resistencia
     m_tf = get("marco", tf=sig_tfs[-1])
     lejos = 0.5 * ((m_tf[0].get("atr_pct") if m_tf else 0) or 0) / 100 * price
-    levels = sorted(get("nivel"), key=lambda n: n["precio"])
+    levels = sorted(get("nivel") + niveles_perfil(main), key=lambda n: n["precio"])     # con el perfil de volumen de este plazo
     arriba, abajo = [n for n in levels if n["precio"] > price], [n for n in levels if n["precio"] < price]
     res = next((n for n in arriba if n["precio"] >= price + lejos), arriba[-1] if arriba else None)
     sup = next((n for n in reversed(abajo) if n["precio"] <= price - lejos), abajo[0] if abajo else None)
@@ -2108,7 +2144,7 @@ def analyze():
         fit = tune(tf, series[tf], h)
         prob, tg = horizon_stats(tf, series[tf], h, price, fit)
         aplicar_modelo(prob, tf, h, v1h)
-        rows.append({"tabla": "plazo", "plazo": name, **prob})
+        rows.append({"tabla": "plazo", "plazo": name, **prob, "perfil": perfil_plazo(series[tf]["bars"])})
         rows += learning_rows(name, tf, h, fit)
         rows += [{"tabla": "objetivo_plazo", "plazo": name, **t} for t in tg]
     # coherencia entre plazos: el rango de un plazo mas largo no puede ser mas angosto que el del anterior (cada plazo se
@@ -2144,6 +2180,10 @@ def analyze():
         rows.append({"tabla": "nivel", "nombre": f"Fibonacci {ar(f * 100, 1)}% (90 d) · rebotó {FIB_REBOTE[f]}%", "precio": rp(v),
                      "tipo": "resistencia" if v > price else "soporte", "distancia": round(pct(v, price), 2),
                      "fib": f, "rebote": FIB_REBOTE[f]})
+    # el perfil de volumen del plazo "1 día" (las ultimas 48 velas de 4 h, ~8 dias) tambien va en la lista de niveles clave
+    for n_ in niveles_perfil(next((r for r in rows if r.get("tabla") == "plazo" and r["plazo"] == "1 día"), None)):
+        rows.append({"tabla": "nivel", "nombre": n_["nombre"], "precio": n_["precio"],
+                     "tipo": "resistencia" if n_["precio"] > price else "soporte", "distancia": round(pct(n_["precio"], price), 2)})
     tramo = fib_tramo(candles["4h"])
     if tramo:
         rows.append({"tabla": "fib_tramo", "t_inicio": tramo["t_inicio"], "p_inicio": rp(tramo["p_inicio"]),
@@ -2389,9 +2429,11 @@ def save_json(path, data):
 
 
 def write_waiting_page(path, message, error=""):
-    """Pantalla mientras no hay analisis: se recarga sola y pasa al dashboard cuando esta listo."""
+    """Pantalla mientras no hay analisis: se recarga sola y pasa al dashboard cuando esta listo (el detalle del error va al log)."""
     import html
-    extra = f'<pre class="err">{html.escape(error)}</pre><p>Si se repite, pasale este error a Claude.</p>' if error else ""
+    if error:
+        print(f"(pagina de espera) {error}", flush=True)
+    extra = '<p class="err">Hubo un error al analizar. Se vuelve a intentar solo; el detalle está en el registro del servidor.</p>' if error else ""
     page = f"""<!doctype html><html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="refresh" content="5">
 <title>Analista BTC</title><style>
@@ -2460,8 +2502,16 @@ def run_live(every, public=False):
     _GZ = {}                                     # ultima pagina comprimida (se rehace cuando cambia el archivo)
 
     class Quiet(http.server.SimpleHTTPRequestHandler):
+        timeout = 30                             # una conexion lenta no retiene un hilo para siempre
+
         def log_message(self, *args):
             pass
+
+        def end_headers(self):                   # cabeceras de seguridad en todas las respuestas
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+            self.send_header("X-Frame-Options", "SAMEORIGIN")
+            super().end_headers()
 
         def do_GET(self):
             if self.path == "/salud":            # para que Render sepa que el servicio anda; no muestra datos
@@ -2541,6 +2591,7 @@ def run_live(every, public=False):
     if public or not os.path.exists(index):     # hasta que termine el primer analisis
         write_waiting_page(index, "Preparando el primer análisis: baja el historial de velas y calcula todo. "
                                   "Puede tardar uno o dos minutos.")
+    http.server.ThreadingHTTPServer.daemon_threads = True
     server = http.server.ThreadingHTTPServer((host, port), functools.partial(Quiet, directory=LIVE_DIR))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     url = f"http://127.0.0.1:{port}/"

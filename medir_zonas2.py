@@ -15,7 +15,7 @@ de 90 dias, caida desde el maximo y dias desde el maximo, Delta Price, Thermocap
 stock-to-flow (desvio), NVT por emision, RSI semanal, funding de los perpetuos (promedio de 30 dias).
 Uso: python medir_zonas2.py
 """
-import bisect, csv, io, json, math, urllib.request
+import csv, io, json, math, urllib.request
 from datetime import date, datetime, timezone
 
 import medir_nuevo as mn

@@ -1285,6 +1285,45 @@ def pivotes(prev_day):
             "R3": h + 2 * (p - l), "S3": l - 2 * (h - p)}
 
 
+def perfil_volumen(velas, n=48):
+    """Perfil de volumen de las velas [t, o, h, l, c, v]: n franjas de precio entre el minimo y el maximo, con el volumen de
+    cada vela repartido parejo entre las franjas que toca. POC = centro de la franja con mas volumen; VAH y VAL = bordes de la
+    zona que junta el 70% del volumen (se abre desde el POC hacia el lado con mas volumen). Igual que perfilVol de la pagina
+    y perfilVolumen de indicadores.js. {"poc", "vah", "val"} o None si hay menos de 5 velas con volumen o no hay rango."""
+    bs = [b for b in velas if b[5] > 0 and b[2] >= b[3]]
+    if len(bs) < 5:
+        return None
+    lo, hi = min(b[3] for b in bs), max(b[2] for b in bs)
+    if not hi > lo:
+        return None
+    paso, vol = (hi - lo) / n, [0.0] * n
+    for b in bs:
+        k0 = max(0, min(n - 1, int((b[3] - lo) / paso)))
+        k1 = max(0, min(n - 1, int((b[2] - lo) / paso)))
+        parte = b[5] / (k1 - k0 + 1)
+        for k in range(k0, k1 + 1):
+            vol[k] += parte
+    poc = 0
+    for k in range(1, n):
+        if vol[k] > vol[poc]:
+            poc = k
+    tot = 0.0
+    for x in vol:                                   # suma en orden (igual que JS; sum() de Python compensa distinto)
+        tot += x
+    a = z = poc
+    acc = vol[poc]
+    while acc < tot * 0.7 and (a > 0 or z < n - 1):
+        va = vol[a - 1] if a > 0 else -1
+        vz = vol[z + 1] if z < n - 1 else -1
+        if vz >= va:
+            z += 1
+            acc += vol[z]
+        else:
+            a -= 1
+            acc += vol[a]
+    return {"poc": lo + (poc + 0.5) * paso, "vah": lo + (z + 1) * paso, "val": lo + a * paso}
+
+
 # ---------- conceptos ICT / SMC: order blocks, breakers, IFVG, barridas de liquidez y Power of Three ----------
 ICT_NOMBRE = {"ob": "Order block", "breaker": "Breaker", "ifvg": "IFVG", "barrida": "Barrida de liquidez", "po3": "Power of Three"}
 

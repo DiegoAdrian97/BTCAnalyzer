@@ -11,6 +11,7 @@ on:
     paths: [".github/workflows/reentrenar.yml", "datos_entrenamiento.py", "entrenar_fuerte.py", "armar_termometro.py"]
 permissions:
   contents: write
+concurrency: reentrenar
 jobs:
   reentrenar:
     runs-on: ubuntu-latest

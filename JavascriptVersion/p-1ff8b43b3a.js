@@ -86,7 +86,7 @@
   const LINEA_K = 'ab-grafico-linea';
   const lineaGuardada = (() => { try { return localStorage.getItem(LINEA_K) === '1'; } catch (e) { return false; } })();
   const S = { linea: lineaGuardada, plazo: '1 hora', tf: '1h', scen: 'tipico', hz: null, nbars: 90, offset: 0, yzoom: 1, ypan: 0, geom: null, rows: null, sum: null,
-    layers: { ema: false, bb: false, fvg: false, patrones: false, ondas: false, fib: false, liq: false, osc: false, plan: true, opc: false, abanico: false, flujo: false, vp: false, ict: false, libro: false, mvrv: false }, log: false, medir: false, iman: false };
+    layers: { ema: false, bb: false, fvg: false, patrones: false, ondas: false, fib: false, liq: false, osc: false, plan: true, opc: false, abanico: false, flujo: false, vp: true, ict: false, libro: false, mvrv: false }, log: false, medir: false, iman: false };
   const defBars = () => (window.innerWidth < 600 ? 50 : 90);  // en el telefono, menos para que se lean
   S.nbars = defBars();
   // en el celu arranca con lo esencial (velas, medias, patrones y liquidaciones); el resto se prende en "Capas"
@@ -3290,7 +3290,7 @@
     }
     dibAbanico(ctx, w, h, S.tf);
     if (L.ict) { ctx.save(); ctx.globalAlpha = dimA('ict'); dibIct(ctx, w, h, d.icts, X, Y, P, half, d.narrow); ctx.restore(); }
-    if (L.vp) { ctx.save(); ctx.globalAlpha = dimA('vp'); dibPerfil(ctx, w, h, perfilVisible(G.chart, d.all), Y, P, d.narrow); ctx.restore(); }
+    if (L.vp) { ctx.save(); ctx.globalAlpha = dimA('vp'); dibPerfil(ctx, w, h, perfilVisible(G.chart, d.all), Y, P, d.narrow, G.plines); ctx.restore(); }
   }
 
   // encima de las velas: figuras, divergencias, ondas de Elliott y el mapa de liquidaciones al costado
@@ -4061,7 +4061,7 @@
       }
       if (S.layers.libro) dibLibro(ctx, w, h, s.bars, MG_MS[MG.tfs[s.i]], xf, yf, half);
       if (S.layers.ict) dibIct(ctx, w, h, c.icts, xf, yf, P, half, true);
-      if (S.layers.vp) dibPerfil(ctx, w, h, perfilVisible(s.ch, s.bars), yf, P, true);
+      if (S.layers.vp) dibPerfil(ctx, w, h, perfilVisible(s.ch, s.bars), yf, P, true, s.plines);
       c.fvgs.forEach((z) => {
         const x0 = xf(z.t), yt = yf(z.hi), yb = yf(z.lo); if (x0 === null || yt === null || yb === null || x0 - half > w) return;
         ctx.fillStyle = alpha(z.up ? P.up : P.dn, 0.09); ctx.fillRect(x0 - half, yt, w - x0 + half, Math.max(2, yb - yt));
@@ -4285,31 +4285,47 @@
     const bs = bars.filter((b) => b.v > 0 && b.h >= b.l); if (bs.length < 5) return null;
     let lo = Infinity, hi = -Infinity; bs.forEach((b) => { lo = Math.min(lo, b.l); hi = Math.max(hi, b.h); });
     if (!(hi > lo)) return null;
-    const paso = (hi - lo) / n, vol = new Float64Array(n);
+    const paso = (hi - lo) / n, vol = new Float64Array(n), vc = new Float64Array(n);   // vc: la parte compradora de cada franja
     bs.forEach((b) => {
       const k0 = Math.max(0, Math.min(n - 1, Math.floor((b.l - lo) / paso))), k1 = Math.max(0, Math.min(n - 1, Math.floor((b.h - lo) / paso)));
-      const parte = b.v / (k1 - k0 + 1); for (let k = k0; k <= k1; k++) vol[k] += parte;
+      // compra / venta: el volumen taker de la vela (b.vb) si lo trae; si no, como TradingView: vela que cierra arriba de su apertura = compradora
+      const fc = b.vb !== null && b.vb !== undefined && b.v > 0 ? Math.max(0, Math.min(1, b.vb / b.v)) : b.c > b.o ? 1 : b.c < b.o ? 0 : 0.5;
+      const parte = b.v / (k1 - k0 + 1); for (let k = k0; k <= k1; k++) { vol[k] += parte; vc[k] += parte * fc; }
     });
     let poc = 0; for (let k = 1; k < n; k++) if (vol[k] > vol[poc]) poc = k;
     const tot = vol.reduce((a, v) => a + v, 0); let a = poc, z = poc, acc = vol[poc];
     while (acc < tot * 0.7 && (a > 0 || z < n - 1)) { const va = a > 0 ? vol[a - 1] : -1, vz = z < n - 1 ? vol[z + 1] : -1; if (vz >= va) acc += vol[++z]; else acc += vol[--a]; }
     const p = (k) => lo + (k + 0.5) * paso;
-    return { lo, paso, n, vol, max: vol[poc], poc: p(poc), vah: lo + (z + 1) * paso, val: lo + a * paso, a, z };
+    return { lo, paso, n, vol, vc, max: vol[poc], poc: p(poc), vah: lo + (z + 1) * paso, val: lo + a * paso, a, z };
   }
-  /** El perfil dibujado a la izquierda del panel (barras horizontales), y las lineas POC / VAH / VAL. */
-  function dibPerfil(ctx, w, h, pr, yf, P, chico) {
+  /** El perfil dibujado a la derecha del area de velas (pegado al eje de precios): cada franja en compra (verde) y venta (rojo), mas opaca dentro de la zona de valor; y las lineas POC / VAH / VAL. */
+  function dibPerfil(ctx, w, h, pr, yf, P, chico, plines) {
     if (!pr) return;
-    const ancho = Math.min(chico ? 70 : 120, w * 0.22);
+    const ancho = w * 0.22;
     for (let k = 0; k < pr.n; k++) {
       const y1 = yf(pr.lo + (k + 1) * pr.paso), y0 = yf(pr.lo + k * pr.paso); if (y1 === null || y0 === null) continue;
-      const bw = pr.vol[k] / pr.max * ancho, dentro = k >= pr.a && k <= pr.z;
-      ctx.fillStyle = alpha(dentro ? P.c2 || P.mute : P.mute, dentro ? 0.22 : 0.12); ctx.fillRect(0, Math.min(y0, y1) + 0.5, bw, Math.max(1, Math.abs(y0 - y1) - 1));
+      const tot = pr.vol[k] / pr.max * ancho, bc = pr.vol[k] > 0 ? tot * pr.vc[k] / pr.vol[k] : 0, dentro = k >= pr.a && k <= pr.z;
+      const yy = Math.min(y0, y1) + 0.5, hh = Math.max(1, Math.abs(y0 - y1) - 1), al = dentro ? 0.62 : 0.3;
+      ctx.fillStyle = alpha(P.up, al); ctx.fillRect(w - bc, yy, bc, hh);                  // compradores, pegados al borde
+      ctx.fillStyle = alpha(P.dn, al); ctx.fillRect(w - tot, yy, tot - bc, hh);           // vendedores, a su izquierda
     }
-    [[pr.poc, 'POC', 0.9, []], [pr.vah, 'VAH', 0.6, [4, 4]], [pr.val, 'VAL', 0.6, [4, 4]]].forEach(([v, t, a, dash]) => {
+    const ocupado = [];   // alturas ya tomadas por etiquetas (POC primero, despues VAH y VAL) y por las lineas de precio del eje
+    (plines || []).forEach((pl) => { try { const y = yf(pl.options().price); if (y !== null) ocupado.push(y); } catch (e) { /* sin precio */ } });
+    [[pr.poc, 'POC', 0.95, []], [pr.vah, 'VAH', 0.6, [4, 4]], [pr.val, 'VAL', 0.6, [4, 4]]].forEach(([v, t, a, dash]) => {
       const y = yf(v); if (y === null || y < 0 || y > h) return;
-      ctx.setLineDash(dash); ctx.strokeStyle = alpha(P.c2 || P.mute, a); ctx.lineWidth = t === 'POC' ? 1.4 : 1;
+      ctx.setLineDash(dash); ctx.strokeStyle = alpha(P.c2 || P.mute, a); ctx.lineWidth = t === 'POC' ? 1.8 : 1;
       ctx.beginPath(); ctx.moveTo(0, Math.round(y) + 0.5); ctx.lineTo(w, Math.round(y) + 0.5); ctx.stroke(); ctx.setLineDash([]);
-      ctx.font = `600 9.5px ${P.font}`; ctx.fillStyle = alpha(P.c2 || P.mute, 0.95); ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText(`${t} ${fp(v)}`, 4, y - 2);
+      // etiqueta contra el eje, siempre a la altura de su linea; si choca con otra etiqueta o con una linea de precio,
+      // va un texto chico sobre la linea, en el extremo izquierdo (sin fondo)
+      ctx.font = `600 9.5px ${P.font}`;
+      if (ocupado.some((o) => Math.abs(o - y) < 20)) {
+        if (y < 24) return;   // arriba a la izquierda esta el titulo del grafico: sin etiqueta antes que encimada
+        ctx.fillStyle = alpha(P.c2 || P.mute, 0.95); ctx.textAlign = 'left'; const abajo = t === 'VAL' || y < 12;   // el VAL va debajo de su linea y los otros arriba: no se pisan si las lineas estan cerca
+        ctx.textBaseline = abajo ? 'top' : 'bottom'; ctx.fillText(t, 4, abajo ? y + 2 : y - 2); return;
+      }
+      ocupado.push(y); ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+      const tw = ctx.measureText(t).width + 8; ctx.fillStyle = alpha(P.c2 || P.mute, t === 'POC' ? 0.95 : 0.6); ctx.fillRect(w - tw, y - 7, tw, 14);
+      ctx.fillStyle = P.panel || '#fff'; ctx.fillText(t, w - tw / 2, y + 0.5);
     });
   }
   // el perfil de lo que se ve: se rehace al mover o hacer zoom (una vez por cuadro como mucho)
@@ -5767,7 +5783,7 @@
     }
     if (L.vp) {
       const pr = perfilVisible(G.chart, all), vw = all.length ? vwapSerie(all, TF_MIN[tf]).slice(-1)[0] : null, px = all.length ? all[all.length - 1].c : null;
-      item('vp', CC(VWAP_COL), 'Línea fucsia y barras a la izquierda (VWAP y perfil de volumen):',
+      item('vp', CC(VWAP_COL), 'Línea fucsia y barras a la derecha, en verde (compra) y rojo (venta) (VWAP y perfil de volumen):',
         `el VWAP es el precio promedio pesado por volumen desde que empezó la sesión${vw && vw.value && px ? `: está en ${fp(vw.value)} y el precio ${px >= vw.value ? 'arriba' : 'abajo'}. Ojo: medido en BTC, en las horas siguientes el precio suele volver hacia el VWAP (estar arriba no es señal de compra)` : ''}. Las barras muestran cuánto se operó en cada precio de lo que estás viendo${pr ? `: el POC (el precio con más volumen) es ${fp(pr.poc)} y el 70 % se operó entre ${fp(pr.val)} (VAL) y ${fp(pr.vah)} (VAH)` : ''}. Esos precios suelen frenar al precio o atraerlo.`);
     }
     if (L.flujo && G.flS) {
@@ -6527,7 +6543,7 @@
     [/^ATR/, 'vol', 'ATR · Rango verdadero promedio', 'Cuánto se mueve en promedio una vela, de punta a punta (14 velas). No dice dirección: dice cuánto se mueve.', null, null, 'Sirve para poner stops: un stop más cerca que 1 ATR suele saltar por ruido.'],
     [/^(Mercado (agitado|en calma)|El mercado se despert|Volatilidad (\d|·)|volatilidad \d)/i, 'vol', 'Volatilidad', 'Cuánto se está moviendo el precio comparado con lo habitual de este horario.', null, null, 'Más volatilidad = más chance de movimiento fuerte, para cualquier lado.'],
     // ----- volumen y flujo -----
-    [/^VWAP · Perfil/, 'volu', 'VWAP y perfil de volumen', 'El VWAP (línea fucsia) es el precio promedio de la sesión pesado por volumen. El perfil (barras a la izquierda) muestra cuánto se operó en cada precio; el POC es el precio con más volumen y VAH–VAL encierran el 70%.',
+    [/^VWAP · Perfil/, 'volu', 'VWAP y perfil de volumen', 'El VWAP (línea fucsia) es el precio promedio de la sesión pesado por volumen. El perfil (barras a la derecha, verdes de compra y rojas de venta) muestra cuánto se operó en cada precio; el POC es el precio con más volumen y VAH–VAL encierran el 70%.',
       null, null, 'Medido en BTC: arriba del VWAP o del POC el precio suele volver hacia ellos en las horas siguientes; no son señal de seguir. Los bordes del perfil suelen frenar al precio.'],
     [/^VWAP/, 'volu', 'VWAP · Precio promedio por volumen', 'El precio promedio de la sesión, pesando cada operación por su tamaño. Es la referencia que usan los grandes para saber si compraron caro o barato.',
       null, null, 'Medido en BTC: estar arriba no es señal de compra; en 1–4 horas el precio suele volver hacia el VWAP.'],

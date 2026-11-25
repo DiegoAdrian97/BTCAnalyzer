@@ -1,6 +1,6 @@
 """Prueba sin red de medir_retador con velas sinteticas (los datos entran por parametro).
 python pruebas/retador_offline.py  (sale con error si algo no da lo esperado; tarda un par de minutos o menos).
-(a) camino aleatorio: la ventaja de logistica y LightGBM NO puede ser significativamente > 0 (si lo es, hay fuga de futuro)
+(a) camino aleatorio: la ventaja de logistica, LightGBM y logistica_perfil (con los rasgos del perfil de volumen) NO puede ser significativamente > 0 (si lo es, hay fuga de futuro)
 (b) señal plantada (autocorrelacion del retorno de 1 h): la logistica tiene que sacar ventaja > 0
 (c) los rasgos de la vela t no cambian si se modifican las velas posteriores."""
 import os, sys, time
@@ -41,7 +41,7 @@ for seed in (1, 2):
     t = time.time()
     res = m.correr(sintetico(9000, seed), **PEQ)
     for H, r in res["por_H"].items():
-        for k in ("logistica", "lightgbm"):
+        for k in ("logistica", "lightgbm", "logistica_perfil"):
             a = r["modelos"][k]
             chequear(f"(a) azar seed {seed} H={H} {k}: lim inf IC90 <= 0 (sin fuga)", a["ventaja_ic90"][0] <= 0,
                      f"ventaja {a['ventaja'] * 100:+.2f}% IC90 [{a['ventaja_ic90'][0] * 100:+.2f}, {a['ventaja_ic90'][1] * 100:+.2f}] "
@@ -49,7 +49,7 @@ for seed in (1, 2):
     print(f"   ({time.time() - t:.0f} s)")
 txt = m.resumen(m._limpio(res))
 n_lin = len(txt.strip().splitlines())
-chequear("resumen de 20 a 40 lineas", 20 <= n_lin <= 40, f"({n_lin})")
+chequear("resumen de 20 a 50 lineas", 20 <= n_lin <= 50, f"({n_lin})")
 chequear("resumen con veredicto por H", sum("Veredicto H=" in x for x in txt.splitlines()) == 3)
 
 # (b) señal plantada
@@ -74,6 +74,17 @@ for tt in (1000, 2500):
     igual = np.allclose(X1[:tt + 1], X2[:tt + 1], rtol=0, atol=1e-12, equal_nan=True)
     chequear(f"(c) rasgos de t<={tt} no cambian al tocar velas posteriores", igual)
     chequear(f"(c) control: los rasgos de t={tt + 1} si cambian (la prueba tiene poder)", not np.allclose(X1[tt + 1], X2[tt + 1], equal_nan=True))
+
+# (c2) los rasgos del perfil existen, solo miran las ultimas 24 velas (cambiar una vieja no los mueve; cambiar una reciente si)
+ip = [nom.index(k) for k in m.RASGOS_PERFIL]
+chequear("(c2) la matriz trae los 2 rasgos del perfil y son finitos desde la vela 168", len(ip) == 2 and bool(np.isfinite(X1[200:, ip]).all()))
+for lejos_, esperado in ((60, False), (5, True)):
+    mod = [list(f) for f in filas]
+    mod[2000 - lejos_][5] *= 50.0
+    mod[2000 - lejos_][2] *= 1.05
+    X2, _ = m.rasgos(m.armar(mod))
+    cambio = not np.allclose(X1[2000, ip], X2[2000, ip], rtol=0, atol=1e-12)
+    chequear(f"(c2) el perfil de t=2000 {'cambia' if esperado else 'no cambia'} al tocar la vela t-{lejos_}", cambio == esperado)
 
 if fallas:
     print("\nFALLARON:", *fallas, sep="\n  ")

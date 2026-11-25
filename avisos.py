@@ -1092,7 +1092,7 @@ def mantener_despierto():
             time.sleep(600)
             try:
                 urllib.request.urlopen(url.rstrip("/") + "/salud", timeout=20).read()
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"(despierto: {type(e).__name__})", flush=True)
 
     threading.Thread(target=loop, daemon=True).start()

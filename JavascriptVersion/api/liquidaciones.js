@@ -62,7 +62,6 @@ async function oiBinance(sym, tf) {
     const j = await pedir(`https://fapi.binance.com/futures/data/openInterestHist?symbol=${sym}&period=${tf}&limit=500`);
     return j.map((x) => [+x.timestamp, +x.sumOpenInterestValue]).sort((a, b) => a[0] - b[0]);
   }
-  return [];
 }
 async function oiBybit(sym, tf, n, precioDe) {
   const out = []; let cursor = '';

@@ -15,7 +15,7 @@ Preguntas, a 1, 4 y 24 horas, en 2022-24 y en 2025-26:
   4. Pesos aprendidos (regresion logistica con 2022-24, probada en 2025-26) contra pesos iguales.
 Uso: python medir_conjunto.py
 """
-import bisect, math
+import math
 
 import numpy as np
 

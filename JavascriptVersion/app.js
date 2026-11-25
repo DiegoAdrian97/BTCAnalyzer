@@ -6,7 +6,7 @@
   'use strict';
   // ?v= de la pagina (generar_pagina.py): el worker y sus archivos se piden con la misma version
   const VER = document.currentScript && document.currentScript.src.includes('?') ? document.currentScript.src.slice(document.currentScript.src.indexOf('?')) : '';
-  let rows = null;
+  let rows = null, parcial = false;     // parcial: lo que hay en pantalla es solo el grafico adelantado (sin analisis)
   const fns = [];
   // el activo que se analiza (cada uno con su ultimo analisis: en memoria y guardado en el telefono para mostrarlo al toque)
   const MONEDAS = ['BTC', 'ZEC', 'SOL', 'XRP', 'BABA', 'NVDA', 'GOOGL', 'AMD', 'AAPL', 'MSFT', 'AMZN', 'SPCX', 'META', 'TSLA', 'QQQ', 'SPY', 'MSTR', 'MELI'];
@@ -89,7 +89,7 @@
     moneda = m;
     try { localStorage.setItem('app-moneda', m); } catch (e) { /* idem */ }
     const sel = document.getElementById('app-moneda-sel'); if (sel && sel.value !== m) sel.value = m;
-    rows = filasDe(m);
+    rows = filasDe(m); parcial = false;
     if (!rows) estado(`Preparando el análisis de ${m}…`);
     else { const min = Math.round((Date.now() - (horaMoneda[m] || Date.now())) / 60000); estado(min >= 1 ? `Análisis de hace ${min} min (hecho en segundo plano) · actualizando…` : ''); }
     aWorker({ tipo: 'seguir', sym: sym() });
@@ -117,28 +117,35 @@
     const m = ev.data;
     if (m.tipo === 'registro') { const ok = registros.get(m.id); if (ok) { registros.delete(m.id); ok(m.log || []); } return; }
     if (m.sym && m.sym !== sym() && m.tipo !== 'analisis') return;
+    if (m.tipo === 'analisis' && m.parcial) {                // el grafico antes que el analisis: solo si no hay nada mejor
+      if (m.sym !== sym() || rows) return;
+      rows = m.rows; parcial = true;
+      estado('Gráfico listo · preparando el análisis…');
+      redraw();
+      return;
+    }
     if (m.tipo === 'analisis') {
       const mon = (m.sym || 'BTCUSDT').replace('USDT', '');
       if (m.guardado && (porMoneda[mon] || crudo[mon])) return;           // ya hay uno nuevo: el guardado no hace falta
       if (m.json) {                                        // de fondo, como texto
         delete porMoneda[mon]; crudo[mon] = m.json; resumenCrudo[mon] = m.resumen || null; horaMoneda[mon] = m.hora || Date.now();
-        if (m.sym === sym()) { rows = filasDe(mon); redraw(); }   // justo lo eligieron mientras se hacia
+        if (m.sym === sym()) { rows = filasDe(mon); parcial = false; redraw(); }   // justo lo eligieron mientras se hacia
         return;
       }
       delete crudo[mon];
       porMoneda[mon] = m.rows; horaMoneda[mon] = m.guardado ? m.hora : Date.now();
       if (m.sym && m.sym !== sym()) return;                // de fondo: queda listo para cuando lo elijan
-      rows = m.rows;
+      rows = m.rows; parcial = false;
       window.abAnalyses = m.numero;
       if (m.guardado) {
         const min = Math.max(1, Math.round((Date.now() - m.hora) / 60000));
         estado(`Último análisis guardado (hace ${min < 60 ? `${min} min` : `${Math.round(min / 60)} h`}) · actualizando…`);
       } else estado(m.fuente === 'bybit' ? 'Binance limitó los pedidos: por ahora las velas salen de Bybit.' : '');
       redraw();
-    } else if (m.tipo === 'progreso' && !rows) {
+    } else if (m.tipo === 'progreso' && (!rows || parcial)) {
       estado(`Preparando el primer análisis… ${m.texto}`);
     } else if (m.tipo === 'error') {
-      estado(rows ? `No se pudo actualizar (${m.texto}). Se reintenta solo.` : `No se pudo preparar el análisis: ${m.texto}. Se reintenta solo.`, true);
+      estado(rows && !parcial ? `No se pudo actualizar (${m.texto}). Se reintenta solo.` : `No se pudo preparar el análisis: ${m.texto}. Se reintenta solo.`, true);
     }
   }
 

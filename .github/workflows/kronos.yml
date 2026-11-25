@@ -28,6 +28,7 @@ jobs:
         with: { path: ~/.cache/huggingface, key: "kronos-${{ inputs.modelo || 'mini' }}" }
       - run: python datos_entrenamiento.py
       - run: |
+          set -o pipefail
           V=velas_1h.json; if [ "$MON" != BTC ]; then V=velas_1h_$MON.json; fi
           python -u medir_kronos.py "$V" eventos.json "$MON" --modelo "$MODELO" --cada "$CADA" --minutos 250 $PRUEBA | tee "kronos_$MON.txt"
         env:

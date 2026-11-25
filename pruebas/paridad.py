@@ -49,6 +49,7 @@ SPEC_1H = ["1 hora", "5m", 12, ["15m", "1h"], ["flujo_1 h", "flujo_4 h", "oi_1h"
 CASOS = {f"{sv}_{pu}": plazo_1h(sv, pu) for sv in (True, False) for pu in (30.0, 50.0, 70.0)}
 CASOS["modelo"] = [{**r, "sube": 57.0, "base": 50.4, "veredicto": "Sesgo alcista", "fuente_sube": "modelo", "sube_casos": 44.8, "modelo_ventaja": 0.46}
                    if r["tabla"] == "plazo" else r for r in plazo_1h(False, 70.0)]
+CASOS["perfil"] = [{**r, "perfil": {"poc": 77700.0, "vah": 78300.0, "val": 77450.0}} if r["tabla"] == "plazo" else r for r in plazo_1h(False, 70.0)]
 LOG_ENTRADAS = [[2000, "1h", 4, 100.0, 55.0, 95.0, 105.0], [3000, "1h", 4, 100.0, 50.0, 99.0, 101.0], [4000, "4h", 3, 100.0, 40.0, 90.0, 110.0]]
 LOG_CIERRES = {"1h": [[1000 + 4 * 3_600_000, 101.0], [2000 + 4 * 3_600_000, 104.0], [3000 + 4 * 3_600_000, 102.0]], "4h": [[4000 + 3 * 14_400_000, 95.0]]}
 
@@ -124,6 +125,15 @@ FC_FLUJO = [FC["filas"] + [{"tabla": "flujo", "t": _HC, "cvd_div": cd, "absorcio
             for cd, ab, ch, sb in (("alcista", "alcista", -1.8, "alcista"), ("bajista", "bajista", 2.1, "bajista"))]
 
 
+# perfil de volumen: filas reales del analisis central con el perfil de cada plazo cerca del precio (para que cambie el soporte y la resistencia)
+_np = [r for r in FC["filas"] if r.get("tabla") == "plazo"]
+FC_PERFIL = [{**r, "perfil": {"poc": round(FC["precio"] * (1 + 0.002 * (_np.index(r) + 1)), 1), "vah": round(FC["precio"] * (1 + 0.006 * (_np.index(r) + 1)), 1),
+                              "val": round(FC["precio"] * (1 - 0.004 * (_np.index(r) + 1)), 1)}} if r.get("tabla") == "plazo" else r
+             for r in FC["filas"]]
+PERFIL_VELAS = {"h1": H1[-48:], "h4": H4[-48:], "d1": D1[-48:], "poca": H1[-4:], "sin_vol": [[*b[:5], 0.0] for b in H1[-48:]], "plano": [[b[0], 5, 5, 5, 5, 9.0] for b in H1[-48:]],
+                "con_ceros": [b if k % 3 else [*b[:5], 0.0] for k, b in enumerate(H1[-48:])], "torcida": [[b[0], b[1], b[3], b[2], b[4], b[5]] if k == 7 else b for k, b in enumerate(H1[-48:])]}
+
+
 # modelo estadistico de direccion: un modelo_direccion.json de prueba (H=1 con u10 chico: da sesgo; H=4 con u10 grande: casi
 # moneda) y velas de 1 h con hora alineada, la vela en curso al precio actual y las de 5 min de esa hora; sin modelo, todo igual
 _st = random.getstate(); random.seed(11)
@@ -135,12 +145,21 @@ M_C5 = [[M_T0 + k * 300_000, VA[-1][4], VA[-1][4] * (1.004 if k == 2 else 1.001)
 M_FUERA = [[M_T0 - 300_000, 1, 1, 1, 1, 1]]                                   # una de 5 min de antes de la hora: no cuenta
 _x0 = A.rasgos_direccion(VA)
 _g = random.Random(5)
-MODELO = {"actualizado": 1, "H": {str(H): {"rasgos": list(A.RASGOS_DIRECCION), "media": [x * 0.9 for x in _x0], "escala": [abs(x) * 0.6 + 0.2 for x in _x0],
-                                          "coef": [_g.gauss(0, 0.25) for _ in _x0], "intercepto": _g.gauss(0, 0.1), "normal": nrm, "u10": u10,
-                                          "ventaja": vj, "ic90": [vj - 0.3, vj + 0.3], "n_ef": 5000.0}
-                                  for H, nrm, u10, vj in ((1, 50.4, 0.001, 0.46), (4, 51.1, 0.45, -0.2))}}
-MODELO_MAL = {"H": {"1": {**MODELO["H"]["1"], "rasgos": MODELO["H"]["1"]["rasgos"][::-1]}, "4": {**MODELO["H"]["4"], "escala": [0.0] + MODELO["H"]["4"]["escala"][1:]},
-                    "2": {**MODELO["H"]["1"], "coef": MODELO["H"]["1"]["coef"][:-1]}, "x": 5}}
+# H=1 pide los rasgos con el perfil de volumen (22) y H=4 los de siempre (20): la app los toma por nombre
+def _modelo_h(nom, nrm, u10, vj):
+    x = [_x0[A.RASGOS_APP.index(k)] for k in nom]
+    return {"rasgos": list(nom), "media": [v * 0.9 for v in x], "escala": [abs(v) * 0.6 + 0.2 for v in x], "coef": [_g.gauss(0, 0.25) for _ in x],
+            "intercepto": _g.gauss(0, 0.1), "normal": nrm, "u10": u10, "ventaja": vj, "ic90": [vj - 0.3, vj + 0.3], "n_ef": 5000.0}
+
+
+MODELO = {"actualizado": 1, "H": {"1": _modelo_h(A.RASGOS_APP, 50.4, 0.001, 0.46), "4": _modelo_h(A.RASGOS_DIRECCION, 51.1, 0.45, -0.2)}}
+MODELO["H"]["1"]["rasgos"] = MODELO["H"]["1"]["rasgos"][:5] + MODELO["H"]["1"]["rasgos"][5:][::-1]     # en otro orden: igual vale (por nombre)
+for _k in ("media", "escala", "coef"):
+    MODELO["H"]["1"][_k] = MODELO["H"]["1"][_k][:5] + MODELO["H"]["1"][_k][5:][::-1]
+MODELO_MAL = {"H": {"1": {**MODELO["H"]["1"], "rasgos": MODELO["H"]["1"]["rasgos"][:-1] + ["rasgo_que_no_se_calcular"]},
+                    "4": {**MODELO["H"]["4"], "escala": [0.0] + MODELO["H"]["4"]["escala"][1:]},
+                    "2": {**MODELO["H"]["1"], "coef": MODELO["H"]["1"]["coef"][:-1]}, "3": {**MODELO["H"]["4"], "rasgos": ["ret_1"] * 20}, "x": 5}}
+M_SIN_VOL = [b if k < len(VA) - 30 else [*b[:5], 0.0] for k, b in enumerate(VA)]   # sin volumen en las ultimas 30 velas: el perfil no se arma
 M_PROB = {"tf": "5m", "horizonte": "1 hora", "velas": 12, "sube": 47.3, "baja": 52.7, "base": 49.1, "sube_crudo": 46.0, "veredicto": "Casi moneda", "sin_ventaja": False}
 M_CASOS = [("5m", 12, True), ("30m", 8, True), ("5m", 3, True), ("1h", 4, True), ("30m", 8, False)]      # (tf, h, con velas)
 
@@ -152,7 +171,8 @@ def modelo_py():
            "corto": [A.prob_modelo(1, vs[-100:]), A.prob_modelo(1, None), A.rasgos_direccion(vs[-168:])],
            "falta": [A.velas_direccion(VA[:-1], M_C5, M_PRECIO, M_AHORA), A.velas_direccion([], M_C5, M_PRECIO, M_AHORA)],
            "filas": [A.aplicar_modelo(dict(M_PROB), tf, h, vs if con else None) for tf, h, con in M_CASOS],
-           "validos": sorted(A.modelo_valido(MODELO_MAL)), "validos_ok": sorted(A.modelo_valido(MODELO))}
+           "validos": sorted(A.modelo_valido(MODELO_MAL)), "validos_ok": sorted(A.modelo_valido(MODELO)),
+           "sin_perfil": [A.prob_modelo(1, M_SIN_VOL), A.prob_modelo(4, M_SIN_VOL)], "rasgos_sin_perfil": A.rasgos_direccion(M_SIN_VOL)[:20]}
     A.usar_modelo({})
     out["sin_modelo"] = [A.aplicar_modelo(dict(M_PROB), tf, h, vs) for tf, h, _ in M_CASOS] + [A.prob_modelo(1, vs)]
     return out
@@ -234,6 +254,8 @@ def py():
         "central_flujo": [A.central(f, FC["precio"], {"1h": H1, "4h": H4}, FC["ahora"]) for f in FC_FLUJO],
         "central_modelo": [A.central(central_modelo(d), FC["precio"], {"1h": H1, "4h": H4}, FC["ahora"]) for d in (20, -20)],
         "modelo": modelo_py(),
+        "perfil": {k: ind.perfil_volumen(v) for k, v in PERFIL_VELAS.items()} | {"n24": ind.perfil_volumen(H1[-24:], 24), "plazo": [A.perfil_plazo(H1), A.perfil_plazo(H4), A.perfil_plazo(D1[:3])]},
+        "central_perfil": A.central(FC_PERFIL, FC["precio"], {"1h": H1, "4h": H4}, FC["ahora"]),
         "base_perp": [A.base_perp(61300, 61234.5, "Bybit"), A.base_perp(61190, 61234.5, "Bybit"), A.base_perp(61240, 61234.5, "Bybit")],
         "_ctx_raw": raw,
     }
@@ -277,10 +299,13 @@ console.log(JSON.stringify({
       corto: [A.probModelo(1, vs.slice(-100)), A.probModelo(1, null), A.rasgosDireccion(vs.slice(-168))],
       falta: [A.velasDireccion(d.VA.slice(0, -1), d.M_C5, d.M_PRECIO, d.M_AHORA), A.velasDireccion([], d.M_C5, d.M_PRECIO, d.M_AHORA)],
       filas: d.M_CASOS.map(([tf, h, con]) => A.aplicarModelo({ ...d.M_PROB }, tf, h, con ? vs : null)),
-      validos: Object.keys(A.modeloValido(d.MODELO_MAL)).map(Number).sort((a, b) => a - b), validos_ok: Object.keys(A.modeloValido(d.MODELO)).map(Number).sort((a, b) => a - b) };
+      validos: Object.keys(A.modeloValido(d.MODELO_MAL)).map(Number).sort((a, b) => a - b), validos_ok: Object.keys(A.modeloValido(d.MODELO)).map(Number).sort((a, b) => a - b),
+      sin_perfil: [1, 4].map((H) => A.probModelo(H, d.M_SIN_VOL)), rasgos_sin_perfil: A.rasgosDireccion(d.M_SIN_VOL).slice(0, 20) };
     globalThis.MODELO_DIRECCION = {};
     out.sin_modelo = d.M_CASOS.map(([tf, h]) => A.aplicarModelo({ ...d.M_PROB }, tf, h, vs)).concat([A.probModelo(1, vs)]);
     delete globalThis.MODELO_DIRECCION; return out; })(),
+  perfil: Object.assign(Object.fromEntries(Object.entries(d.PERFIL_VELAS).map(([k, v]) => [k, Ind.perfilVolumen(v)])), { n24: Ind.perfilVolumen(d.H1.slice(-24), 24), plazo: [A.perfilPlazo(d.H1), A.perfilPlazo(d.H4), A.perfilPlazo(d.D1.slice(0, 3))] }),
+  central_perfil: A.central(d.FC_PERFIL, d.FC.precio, { "1h": d.H1, "4h": d.H4 }, d.FC.ahora),
   base_perp: [A.basePerp(61300, 61234.5, 'Bybit'), A.basePerp(61190, 61234.5, 'Bybit'), A.basePerp(61240, 61234.5, 'Bybit')],
   rango: (() => { const c = d.H1.map((b) => b[4]), e50 = Ind.ema(c, 50), e200 = Ind.ema(c, 200), rsi = Ind.rsi(c), mh = Ind.macd(c)[2];
     const st = Apr.estados(Apr.rasgos(d.H1, 60, e50, e200, rsi, mh), 2), F = A.volEscala(d.H1, 60, 4, false);
@@ -323,7 +348,7 @@ def main():
                "CASOS": CASOS, "SPEC_1H": SPEC_1H, "LOG_ENTRADAS": LOG_ENTRADAS, "LOG_CIERRES": LOG_CIERRES,
                "OPC_LIBRO": OPC_LIBRO, "OPC_DVOL": OPC_DVOL, "OPC_AHORA": OPC_AHORA, "FLUJO": FLUJO, "CME": CME, "FC_FLUJO": FC_FLUJO, "LIQ_OI": LIQ_OI, "LIQ_LS": LIQ_LS,
                "TRACK": TRACK, "RANGO_O": RANGO_O, "RANGO_CASOS": RANGO_CASOS,
-               "VA": VA, "M_C5": M_C5, "M_FUERA": M_FUERA, "M_PRECIO": M_PRECIO, "M_AHORA": M_AHORA, "MODELO": MODELO, "MODELO_MAL": MODELO_MAL, "M_PROB": M_PROB, "M_CASOS": M_CASOS}
+               "VA": VA, "M_C5": M_C5, "M_FUERA": M_FUERA, "M_PRECIO": M_PRECIO, "M_AHORA": M_AHORA, "MODELO": MODELO, "MODELO_MAL": MODELO_MAL, "M_SIN_VOL": M_SIN_VOL, "FC_PERFIL": FC_PERFIL, "PERFIL_VELAS": PERFIL_VELAS, "M_PROB": M_PROB, "M_CASOS": M_CASOS}
     out = subprocess.run(["node", "-e", JS, RAIZ], input=json.dumps(entrada), capture_output=True, text=True)
     if out.returncode:
         raise SystemExit("node fallo:\n" + out.stderr[-2000:])
@@ -347,6 +372,18 @@ def main():
             or "fuente_sube" in mo["filas"][2] or "fuente_sube" in mo["filas"][3] or "fuente_sube" in mo["filas"][4] \
             or mo["sin_modelo"] != [M_PROB] * 5 + [None] or mo["velas"][-1][4] != M_PRECIO or mo["velas"][-1][2] <= M_PRECIO:
         raise SystemExit(f"modelo: no se comporta como se espera: {mo['filas'][:2]} {mo['p']} {mo['validos']} {mo['validos_ok']}")
+    pf, cp, c0 = p["perfil"], p["central_perfil"], p["central"]
+    if pf["h1"] is None or not pf["h1"]["val"] < pf["h1"]["poc"] < pf["h1"]["vah"] or pf["poca"] is not None or pf["sin_vol"] is not None or pf["plano"] is not None \
+            or pf["torcida"] is None or pf["con_ceros"] is None or p["perfil"]["plazo"][2] is not None or p["perfil"]["plazo"][0]["poc"] != round(pf["h1"]["poc"], 1):
+        raise SystemExit(f"perfil: no se comporta como se espera: {pf}")
+    if all((a["soporte"], a["resistencia"]) == (b["soporte"], b["resistencia"]) for a, b in zip(cp, c0)):
+        raise SystemExit("niveles: el perfil de cada plazo no cambio ningun soporte ni resistencia (la prueba no tiene poder)")
+    ex = p["explain"]
+    if "(POC del perfil)" not in json.dumps(ex["perfil"], ensure_ascii=False) or "(borde del perfil (VAH))" not in json.dumps(ex["perfil"], ensure_ascii=False) \
+            or json.dumps(ex["perfil"]) == json.dumps(ex["False_70.0"]):
+        raise SystemExit("explain: el perfil del plazo no entra como soporte o resistencia")
+    if mo["sin_perfil"][0] is not None or mo["sin_perfil"][1] is None:
+        raise SystemExit(f"modelo: sin perfil el modelo con perfil debe quedar sin prob y el otro no: {mo['sin_perfil']}")
     print(f"comparados: {', '.join(p)} · contexto ({len(js_ctx[0])} filas en JS)")
     if err:
         print(f"{len(err)} diferencias:\n  " + "\n  ".join(err[:40]))

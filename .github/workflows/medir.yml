@@ -19,20 +19,20 @@ jobs:
       - run: pip install numpy lightgbm scikit-learn
       # la compresion de las Bollinger y el movimiento fuerte (velas de 1 hora de datos_entrenamiento.py)
       - run: python datos_entrenamiento.py
-      - run: if [ -n "$VELAS" ]; then python -u medir_fuerte_dvol.py velas_1h.json eventos.json datos_medicion | tee fuerte_dvol.txt; fi
+      - run: set -o pipefail; if [ -n "$VELAS" ]; then python -u medir_fuerte_dvol.py velas_1h.json eventos.json datos_medicion | tee fuerte_dvol.txt; fi
         env: { VELAS: "${{ github.event_name == 'workflow_dispatch' && '1' || '' }}" }
-      - run: python -u medir_direccion.py velas_1h.json | tee direccion.txt
-      - run: if [ -n "$VELAS" ]; then python -u medir_fed.py velas_1h.json | tee fed.txt; fi
+      - run: set -o pipefail; python -u medir_direccion.py velas_1h.json | tee direccion.txt
+      - run: set -o pipefail; if [ -n "$VELAS" ]; then python -u medir_fed.py velas_1h.json | tee fed.txt; fi
         env: { VELAS: "${{ github.event_name == 'workflow_dispatch' && '1' || '' }}" }
-      - run: if [ -n "$VELAS" ]; then python -u medir_dvol.py velas_1h.json datos_medicion | tee dvol.txt; fi
+      - run: set -o pipefail; if [ -n "$VELAS" ]; then python -u medir_dvol.py velas_1h.json datos_medicion | tee dvol.txt; fi
         env: { VELAS: "${{ github.event_name == 'workflow_dispatch' && '1' || '' }}" }
-      - run: if [ -n "$VELAS" ]; then python -u medir_fuerza.py velas_1h.json eventos.json | tee fuerza.txt; fi
+      - run: set -o pipefail; if [ -n "$VELAS" ]; then python -u medir_fuerza.py velas_1h.json eventos.json | tee fuerza.txt; fi
         env: { VELAS: "${{ github.event_name == 'workflow_dispatch' && '1' || '' }}" }
-      - run: if [ -n "$VELAS" ]; then python -u medir_extra.py velas_1h.json datos_medicion | tee extra.txt; fi
+      - run: set -o pipefail; if [ -n "$VELAS" ]; then python -u medir_extra.py velas_1h.json datos_medicion | tee extra.txt; fi
         env: { VELAS: "${{ github.event_name == 'workflow_dispatch' && '1' || '' }}" }
-      - run: if [ -n "$VELAS" ]; then python -u medir_compresion.py velas_1h.json eventos.json | tee compresion.txt; fi
+      - run: set -o pipefail; if [ -n "$VELAS" ]; then python -u medir_compresion.py velas_1h.json eventos.json | tee compresion.txt; fi
         env: { VELAS: "${{ github.event_name == 'workflow_dispatch' && '1' || '' }}" }
-      - run: if [ -n "$VELAS" ]; then python -u medir_velas.py datos_medicion | tee medicion.txt; fi
+      - run: set -o pipefail; if [ -n "$VELAS" ]; then python -u medir_velas.py datos_medicion | tee medicion.txt; fi
         env: { VELAS: "${{ github.event_name == 'workflow_dispatch' && '1' || '' }}" }
       - uses: actions/upload-artifact@v4
         if: always()
