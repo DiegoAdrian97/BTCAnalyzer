@@ -1,13 +1,13 @@
 name: Medir cuánto acierta el análisis (con lo que la app fue diciendo)
-# Cada día y a mano: cruza las conclusiones guardadas por el servidor (rama historial) con lo que hizo el precio y deja
+# Cada 6 horas y a mano: cruza las conclusiones guardadas por el servidor (rama historial) con lo que hizo el precio y deja
 # JavascriptVersion/track.json, que la página muestra ("En vivo") y donde se marca la señal que rinde menos que lo medido.
 on:
   workflow_dispatch:
   schedule:
-    - cron: "17 11 * * *"
+    - cron: "17 */6 * * *"
   push:
     branches: [main]
-    paths: [".github/workflows/medir_central.yml", "medir_central.py", "JavascriptVersion/mediciones.json"]
+    paths: [".github/workflows/medir_central.yml", "medir_central.py", "medir_vivo.py", "JavascriptVersion/mediciones.json"]
 permissions:
   contents: write
 concurrency: medir-central
@@ -20,6 +20,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - run: set -o pipefail; python -u medir_central.py JavascriptVersion/track.json | tee central.txt
+        env: { GITHUB_TOKEN: "${{ github.token }}" }
       - name: Subir track.json
         run: |
           git config user.name "github-actions[bot]"; git config user.email "github-actions[bot]@users.noreply.github.com"

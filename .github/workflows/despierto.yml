@@ -1,0 +1,23 @@
+name: Mantener despierto el servidor
+# Render (plan gratis) duerme el servicio tras 15 min sin visitas y ahí se pierden horas del registro
+# (rama historial: faltaba ~31% de las horas). Esto llama a /salud cada 10 min. GitHub puede atrasar los cron.
+# La dirección sale de la variable del repo RENDER_URL (Settings > Secrets and variables > Actions > Variables);
+# si no está, se prueba la que Render arma con el nombre de render.yaml.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/10 * * * *"
+permissions: {}
+concurrency: despierto
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Llamar a /salud
+        env:
+          URL: ${{ vars.RENDER_URL || 'https://btc-analyzer.onrender.com' }}
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 120 --retry 2 "${URL%/}/salud" || true)
+          echo "$URL/salud -> $code"
+          [ "$code" = "200" ] || echo "::warning::El servidor no respondió 200 ($code). Revisá la variable RENDER_URL."

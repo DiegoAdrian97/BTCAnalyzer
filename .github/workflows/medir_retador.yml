@@ -1,0 +1,28 @@
+name: Laboratorio retador (¿un modelo le gana a la tasa normal fuera de muestra?)
+# Cada domingo y a mano: baja velas 1h de BTCUSDT, corre medir_retador.py (walk-forward) y deja resultados/retador.json
+# y resultados/retador.txt. No cambia nada de lo que muestra la página. El push de resultados/ no vuelve a disparar esto.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 6 * * 0"
+  push:
+    branches: [main]
+    paths: ["medir_retador.py", ".github/workflows/medir_retador.yml"]
+permissions:
+  contents: write
+concurrency: medir-retador
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install numpy scikit-learn lightgbm
+      - run: python -u medir_retador.py
+      - name: Subir resultados
+        run: |
+          git config user.name "github-actions[bot]"; git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add resultados/ 2>/dev/null || exit 0
+          git diff --cached --quiet || { git commit -qm "resultados: laboratorio retador"; git pull -q --rebase; git push -q; }

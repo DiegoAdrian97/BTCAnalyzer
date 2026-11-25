@@ -1294,7 +1294,7 @@
   const centralDe = (rows) => { const t = (rows || []).filter((x) => x.tabla === 'central'); return t.find((x) => x.plazo === S.plazo) || t.find((x) => x.tf === S.tf) || t.find((x) => x.tf === '1h') || null; };
   const corto_ = (t) => String(t || '').replace(/\s*\((medido|fuerza)[^)]*\)/gi, '').replace(/: medido,.*$/i, '').split(' (')[0];
   const min1 = (t) => (/^[A-ZÁÉÍÓÚ][a-záéíóúñ]/.test(t) ? t[0].toLowerCase() + t.slice(1) : t);   // sin romper siglas (RSI, MACD, CVD)
-  // track.json: aciertos reales del analisis (medir_central.py, cada dia) y deriva de cada señal contra lo medido.
+  // track.json: aciertos reales del analisis (medir_central.py, cada 6 horas) y deriva de cada señal contra lo medido.
   // mediciones.json: cuanto acierta la direccion segun los puntos netos (medido). Si no cargan, no se muestra nada
   let TRACK = null, MEDIC = null;
   const traerJson = (f) => fetch(f).then((r) => (r.ok ? r.json() : Promise.reject())).catch(() => fetch(`https://raw.githubusercontent.com/DiegoAdrian97/BTCAnalyzer/main/JavascriptVersion/${f}`).then((r) => r.json()));
@@ -1313,6 +1313,16 @@
         : `En vivo desde el ${desde}: ${tp.n} casos, hacen falta 100 para decir cuánto acierta.`);
       const der = (TRACK.senales || []).filter((x) => x.plazo === plz && x.estado === 'deriva');
       if (der.length) out.push(`⚠ En vivo rinde menos de lo medido: ${der.map((x) => `${x.nombre} (${String(x.acierto).replace('.', ',')}% de ${x.n})`).join('; ')}.`);
+    }
+    // probabilidades y rangos (medir_vivo.py): el (tf, velas) de la fila `plazo` del analisis
+    const pz = ((G.rows || []).find((r) => r.tabla === 'plazo' && r.plazo === plz)) || null;
+    const pb = pz && TRACK && (TRACK.probabilidades || []).find((x) => x.tf === pz.tf && x.h === pz.velas), rg = pz && TRACK && (TRACK.rangos || []).find((x) => x.tf === pz.tf && x.h === pz.velas);
+    const coma = (v, d = 1) => String(Math.abs(v).toFixed(d)).replace('.', ',');
+    if (pb || rg) {
+      const pocos = 'pocos datos todavía', v = [];
+      if (pb) v.push(`Ventaja sobre lo normal: ${pb.pocos || pb.ventaja_normal == null ? pocos : `${pb.ventaja_normal >= 0 ? '+' : '−'}${coma(pb.ventaja_normal)}% (${Math.round(pb.n_ef_normal)} efectivos)`}.`);
+      if (rg) v.push(`Rango: ${rg.pocos ? pocos : `cobertura ${coma(rg.cobertura, 0)}% (meta 80%)`}.`);
+      out.push(v.join(' '));
     }
     return out.join(' ');
   }
