@@ -48,6 +48,8 @@ async function cargarModelos() {
   // los dos a la vez (antes, uno detras del otro)
   await Promise.all([
     fetch('termometro.json', { cache: 'no-cache', signal: AbortSignal.timeout(15000) }).then((r) => r.json()).then((j) => { self.TERMOMETRO = j; }).catch(() => { /* queda el anterior */ }),
+    // lo medido en vivo (cada 6 h lo actualiza GitHub): recalibra el rango del 80%
+    fetch('track.json', { cache: 'no-cache', signal: AbortSignal.timeout(15000) }).then((r) => r.json()).then((j) => { self.TRACK = j; }).catch(() => { /* queda el anterior o sin ajuste */ }),
     fetch('modelo_fuerte.json', { cache: 'no-cache', signal: AbortSignal.timeout(15000) }).then((r) => r.json()).then((j) => { self.MODELO_FUERTE = j; }).catch(() => { /* queda el anterior o la tabla */ }),
   ]);
   self.JSON_T = Date.now();

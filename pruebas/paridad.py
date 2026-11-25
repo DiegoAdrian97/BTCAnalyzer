@@ -122,6 +122,32 @@ FC_FLUJO = [FC["filas"] + [{"tabla": "flujo", "t": _HC, "cvd_div": cd, "absorcio
             for cd, ab, ch, sb in (("alcista", "alcista", -1.8, "alcista"), ("bajista", "bajista", 2.1, "bajista"))]
 
 
+# rango del 80% recalibrado con lo medido en vivo: un track.json de prueba con "rangos" (factor_80 por (tf, h)); sin track, igual que antes
+TRACK = {"rangos": [
+    {"tf": "1h", "h": 4, "n_ef": 410.5, "factor_80": 1.2, "cobertura_factor": 80.1},
+    {"tf": "1h", "h": 1, "n_ef": 120.0, "factor_80": 1.4},                           # n_ef < 150: no se aplica
+    {"tf": "15m", "h": 4, "n_ef": 90.0, "pocos": True, "factor_80": 1.4},             # pocos: no se aplica
+    {"tf": "4h", "h": 3, "n_ef": 200.0, "factor_80": 2.6},                            # recortado a 2,0
+    {"tf": "5m", "h": 12, "n_ef": 300.0, "factor_80": 0.5},                           # recortado a 0,8
+    {"tf": "30m", "h": 2, "n_ef": 300.0, "factor_80": None},                          # sin factor
+    {"tf": "1d", "h": 1, "n_ef": 150.0, "factor_80": 1.035},                          # justo 150: se aplica
+    {"tf": "1d", "h": 3, "n_ef": 500.0}]}                                             # sin la clave
+RANGO_O = {"p10": -0.8, "p50": 0.1, "p90": 1.1}
+RANGO_CASOS = [(tf, h) for tf, h in (("1h", 4), ("1h", 1), ("15m", 4), ("4h", 3), ("5m", 12), ("30m", 2), ("1d", 1), ("1d", 3), ("2h", 2))]
+
+
+def rango_vivo_py():
+    fv = A.factores_vivos(TRACK)
+    out = {"factores": sorted([tf, h, f] for (tf, h), f in fv.items()), "vacio": sorted(A.factores_vivos({}).items()) + sorted(A.factores_vivos(None).items()),
+           "con": [A.rango_80(tf, h, RANGO_O, 1.07, 77860.5, fv) for tf, h in RANGO_CASOS],
+           "sin": [A.rango_80(tf, h, RANGO_O, 1.07, 77860.5, {}) for tf, h in RANGO_CASOS],
+           "sin_track": [A.rango_80(tf, h, RANGO_O, 1.07, 77860.5) for tf, h in RANGO_CASOS]}
+    A.usar_track(TRACK)
+    out["global"] = [A.rango_80(tf, h, RANGO_O, 1.07, 77860.5) for tf, h in RANGO_CASOS]
+    A.usar_track({})
+    return out
+
+
 def rango_py():
     """Calibracion del rango del 80% (rango_puntajes / rango_factor) con la volatilidad prevista (vol_escala)."""
     c = [b[4] for b in H1]
@@ -154,6 +180,7 @@ def py():
         "explain": {k: A.explain(v, 77860.0, tuple(SPEC_1H)) for k, v in CASOS.items()},
         "registro": registro_py(),
         "rango": rango_py(),
+        "rango_vivo": rango_vivo_py(),
         "opciones": A.opciones(OPC_LIBRO, OPC_DVOL, 61234.5, OPC_AHORA),
         "ict_h1": ind.ict(H1, ind.atr_w([b[2] for b in H1], [b[3] for b in H1], [b[4] for b in H1]), 60),
         "ict_h4": ind.ict(H4, ind.atr_w([b[2] for b in H4], [b[3] for b in H4], [b[4] for b in H4]), 240),
@@ -204,6 +231,10 @@ console.log(JSON.stringify({
     const st = Apr.estados(Apr.rasgos(d.H1, 60, e50, e200, rsi, mh), 2), F = A.volEscala(d.H1, 60, 4, false);
     const pts = A.rangoPuntajes(c, st, F, 4, 200, c.length - 1 - 4);
     return { F: F.slice(-50), puntajes: pts, factor: A.rangoFactor(pts), sin_vol: A.rangoFactor(A.rangoPuntajes(c, st, null, 6, 200, c.length - 7, 200, 900)) }; })(),
+  rango_vivo: (() => { const fv = A.factoresVivos(d.TRACK), O = d.RANGO_O, f = (fx) => d.RANGO_CASOS.map(([tf, h]) => A.rango80(tf, h, O, 1.07, 77860.5, fx));
+    const out = { factores: Object.entries(fv).map(([k, v]) => { const [tf, h] = k.split('|'); return [tf, Number(h), v]; }).sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] - b[1])),
+      vacio: [], con: f(fv), sin: f({}), sin_track: f(undefined) };
+    globalThis.TRACK = d.TRACK; out.global = f(undefined); delete globalThis.TRACK; return out; })(),
   aprender: (() => { const c = d.H1.map((b) => b[4]), e50 = Ind.ema(c, 50), e200 = Ind.ema(c, 200), rsi = Ind.rsi(c), mh = Ind.macd(c)[2];
     const r = Apr.aprender(d.H1, Apr.combos(Apr.rasgos(d.H1, 60, e50, e200, rsi, mh)), 4, 200, Apr.continuos(d.H1, 60, e50, e200, rsi, mh));
     delete r._estado; delete r.pesos; return r; })(),
@@ -235,7 +266,8 @@ def main():
     raw = p.pop("_ctx_raw")
     entrada = {"FC": FC, "H1": H1, "H4": H4, "D1": D1, "ALT": ALT, "AHORA": AHORA, "raw": raw, "LIQ": LIQ,
                "CASOS": CASOS, "SPEC_1H": SPEC_1H, "LOG_ENTRADAS": LOG_ENTRADAS, "LOG_CIERRES": LOG_CIERRES,
-               "OPC_LIBRO": OPC_LIBRO, "OPC_DVOL": OPC_DVOL, "OPC_AHORA": OPC_AHORA, "FLUJO": FLUJO, "CME": CME, "FC_FLUJO": FC_FLUJO, "LIQ_OI": LIQ_OI, "LIQ_LS": LIQ_LS}
+               "OPC_LIBRO": OPC_LIBRO, "OPC_DVOL": OPC_DVOL, "OPC_AHORA": OPC_AHORA, "FLUJO": FLUJO, "CME": CME, "FC_FLUJO": FC_FLUJO, "LIQ_OI": LIQ_OI, "LIQ_LS": LIQ_LS,
+               "TRACK": TRACK, "RANGO_O": RANGO_O, "RANGO_CASOS": RANGO_CASOS}
     out = subprocess.run(["node", "-e", JS, RAIZ], input=json.dumps(entrada), capture_output=True, text=True)
     if out.returncode:
         raise SystemExit("node fallo:\n" + out.stderr[-2000:])
@@ -244,6 +276,13 @@ def main():
     err = []
     for k in p:
         igual(json.loads(json.dumps(p[k])), js.get(k), k, err)
+    rv = p["rango_vivo"]
+    aplicados = [(c["ajuste_vivo"]) for c in rv["con"]]
+    if aplicados != [1.2, None, None, 2.0, 0.8, None, 1.035, None, None] or any(c["ajuste_vivo"] is not None for c in rv["sin"] + rv["sin_track"]) \
+            or rv["sin"] != rv["sin_track"] or [c["min"] for c in rv["sin"]] != [c["min_crudo"] for c in rv["con"]] or rv["global"] != rv["con"] \
+            or not all(c["min"] < c["min_crudo"] and c["max"] > c["max_crudo"] for c in (rv["con"][0], rv["con"][3], rv["con"][6])) \
+            or not (rv["con"][4]["min"] > rv["con"][4]["min_crudo"] and rv["con"][4]["max"] < rv["con"][4]["max_crudo"]):
+        raise SystemExit(f"rango_vivo: el ajuste no se aplica como se espera: {aplicados}")
     print(f"comparados: {', '.join(p)} · contexto ({len(js_ctx[0])} filas en JS)")
     if err:
         print(f"{len(err)} diferencias:\n  " + "\n  ".join(err[:40]))

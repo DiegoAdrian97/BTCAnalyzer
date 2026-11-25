@@ -2776,10 +2776,12 @@
     document.getElementById('r-lo').textContent = fp(lo); document.getElementById('r-hi').textContent = fp(hi);
     // el rango del 80% ajustado con su propio pasado (calibracion): cuanto acertaba sin ajustar y cuanto se movio
     const rc = document.getElementById('r-cal'), rk = num(p.rango_k), rcob = num(p.rango_cobertura), rn = num(p.rango_casos) || 0;
-    rc.hidden = rcob === null || rn < 30;
+    const av = num(p.ajuste_vivo), avt = av === null ? '' : String(Math.round(av * 100) / 100).replace('.', ','), vivo = av === null || av === 1 ? '' : `rango ${av > 1 ? 'ampliado' : 'achicado'} ×${avt} según lo medido en vivo`;
+    rc.hidden = (rcob === null || rn < 30) && !vivo;
     if (!rc.hidden) {
-      rc.textContent = `Rango del 80%: en sus últimas ${f0(rn)} predicciones de este plazo el precio terminó adentro ${f1(rcob)}% de las veces`
-        + (rk === null || Math.abs(rk - 1) < 0.03 ? ', así que queda como está.' : rk > 1 ? `: venía angosto, se ensancha ×${f2(rk)}.` : `: venía ancho, se angosta ×${f2(rk)}.`);
+      rc.textContent = (rcob === null || rn < 30 ? '' : `Rango del 80%: en sus últimas ${f0(rn)} predicciones de este plazo el precio terminó adentro ${f1(rcob)}% de las veces`
+        + (rk === null || Math.abs(rk - 1) < 0.03 ? ', así que queda como está.' : rk > 1 ? `: venía angosto, se ensancha ×${f2(rk)}.` : `: venía ancho, se angosta ×${f2(rk)}.`))
+        + (vivo ? `${rcob === null || rn < 30 ? '' : ' '}${rcob === null || rn < 30 ? vivo[0].toUpperCase() + vivo.slice(1) : 'Además: ' + vivo}.` : '');
     }
     const iqr = document.getElementById('iqr'), med = document.getElementById('rmed'), now = document.getElementById('rnow');
     iqr.style.left = '50%'; iqr.style.width = '0'; med.style.left = '50%'; now.style.left = '50%';

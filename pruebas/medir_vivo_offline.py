@@ -103,6 +103,29 @@ chequear("(d) con 2 dias: usa lo disponible (<= 48 origenes)", 10 <= npoc <= 48,
 va2 = mv.evaluar_vivo(fila_d, pocos_dias, ahora_d)[0][0]
 chequear("(d) clima_dias con 2 dias", va2["clima_dias"], 2.0)
 
+# (e) factor_80: el cuantil 0,8 de d, con el factor correcto conocido (1,5). Rango asimetrico 92-110 alrededor de la mediana 100:
+# d = (r - m)/(hi - m) arriba y (m - r)/(m - lo) abajo; 81 filas con d <= 1,5 (la 81 justo en 1,5) y 19 con d = 2 -> el cuantil 0,8 es 1,5
+P4 = velas(lambda t: 100.0, T0 - 35 * D, T0 + 3 * D)
+ds_e = [k / 100 for k in range(80)] + [1.5] + [2.0] * 19
+filas_e = []
+for k, d_ in enumerate(ds_e):
+    P4[T0 + k * H + H - V] = 100 + 10 * d_ if k % 2 == 0 else 100 - 8 * d_      # sube: lado de 10; baja: lado de 8
+    filas_e.append(fila(T0 + k * H, 50.0, lo=92, hi=110) | {"mediana": 100.0})
+filas_e.append(fila(T0 + 100 * H, 50.0, lo=100, hi=110) | {"mediana": 100.0})   # el rango no rodea a la mediana (min >= m): se ignora
+P4[T0 + 100 * H + H - V] = 105.0
+_, rg_e = mv.evaluar_vivo(filas_e, P4, max(P4) + V)
+chequear("(e) factor_80 = 1,5", rg_e[0]["factor_80"], 1.5)
+chequear("(e) cobertura con el factor ~80 (81)", rg_e[0]["cobertura_factor"], 81.0)
+chequear("(e) cobertura sin factor (la real, mas baja)", rg_e[0]["cobertura"] < 81, True)
+chequear("(e) aplicado el factor, el cuantil 0,8 de d queda en 1,5", mv.factor_80(ds_e), (1.5, 81.0))
+# sin la columna mediana: usa (min + max)/2 = 101 con rango 92-110; mismo calculo, a mano
+filas_f = [fila(T0 + k * H, 50.0, lo=90, hi=110) for k in range(10)]            # m = 100
+for k in range(10):
+    P4[T0 + k * H + H - V] = 100 + 10 * (0.5 + k * 0.1)                           # d = 0,5 ... 1,4
+_, rg_f = mv.evaluar_vivo(filas_f, P4, max(P4) + V)
+chequear("(f) sin mediana: (min+max)/2; cuantil 0,8 de 10 = el 9o (d = 1,3)", rg_f[0]["factor_80"], 1.3)
+chequear("(g) distancia_rango: lados y rango que no rodea", (mv.distancia_rango(105, 90, 110, 100), mv.distancia_rango(95, 90, 110, 100), mv.distancia_rango(95, 100, 110, 100), mv.distancia_rango(95, 90, 100, 100)), (0.5, 0.5, None, None))
+
 # retorno neto en track.json
 with tempfile.TemporaryDirectory() as d:
     ruta = os.path.join(d, "track.json")
@@ -119,6 +142,7 @@ csv = "t,h,precio,sube,min,max,mediana\n1700000000000,2,100.5,55.2,99,102,100.6\
 f = mv.leer(csv, "30m")
 chequear("leer: filas validas", len(f), 1)
 chequear("leer: campos", (f[0]["tf"], f[0]["h"], f[0]["sube"], f[0]["min"], f[0]["max"]), ("30m", 2, 55.2, 99.0, 102.0))
+chequear("leer: mediana", (f[0]["mediana"]), 100.6)
 chequear("horizonte 30m x2", mv.horizonte_txt("30m", 2), "1 hora")
 chequear("horizonte 1d x7", mv.horizonte_txt("1d", 7), "7 días")
 

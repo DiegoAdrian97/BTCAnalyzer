@@ -39,7 +39,7 @@ def _num(x):
 
 
 def leer(texto, tf):
-    """CSV de historial/BTC/<tf>/<dia>.csv -> filas {tf, t, h, precio, sube, min, max} (las columnas se buscan por nombre)."""
+    """CSV de historial/BTC/<tf>/<dia>.csv -> filas {tf, t, h, precio, sube, min, max, mediana} (las columnas se buscan por nombre)."""
     lineas = texto.splitlines()
     if not lineas:
         return []
@@ -54,7 +54,8 @@ def leer(texto, tf):
             continue
         if None in (t, h, precio, sube) or h < 1 or precio <= 0:
             continue
-        out.append({"tf": tf, "t": int(t), "h": int(h), "precio": precio, "sube": sube, "min": g("min"), "max": g("max")})
+        out.append({"tf": tf, "t": int(t), "h": int(h), "precio": precio, "sube": sube, "min": g("min"), "max": g("max"),
+                    "mediana": g("mediana")})
     return out
 
 
@@ -83,6 +84,24 @@ def _tasas(tf, h, P, t_ini, t_fin):
     return tasa
 
 
+def distancia_rango(r, lo, hi, m):
+    """Cuantos rangos del 80% (medidos desde la mediana m) se alejo el resultado r: d = (r - m)/(hi - m) si r >= m,
+    (m - r)/(m - lo) si r < m. None si el rango no rodea a m (hi <= m o lo >= m)."""
+    if hi <= m or lo >= m:
+        return None
+    return (r - m) / (hi - m) if r >= m else (m - r) / (m - lo)
+
+
+def factor_80(ds):
+    """(factor, cobertura con el factor): el cuantil 0,8 de d (como rango_factor de analisis_btc.py) lleva la cobertura al 80%.
+    El factor se redondea a 3 y la cobertura se calcula con el ya redondeado."""
+    if not ds:
+        return None, None
+    xs = sorted(ds)
+    f = round(xs[min(int(0.8 * len(xs)), len(xs) - 1)], 3)
+    return f, round(100 * sum(d <= f for d in xs) / len(xs), 1)
+
+
 def evaluar_vivo(F, P, ahora):
     """Puro: filas {tf,t,h,precio,sube,min,max} + {apertura: cierre} de velas de 5 min -> (probabilidades, rangos)."""
     grupos = {}
@@ -99,6 +118,7 @@ def evaluar_vivo(F, P, ahora):
         dias = None
         bins = [[0, 0.0, 0] for _ in range(5)]  # n, suma de prob, subas
         nr = adentro = 0
+        ds = []
         sa = sw = 0.0
         for r in filas:
             fin = r["t"] + h * tm
@@ -124,6 +144,10 @@ def evaluar_vivo(F, P, ahora):
             if lo is not None and hi is not None and hi >= lo:
                 nr += 1
                 adentro += lo <= c <= hi
+                m = r.get("mediana")
+                d = distancia_rango(c, lo, hi, (lo + hi) / 2 if m is None else m)
+                if d is not None:
+                    ds.append(d)
                 ancho = (hi - lo) / r["precio"] * 100
                 fuera = max(lo - c, c - hi, 0) / r["precio"] * 100
                 sa += ancho
@@ -141,7 +165,9 @@ def evaluar_vivo(F, P, ahora):
                                        "real": round(100 * x[2] / x[0], 1)} for i, x in enumerate(bins) if x[0]],
                       **({"pocos": True} if vn is None or ne_n < POCOS else {})})
         if nr:
+            f80, cob80 = factor_80(ds)
             rangos.append({"tf": tf, "h": h, "horizonte": hz, "n": nr, "n_ef": round(nr / h, 1), "cobertura": round(100 * adentro / nr, 1),
-                           "ancho": round(sa / nr, 3), "winkler": round(sw / nr, 3), **({"pocos": True} if nr / h < POCOS else {})})
+                           "ancho": round(sa / nr, 3), "winkler": round(sw / nr, 3), "factor_80": f80, "cobertura_factor": cob80,
+                           **({"pocos": True} if nr / h < POCOS else {})})
     return probs, rangos
 

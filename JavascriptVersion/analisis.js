@@ -736,6 +736,38 @@
     return null;
   }
 
+  // Rango del 80% recalibrado con lo medido en vivo (medir_vivo.py -> "rangos" de track.json, que worker.js baja cada 6 h):
+  // factor_80 lleva la cobertura real al 80%. Igual que factores_vivos / rango_80 de analisis_btc.py
+  const VIVO_N_EF = 150, VIVO_F = [0.8, 2.0];
+  /** {"tf|h": factor_80} de la seccion "rangos" del track; solo los medidos con n_ef >= 150 y sin `pocos`. */
+  function factoresVivos(track) {
+    const out = {};
+    ((track && Array.isArray(track.rangos) && track.rangos) || []).forEach((r) => {
+      const f = r && r.factor_80;
+      if (typeof f !== 'number' || !Number.isFinite(f) || r.pocos || !((r.n_ef || 0) >= VIVO_N_EF)) return;
+      out[`${r.tf}|${r.h}`] = f;
+    });
+    return out;
+  }
+  let trackVisto = null, trackFactores = {};
+  function factoresActuales() {
+    if (root.TRACK !== trackVisto) { trackVisto = root.TRACK; trackFactores = factoresVivos(trackVisto); }
+    return trackFactores;
+  }
+  /** min/max del 80% ya ajustados (ajuste_vivo = factor usado, null si no se aplico) y los crudos (los que se registran en el historial). */
+  function rango80(tf, h, o, k, price, factores) {
+    let lo = o.p50 - k * (o.p50 - o.p10), hi = o.p50 + k * (o.p90 - o.p50);
+    const out = { min_crudo: rp(price * (1 + lo / 100)), max_crudo: rp(price * (1 + hi / 100)), ajuste_vivo: null };
+    let f = (factores || factoresActuales())[`${tf}|${h}`];
+    if (f !== undefined) {
+      f = Math.min(VIVO_F[1], Math.max(VIVO_F[0], f));
+      [lo, hi] = [o.p50 - f * (o.p50 - lo), o.p50 + f * (hi - o.p50)];
+      out.ajuste_vivo = f;
+    }
+    out.min = rp(price * (1 + lo / 100)); out.max = rp(price * (1 + hi / 100));
+    return out;
+  }
+
   /** Todo lo que se puede decir de las proximas h velas a partir de las situaciones parecidas (ya con lo aprendido). */
   function horizonStats(tf, s, h, price, fit) {
     const sample = fit.sample, f = fit.factor;
@@ -756,12 +788,12 @@
     const when = fmtLocal(whenMs);
     const [tg, close] = targets(s.bars, sample, price, h, when, f, L.distancia === undefined ? null : L.distancia, fit.p_primero === undefined ? null : fit.p_primero, F);
     const cal = calibracion(s, fit.receta, h), k = cal.k;
-    const lo = o.p50 - k * (o.p50 - o.p10), hi = o.p50 + k * (o.p90 - o.p50);
+    const rango = rango80(tf, h, o, k, price);
     return [{
       tf, horizonte: label(h * s.tfMin), velas: h, sube: rnd(up, 1), baja: rnd(100 - up, 1), base: rnd(b.up, 1),
       sube_crudo: rnd(o.up, 1), receta: fit.receta, factor: f,
       veredicto: verdict, sin_ventaja: sinVentaja, n: o.n, dias: s.days, hora: when, t_hasta: whenMs, margen: rnd(margin, 1), pocos_casos: o.n < 100,
-      min: rp(price * (1 + lo / 100)), max: rp(price * (1 + hi / 100)),
+      ...rango,
       rango_k: rnd(k, 2), rango_cobertura: cal.cobertura === null ? null : rnd(cal.cobertura, 1), rango_casos: cal.casos, ...(close || NO_CLOSE),
     }, tg];
   }
@@ -1311,7 +1343,7 @@
         const [prob, tg] = horizonStats(tf, series[tf], h, price, tune(tf, series[tf], h));
         rows.push({ tabla: 'probabilidad', ...prob });
         tg.forEach((t) => rows.push({ tabla: 'objetivo', tf, horizonte: prob.horizonte, hora: prob.hora, ...t }));
-        entries.push([bars[i][0] + tfMs, tf, h, closes[i], prob.sube, prob.min, prob.max, { m: prob.mediana, a: prob.obj_arriba, b: prob.obj_abajo, ta: prob.toca_arriba, tb: prob.toca_abajo, pa: prob.primero_arriba }]);
+        entries.push([bars[i][0] + tfMs, tf, h, closes[i], prob.sube, prob.min_crudo, prob.max_crudo, { m: prob.mediana, a: prob.obj_arriba, b: prob.obj_abajo, ta: prob.toca_arriba, tb: prob.toca_abajo, pa: prob.primero_arriba }]);
       });
 
       // escenarios y cono del futuro: la pagina ya no los dibuja (SIN_FUTURO); la app los pide sin escenarios y se ahorra
@@ -1341,7 +1373,7 @@
       tg.forEach((t) => rows.push({ tabla: 'objetivo_plazo', plazo: name, ...t }));
       if (!entries.some((e) => e[1] === tf && e[2] === h)) {
         const s = series[tf];
-        entries.push([s.bars[s.bars.length - 1][0] + s.tfMs, tf, h, s.closes[s.closes.length - 1], prob.sube, prob.min, prob.max, { m: prob.mediana, a: prob.obj_arriba, b: prob.obj_abajo, ta: prob.toca_arriba, tb: prob.toca_abajo, pa: prob.primero_arriba }]);
+        entries.push([s.bars[s.bars.length - 1][0] + s.tfMs, tf, h, s.closes[s.closes.length - 1], prob.sube, prob.min_crudo, prob.max_crudo, { m: prob.mediana, a: prob.obj_arriba, b: prob.obj_abajo, ta: prob.toca_arriba, tb: prob.toca_abajo, pa: prob.primero_arriba }]);
       }
     });
     // coherencia entre plazos: el rango de un plazo mas largo no puede ser mas angosto que el del anterior. Solo ensancha
@@ -1470,7 +1502,7 @@
     return { rows, log };
   }
 
-  const Analisis = { ictFilas, piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, DIAS_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, fibTramo, compresion, perfilHoras, central, liqReales, calificarUltimas };
+  const Analisis = { ictFilas, piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, DIAS_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, factoresVivos, rango80, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, fibTramo, compresion, perfilHoras, central, liqReales, calificarUltimas };
   root.Analisis = Analisis;
   if (typeof module !== 'undefined' && module.exports) module.exports = Analisis;
 })(typeof self !== 'undefined' ? self : globalThis);

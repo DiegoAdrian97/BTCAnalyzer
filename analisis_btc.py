@@ -660,6 +660,76 @@ def change_since(closed_5m, now_ms, price, hours):
     return None
 
 
+# Rango del 80% recalibrado con lo medido en vivo (medir_vivo.py -> "rangos" de JavascriptVersion/track.json, que se
+# actualiza cada 6 h): factor_80 lleva la cobertura real al 80%. Mismo codigo que factoresVivos / rango80 de analisis.js
+TRACK_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "JavascriptVersion", "track.json")
+TRACK_URL = "https://raw.githubusercontent.com/DiegoAdrian97/BTCAnalyzer/main/JavascriptVersion/track.json"
+VIVO_N_EF, VIVO_F = 150, (0.8, 2.0)       # casos efectivos minimos y tope del factor
+FACTORES_VIVOS = {}                       # {(tf, h): factor_80}
+_TRACK_LEIDO = False
+
+
+def factores_vivos(track):
+    """{(tf, h): factor_80} de la seccion "rangos" del track.json; solo los medidos con n_ef >= 150 y sin `pocos`."""
+    out = {}
+    for r in (track.get("rangos") if isinstance(track, dict) else None) or []:
+        try:
+            f = r.get("factor_80")
+            if f is None or r.get("pocos") or float(r.get("n_ef") or 0) < VIVO_N_EF or not math.isfinite(float(f)):
+                continue
+            out[(str(r["tf"]), int(r["h"]))] = float(f)
+        except (AttributeError, KeyError, TypeError, ValueError):
+            continue
+    return out
+
+
+def usar_track(track):
+    global FACTORES_VIVOS
+    FACTORES_VIVOS = factores_vivos(track)
+
+
+def leer_track_local():
+    """Al arrancar: el track.json del repo, si existe (y si no sirve, el analisis sigue sin ajuste)."""
+    global _TRACK_LEIDO
+    _TRACK_LEIDO = True
+    try:
+        with open(TRACK_FILE, encoding="utf-8") as fh:
+            usar_track(json.load(fh))
+    except Exception:
+        pass
+
+
+def refrescar_track():
+    """Modo servidor, cada 6 h: baja el track.json de GitHub. Si falla queda el anterior; nunca rompe el analisis."""
+    global _TRACK_LEIDO
+    _TRACK_LEIDO = True
+    try:
+        import urllib.request
+        with urllib.request.urlopen(urllib.request.Request(TRACK_URL, headers={"User-Agent": "analisis-btc"}), timeout=15) as r:
+            usar_track(json.loads(r.read().decode("utf-8")))
+        return True
+    except Exception as e:
+        print(f"(track.json no disponible: {type(e).__name__}; queda el anterior)", flush=True)
+        if not FACTORES_VIVOS:                 # recien arrancado o recargado: al menos el del repo
+            leer_track_local()
+        return False
+
+
+def rango_80(tf, h, o, k, price, factores=None):
+    """El rango del 80% de las proximas h velas: min/max ya ajustados con lo medido en vivo (ajuste_vivo = factor usado,
+    None si no se aplico) y los crudos (min_crudo/max_crudo: lo que se registra en el historial, para que la medicion
+    siga midiendo el rango sin ajustar y el factor no oscile)."""
+    lo, hi = o["p50"] - k * (o["p50"] - o["p10"]), o["p50"] + k * (o["p90"] - o["p50"])
+    out = {"min_crudo": rp(price * (1 + lo / 100)), "max_crudo": rp(price * (1 + hi / 100)), "ajuste_vivo": None}
+    f = (FACTORES_VIVOS if factores is None else factores).get((tf, h))
+    if f is not None:
+        f = min(VIVO_F[1], max(VIVO_F[0], f))
+        lo, hi = o["p50"] - f * (o["p50"] - lo), o["p50"] + f * (hi - o["p50"])
+        out["ajuste_vivo"] = f
+    out["min"], out["max"] = rp(price * (1 + lo / 100)), rp(price * (1 + hi / 100))
+    return out
+
+
 def horizon_stats(tf, s, h, price, fit):
     """Todo lo que se puede decir de las proximas h velas a partir de las situaciones parecidas.
 
@@ -687,13 +757,13 @@ def horizon_stats(tf, s, h, price, fit):
     tg, close = targets(bars, sample, price, h, when, f, L.get("distancia"), fit.get("p_primero"), F)
     cal = calibracion(s, fit["receta"], h)
     k = cal["k"]
-    lo, hi = o["p50"] - k * (o["p50"] - o["p10"]), o["p50"] + k * (o["p90"] - o["p50"])
+    rango = rango_80(tf, h, o, k, price)
     return ({"tf": tf, "horizonte": label(h * s["tf_min"]), "velas": h,
              "sube": round(up, 1), "baja": round(100 - up, 1), "base": round(b["up"], 1),
              "sube_crudo": round(o["up"], 1), "receta": fit["receta"], "factor": f,
              "veredicto": verdict, "sin_ventaja": sin_ventaja, "n": o["n"], "dias": s["days"], "hora": when, "t_hasta": when_ms,
              "margen": round(margin, 1), "pocos_casos": o["n"] < 100,
-             "min": rp(price * (1 + lo / 100)), "max": rp(price * (1 + hi / 100)),
+             **rango,
              "rango_k": round(k, 2), "rango_cobertura": None if cal["cobertura"] is None else round(cal["cobertura"], 1),
              "rango_casos": cal["casos"],
              **(close or {"mediana": None, "p25": None, "p75": None, "obj_arriba": None, "obj_abajo": None,
@@ -1777,6 +1847,8 @@ def log_and_score(entries, closes_by_tf):
 
 # ---------- analisis completo ----------
 def analyze():
+    if not _TRACK_LEIDO:
+        leer_track_local()
     bgx, src = exchange("bingx"), candle_source()
     # los pedidos de red van en paralelo: velas de todas las temporalidades a la vez, y los libros de ordenes
     # (que se piden como mucho cada 20 s) se bajan mientras se calcula lo demas
@@ -1859,7 +1931,7 @@ def analyze():
             prob, tg = horizon_stats(tf, series[tf], h, price, tune(tf, series[tf], h))
             rows.append({"tabla": "probabilidad", **prob})
             rows += [{"tabla": "objetivo", "tf": tf, "horizonte": prob["horizonte"], "hora": prob["hora"], **t} for t in tg]
-            entries.append((bars[-1][0] + tf_ms, tf, h, closes[-1], prob["sube"], prob["min"], prob["max"], {c: prob.get(k) for c, k in (("m", "mediana"), ("a", "obj_arriba"), ("b", "obj_abajo"), ("ta", "toca_arriba"), ("tb", "toca_abajo"), ("pa", "primero_arriba"))}))
+            entries.append((bars[-1][0] + tf_ms, tf, h, closes[-1], prob["sube"], prob["min_crudo"], prob["max_crudo"], {c: prob.get(k) for c, k in (("m", "mediana"), ("a", "obj_arriba"), ("b", "obj_abajo"), ("ta", "toca_arriba"), ("tb", "toca_abajo"), ("pa", "primero_arriba"))}))
 
         sc, cone = scenarios(bars, idxs, price, tf_ms, vol_factor(series[tf], SCENARIO_STEPS),
                              calibracion(series[tf], main_fit["receta"], SCENARIO_STEPS)["k"])
@@ -1897,7 +1969,7 @@ def analyze():
             ant = (r["min"], r["max"])
         if not any(e[1] == tf and e[2] == h for e in entries):
             entries.append((series[tf]["bars"][-1][0] + series[tf]["tf_ms"], tf, h, series[tf]["closes"][-1], prob["sube"],
-                            prob["min"], prob["max"], {c: prob.get(k) for c, k in (("m", "mediana"), ("a", "obj_arriba"), ("b", "obj_abajo"), ("ta", "toca_arriba"), ("tb", "toca_abajo"), ("pa", "primero_arriba"))}))
+                            prob["min_crudo"], prob["max_crudo"], {c: prob.get(k) for c, k in (("m", "mediana"), ("a", "obj_arriba"), ("b", "obj_abajo"), ("ta", "toca_arriba"), ("tb", "toca_abajo"), ("pa", "primero_arriba"))}))
 
     # niveles clave
     h1, d1 = candles["1h"], candles["1d"]
@@ -2323,6 +2395,7 @@ def run_live(every, public=False):
     print(f"Modo en vivo: {'publicado en el puerto ' + str(port) if public else url} (recalcula cada {every} s, Ctrl+C para salir)",
           flush=True)
     first = True
+    track_t = 0
     if public:
         avisos.mantener_despierto()
         avisos.iniciar_comandos()
@@ -2336,7 +2409,11 @@ def run_live(every, public=False):
                     importlib.reload(apr)
                     live_mod = importlib.reload(live_mod)
                     code_stamp = stamp
+                    track_t = 0                        # el modulo nuevo arranca sin los factores bajados
                     print("Código del análisis actualizado: se usa la versión nueva desde este análisis.")
+                if public and time.time() - track_t > 6 * 3600:   # rangos recalibrados con lo medido en vivo (cada 6 h)
+                    live_mod.refrescar_track()
+                    track_t = time.time()
                 data = {"rows": live_mod.analyze(), "pagina": page_version()}
                 try:
                     avisos.revisar(data["rows"], getattr(live_mod, "ULTIMAS_VELAS", None))   # WhatsApp / notificacion
