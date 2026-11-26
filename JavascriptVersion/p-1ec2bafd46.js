@@ -2542,6 +2542,7 @@
   document.addEventListener('visibilitychange', () => { if (!document.hidden && calEspera() === 60000) calVivo(); });
   function drawCalendario(rows) {
     CALV.rows = rows;
+    { const cx = pick(rows, 'contexto'); if (cx.length) CALV.fed = cx.find((c) => c.clave === 'fed_tasas') || null; }   // el calendario vivo trae solo eventos
     rows = calDe(rows);
     const now = Date.now(), FED = /interest rate decision|fomc decision|interest rate fomc/i;
     let cal = pick(rows, 'calendario');
@@ -2586,6 +2587,12 @@
         nm.append(el('b', '', e.titulo), el('span', 'ab-cal-tag', e.cripto ? 'cripto' : `EE.UU.${e.periodo ? ` · ${e.periodo}` : ''}`));
         if (e.cripto) nm.append(el('small', '', e.nota));
         else if (e.t > now && e.t - now < 864e5) nm.append(el('small', '', `Falta ${faltaTxt(e.t - now)}`));
+        if (e.fed && e.t > now && CALV.fed && new Date(e.t).toISOString().slice(0, 10) === CALV.fed.fecha) {   // lo que espera el mercado (futuros de Fed Funds)
+          const f = CALV.fed, et = (pb) => (pb === 0 ? 'mantener' : `${pb > 0 ? 'suba' : 'baja'} ${(Math.abs(pb) / 100).toFixed(2).replace('.', ',')}`);
+          const sm = el('small', '', f.indeciso && f.prob.length > 1 ? `Mercado dividido: ${Math.round(f.prob[0][1] * 100)}% ${et(f.prob[0][0])} / ${Math.round(f.prob[1][1] * 100)}% ${et(f.prob[1][0])}`
+            : `Mercado: ${et(f.prob[0][0])} · ${Math.round(f.prob[0][1] * 100)}%`);
+          sm.title = 'Lo que esperan los futuros de Fed Funds (como CME FedWatch). Ya está en el precio: lo que mueve es el anuncio.'; nm.append(sm);
+        }
         r.append(tt, imp, nm);
         if (!e.cripto) {
           const act = el('span', 'n ab-cal-act', calValor(e.actual, e));
@@ -6836,6 +6843,8 @@
     [/^Inflación|^Precios mayoristas/, 'macro', 'Inflación (IPC, PCE, PPI)', 'Cuánto subieron los precios. La Fed la mira para decidir las tasas.', 'Más baja de lo previsto: acerca recortes de tasa, positivo.', 'Más alta de lo previsto: aleja recortes, negativo.'],
     [/^Empleo|^Vacantes laborales/, 'macro', 'Empleo', 'Cuántos puestos de trabajo se crearon. Un mercado laboral fuerte le da margen a la Fed para no bajar tasas.', 'Menos empleo de lo previsto: acerca recortes, suele ser positivo.', 'Más empleo de lo previsto: aleja recortes, suele ser negativo.'],
     [/^Tasa de desempleo|^Pedidos de subsidio/, 'macro', 'Desempleo', 'Qué parte de la gente busca trabajo y no consigue (o cuántos pidieron subsidio esa semana).', 'Más desempleo de lo previsto: acerca recortes de tasa, positivo para el mercado.', 'Menos desempleo: aleja recortes, negativo.'],
+    [/^Tasas de la Fed/, 'macro', 'Tasas de la Fed: lo que espera el mercado', 'Qué decisión espera el mercado en la próxima reunión de la Fed y con qué probabilidad. Sale de los futuros de Fed Funds, igual que el FedWatch de CME.',
+      null, null, 'Medido 2017–2026: lo esperado ya está en el precio; BTC no se movió distinto las semanas antes ni después según lo que se esperaba. Lo que mueve es el anuncio: esa hora se mueve ~3 veces lo normal.'],
     [/^Decisión de tasas/, 'macro', 'Decisión de tasas de la Fed', 'La Fed fija la tasa de interés de EE.UU. Tasas más bajas abaratan el dinero y suelen favorecer a BTC.', 'Baja más de lo esperado: positivo.', 'Sube o baja menos de lo esperado: negativo.', 'Medido: esa hora BTC se mueve ~3 veces lo normal.'],
     [/^(PIB|Ventas minoristas|ISM)/, 'macro', 'Actividad económica', 'Cuánto crece la economía o cuánto se vende. Una economía más fuerte de lo previsto le da margen a la Fed para no bajar tasas.', 'Más débil de lo previsto: acerca recortes, suele ser positivo para BTC.', 'Más fuerte de lo previsto: aleja recortes, suele ser negativo.'],
     [/^Confianza del consumidor/, 'macro', 'Confianza del consumidor', 'Encuesta sobre el ánimo de los consumidores de EE.UU.', 'Más confianza de lo previsto: mejor ánimo, positivo.', 'Menos confianza: negativo.'],

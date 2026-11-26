@@ -608,6 +608,32 @@ más alta es negativo** y, si es lo que se esperaba, ya estaba descontado. Se mu
 en la predicción, y llega por Telegram apenas sale. En los titulares, "recorte mayor al esperado" o "dovish" suman;
 "menos recortes", "pausa" o "hawkish" restan; "como se esperaba" es neutral.
 
+### Lo que espera el mercado de la Fed (como FedWatch)
+
+Fila de contexto `fed_tasas` ("Tasas de la Fed: lo que espera el mercado"), en el tablero y en el calendario, en el día de
+la decisión. Sale de `tasas_fed.py` (Python) y `api/contexto.js` (Vercel), mismos números: los precios de los futuros de
+Fed Funds a 30 días (ZQ, CBOT) de TradingView y la tasa efectiva (EFFR) de la Fed de Nueva York. El contrato del mes de la
+reunión promedia la tasa de antes y la de después, así que se despeja la de después:
+`despues = (100 - precio - d/N * antes) / ((N - d)/N)` (d = día de la decisión, N = días del mes; si el mes siguiente no
+tiene reunión, su contrato ya es la tasa de después). El cambio, en pasos de 0,25, da las probabilidades. Con datos reales
+del 26/11/2026 da 99% de suba de 0,25 el 9/12, igual que CME. Prueba: `python pruebas/tasas_fed.py` (Python = JS).
+
+**Es contexto: no entra en la puntuación de dirección.** Medido (`medir_fed_semana.py`, 73 decisiones programadas
+2017–2026, BTC diario): según lo que se esperaba, BTC no se movió distinto en las 1 a 4 semanas antes.
+
+| Esperado | 2017–2021 | 2022–2026 | Lectura |
+|---|---|---|---|
+| Suba | +6,5% la semana antes (z +0,9) | −2,2% (z −1,3) | signo opuesto entre períodos: nada |
+| Baja | subió 2 de 3 (z +0,5) | subió la semana antes 6 de 6 (z +1,6) | pinta, pero son 9 casos en total |
+| Mantener | sin diferencia | sin diferencia | nada |
+
+La semana siguiente, sin sorpresa, BTC subió ~53% de las veces (lo normal). Lo que sí se mide (`medir_fed.py`) es la hora de
+la decisión: se mueve ~3,2 veces lo normal, con dirección ~50/50. Por eso la fuerza +3 del análisis cuando esa hora cae
+dentro del plazo no cambia.
+
+Mantenimiento: `REUNIONES` (en `tasas_fed.py` y en `contexto.js`) lleva las fechas de decisión de la Fed; hay que sumar las
+de 2028 a fines de 2027, y revisar las de 2027 (tentativas) cuando cada reunión confirma la siguiente.
+
 ### Datos económicos fuertes de EE.UU.
 
 Calendario de importancia alta (IPC, empleo, decisiones y discursos de la Fed, PCE, ventas minoristas, PIB...), de

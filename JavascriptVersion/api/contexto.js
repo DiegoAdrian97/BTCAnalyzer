@@ -143,6 +143,15 @@ async function get(url) {
   } finally { clearTimeout(t); }
 }
 
+async function post(url, body, headers = {}) {
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), Math.max(500, Math.min(12000, LIMITE - Date.now())));
+  try {
+    const r = await fetch(url, { method: 'POST', body, headers: { 'User-Agent': UA, Accept: '*/*', ...headers }, signal: ctl.signal });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.text();
+  } finally { clearTimeout(t); }
+}
+
 const ENT = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
 const unesc = (s) => s.replace(/&(#x?[0-9a-f]+|\w+);/gi, (m, e) => (e[0] === '#'
   ? String.fromCodePoint(e[1].toLowerCase() === 'x' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)) : ENT[e.toLowerCase()] ?? m));
@@ -450,23 +459,120 @@ function miedoCodicia(data) {
     detalle: txt, fng: v, fng_ayer: ayer, fng_clase: clase };
 }
 
+// ---------- Lo que espera el mercado de la Fed (como el FedWatch de CME). Igual que tasas_fed.py ----------
+// Futuros de Fed Funds a 30 dias (ZQ, CBOT) de TradingView + la tasa efectiva (EFFR) de la Fed de Nueva York.
+// Hay que agregar las reuniones de 2028 a fin de 2027.
+const REUNIONES = ['2026-01-28', '2026-03-18', '2026-04-29', '2026-06-17', '2026-07-29', '2026-09-16', '2026-10-28', '2026-12-09',
+  '2027-01-27', '2027-03-17', '2027-04-28', '2027-06-09', '2027-07-28', '2027-09-15', '2027-10-27', '2027-11-17'];
+const LETRA = 'FGHJKMNQUVXZ', PASO = 0.25;
+const r3 = (x) => Math.floor(x * 1000 + 0.5) / 1000;      // igual que r3() de tasas_fed.py
+const r1 = (x) => Math.floor(x * 10 + 0.5) / 10;
+const p2 = (n) => String(n).padStart(2, '0');
+const ticker = (y, m) => `ZQ${LETRA[m - 1]}${p2(y % 100)}.CBT`;
+const mesSig = (y, m) => (m === 12 ? [y + 1, 1] : [y, m + 1]);
+const fechaIso = (x) => { const [y, m, d] = x.split('-').map(Number); return { y, m, d, iso: x, ms: Date.UTC(y, m - 1, d) }; };
+/** Las proximas n decisiones desde hoy ('YYYY-MM-DD'), incluida la de hoy. */
+const proximas = (hoy, n = 2) => REUNIONES.filter((x) => x >= hoy).slice(0, n).map(fechaIso);
+function contratos(hoy, n = 2) {
+  const out = [];
+  for (const d of proximas(hoy, n)) for (const ym of [[d.y, d.m], mesSig(d.y, d.m)]) { const t = ticker(...ym); if (!out.includes(t)) out.push(t); }
+  return out;
+}
+function probabilidades(effr, precios, hoy, n = 2) {
+  const mesesCon = new Set(REUNIONES.map((x) => { const d = fechaIso(x); return `${d.y}-${d.m}`; }));
+  const hoyMs = fechaIso(hoy).ms;
+  let antes = effr;
+  const out = [];
+  for (const d of proximas(hoy, n)) {
+    const N = new Date(Date.UTC(d.y, d.m, 0)).getUTCDate();
+    const sig = mesSig(d.y, d.m);
+    const pMes = precios[ticker(d.y, d.m)], pSig = precios[ticker(...sig)];
+    let despues;
+    if (!mesesCon.has(`${sig[0]}-${sig[1]}`) && pSig) despues = 100 - pSig;
+    else if (pMes && d.d < N) despues = (100 - pMes - d.d / N * antes) / ((N - d.d) / N);
+    else break;
+    const cambio = despues - antes, k = Math.abs(cambio) / PASO;
+    const piso = Math.trunc(k), frac = k - piso, signo = cambio < 0 ? -1 : 1;
+    const prob = new Map();
+    for (const [pasos, pr] of [[piso, 1 - frac], [piso + 1, frac]]) {
+      if (pr < 0.005) continue;
+      const clave = pasos === 0 ? 0 : signo * pasos * 25;         // en puntos basicos: -25 = baja 0,25
+      prob.set(clave, (prob.get(clave) || 0) + pr);
+    }
+    const pj = {};
+    for (const [c, v] of [...prob].sort((a, b) => a[0] - b[0])) pj[c] = r3(v);
+    out.push({ fecha: d.iso, dias: Math.round((d.ms - hoyMs) / 86400000), antes: r3(antes), despues: r3(despues),
+      cambio_pb: r1(cambio * 100), prob: pj, acumulado_pb: r1((despues - effr) * 100) });
+    antes = despues;
+  }
+  return out;
+}
+const coma = (x, dec = 2) => x.toFixed(dec).replace('.', ',');
+const dm = (iso) => { const [, m, d] = iso.split('-'); return `${+d}/${+m}`; };
+const pct = (p) => Math.floor(p * 100 + 0.5);
+const etiqueta = (pb) => (pb === 0 ? 'mantener' : `${pb > 0 ? 'suba' : 'baja'} ${coma(Math.abs(pb) / 100)}`);
+/** Junta los datos ya traidos en lo que usa filaFed. null si no hay precio para la primera reunion. */
+function armarFed(effr, rango, fecha, ps, hoy, n = 2) {
+  const r = probabilidades(effr, ps, hoy, n);
+  return r.length ? { effr, rango, effr_fecha: fecha, precios: ps, reuniones: r } : null;
+}
+function filaFed(d) {
+  if (!d || !d.reuniones || !d.reuniones.length) return null;
+  const r = d.reuniones[0];
+  const prob = Object.entries(r.prob).map(([k, v]) => [parseInt(k, 10), v]).sort((a, b) => (b[1] - a[1]) || (a[0] - b[0]));
+  if (!prob.length) return null;
+  const [top, pt] = prob[0], indeciso = pt < 0.7, [desde, hasta] = d.rango;
+  let det = `Futuros de Fed Funds (como FedWatch). Tasa hoy ${coma(desde)}–${coma(hasta)}%.`;
+  if (indeciso) {
+    const [a, b] = prob;
+    det += ` Mercado dividido (${pct(a[1])}% ${etiqueta(a[0])} / ${pct(b[1])}% ${etiqueta(b[0])}): BTC va a reaccionar según lo que decidan; esa hora se mueve ~3 veces lo normal.`;
+  } else {
+    det += ' Lo esperado ya está en el precio: medido 2017–2026, BTC no se movió distinto las semanas antes ni después según lo que se esperaba. Lo que mueve es el anuncio: esa hora, ~3 veces lo normal.';
+  }
+  let sig = null;
+  if (d.reuniones.length > 1) {
+    const s2 = d.reuniones[1];
+    sig = { fecha: s2.fecha, acumulado_pb: s2.acumulado_pb };
+    const a = sig.acumulado_pb, n = Math.ceil(Math.abs(a) - 0.5);   // mitad hacia abajo (40,5 -> 40), igual que Python
+    det += ` Para el ${dm(sig.fecha)}: ${a > 0 ? '+' : a < 0 ? '-' : ''}${n} pb acumulado.`;
+  }
+  return { tabla: 'contexto', clave: 'fed_tasas', titulo: 'Tasas de la Fed: lo que espera el mercado',
+    valor: `${dm(r.fecha)}: ${etiqueta(top)} · ${pct(pt)}%`, senal: 'neutral', detalle: det, fecha: r.fecha, dias: r.dias,
+    rango: [desde, hasta], effr: d.effr, esperada: r.despues, prob, indeciso, siguiente: sig };
+}
+const tvSimbolo = (tk) => `CBOT:${tk.slice(0, 3)}20${tk.slice(3, 5)}`;       // ZQZ26.CBT -> CBOT:ZQZ2026
+async function traerFed(hoy = new Date().toISOString().slice(0, 10), n = 2) {
+  const tks = contratos(hoy, n);
+  const [ef, tv] = await Promise.all([
+    get('https://markets.newyorkfed.org/api/rates/unsecured/effr/last/1.json').then((x) => JSON.parse(x).refRates[0]),
+    post('https://scanner.tradingview.com/futures/scan', JSON.stringify({ symbols: { tickers: tks.map(tvSimbolo) }, columns: ['close'] }),
+      { 'Content-Type': 'application/json', Origin: 'https://www.tradingview.com', Referer: 'https://www.tradingview.com/' }).then((x) => JSON.parse(x))]);
+  const por = {};
+  for (const x of tv.data || []) if (x.d && x.d[0] !== null && x.d[0] !== undefined) por[x.s] = x.d[0];
+  const ps = {};
+  for (const t of tks) if (tvSimbolo(t) in por) ps[t] = Number(por[tvSimbolo(t)]);
+  return armarFed(parseFloat(ef.percentRate), [parseFloat(ef.targetRateFrom), parseFloat(ef.targetRateTo)], ef.effectiveDate, ps, hoy, n);
+}
+
 async function externo(nowMs = Date.now(), limiteMs = Infinity, moneda = 'BTC') {
   LIMITE = limiteMs;
   if (ACCIONES[moneda]) {             // una accion: sus noticias (empresa, region, sector y bolsa) y el calendario
-    const [listas, cal] = await Promise.all([
+    const [listas, cal, fed] = await Promise.all([
       Promise.all(ACCIONES[moneda].feeds.map(([feed, url]) => get(url).then((x) => traducir(parseRss(x, feed, nowMs), /hl=en/.test(url))).catch(() => []))),
-      calendario(nowMs).catch(() => [])]);
-    return juntar(listas).concat(cal);
+      calendario(nowMs).catch(() => []), traerFed().then(filaFed).catch(() => null)]);
+    return juntar(listas).concat(cal, fed ? [fed] : []);
   }
   // todo en paralelo (antes las noticias y despues el resto: podia pasar los 10 s de Vercel)
-  const [listas, etf, pr, cal, fng] = await Promise.all([
+  const [listas, etf, pr, cal, fng, fed] = await Promise.all([
     Promise.all(FEEDS.map(([feed, url]) => get(url).then((x) => traducir(parseRss(x, feed, nowMs), /hl=en|coindesk/.test(url))).catch(() => []))),
     get(FARSIDE).then(parseFarside).catch(() => []), prima().catch(() => null),
-    calendario(nowMs).catch(() => []), get('https://api.alternative.me/fng/?limit=2').then((x) => miedoCodicia(JSON.parse(x))).catch(() => null)]);
+    calendario(nowMs).catch(() => []), get('https://api.alternative.me/fng/?limit=2').then((x) => miedoCodicia(JSON.parse(x))).catch(() => null),
+    traerFed().then(filaFed).catch(() => null)]);
   const rows = juntar(listas);
   rows.push(...etf, ...cal);
   if (pr) rows.push(pr);
   if (fng) rows.push(fng);
+  if (fed) rows.push(fed);
   return rows;
 }
 
@@ -500,3 +606,6 @@ module.exports.parseCalendario = parseCalendario;
 module.exports.sesgo = sesgo;
 module.exports.tema = tema;
 module.exports.ACCIONES = ACCIONES;
+module.exports.probabilidades = probabilidades;
+module.exports.armarFed = armarFed;
+module.exports.filaFed = filaFed;

@@ -19,6 +19,8 @@ from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
 from email.utils import parsedate_to_datetime
 
+import tasas_fed
+
 UA = "Mozilla/5.0 (compatible; AnalistaBTC/1.0)"
 GN = "https://news.google.com/rss/search?hl=es-419&gl=AR&ceid=AR:es-419&q="
 GN_EN = "https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q="
@@ -696,24 +698,28 @@ def externo(now_ms=None, moneda="BTC"):
             return None
 
     if moneda in ACCIONES:               # una accion: sus noticias (empresa, region, sector y bolsa) y el calendario
-        with ThreadPoolExecutor(max_workers=8) as pool:
+        with ThreadPoolExecutor(max_workers=10) as pool:
             feeds = [(pool.submit(intento, f"noticias {url[:40]}", lambda f=feed, u=url: parse_rss(_get(u), f, now_ms)),
                       bool(re.search(r"hl=en", url))) for feed, url in ACCIONES[moneda]["feeds"]]
             cal = pool.submit(intento, "calendario economico", lambda: _calendario(now_ms))
-            return juntar([traducir(x.result() or [], ing) for x, ing in feeds]) + (cal.result() or [])
+            fed = pool.submit(intento, "tasas de la Fed", lambda: tasas_fed.fila(tasas_fed.traer()))
+            return juntar([traducir(x.result() or [], ing) for x, ing in feeds]) + (cal.result() or []) + ([fed.result()] if fed.result() else [])
     # todas las fuentes a la vez: si alguna tarda, no frena al resto
-    with ThreadPoolExecutor(max_workers=6) as pool:
+    with ThreadPoolExecutor(max_workers=10) as pool:
         feeds = [(pool.submit(intento, f"noticias {url[:40]}", lambda f=feed, u=url: parse_rss(_get(u), f, now_ms)),
                   bool(re.search(r"hl=en|coindesk", url))) for feed, url in FEEDS]
         etf = pool.submit(intento, "flujos de ETF", lambda: parse_farside(_get(FARSIDE)))
         pr = pool.submit(intento, "prima de Coinbase", _prima) if moneda == "BTC" else None
         cal = pool.submit(intento, "calendario economico", lambda: _calendario(now_ms))
         fng = pool.submit(intento, "miedo y codicia", lambda: miedo_codicia(json.loads(_get("https://api.alternative.me/fng/?limit=2"))))
+        fed = pool.submit(intento, "tasas de la Fed", lambda: tasas_fed.fila(tasas_fed.traer()))
         rows = juntar([traducir(x.result() or [], ing) for x, ing in feeds]) + (etf.result() or []) + (cal.result() or [])
         if pr and pr.result():
             rows.append(pr.result())
         if fng.result():
             rows.append(fng.result())
+        if fed.result():
+            rows.append(fed.result())
     return rows
 
 

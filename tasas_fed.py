@@ -6,10 +6,12 @@ despues, asi que se despeja la tasa que el mercado espera despues de la reunion:
     despues = (promedio del mes - d/N * antes) / ((N - d)/N)          d = dia de la decision, N = dias del mes
 Si el mes siguiente no tiene reunion, su contrato ya es la tasa de despues (mas preciso). La diferencia con la tasa de
 hoy, en pasos de 0,25, da las probabilidades (p. ej. -0,06 = 24% de bajar 0,25 y 76% de mantener). Igual que CME.
-Fuentes: precios de los contratos en Yahoo Finance (ZQZ26.CBT...) y la EFFR del dia en la Fed de Nueva York.
+Fuentes: precios de los contratos en TradingView (Yahoo de respaldo: desde servidores suele dar 429) y la EFFR del dia
+en la Fed de Nueva York.
 """
 import calendar
 import json
+import math
 import urllib.request
 from datetime import date, datetime, timezone
 
@@ -19,6 +21,15 @@ REUNIONES = ["2026-01-28", "2026-03-18", "2026-04-29", "2026-06-17", "2026-07-29
              "2027-01-27", "2027-03-17", "2027-04-28", "2027-06-09", "2027-07-28", "2027-09-15", "2027-10-27", "2027-11-17"]
 LETRA = "FGHJKMNQUVXZ"                     # meses de los futuros: F = enero ... Z = diciembre
 PASO = 0.25
+
+
+def r3(x):
+    """Redondea a 3 decimales igual que Math.round(x * 1000) / 1000 en JS (mitad hacia arriba): Python y JS dan lo mismo."""
+    return math.floor(x * 1000 + 0.5) / 1000
+
+
+def r1(x):
+    return math.floor(x * 10 + 0.5) / 10
 
 
 def ticker(y, m):
@@ -71,9 +82,9 @@ def probabilidades(effr, precios, hoy, n=2):
                 continue
             clave = 0 if pasos == 0 else signo * pasos * 25          # en puntos basicos: -25 = baja 0,25
             prob[clave] = prob.get(clave, 0) + pr
-        out.append({"fecha": d.isoformat(), "dias": (d - hoy).days, "antes": round(antes, 3), "despues": round(despues, 3),
-                    "cambio_pb": round(cambio * 100, 1), "prob": {k: round(v, 3) for k, v in sorted(prob.items())},
-                    "acumulado_pb": round((despues - effr) * 100, 1)})
+        out.append({"fecha": d.isoformat(), "dias": (d - hoy).days, "antes": r3(antes), "despues": r3(despues),
+                    "cambio_pb": r1(cambio * 100), "prob": {k: r3(v) for k, v in sorted(prob.items())},
+                    "acumulado_pb": r1((despues - effr) * 100)})
         antes = despues
     return out
 
@@ -131,13 +142,69 @@ def precios(tks):
     return out
 
 
+def armar(effr, rango, fecha, ps, hoy, n=2):
+    """Junta los datos ya traidos en el dict que usa fila(). None si no hay precio para la primera reunion."""
+    r = probabilidades(effr, ps, hoy, n)
+    return {"effr": effr, "rango": rango, "effr_fecha": fecha, "precios": ps, "reuniones": r} if r else None
+
+
 def traer(hoy=None, n=2):
     """Lo que espera el mercado para las proximas n reuniones, con datos de hoy. None si falta algo."""
     hoy = hoy or datetime.now(timezone.utc).date()
     effr, desde, hasta, fecha = effr_hoy()
-    ps = precios(contratos(hoy, n))
-    r = probabilidades(effr, ps, hoy, n)
-    return {"effr": effr, "rango": [desde, hasta], "effr_fecha": fecha, "precios": ps, "reuniones": r} if r else None
+    return armar(effr, [desde, hasta], fecha, precios(contratos(hoy, n)), hoy, n)
+
+
+# ---------- fila de contexto (igual que filaFed en JavascriptVersion/api/contexto.js: mismos textos, mismos numeros) ----------
+def _coma(x, dec=2):
+    return f"{x:.{dec}f}".replace(".", ",")
+
+
+def _dm(iso):
+    y, m, d = iso.split("-")
+    return f"{int(d)}/{int(m)}"
+
+
+def _pct(p):
+    return math.floor(p * 100 + 0.5)
+
+
+def _etiqueta(pb):
+    if pb == 0:
+        return "mantener"
+    return f"{'suba' if pb > 0 else 'baja'} {_coma(abs(pb) / 100)}"
+
+
+def fila(d):
+    """Fila 'contexto' con lo que espera el mercado de la proxima decision de la Fed. d: lo que devuelve traer() (o None)."""
+    if not d or not d.get("reuniones"):
+        return None
+    r = d["reuniones"][0]
+    prob = sorted(([int(k), v] for k, v in r["prob"].items()), key=lambda x: (-x[1], x[0]))
+    if not prob:
+        return None
+    top, pt = prob[0]
+    indeciso = pt < 0.7
+    desde, hasta = d["rango"]
+    det = f"Futuros de Fed Funds (como FedWatch). Tasa hoy {_coma(desde)}–{_coma(hasta)}%."
+    if indeciso:
+        a, b = prob[0], prob[1]
+        det += (f" Mercado dividido ({_pct(a[1])}% {_etiqueta(a[0])} / {_pct(b[1])}% {_etiqueta(b[0])}): BTC va a reaccionar "
+                "según lo que decidan; esa hora se mueve ~3 veces lo normal.")
+    else:
+        det += (" Lo esperado ya está en el precio: medido 2017–2026, BTC no se movió distinto las semanas antes ni después "
+                "según lo que se esperaba. Lo que mueve es el anuncio: esa hora, ~3 veces lo normal.")
+    sig = None
+    if len(d["reuniones"]) > 1:
+        s2 = d["reuniones"][1]
+        sig = {"fecha": s2["fecha"], "acumulado_pb": s2["acumulado_pb"]}
+        a = sig["acumulado_pb"]
+        n = math.ceil(abs(a) - 0.5)                 # mitad hacia abajo (40,5 -> 40), igual en JS
+        det += f" Para el {_dm(sig['fecha'])}: {'+' if a > 0 else '-' if a < 0 else ''}{n} pb acumulado."
+    return {"tabla": "contexto", "clave": "fed_tasas", "titulo": "Tasas de la Fed: lo que espera el mercado",
+            "valor": f"{_dm(r['fecha'])}: {_etiqueta(top)} · {_pct(pt)}%", "senal": "neutral", "detalle": det,
+            "fecha": r["fecha"], "dias": r["dias"], "rango": [desde, hasta], "effr": d["effr"], "esperada": r["despues"],
+            "prob": prob, "indeciso": indeciso, "siguiente": sig}
 
 
 if __name__ == "__main__":
