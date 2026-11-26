@@ -1,0 +1,23 @@
+name: Medir on-chain del ciclo (pisos y techos)
+# A mano desde Actions (o al cambiar el medidor): ¿qué indicadores on-chain (MVRV, CVDD, costo de holders de corto plazo, NUPL,
+# SOPR, RHODL, HODL waves, % en ganancia, pérdida/ganancia realizada) marcan estados del mercado y suman al termómetro?
+# Solo mide, no cambia nada del analisis. Fuentes publicas sin clave (looknode, bitcoin-data.com, CoinMetrics).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/medir_onchain_ciclo.yml", "medir_onchain_ciclo.py"]
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install numpy
+      - run: set -o pipefail; python -u medir_onchain_ciclo.py | tee onchain.txt
+      - run: set -o pipefail; python -u medir_onchain_ciclo.py 2024-01-01 2022-01-01 | tee onchain_2022.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: medicion-onchain-ciclo, path: "onchain*.txt" }

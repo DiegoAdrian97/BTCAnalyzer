@@ -19,3 +19,4 @@ alts_diario.json
 onchain.json
 # lo que baja medir_contexto.py (se vuelve a bajar solo)
 datos_medicion/
+cache_onchain.json
