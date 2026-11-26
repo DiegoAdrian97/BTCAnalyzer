@@ -104,9 +104,18 @@ def _variantes_csv(nombre, variantes, ok):
 
 
 def f_fed_activos():
-    """Activos totales de la Fed, miercoles, millones de USD. Descarga de la Fed (la clave 'series' puede ser un hash: sin
-    seguridad) y, de ultima, FRED WALCL."""
-    base = "https://www.federalreserve.gov/datadownload/Output.aspx?rel=H41&series=RESPPANWW&lastobs="
+    """Activos de la Fed, millones de USD. Primero la cartera SOMA de la Fed de Nueva York (bonos que compro la Fed: ~90% del
+    balance, semanal desde 2003; la misma API que el RRP, que anda desde GitHub). Si falla, la descarga de la Fed y FRED."""
+    try:
+        j = json.loads(http("https://markets.newyorkfed.org/api/soma/summary.json"))
+        d = {r["asOfDate"]: float(r["total"]) / 1e6 for r in j["soma"]["summary"] if r.get("total") not in (None, "")}
+        if d and 1e6 < sorted(d.values())[len(d) // 2] < 2e7:
+            print(f"  Fed activos / NY Fed SOMA: {len(d)} filas, {min(d)} a {max(d)}", flush=True)
+            return d
+        print("  Fed activos / NY Fed SOMA no: valores fuera de rango", flush=True)
+    except Exception as e:
+        print(f"  Fed activos / NY Fed SOMA no: {type(e).__name__}: {e}", flush=True)
+    base ="https://www.federalreserve.gov/datadownload/Output.aspx?rel=H41&series=RESPPANWW&lastobs="
     vs = [("DDP H.4.1 RESPPANWW", base + "&from=01/01/2014&to=12/31/2030&filetype=csv&label=include&layout=seriescolumn", 1),
           ("DDP H.4.1 RESPPANWW (label=omit)", base + "&from=01/01/2014&to=12/31/2030&filetype=csv&label=omit&layout=seriescolumn", 1),
           ("FRED WALCL", "https://fred.stlouisfed.org/graph/fredgraph.csv?id=WALCL", 1)]
