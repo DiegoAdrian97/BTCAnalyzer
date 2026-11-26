@@ -1,0 +1,8 @@
+t,plazo,precio,direccion,puntos,a_favor,en_contra,fuerza,senales,t_real
+1795651200000,1 día,60423.9,neutral,-1,0,1,baja,liquidaciones:-1,1795651217855
+1795651200000,1 hora,60423.9,baja,-4,0,4,baja,coinciden:-2;indicadores:-1;liquidaciones:-1,1795651217855
+1795651200000,1 mes,60423.9,neutral,1,1,0,baja,ciclo:1,1795651217855
+1795651200000,1 semana,60423.9,neutral,1,1,0,baja,rsi:1,1795651217855
+1795651200000,15 min,60423.9,neutral,-1,0,1,baja,indicadores:-1,1795651217855
+1795651200000,4 horas,60423.9,neutral,-2,0,2,baja,indicadores:-1;liquidaciones:-1,1795651217855
+1795651200000,5 min,60423.9,neutral,-1,0,1,baja,indicadores:-1,1795651217855
