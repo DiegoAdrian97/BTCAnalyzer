@@ -15,8 +15,8 @@ H = 3_600_000
 VISTOS = []
 
 
-def decisiones():
-    out, a = {}, datetime(2020, 12, 1, tzinfo=timezone.utc)
+def decisiones(desde=datetime(2020, 12, 1, tzinfo=timezone.utc)):
+    out, a = {}, desde
     fin = datetime.now(timezone.utc)
     while a < fin:
         b = min(fin, a + timedelta(days=30))

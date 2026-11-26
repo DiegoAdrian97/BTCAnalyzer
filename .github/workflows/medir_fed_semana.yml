@@ -1,0 +1,21 @@
+name: Medir la Fed segun lo esperado
+# A mano desde Actions (o al cambiar el medidor): BTC las semanas antes de cada decision de la Fed segun lo que esperaba
+# el mercado, y prueba de las fuentes en vivo (futuros de Fed Funds). No cambia nada del analisis: solo mide.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/medir_fed_semana.yml", "medir_fed_semana.py", "tasas_fed.py"]
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install numpy
+      - run: set -o pipefail; python -u medir_fed_semana.py | tee fed_semana.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: medicion-fed-semana, path: fed_semana.txt }
