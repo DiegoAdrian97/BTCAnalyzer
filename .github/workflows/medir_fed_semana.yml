@@ -16,6 +16,7 @@ jobs:
         with: { python-version: "3.12" }
       - run: pip install numpy
       - run: set -o pipefail; python -u medir_fed_plazos.py | tee fed_plazos.txt
+      - run: set -o pipefail; python -u medir_fed_plazos.py 2024-01-01 2022-01-01 | tee fed_plazos_2022.txt
       - run: set -o pipefail; python -u medir_fed_semana.py | tee fed_semana.txt
       - uses: actions/upload-artifact@v4
         if: always()

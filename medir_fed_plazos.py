@@ -11,9 +11,10 @@ indecision, reacciona segun el resultado. Aca no se fija el plazo: se prueban to
 - Dosis: correlacion entre el cambio esperado (puntos basicos, de -75 a +75) y el retorno, en cada plazo.
 - Dos tramos: 2015-2021 y 2022-2026. SE REPITE: z >= 2 del mismo lado en los dos tramos.
 Se hacen muchas pruebas: al azar, cada una pasa los dos tramos ~0,1% de las veces (se cuenta al final).
-Uso: python medir_fed_plazos.py
+Uso: python medir_fed_plazos.py [corte desde]   (p. ej. 2024-01-01 2022-01-01: solo 2022-2026, partido en 2022-23 y 2024-26)
 """
 import json
+import sys
 import math
 import statistics
 import urllib.request
@@ -22,7 +23,8 @@ from datetime import date, datetime, timedelta, timezone
 import medir_fed
 
 CAB = {"User-Agent": "analista-btc-medicion"}
-CORTE = "2022-01-01"
+CORTE = sys.argv[1] if len(sys.argv) > 1 else "2022-01-01"
+DESDE = sys.argv[2] if len(sys.argv) > 2 else "2015-01-01"
 PLAZOS = (1, 2, 3, 5, 7, 10, 14, 21, 28, 42, 56)
 EMERGENCIA = ("2020-03-03", "2020-03-15", "2020-03-16")
 
@@ -78,7 +80,7 @@ def main():
     for t, (act, fc, prev) in dec:
         dia = datetime.fromtimestamp(t / 1000, timezone.utc).date().isoformat()
         i = pos.get(dia)
-        motivo = ("sin precio" if i is None or i < 60 else "sin tasa anterior" if prev in (None, "") else
+        motivo = ("antes del tramo" if dia < DESDE else "sin precio" if i is None or i < 60 else "sin tasa anterior" if prev in (None, "") else
                   "de emergencia" if dia in EMERGENCIA else None)
         if motivo:
             salteadas[motivo] = salteadas.get(motivo, 0) + 1
@@ -108,7 +110,7 @@ def main():
 
     def normal(tramo, k):
         if (tramo, k) not in normales:
-            rs = [c[j] / c[j - k] - 1 for j in range(k, len(c)) if (dias[j] < CORTE) == (tramo == 0) and dias[j] >= "2015-01-01"]
+            rs = [c[j] / c[j - k] - 1 for j in range(k, len(c)) if (dias[j] < CORTE) == (tramo == 0) and dias[j] >= DESDE]
             normales[(tramo, k)] = (sum(r > 0 for r in rs) / len(rs), statistics.mean(rs), statistics.pstdev(rs))
         return normales[(tramo, k)]
 
@@ -117,7 +119,7 @@ def main():
     def bloque(titulo, grupos, lado):
         nonlocal pruebas
         print(f"\n=== {titulo} ===")
-        print(f"  {'grupo':<22} {'plazo':>6} | {'2015-2021':^44} | {'2022-2026':^44} |")
+        print(f"  {'grupo':<22} {'plazo':>6} | {'tramo 1 (hasta ' + CORTE + ')':^44} | {'tramo 2 (desde ' + CORTE + ')':^44} |")
         for nom, filt in grupos:
             for k in PLAZOS:
                 txt, zs = f"  {nom:<22} {k:>4} d", []
