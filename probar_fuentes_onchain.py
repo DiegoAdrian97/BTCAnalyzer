@@ -54,11 +54,49 @@ def looknode():
         print(f"  {m} {s} {u[:200]} · {ct[:40]} · {n} bytes · post {str(pd)[:200]} · {cu[:200]!r}", flush=True)
 
 
+def _get_json(u):
+    import json
+    with urllib.request.urlopen(urllib.request.Request(u, headers={**CAB, "Referer": "https://www.looknode.com/zh/chart/"}), timeout=60) as r:
+        return json.loads(r.read().decode("utf-8", "replace"))
+
+
+def looknode_api():
+    """Sin navegador: la lista de graficos (api/chartInfo) y la serie de cada uno (api/<chart_id>)."""
+    info = _get_json("https://www.looknode.com/api/chartInfo")["data"]
+    graficos = []
+
+    def recorrer(x, camino):
+        if isinstance(x, dict):
+            if "chart_id" in x:
+                graficos.append((camino, x.get("chart_id"), {k: v for k, v in x.items() if k not in ("chart_id",) and isinstance(v, (str, int, float))}))
+            for k, v in x.items():
+                recorrer(v, camino + [k])
+        elif isinstance(x, list):
+            for v in x:
+                recorrer(v, camino)
+    recorrer(info, [])
+    print(f"  {len(graficos)} graficos", flush=True)
+    for cam, cid, meta in graficos:
+        print(f"  {'/'.join(cam)[:40]:<40} {cid:<40} {str(meta)[:220]}", flush=True)
+    claves = ("sth", "lth", "short", "long", "realized", "real", "nupl", "sopr", "profit", "mvrv", "rhodl", "cvdd", "balanced", "delta")
+    for cam, cid, meta in graficos:
+        if not any(k in str(cid).lower() for k in claves):
+            continue
+        try:
+            d = _get_json(f"https://www.looknode.com/api/{cid}")
+            s = d.get("data")
+            if isinstance(s, list) and s:
+                print(f"  OK {cid}: {len(s)} puntos · primero {str(s[0])[:120]} · ultimo {str(s[-1])[:120]}", flush=True)
+            else:
+                print(f"  {cid}: {str(d)[:300]}", flush=True)
+        except Exception as e:
+            print(f"  {cid} no: {e!r}"[:300], flush=True)
+        time.sleep(1)
+
+
 if __name__ == "__main__":
-    print("=== bitcoin-data.com ===", flush=True)
-    bgeometrics()
-    print("\n=== looknode.com ===", flush=True)
+    print("=== looknode.com (api) ===", flush=True)
     try:
-        looknode()
+        looknode_api()
     except Exception as e:
-        print("  looknode no:", repr(e)[:300])
+        print("  looknode api no:", repr(e)[:300])
