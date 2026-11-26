@@ -1,0 +1,22 @@
+name: Medir datos diarios gratis
+# A mano desde Actions (o al cambiar el medidor): ¿exchanges, liquidez neta de la Fed, atencion en Wikipedia, stablecoins,
+# VIX y dominancia anticipan a BTC y a las alts? Solo mide, no cambia nada del analisis.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/medir_diarios.yml", "medir_diarios.py"]
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install numpy
+      - run: set -o pipefail; python -u medir_diarios.py | tee diarios.txt
+      - run: set -o pipefail; python -u medir_diarios.py 2024-01-01 2022-01-01 | tee diarios_2022.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: medicion-diarios, path: "diarios*.txt" }

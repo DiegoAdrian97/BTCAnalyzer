@@ -1,0 +1,21 @@
+name: Medir Polymarket (BTC)
+# A mano desde Actions (o al cambiar el medidor): ¿las probabilidades de Polymarket sobre BTC (escaleras de mes/año, "above" y
+# Up/Down) anticipan mejor que el azar? Solo datos publicos, sin claves. No cambia nada del analisis: solo mide.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/medir_polymarket.yml", "medir_polymarket.py"]
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install numpy
+      - run: set -o pipefail; python -u medir_polymarket.py | tee polymarket.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: medicion-polymarket, path: "polymarket.txt" }
