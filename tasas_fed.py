@@ -93,23 +93,51 @@ def effr_hoy():
     return float(r["percentRate"]), float(r["targetRateFrom"]), float(r["targetRateTo"]), r["effectiveDate"]
 
 
+def _tv(tk):
+    """ZQZ26.CBT -> CBOT:ZQZ2026 (como lo nombra TradingView)."""
+    return f"CBOT:{tk[:3]}20{tk[3:5]}"
+
+
+def precios_tradingview(tks):
+    """Precios de varios contratos de una vez en el buscador de TradingView (el mismo sitio del calendario economico)."""
+    cuerpo = json.dumps({"symbols": {"tickers": [_tv(t) for t in tks]}, "columns": ["close"]}).encode()
+    req = urllib.request.Request("https://scanner.tradingview.com/futures/scan", data=cuerpo,
+                                 headers={**CAB, "Content-Type": "application/json", "Origin": "https://www.tradingview.com",
+                                          "Referer": "https://www.tradingview.com/"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        d = json.loads(r.read().decode("utf-8", "replace"))
+    por = {x["s"]: x["d"][0] for x in d.get("data", []) if x.get("d") and x["d"][0] is not None}
+    return {t: float(por[_tv(t)]) for t in tks if _tv(t) in por}
+
+
 def precio_futuro(tk):
-    m = _json(f"https://query1.finance.yahoo.com/v8/finance/chart/{tk}?interval=1d&range=5d")["chart"]["result"][0]["meta"]
+    m = _json(f"https://query2.finance.yahoo.com/v8/finance/chart/{tk}?interval=1d&range=5d")["chart"]["result"][0]["meta"]
     return float(m["regularMarketPrice"])
+
+
+def precios(tks):
+    """TradingView primero; lo que falte, de Yahoo."""
+    out = {}
+    try:
+        out = precios_tradingview(tks)
+    except Exception:
+        pass
+    for tk in tks:
+        if tk not in out:
+            try:
+                out[tk] = precio_futuro(tk)
+            except Exception:
+                pass
+    return out
 
 
 def traer(hoy=None, n=2):
     """Lo que espera el mercado para las proximas n reuniones, con datos de hoy. None si falta algo."""
     hoy = hoy or datetime.now(timezone.utc).date()
     effr, desde, hasta, fecha = effr_hoy()
-    precios = {}
-    for tk in contratos(hoy, n):
-        try:
-            precios[tk] = precio_futuro(tk)
-        except Exception:
-            pass
-    r = probabilidades(effr, precios, hoy, n)
-    return {"effr": effr, "rango": [desde, hasta], "effr_fecha": fecha, "precios": precios, "reuniones": r} if r else None
+    ps = precios(contratos(hoy, n))
+    r = probabilidades(effr, ps, hoy, n)
+    return {"effr": effr, "rango": [desde, hasta], "effr_fecha": fecha, "precios": ps, "reuniones": r} if r else None
 
 
 if __name__ == "__main__":

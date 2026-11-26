@@ -109,11 +109,21 @@ def main():
     except Exception as e:
         print("  EFFR no:", repr(e)[:300])
     hoy = datetime.now(timezone.utc).date()
-    for tk in tasas_fed.contratos(hoy) + ["ZQ=F"]:
+    tks = tasas_fed.contratos(hoy)
+    try:
+        print("  TradingView:", tasas_fed.precios_tradingview(tks))
+    except Exception as e:
+        print("  TradingView no:", repr(e)[:300])
+    for tk in tks:
         try:
-            print(f"  {tk}: {tasas_fed.precio_futuro(tk)}")
+            print(f"  Yahoo {tk}: {tasas_fed.precio_futuro(tk)}")
         except Exception as e:
-            print(f"  {tk} no:", repr(e)[:300])
+            print(f"  Yahoo {tk} no:", repr(e)[:300])
+    try:
+        cme = tasas_fed._json("https://www.cmegroup.com/CmeWS/mvc/Quotes/Future/305/G")
+        print("  CME:", [(q.get("expirationMonth"), q.get("last"), q.get("priorSettle")) for q in cme.get("quotes", [])[:4]])
+    except Exception as e:
+        print("  CME no:", repr(e)[:300])
     try:
         print(tasas_fed.traer())
     except Exception as e:
