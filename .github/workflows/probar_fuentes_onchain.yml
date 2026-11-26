@@ -1,0 +1,17 @@
+name: Probar fuentes on-chain
+# A mano o al cambiar la prueba: que historia dan las fuentes gratis de on-chain (no cambia nada de la app).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/probar_fuentes_onchain.yml", "probar_fuentes_onchain.py"]
+jobs:
+  probar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install playwright && python -m playwright install --with-deps chromium
+      - run: python -u probar_fuentes_onchain.py
