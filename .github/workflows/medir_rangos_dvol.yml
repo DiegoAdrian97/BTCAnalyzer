@@ -1,0 +1,21 @@
+name: Medir rangos con DVOL
+# A mano desde Actions (o al cambiar el medidor): ¿el rango del 80% de 1 dia, 1 semana y 1 mes mejora con la volatilidad
+# implicita (DVOL de Deribit)? No cambia nada del analisis: solo mide.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/medir_rangos_dvol.yml", "medir_rangos_dvol.py"]
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install numpy ccxt
+      - run: set -o pipefail; python -u medir_rangos_dvol.py | tee rangos_dvol.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: medicion-rangos-dvol, path: rangos_dvol.txt }
