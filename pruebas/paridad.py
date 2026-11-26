@@ -2,6 +2,7 @@
 (semilla fija). La corre GitHub Actions en cada push (.github/workflows/paridad.yml); a mano: python pruebas/paridad.py
 Necesita node. Sale con error si algo difiere."""
 import json, math, os, random, subprocess, sys, tempfile
+from datetime import datetime, timezone
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RAIZ)
@@ -123,6 +124,18 @@ _HC = FC["ahora"] // 3_600_000 * 3_600_000 - 3_600_000
 FC_FLUJO = [FC["filas"] + [{"tabla": "flujo", "t": _HC, "cvd_div": cd, "absorcion": ab, "cambio_24h": ch},
                            {"tabla": "ict", "tf": "1h", "tipo": "barrida", "sesgo": sb, "t": _HC, "bajo": 61234.5, "alto": 61234.5}]
             for cd, ab, ch, sb in (("alcista", "alcista", -1.8, "alcista"), ("bajista", "bajista", 2.1, "bajista"))]
+
+# tasas de la Fed (factor medido_fed_plazos): la decision a 2 dias (suba esperada 99%), mercado dividido (baja esperada, peso 0,5) y a 10 dias (sin factor)
+def _fila_fed(dias, esperada, prob, indeciso):
+    fecha = datetime.fromtimestamp(FC["ahora"] / 1000 + dias * 86400, timezone.utc).strftime("%Y-%m-%d")
+    return {"tabla": "contexto", "clave": "fed_tasas", "titulo": "Tasas de la Fed: lo que espera el mercado", "valor": "x", "senal": "neutral",
+            "detalle": "x", "fecha": fecha, "dias": dias, "rango": [3.75, 4.0], "effr": 3.88, "esperada": esperada, "prob": prob,
+            "indeciso": indeciso, "siguiente": None}
+
+
+FC_FED = [FC["filas"] + [_fila_fed(2, 3.88 + 0.247, [[25, 0.986], [0, 0.014]], False)],
+          FC["filas"] + [_fila_fed(2, 3.88 - 0.10, [[0, 0.6], [-25, 0.4]], True)],
+          FC["filas"] + [_fila_fed(10, 3.88 + 0.247, [[25, 0.986], [0, 0.014]], False)]]
 
 
 # perfil de volumen: filas reales del analisis central con el perfil de cada plazo cerca del precio (para que cambie el soporte y la resistencia)
@@ -252,6 +265,7 @@ def py():
         "liq_perfil": ind.liq_perfil([b[:5] for b in H1[-400:]], LIQ_OI, LIQ_LS, 3_600_000, 5 * 86_400_000, H1[-1][4],
                                      escala=ind.liq_escala(LIQ_OI, {"bitget": 1.2e9, "hyperliquid": 2.6e9, "mexc": 0, "x": None})),
         "central_flujo": [A.central(f, FC["precio"], {"1h": H1, "4h": H4}, FC["ahora"]) for f in FC_FLUJO],
+        "central_fed": [A.central(f, FC["precio"], {"1h": H1, "4h": H4}, FC["ahora"]) for f in FC_FED],
         "central_modelo": [A.central(central_modelo(d), FC["precio"], {"1h": H1, "4h": H4}, FC["ahora"]) for d in (20, -20)],
         "modelo": modelo_py(),
         "perfil": {k: ind.perfil_volumen(v) for k, v in PERFIL_VELAS.items()} | {"n24": ind.perfil_volumen(H1[-24:], 24), "plazo": [A.perfil_plazo(H1), A.perfil_plazo(H4), A.perfil_plazo(D1[:3])]},
@@ -292,6 +306,7 @@ console.log(JSON.stringify({
   liq_perfil: Ind.liqPerfil(d.H1.slice(-400).map((b) => b.slice(0, 5)), d.LIQ_OI, d.LIQ_LS, 3600000, 5 * 86400000, d.H1[d.H1.length - 1][4], 0.12, 0.0025, Ind.LIQ_NIVELES, Ind.LIQ_MANT,
     Ind.liqEscala(d.LIQ_OI, { bitget: 1.2e9, hyperliquid: 2.6e9, mexc: 0, x: null })),
   central_flujo: d.FC_FLUJO.map((f) => A.central(f, d.FC.precio, { "1h": d.H1, "4h": d.H4 }, d.FC.ahora)),
+  central_fed: d.FC_FED.map((f) => A.central(f, d.FC.precio, { "1h": d.H1, "4h": d.H4 }, d.FC.ahora)),
   central_modelo: [20, -20].map((x) => A.central(d.FC.filas.map((r) => (r.tabla === 'plazo' && r.base !== null && r.base !== undefined ? { ...r, fuente_sube: 'modelo', sube: r.base + x, veredicto: x > 0 ? 'Sesgo alcista' : 'Sesgo bajista' } : r)), d.FC.precio, { "1h": d.H1, "4h": d.H4 }, d.FC.ahora)),
   modelo: (() => { globalThis.MODELO_DIRECCION = d.MODELO;
     const vs = A.velasDireccion(d.VA, d.M_C5.concat(d.M_FUERA), d.M_PRECIO, d.M_AHORA);
@@ -346,7 +361,7 @@ def main():
     raw = p.pop("_ctx_raw")
     entrada = {"FC": FC, "H1": H1, "H4": H4, "D1": D1, "ALT": ALT, "AHORA": AHORA, "raw": raw, "LIQ": LIQ,
                "CASOS": CASOS, "SPEC_1H": SPEC_1H, "LOG_ENTRADAS": LOG_ENTRADAS, "LOG_CIERRES": LOG_CIERRES,
-               "OPC_LIBRO": OPC_LIBRO, "OPC_DVOL": OPC_DVOL, "OPC_AHORA": OPC_AHORA, "FLUJO": FLUJO, "CME": CME, "FC_FLUJO": FC_FLUJO, "LIQ_OI": LIQ_OI, "LIQ_LS": LIQ_LS,
+               "OPC_LIBRO": OPC_LIBRO, "OPC_DVOL": OPC_DVOL, "OPC_AHORA": OPC_AHORA, "FLUJO": FLUJO, "CME": CME, "FC_FLUJO": FC_FLUJO, "FC_FED": FC_FED, "LIQ_OI": LIQ_OI, "LIQ_LS": LIQ_LS,
                "TRACK": TRACK, "RANGO_O": RANGO_O, "RANGO_CASOS": RANGO_CASOS,
                "VA": VA, "M_C5": M_C5, "M_FUERA": M_FUERA, "M_PRECIO": M_PRECIO, "M_AHORA": M_AHORA, "MODELO": MODELO, "MODELO_MAL": MODELO_MAL, "M_SIN_VOL": M_SIN_VOL, "FC_PERFIL": FC_PERFIL, "PERFIL_VELAS": PERFIL_VELAS, "M_PROB": M_PROB, "M_CASOS": M_CASOS}
     out = subprocess.run(["node", "-e", JS, RAIZ], input=json.dumps(entrada), capture_output=True, text=True)
@@ -372,6 +387,13 @@ def main():
             or "fuente_sube" in mo["filas"][2] or "fuente_sube" in mo["filas"][3] or "fuente_sube" in mo["filas"][4] \
             or mo["sin_modelo"] != [M_PROB] * 5 + [None] or mo["velas"][-1][4] != M_PRECIO or mo["velas"][-1][2] <= M_PRECIO:
         raise SystemExit(f"modelo: no se comporta como se espera: {mo['filas'][:2]} {mo['p']} {mo['validos']} {mo['validos_ok']}")
+    for caso, esperado in zip(p["central_fed"], ({"1d": (-1, 1), "1w": (-1, 1)}, {"1d": (1, 0.5), "1w": (1, 0.5)}, {})):
+        for c in caso:
+            fs = [f for f in c["factores"] if f[3].startswith("Fed el ")]
+            if c["tf"] in esperado and [(f[1], f[2]) for f in fs] != [esperado[c["tf"]]] or c["tf"] not in esperado and fs:
+                raise SystemExit(f"central_fed: factor de la Fed no esperado en {c['tf']}: {fs}")
+    if not any(f[3].startswith("Fed el ") and "mercado dividido" in f[3] for c in p["central_fed"][1] for f in c["factores"]):
+        raise SystemExit("central_fed: falta el texto del mercado dividido")
     pf, cp, c0 = p["perfil"], p["central_perfil"], p["central"]
     if pf["h1"] is None or not pf["h1"]["val"] < pf["h1"]["poc"] < pf["h1"]["vah"] or pf["poca"] is not None or pf["sin_vol"] is not None or pf["plano"] is not None \
             or pf["torcida"] is None or pf["con_ceros"] is None or p["perfil"]["plazo"][2] is not None or p["perfil"]["plazo"][0]["poc"] != round(pf["h1"]["poc"], 1):

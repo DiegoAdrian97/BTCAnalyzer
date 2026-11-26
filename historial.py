@@ -239,7 +239,7 @@ _CLAVES = (("Casos parecidos", "casos"), ("Modelo estadístico", "modelo"), ("In
            ("Precio debajo de la banda", "bollinger"), ("Posible reversión", "rsi"), ("Posible rebote", "rsi"),
            ("RSI de", "rsi_sigue"), ("MACD de", "macd"), ("Divergencia de CVD", "cvd"), ("En spot se", "absorcion"),
            ("Barrida de liquidez", "barrida"), ("Elliott", "elliott"), ("Más liquidaciones", "liquidaciones"),
-           ("Ciclo:", "ciclo"), ("15 min, 1 hora y 4 horas", "coinciden"), ("Divergencia", "divergencia"),
+           ("Ciclo:", "ciclo"), ("Fed el ", "fed_esperada"), ("15 min, 1 hora y 4 horas", "coinciden"), ("Divergencia", "divergencia"),
            ("En el Fibonacci", "fibonacci"), ("Arriba de la media simple", "sma200"), ("Debajo de la media simple", "sma200"),
            ("Wyckoff", "wyckoff"), ("Open interest", "oi"), ("Long/short", "cuentas"), ("Ruptura", "patron"),
            ("SuperTrend", "supertrend"), ("Nube de Ichimoku", "ichimoku"), ("VWAP", "vwap"), ("OBV", "obv"),

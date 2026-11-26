@@ -189,11 +189,13 @@ def fila(d):
     det = f"Futuros de Fed Funds (como FedWatch). Tasa hoy {_coma(desde)}–{_coma(hasta)}%."
     if indeciso:
         a, b = prob[0], prob[1]
-        det += (f" Mercado dividido ({_pct(a[1])}% {_etiqueta(a[0])} / {_pct(b[1])}% {_etiqueta(b[0])}): BTC va a reaccionar "
-                "según lo que decidan; esa hora se mueve ~3 veces lo normal.")
+        det += (f" Mercado dividido ({_pct(a[1])}% {_etiqueta(a[0])} / {_pct(b[1])}% {_etiqueta(b[0])}): desde 2022, los días antes BTC "
+                "suele bajar si el mercado se inclina a suba y subir si se inclina a baja, con menos fuerza; la hora del anuncio se mueve ~3 veces lo normal y BTC reacciona "
+                "según lo que decidan.")
     else:
-        det += (" Lo esperado ya está en el precio: medido 2017–2026, BTC no se movió distinto las semanas antes ni después "
-                "según lo que se esperaba. Lo que mueve es el anuncio: esa hora, ~3 veces lo normal.")
+        det += (" Medido: desde 2022, los 3 días antes de la decisión, con suba esperada BTC bajó "
+                "~2,7% y con baja esperada subió ~3%; antes de 2022, nada. Después del anuncio, nada: ya está en el precio. "
+                "La hora del anuncio se mueve ~3 veces lo normal.")
     sig = None
     if len(d["reuniones"]) > 1:
         s2 = d["reuniones"][1]

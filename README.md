@@ -618,18 +618,22 @@ reunión promedia la tasa de antes y la de después, así que se despeja la de d
 tiene reunión, su contrato ya es la tasa de después). El cambio, en pasos de 0,25, da las probabilidades. Con datos reales
 del 26/11/2026 da 99% de suba de 0,25 el 9/12, igual que CME. Prueba: `python pruebas/tasas_fed.py` (Python = JS).
 
-**Es contexto: no entra en la puntuación de dirección.** Medido (`medir_fed_semana.py`, 73 decisiones programadas
-2017–2026, BTC diario): según lo que se esperaba, BTC no se movió distinto en las 1 a 4 semanas antes.
+**Entra en la dirección, con peso chico, solo para 1 día y 1 semana.** Medido (`medir_fed_plazos.py`, 94 decisiones
+programadas 2015–2026, BTC diario de CoinMetrics, de 1 día a 8 semanas antes y después): 2015–2021, lo esperado no predijo
+nada. Desde 2022, en los dos tramos, el cambio esperado (pb) va al revés de lo que hace BTC en los 1 a 3 días antes de la
+decisión (hasta el cierre del día anterior). Después del anuncio, nada consistente.
 
-| Esperado | 2017–2021 | 2022–2026 | Lectura |
+| Desde 2022 | 2022–23 | 2024–26 | Lectura |
 |---|---|---|---|
-| Suba | +6,5% la semana antes (z +0,9) | −2,2% (z −1,3) | signo opuesto entre períodos: nada |
-| Baja | subió 2 de 3 (z +0,5) | subió la semana antes 6 de 6 (z +1,6) | pinta, pero son 9 casos en total |
-| Mantener | sin diferencia | sin diferencia | nada |
+| Spearman, 1 / 2 / 3 días antes | −0,48 / −0,44 / −0,54 | −0,62 / −0,43 / −0,57 | a 3 días z −2,1 y −2,7: pasa z ≥ 2 en los dos |
+| Suba esperada (n 11, todas en 2022–23) | 2–3 días antes −2,7% vs normal (z −2,2 / −1,8) | | subió solo 18–36% de las veces |
+| Baja esperada (n 6, todas en 2024–26) | | 1–3 días antes +2,5 / +3,0 / +3,5% (z +2,5 / +2,1 / +2,0) | subió 83–100% |
 
-La semana siguiente, sin sorpresa, BTC subió ~53% de las veces (lo normal). Lo que sí se mide (`medir_fed.py`) es la hora de
-la decisión: se mueve ~3,2 veces lo normal, con dirección ~50/50. Por eso la fuerza +3 del análisis cuando esa hora cae
-dentro del plazo no cambia.
+A 5–14 días antes solo se ve en 2024–26. Entra cuando la decisión cae dentro de la ventana del plazo de 1 día o 1 semana y
+esa ventana toca los 3 días previos: peso 1 si se espera un cambio de 15 pb o más (suba: cuenta para la baja; baja: para la
+suba), 0,5 si es de 7,5 a 15 pb (mercado dividido). Sin la fila `fed_tasas`, no hace nada. Se corre con
+`python medir_fed_plazos.py` y `python medir_fed_plazos.py 2024-01-01 2022-01-01` (tramos). Aparte, `medir_fed.py`: la hora de
+la decisión se mueve ~3,2 veces lo normal, con dirección ~50/50 (fuerza +3 cuando cae dentro del plazo; no cambia).
 
 Mantenimiento: `REUNIONES` (en `tasas_fed.py` y en `contexto.js`) lleva las fechas de decisión de la Fed; hay que sumar las
 de 2028 a fines de 2027, y revisar las de 2027 (tentativas) cuando cada reunión confirma la siguiente.

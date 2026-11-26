@@ -52,7 +52,7 @@ def main():
     assert f["valor"] == "9/12: suba 0,25 · 99%" and f["prob"] == [[25, 0.986], [0, 0.014]] and not f["indeciso"], f
     assert f["fecha"] == "2026-12-09" and f["dias"] == 13 and f["rango"] == [3.75, 4.0] and f["effr"] == 3.88 and f["esperada"] == 4.127, f
     assert f["siguiente"]["fecha"] == "2027-01-27" and abs(f["siguiente"]["acumulado_pb"] - 40.5) < 0.2, f["siguiente"]
-    assert f["detalle"].startswith("Futuros de Fed Funds (como FedWatch). Tasa hoy 3,75–4,00%. Lo esperado ya está en el precio")
+    assert f["detalle"].startswith("Futuros de Fed Funds (como FedWatch). Tasa hoy 3,75–4,00%. Medido: desde 2022")
     assert f["detalle"].endswith("Para el 27/1: +40 pb acumulado."), f["detalle"]
     assert (f["tabla"], f["clave"], f["senal"]) == ("contexto", "fed_tasas", "neutral")
 

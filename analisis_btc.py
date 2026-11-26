@@ -1636,6 +1636,7 @@ def central(rows, price, candles, now_ms):
     # decision de tasa de la Fed. Medido (medir_fed.py, 45 decisiones 2021-2026): la hora del anuncio se movio en mediana
     # 3,2 veces lo normal y mas del doble el 78%; la direccion despues, ~50/50 (bajara, mantuviera o subiera la tasa)
     fed = sorted(r["t"] for r in pick("evento") if r.get("t") and r["t"] > now_ms and any(k in (r.get("original") or "").lower() for k in ("interest rate decision", "fomc decision", "interest rate fomc")))
+    ft = next((c for c in pick("contexto") if c.get("clave") == "fed_tasas"), None)
     niveles = pick("nivel")
     fl = next(iter(pick("flujo")), None)
     barridas = [x for x in pick("ict") if x.get("tf") == "1h" and x.get("tipo") == "barrida" and x.get("t")]
@@ -1742,6 +1743,35 @@ def central(rows, price, candles, now_ms):
                 al = bar["sesgo"] == "alcista"
                 _cf(F, "direccion", 1 if al else -1, 1, f"Barrida de liquidez en 1 h: la mecha pasó el {'mínimo' if al else 'máximo'} de 20 velas ({ap(bar['bajo'])}) y cerró adentro "
                     + "(medido)")
+        # Tasas de la Fed. Medido (medir_fed_plazos.py, 94 decisiones 2015-2026): antes de 2022 lo esperado no predijo nada;
+        # desde 2022, en los dos tramos (2022-23 y 2024-26), el cambio esperado (pb) correlaciona al reves con lo que hizo BTC
+        # en los 1-3 dias ANTES de la decision (Spearman -0,4 a -0,6; a 3 dias z >= 2 en los dos): suba esperada -2,7%, baja
+        # esperada +3%. Despues del anuncio, nada. Suma solo a 1 dia y 1 semana, si la ventana del plazo toca esos 3 dias
+        if ft and tf in ("1d", "1w") and ft.get("effr") is not None and ft.get("esperada") is not None and ft.get("fecha"):
+            t_dec = next((t for t in fed if datetime.fromtimestamp(t / 1000, timezone.utc).strftime("%Y-%m-%d") == ft["fecha"]), None)
+            if t_dec is None:
+                t_dec = int(datetime.strptime(ft["fecha"], "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp() * 1000) + 19 * 3_600_000
+            cambio_pb = (ft["esperada"] - ft["effr"]) * 100
+            peso_f = 1 if abs(cambio_pb) >= 15 else 0.5 if abs(cambio_pb) >= 7.5 else 0
+            if peso_f and now_ms < t_dec and now_ms + ventana > t_dec - 72 * 3_600_000:
+                def _eti(pb):
+                    return "mantener" if pb == 0 else f"{'suba' if pb > 0 else 'baja'} {abs(pb) / 100:.2f}".replace(".", ",")
+                def _pc(x):
+                    return math.floor(x * 100 + 0.5)
+                pr = ft.get("prob") or []
+                y, m_, d_ = ft["fecha"].split("-")
+                dm_ = f"{int(d_)}/{int(m_)}"
+                sube = cambio_pb > 0
+                if peso_f == 0.5 and len(pr) > 1:
+                    txt = (f"Fed el {dm_}: mercado dividido ({_pc(pr[0][1])}% {_eti(pr[0][0])} / {_pc(pr[1][1])}% {_eti(pr[1][0])}): se inclina a "
+                           + ("suba: desde 2022, los días antes BTC suele bajar" if sube else "baja: desde 2022, los días antes BTC suele subir")
+                           + " (medido, peso chico)")
+                else:
+                    e = next((x for x in pr if (x[0] > 0) == sube and x[0] != 0), pr[0] if pr else None)
+                    txt = (f"Fed el {dm_}: el mercado espera {_eti(e[0]) if e else ('suba' if sube else 'baja')}" + (f" ({_pc(e[1])}%)" if e else "")
+                           + (". Desde 2022, los 3 días antes de una suba esperada BTC bajó ~2,7% en promedio (medido)" if sube
+                              else ". Desde 2022, los 3 días antes de una baja esperada BTC subió ~3% (medido)"))
+                _cf(F, "direccion", -1 if sube else 1, peso_f, txt)
         # Medido (medir_direccion.py, BTC 1 h 2021-2026): a 1 y 4 horas los indicadores de tendencia aciertan MENOS que una
         # moneda (el resumen 45,6-48,1%; SuperTrend, Ichimoku, VWAP, OBV, Chaikin y SAR 45-49%, en los dos tramos): despues
         # de que marcan fuerte, el precio suele corregir. En 4 h o menos cuentan al reves (peso 1, solo el resumen: los

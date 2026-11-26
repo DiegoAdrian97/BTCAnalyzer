@@ -5092,7 +5092,7 @@
           const f = CALV.fed, et = (pb) => (pb === 0 ? 'mantener' : `${pb > 0 ? 'suba' : 'baja'} ${(Math.abs(pb) / 100).toFixed(2).replace('.', ',')}`);
           const sm = el('small', '', f.indeciso && f.prob.length > 1 ? `Mercado dividido: ${Math.round(f.prob[0][1] * 100)}% ${et(f.prob[0][0])} / ${Math.round(f.prob[1][1] * 100)}% ${et(f.prob[1][0])}`
             : `Mercado: ${et(f.prob[0][0])} · ${Math.round(f.prob[0][1] * 100)}%`);
-          sm.title = 'Lo que esperan los futuros de Fed Funds (como CME FedWatch). Ya está en el precio: lo que mueve es el anuncio.'; nm.append(sm);
+          sm.title = 'Lo que esperan los futuros de Fed Funds (como CME FedWatch). Medido desde 2022: los 3 días antes, con suba esperada BTC bajó ~2,7% y con baja esperada subió ~3%; después del anuncio, nada. Suma al análisis de 1 día y 1 semana.'; nm.append(sm);
         }
         r.append(tt, imp, nm);
         if (!e.cripto) {
@@ -9345,7 +9345,7 @@
     [/^Empleo|^Vacantes laborales/, 'macro', 'Empleo', 'Cuántos puestos de trabajo se crearon. Un mercado laboral fuerte le da margen a la Fed para no bajar tasas.', 'Menos empleo de lo previsto: acerca recortes, suele ser positivo.', 'Más empleo de lo previsto: aleja recortes, suele ser negativo.'],
     [/^Tasa de desempleo|^Pedidos de subsidio/, 'macro', 'Desempleo', 'Qué parte de la gente busca trabajo y no consigue (o cuántos pidieron subsidio esa semana).', 'Más desempleo de lo previsto: acerca recortes de tasa, positivo para el mercado.', 'Menos desempleo: aleja recortes, negativo.'],
     [/^Tasas de la Fed/, 'macro', 'Tasas de la Fed: lo que espera el mercado', 'Qué decisión espera el mercado en la próxima reunión de la Fed y con qué probabilidad. Sale de los futuros de Fed Funds, igual que el FedWatch de CME.',
-      null, null, 'Medido 2017–2026: lo esperado ya está en el precio; BTC no se movió distinto las semanas antes ni después según lo que se esperaba. Lo que mueve es el anuncio: esa hora se mueve ~3 veces lo normal.'],
+      null, null, 'Medido: antes de 2022, nada. Desde 2022, los 3 días antes de la decisión, con suba esperada BTC bajó ~2,7% y con baja esperada subió ~3%; después del anuncio, nada. Suma al análisis de 1 día y 1 semana. La hora del anuncio se mueve ~3 veces lo normal.'],
     [/^Decisión de tasas/, 'macro', 'Decisión de tasas de la Fed', 'La Fed fija la tasa de interés de EE.UU. Tasas más bajas abaratan el dinero y suelen favorecer a BTC.', 'Baja más de lo esperado: positivo.', 'Sube o baja menos de lo esperado: negativo.', 'Medido: esa hora BTC se mueve ~3 veces lo normal.'],
     [/^(PIB|Ventas minoristas|ISM)/, 'macro', 'Actividad económica', 'Cuánto crece la economía o cuánto se vende. Una economía más fuerte de lo previsto le da margen a la Fed para no bajar tasas.', 'Más débil de lo previsto: acerca recortes, suele ser positivo para BTC.', 'Más fuerte de lo previsto: aleja recortes, suele ser negativo.'],
     [/^Confianza del consumidor/, 'macro', 'Confianza del consumidor', 'Encuesta sobre el ánimo de los consumidores de EE.UU.', 'Más confianza de lo previsto: mejor ánimo, positivo.', 'Menos confianza: negativo.'],

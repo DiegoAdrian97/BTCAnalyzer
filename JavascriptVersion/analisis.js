@@ -292,6 +292,7 @@
     const eventos = pick('evento').filter((r) => r.t && r.t > now).map((r) => r.t).sort((a, b) => a - b);
     // decision de tasa de la Fed (medir_fed.py): la hora del anuncio se movio ~3,2 veces lo normal; la direccion, ~50/50
     const fed = pick('evento').filter((r) => r.t && r.t > now && ['interest rate decision', 'fomc decision', 'interest rate fomc'].some((k) => (r.original || '').toLowerCase().includes(k))).map((r) => r.t).sort((a, b) => a - b);
+    const ft = pick('contexto').find((c) => c.clave === 'fed_tasas') || null;
     const fl = pick('flujo')[0] || null;
     const barridas = pick('ict').filter((x) => x.tf === '1h' && x.tipo === 'barrida' && x.t);
     const out = [];
@@ -372,6 +373,30 @@
           const al = bar.sesgo === 'alcista';
           cf('direccion', al ? 1 : -1, 1, `Barrida de liquidez en 1 h: la mecha pasó el ${al ? 'mínimo' : 'máximo'} de 20 velas (${ap(bar.bajo)}) y cerró adentro `
             + '(medido)');
+        }
+      }
+      // tasas de la Fed (medir_fed_plazos.py): desde 2022 el cambio esperado va al reves de lo que hizo BTC los 3 dias antes de la
+      // decision; solo 1 dia y 1 semana, si la ventana del plazo toca esos 3 dias (igual que en Python)
+      if (ft && (tf === '1d' || tf === '1w') && ok(ft.effr) && ok(ft.esperada) && ft.fecha) {
+        let tDec = fed.find((t) => new Date(t).toISOString().slice(0, 10) === ft.fecha);
+        if (tDec === undefined) tDec = Date.parse(ft.fecha + 'T00:00:00Z') + 19 * 3600000;
+        const cambioPb = (ft.esperada - ft.effr) * 100, absPb = Math.abs(cambioPb);
+        const pesoF = absPb >= 15 ? 1 : absPb >= 7.5 ? 0.5 : 0;
+        if (pesoF && now < tDec && now + ventana > tDec - 72 * 3600000) {
+          const eti = (pb) => (pb === 0 ? 'mantener' : `${pb > 0 ? 'suba' : 'baja'} ${(Math.abs(pb) / 100).toFixed(2).replace('.', ',')}`);
+          const pc = (x) => Math.floor(x * 100 + 0.5);
+          const pr = ft.prob || [], [, mF, dF] = ft.fecha.split('-'), dmF = `${+dF}/${+mF}`, sube = cambioPb > 0;
+          let txt;
+          if (pesoF === 0.5 && pr.length > 1) {
+            txt = `Fed el ${dmF}: mercado dividido (${pc(pr[0][1])}% ${eti(pr[0][0])} / ${pc(pr[1][1])}% ${eti(pr[1][0])}): se inclina a `
+              + (sube ? 'suba: desde 2022, los días antes BTC suele bajar' : 'baja: desde 2022, los días antes BTC suele subir') + ' (medido, peso chico)';
+          } else {
+            const e = pr.find((x) => (x[0] > 0) === sube && x[0] !== 0) || pr[0] || null;
+            txt = `Fed el ${dmF}: el mercado espera ${e ? eti(e[0]) : (sube ? 'suba' : 'baja')}` + (e ? ` (${pc(e[1])}%)` : '')
+              + (sube ? '. Desde 2022, los 3 días antes de una suba esperada BTC bajó ~2,7% en promedio (medido)'
+                : '. Desde 2022, los 3 días antes de una baja esperada BTC subió ~3% (medido)');
+          }
+          cf('direccion', sube ? -1 : 1, pesoF, txt);
         }
       }
       // medido (medir_direccion.py): a 1 y 4 h los indicadores de tendencia aciertan menos que una moneda (46-48%): en 4 h o
