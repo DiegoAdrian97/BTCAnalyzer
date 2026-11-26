@@ -2,8 +2,10 @@
 
 La idea (de Diego): cuando el mercado espera una suba de tasas, BTC cae unas semanas antes; cuando espera una baja, sube
 unas semanas antes; cuando hay indecision, reacciona segun el resultado.
-Lo esperado = la prevision del calendario de TradingView (lo mismo que marcaba FedWatch esos dias: la Fed casi nunca
-sorprende) contra la tasa anterior: prevision mas baja = se esperaba una baja.
+Lo esperado = la prevision del calendario de TradingView contra la tasa anterior (prevision mas baja = se esperaba una
+baja). Antes de 2022 el calendario no trae prevision: ahi se toma lo que hizo, porque en reuniones programadas la Fed
+practicamente nunca sorprendio a los futuros (FedWatch daba 90%+ a lo que hizo la semana antes). Fuera las de
+emergencia (marzo de 2020), que nadie esperaba.
 BTC en velas diarias de Binance spot (2017-2026). Para cada decision: cuanto subio o bajo en las 1, 2, 3 y 4 semanas
 anteriores (hasta el cierre del dia antes de la decision) y en la semana siguiente. Contra lo normal del mismo tramo
 (todas las ventanas del mismo largo): % de veces que subio y retorno medio. Dos tramos: hasta 2021 y 2022-2026.
@@ -34,12 +36,17 @@ def main():
     c = [b[4] for b in D]
     dec = medir_fed.decisiones(desde=datetime(2016, 12, 1, tzinfo=timezone.utc))
     print(f"{len(dec)} decisiones de la Fed con dato", flush=True)
-    filas = []
+    filas, salteadas = [], {}
     for t, (act, fc, prev) in dec:
         i = idx.get(t // DIA)
-        if i is None or i < 30 or prev in (None, "") or fc in (None, ""):
+        dia = datetime.fromtimestamp(t / 1000, timezone.utc).date().isoformat()
+        motivo = ("sin velas" if i is None or i < 30 else "sin tasa anterior" if prev in (None, "") else
+                  "de emergencia" if dia in ("2020-03-03", "2020-03-15", "2020-03-16") else None)
+        if motivo:
+            salteadas[motivo] = salteadas.get(motivo, 0) + 1
             continue
-        fc, prev = float(fc), float(prev)
+        prev = float(prev)
+        fc = float(fc) if fc not in (None, "") else act
         esp = "baja" if fc < prev - 1e-9 else "suba" if fc > prev + 1e-9 else "mantener"
         hizo = "baja" if act < prev - 1e-9 else "suba" if act > prev + 1e-9 else "mantener"
         sorpresa = "no" if abs(act - fc) < 1e-9 else ("mas baja" if act < fc else "mas alta")
@@ -51,6 +58,8 @@ def main():
         print(f"  {datetime.fromtimestamp(t / 1000, timezone.utc):%Y-%m-%d} se esperaba {esp:<8} hizo {hizo:<8} sorpresa {sorpresa:<8} "
               + " · ".join(f"{s} sem antes {100 * antes[s]:+.1f}%" for s in SEMANAS)
               + (f" · semana después {100 * despues:+.1f}%" if despues is not None else ""), flush=True)
+
+    print("salteadas:", salteadas, "· usadas:", len(filas), flush=True)
 
     def normal(tramo, dias):
         rs = [c[j] / c[j - dias] - 1 for j in range(dias, len(c)) if (D[j][0] < ml.CORTE) == (tramo == 0)]
@@ -95,6 +104,16 @@ def main():
         print(f"  {esp:<8} {s} sem antes: {ver:<20} z de la media {' / '.join('—' if z is None else f'{z:+.1f}' for z in zs)}")
 
     print("\n=== fuentes en vivo (como FedWatch) ===")
+    try:
+        print("  EFFR:", tasas_fed.effr_hoy())
+    except Exception as e:
+        print("  EFFR no:", repr(e)[:300])
+    hoy = datetime.now(timezone.utc).date()
+    for tk in tasas_fed.contratos(hoy) + ["ZQ=F"]:
+        try:
+            print(f"  {tk}: {tasas_fed.precio_futuro(tk)}")
+        except Exception as e:
+            print(f"  {tk} no:", repr(e)[:300])
     try:
         print(tasas_fed.traer())
     except Exception as e:
