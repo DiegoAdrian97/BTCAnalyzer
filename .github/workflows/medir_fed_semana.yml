@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: [".github/workflows/medir_fed_semana.yml", "medir_fed_semana.py", "tasas_fed.py"]
+    paths: [".github/workflows/medir_fed_semana.yml", "medir_fed_semana.py", "medir_fed_plazos.py", "tasas_fed.py"]
 jobs:
   medir:
     runs-on: ubuntu-latest
@@ -15,7 +15,8 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - run: pip install numpy
+      - run: set -o pipefail; python -u medir_fed_plazos.py | tee fed_plazos.txt
       - run: set -o pipefail; python -u medir_fed_semana.py | tee fed_semana.txt
       - uses: actions/upload-artifact@v4
         if: always()
-        with: { name: medicion-fed-semana, path: fed_semana.txt }
+        with: { name: medicion-fed-semana, path: "fed_*.txt" }
