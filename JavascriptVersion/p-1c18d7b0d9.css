@@ -1972,6 +1972,12 @@
   .ab-zona-b b { position: absolute; top: -4px; width: 3px; height: 16px; margin-left: -1.5px; border-radius: 2px; background: var(--t2-ink); box-shadow: 0 0 0 1.5px var(--t2-panel, #fff); }
   .ab-zona-z { text-align: right; font-weight: 650; color: var(--t2-mute); }
   .ab-zona-z.compra { color: var(--color-ok); } .ab-zona-z.venta { color: var(--color-bad); }
+  /* estado general del mercado (medir_estado.py) */
+  .ab-estado { display: grid; gap: 4px; margin: 4px 0 12px; padding: 10px 12px; border-radius: 10px; background: var(--t2-sunk); border-left: 3px solid var(--t2-mute); cursor: help; }
+  .ab-estado.up { border-left-color: var(--color-ok); } .ab-estado.dn { border-left-color: var(--color-bad); }
+  .ab-estado-n { font-size: 15px; font-weight: 650; color: var(--t2-mute); } .ab-estado-n em { font-style: normal; color: var(--t2-ink); }
+  .ab-estado.up .ab-estado-n em { color: var(--color-ok); } .ab-estado.dn .ab-estado-n em { color: var(--color-bad); }
+  .ab-estado-t { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--t2-mute); }
   @media (max-width: 420px) { .ab-zona { grid-template-columns: minmax(0, 8.5em) minmax(60px, 1fr) 3.8em; font-size: 12px; } }
 
   /* la ficha del ciclo: si no entra, las zonas bajan a otro renglon (antes se salian en celus) */

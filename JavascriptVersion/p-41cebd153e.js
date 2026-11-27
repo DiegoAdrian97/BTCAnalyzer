@@ -205,6 +205,53 @@
     });
     return out;
   }
+  // ---------- estado general del mercado (medir_estado.py, nov. 2026) ----------
+  // Cuando el corto plazo es una moneda al aire, se dice algo mas general: Z = zonas de compra - zonas de venta (las 19 on-chain
+  // y de ciclo de arriba) y, en este orden: piso extremo, posible techo, cerca de un piso, rally en curso, zona neutral.
+  // Lo medido (% de veces que BTC estaba mas arriba a 1 año / a 90 dias) sale de medir_estado.py; un dia cualquiera: 69% / 59%
+  const ESTADOS = {
+    piso_x: { n: 'Piso extremo', cls: 'up', a1: '97–100%', m1: '+52% a +104%', a90: '52–68%', pocos: true },
+    piso: { n: 'Cerca de un piso', cls: 'up', a1: '93–95%', m1: '+151% a +252%', a90: '72–79%' },
+    techo: { n: 'Posible techo', cls: 'dn', a1: '25–39%', m1: '−21% a −40%', a90: '30–50%', solo: true },
+    rally: { n: 'Rally alcista en curso', cls: 'up', a1: '69–88%', a90: '67–71%' },
+    neutral: { n: 'Zona neutral', cls: '', a1: '58–62%' },
+  };
+  let ESTADO_PINTADO = null;
+  function ret90d(precio) {   // retorno de 90 dias con las velas diarias del analisis (la ultima, con el precio de ahora)
+    const v = pick(S.rows || [], 'vela', '1d').map((r) => ({ t: num(r.t), c: num(r.c) })).filter((b) => b.t !== null && b.c > 0).sort((a, b) => a.t - b.t);
+    return v.length > 90 && precio > 0 ? precio / v[v.length - 91].c - 1 : null;
+  }
+  function estadoHoy(Zl) {
+    const Z = (Zl || zonasHoy() || []).filter((e) => e.id && e.id !== 'fng'), t = ZONAS_TM;
+    if (MON() !== 'BTC' || !Z.length || !t) return null;
+    const precio = (G.d && G.d.price) || num(t.precio), nc = Z.filter((e) => e.zona === 'compra').length, nv = Z.filter((e) => e.zona === 'venta').length, z = nc - nv;
+    const val = (id) => { const e = Z.find((x) => x.id === id); return e && isFinite(e.v) ? e.v : null; };
+    const rp = num(t.precio_realizado), mvrv = rp > 0 && precio > 0 ? precio / rp : t.mvrv !== null && t.mvrv !== undefined ? num(t.mvrv) : null;
+    const cvdd = val('cvdd'), sth = val('sth'), mayer = val('mayer'), r90 = ret90d(precio);
+    const id = z >= 6 || (cvdd !== null && cvdd <= 1.2) || (mvrv !== null && mvrv <= 1) ? 'piso_x'
+      : z <= -3 ? 'techo' : z >= 2 ? 'piso'
+        : (sth === null || sth > 1) && mayer !== null && mayer > 1 && r90 !== null && r90 > 0.1 ? 'rally' : 'neutral';
+    return { id, ...ESTADOS[id], z, nc, nv };
+  }
+  const estadoZ = (e) => (e.z === 0 ? '0' : `${e.z > 0 ? '+' : '−'}${Math.abs(e.z)}`);
+  function estadoTxt(e) {
+    const cuenta = `${e.nc} ${e.nc === 1 ? 'zona' : 'zonas'} de compra y ${e.nv} de venta (Z ${estadoZ(e)})`;
+    if (e.id === 'neutral') return `${cuenta}. Sin ventaja de ciclo: pasó lo mismo que un día cualquiera (a 1 año, ~${e.a1} más arriba). Marca zonas de meses, no el día.`;
+    return `${cuenta}. Cuando estuvo así${e.pocos ? ' (pocos casos)' : ''}, a 1 año BTC estaba más arriba ${e.solo ? 'solo ' : ''}${e.a1} de las veces (un día cualquiera: 69%). Marca zonas de meses, no el día.`;
+  }
+  function estadoAyuda(e) {
+    return `Estado general del ciclo: ${e.n}. Z = zonas de compra − zonas de venta de las 19 de arriba. Medido (medir_estado.py, 2012–2026, sin mirar el futuro): `
+      + (e.id === 'neutral' ? `a 1 año BTC subió ~${e.a1} de las veces, igual que un día cualquiera. `
+        : `a 1 año subió ${e.a1} de las veces${e.m1 ? ` (mediana ${e.m1})` : ''}, a 90 días ${e.a90}${e.pocos ? '; pocos episodios (2–4 por período)' : ''}. `)
+      + 'Un día cualquiera: 69% a 1 año (mediana +76%), 59% a 90 días (+9%). Marca zonas de meses, no el día: puede seguir bajando antes de subir. '
+      + 'La prueba más estricta (si hay un piso o un techo en los próximos 90–180 días) no llegó a z ≥ 2: por eso es una zona a 1 año y 90 días, no un aviso de fecha.';
+  }
+  function estadoLinea(e) {
+    const box = el('div', `ab-estado ${e.cls}`), n = el('b', 'ab-estado-n'), p = el('p', 'ab-estado-t', estadoTxt(e));
+    n.append(el('span', '', 'Estado del mercado: '), el('em', '', e.n));
+    box.append(n, p); box.title = estadoAyuda(e);
+    return box;
+  }
   function pintarZonas() {
     const box = document.getElementById('tm-zonas'), Z = zonasHoy();
     const chip = document.getElementById('tm-mvrv');
@@ -246,7 +293,8 @@
     });
     const nota = el('p', 'ab-note', 'Indicadores de ciclo que marcan zonas (no el punto exacto: pueden durar meses). Medidos con toda la historia de BTC (2012–2019 y 2020–2025, sin mirar el futuro): estando en la zona de compra, un año después BTC estaba más arriba el 70–100% de las veces; en la de venta, el 0–59%; un día cualquiera, el 60–78%. Verde: zona de compra · rojo: de venta · la marca: hoy. Se volvió a medir todo lo descartado: sumaron los días desde el máximo, el Thermocap, los hash ribbons y la emisión de stablecoins y siete on-chain (CVDD, precio balanceado, RHODL, % de la oferta en ganancia, precio realizado de corto plazo, aSOPR y pérdida realizada); el Fear & Greed va con tu lógica (miedo = compra) aunque como zona a un año no fue parejo. Quedaron afuera: SOPR, aSOPR de 7 días, netflow de exchanges, Delta Price, NVT, stock-to-flow, funding, volatilidad, caída desde el máximo, RSI diario y semanal. Pasá el dedo o el mouse por cada uno para ver lo medido.');
     const det = el('details', 'ab-pos-det'); det.append(el('summary', '', 'ⓘ Cómo se lee'), nota);
-    box.replaceChildren(el('p', 'ab-tm-sec', 'Zonas del ciclo'), cab, lista, det);
+    const est = estadoHoy(Z); ESTADO_PINTADO = est ? est.id : null;
+    box.replaceChildren(...(est ? [estadoLinea(est)] : []), el('p', 'ab-tm-sec', 'Zonas del ciclo'), cab, lista, det);
   }
   function mvrvCapa(all, tf, on) {
     const vacio = () => G.mvrv.forEach((se) => se.setData([]));
@@ -1411,6 +1459,12 @@
     { const v = document.getElementById('cc-vivo'), tx = vivoTxt(c, plz); v.textContent = tx; v.hidden = !tx; }
     if (lc) fr.push(fs.some((f) => /^Ciclo:/.test(f[3])) ? `El ciclo (${zona.toLowerCase()}) ya está sumado en este plazo: a 30 días el precio fue para el lado de la zona más seguido que lo normal.`
       : `El ciclo mira meses a un año (${zona.toLowerCase()}): va aparte, no suma a esta dirección.`);
+    if (c.direccion === 'neutral' && MON() === 'BTC') {   // corto plazo sin ventaja: se dice el estado general del ciclo
+      const es = estadoHoy();
+      if (es) fr.push(es.id === 'neutral' ? 'Corto plazo sin ventaja clara. Ciclo: zona neutral, sin ventaja.'
+        : `Corto plazo sin ventaja clara. Ciclo: ${es.n.toLowerCase()} (a 1 año subió ${es.solo ? 'solo ' : ''}${es.a1} de las veces que estuvo así).`);
+      if (es && es.id !== ESTADO_PINTADO) pintarZonas();
+    }
     const cc = document.getElementById('cc-txt');
     cc.replaceChildren(fr[0], ...fr.slice(1).map((x) => el('span', 'ab-cc-mas', ` ${x}`)));
   }
@@ -6830,6 +6884,10 @@
     [/^15 min, 1 hora y 4 horas/, 'app', 'Temporalidades alineadas', '15 minutos, 1 hora y 4 horas apuntan para el mismo lado.', null, null, 'Medido en BTC: así la de 1 hora acierta 54% contra 51,5%.'],
     [/^(Termómetro|Ciclo$|Ciclo \(meses\)|Ciclo de BTC)/, 'app', 'Termómetro del ciclo', 'Dónde está BTC en su ciclo de varios años, mirando cuán lejos está de sus promedios largos, el miedo del mercado y el funding.',
       'Zona de compra: históricamente, buen momento para comprar a meses.', 'Zona de venta: históricamente cerca de techos de ciclo.', 'Es para semanas o meses, no para las próximas horas.'],
+    [/^Estado del mercado/, 'app', 'Estado del mercado', 'Una etiqueta general del ciclo para cuando el corto plazo es casi una moneda al aire. Z = zonas de compra − zonas de venta de las 19 de "Zonas del ciclo". Reglas, en orden: Piso extremo (Z ≥ 6, precio/CVDD ≤ 1,2 o MVRV ≤ 1) · Posible techo (Z ≤ −3) · Cerca de un piso (Z ≥ 2) · Rally alcista en curso (precio sobre el costo STH y sobre la media de 200 días, y +10% en 90 días) · si no, Zona neutral.',
+      'Medido (a 1 año / a 90 días, % de veces que BTC estaba más arriba): piso extremo 97–100% / 52–68% (pocos casos); cerca de un piso 93–95% / 72–79%; rally en curso 69–88% / 67–71%; zona neutral ~58–62% a 1 año.',
+      'Posible techo: a 1 año subió solo 25–39% (mediana −21% a −40%); a 90 días 30–50%.',
+      'Un día cualquiera: 69% a 1 año (mediana +76%) y 59% a 90 días. Marca zonas de meses, no el día: puede seguir bajando antes de subir. Si se busca un piso o techo exacto en 90–180 días, no llegó a z ≥ 2.'],
     // ----- zonas del ciclo: on-chain (looknode y bitcoin-data), medidas con medir_zonas3.py -----
     [/^CVDD/, 'app', 'CVDD (precio / CVDD)', 'Valor realizado de las monedas por el tiempo que llevan quietas: una línea de piso de los grandes mínimos. Se muestra el precio dividido esa línea.',
       'Precio hasta 1,2 veces la línea: zona de compra. A un año BTC estaba más arriba el 100% de las veces (2012–19 y 2020–25).', null, 'Casi no tiene zona de venta que sirva. Marca zonas de meses, no el día exacto.'],

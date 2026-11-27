@@ -996,6 +996,55 @@ año y Thermocap no están gratis en CoinMetrics. Se muestran en el ciclo ("Zona
 su zona y la marca de hoy) y en la ficha del ciclo de la respuesta ("Zonas ▲4 ▼1"). Los umbrales y lo que necesita la
 página salen con el reentrenamiento semanal (`armar_termometro.py`); el valor de hoy se termina con el precio de ahora.
 
+### Estado del mercado (`medir_estado.py`, nov. 2026)
+
+Cuando el corto plazo es casi una moneda al aire, la app dice un estado **general** del ciclo y qué pasó antes. Z = zonas de
+compra prendidas − zonas de venta prendidas, sobre las 19 de "Zonas del ciclo" (sin MVRV por bandas ni Fear & Greed). Reglas,
+en este orden (las mismas de `medir_estado.py`, "REGLAS FINALES"):
+
+1. **Piso extremo**: Z ≥ 6, o precio/CVDD ≤ 1,2, o MVRV ≤ 1 (precio / precio realizado).
+2. **Posible techo**: Z ≤ −3.
+3. **Cerca de un piso**: Z ≥ 2.
+4. **Rally alcista en curso**: precio sobre el costo STH, sobre la media de 200 días y +10% en 90 días (velas diarias).
+5. Si no, **zona neutral** (sin ventaja de ciclo).
+
+| Estado | A 1 año subió (mediana) | A 90 días subió | Episodios |
+|---|---|---|---|
+| Piso extremo | 97–100% (+52% a +104%) | 52–68% | pocos casos (2–4 por período) |
+| Cerca de un piso | 93–95% (+151% a +252%) | 72–79% | fuera de muestra se repitió en las dos direcciones (95% / 95%) |
+| Posible techo | solo 25–39% (−21% a −40%) | 30–50% | pocos |
+| Rally alcista en curso | 69–88% | 67–71% | |
+| Zona neutral | ~58–62%, igual que un día cualquiera | | |
+| Un día cualquiera | 69% (+76%) | 59% (+9%) | |
+
+Método fuera de muestra: los umbrales se ajustan en un tramo y se prueban **sin cambiarlos** en el otro, en las dos
+direcciones (ajusto 2012–19 y pruebo 2020–26, y al revés). Nota honesta: la prueba más estricta (si hay un piso o un techo
+dentro de 90–180 días) **no llegó a z ≥ 2** (lift de 1,2 a 6 veces, con pocos episodios independientes). Por eso se muestra
+como una zona a 1 año y 90 días, igual que las zonas del ciclo: marca zonas de meses, no el día, y puede seguir bajando
+antes de subir. Se ve como "Estado del mercado" junto a "Zonas del ciclo" y, solo para BTC, en la conclusión cuando la
+dirección de corto plazo es neutral.
+
+### Datos gratis nuevos que no pasaron (`medir_diarios.py`, `medir_onchain_ciclo.py`, `medir_polymarket.py`, nov. 2026)
+
+Medidos contra estados del mercado (piso, piso extremo, techo, rally, indecisión: etiquetas con el futuro solo como
+respuesta) y contra retornos a 1, 7, 30 y 90 días, en 2013/15–2021 y 2022–2026 (y 2022–23 contra 2024–26), z con bloques
+de 90 días. Fuentes probadas desde GitHub: CoinMetrics (flujos y reservas en exchanges, USDT/USDC), Fed de Nueva York
+(cartera SOMA y reverse repo), Tesoro (TGA; a veces no responde), visitas a Wikipedia, CBOE (VIX y VIX3M), looknode y
+bitcoin-data (on-chain), Polymarket. `probar_fuentes_onchain.py` muestra qué responde cada una.
+
+| Dato | Resultado | ¿Entra? |
+|---|---|---|
+| Flujos y reservas de BTC en exchanges | Las salidas grandes marcaron pisos en 2013–21 (z +2,3), no en 2022–26 | No |
+| Liquidez neta de la Fed (SOMA − TGA − reverse repo) | Cayendo 13 semanas: BTC rinde menos a 30–90 días (z −1,6 a −1,8), no llega a 2 | No (a mirar) |
+| Atención en Wikipedia (7 días / año) | Ayuda a reconocer techos sobre el termómetro (AUC +0,15 / +0,25) pero sola no separa | No |
+| Stablecoins contra BTC (SSR, oferta a 30 días) | Nada parejo | No |
+| VIX (nivel, picos, VIX > VIX3M) | La relación inversa es del mismo día; no anticipa (como en la medición con Yahoo) | No |
+| Dominancia de BTC para SOL, XRP y ZEC | Nada parejo | No |
+| SOPR muy bajo (7 días) | Piso extremo: z +2,1 / +2,3, pero como zona a 1 año empeora el conjunto | No |
+| Polymarket | Arriba/abajo de corto plazo = momentum del precio; escaleras mensuales: muy pocas para medir | No |
+| Rango de 1 día con el DVOL | Más angosto con la misma cobertura, en los dos tramos (ver "Volatilidad prevista") | **Sí** |
+| On-chain de looknode y bitcoin-data como zonas | CVDD, precio balanceado, RHODL, % en ganancia, STH, aSOPR, pérdida realizada | **Sí** (ver "Zonas del ciclo") |
+
 ### Bandas de desvío extremo del MVRV (`medir_mvrv_bandas.py`, nov. 2026)
 
 Precio realizado (costo promedio de todos los BTC) × (media del MVRV de toda la historia ± desvíos): media 1,81, desvío
