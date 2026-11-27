@@ -23,3 +23,4 @@ jobs:
       - run: python pruebas/calendario.py    # calendario economico con el efecto de cada dato (Python = JS)
       - run: python pruebas/tasas_fed.py    # lo que espera el mercado de la Fed, como FedWatch (Python = JS)
       - run: node pruebas/abanico.js      # abanico de caminos: solo casos realmente parecidos
+      - run: node pruebas/vercel_json.js  # vercel.json valido (un patron mal hecho frena todos los deploys)
