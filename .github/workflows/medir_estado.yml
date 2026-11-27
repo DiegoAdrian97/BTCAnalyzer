@@ -1,0 +1,22 @@
+name: Medir estados generales (piso, techo, rally, indecisión)
+# A mano desde Actions (o al cambiar el medidor): ¿unas pocas reglas legibles sobre el puntaje de zonas, el termómetro y la tendencia
+# acertan "cerca de un piso", "piso extremo", "posible techo", "rally alcista en curso" y "zona de indecisión" fuera de muestra?
+# Solo mide, no cambia nada del analisis. Fuentes publicas sin clave (looknode, bitcoin-data.com, CoinMetrics).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/medir_estado.yml", "medir_estado.py"]
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install numpy
+      - run: set -o pipefail; python -u medir_estado.py | tee estado.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: medicion-estado, path: "estado.txt" }
