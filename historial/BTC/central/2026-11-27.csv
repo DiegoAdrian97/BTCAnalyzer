@@ -160,3 +160,10 @@ t,plazo,precio,direccion,puntos,a_favor,en_contra,fuerza,senales,t_real
 1795816800000,15 min,59777.5,neutral,1,1,0,media,indicadores:1,1795816804401
 1795816800000,4 horas,59777.5,sube,3,3,0,baja,absorcion:1;indicadores:1;liquidaciones:1,1795816804401
 1795816800000,5 min,59777.5,neutral,1,1,0,baja,indicadores:1,1795816804401
+1795820400000,1 día,59732.6,neutral,1,1,0,baja,liquidaciones:1,1795820401298
+1795820400000,1 hora,59732.6,neutral,2,2,0,baja,indicadores:1;liquidaciones:1,1795820401298
+1795820400000,1 mes,59732.6,neutral,1,1,0,baja,estado_ciclo:1,1795820401298
+1795820400000,1 semana,59732.6,neutral,1.5,1.5,0,baja,estado_ciclo:0.5;rsi:1,1795820401298
+1795820400000,15 min,59732.6,neutral,1,1,0,baja,indicadores:1,1795820401298
+1795820400000,4 horas,59732.6,sube,3,3,0,baja,absorcion:1;indicadores:1;liquidaciones:1,1795820401298
+1795820400000,5 min,59732.6,neutral,1,1,0,baja,indicadores:1,1795820401298
