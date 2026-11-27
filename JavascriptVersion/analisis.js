@@ -192,6 +192,29 @@
     }
     return out;
   }
+  /** Estado general del ciclo de BTC (como estado_ciclo de termometro.py y estadoHoy de la pagina): Z = zonas de compra - zonas de
+   *  venta de las 19 de onchain.zonas, con el precio de ahora. piso_x, techo, piso, rally o neutral; null sin zonas. */
+  function estadoCiclo(zonas, price, nowMs, mvrv = null, r90 = null) {
+    const hoy = Math.floor(nowMs / 86400000), vals = {};
+    let nc = 0, nv = 0;
+    (zonas || []).forEach((e) => {
+      if (!e.id || e.id === 'fng') return;
+      const v = e.k ? price * e.k : e.valor !== undefined && e.valor !== null ? e.valor
+        : e.a !== undefined && e.a !== null ? Math.log10(price) - (e.a + e.b * Math.log10(hoy - e.gen))
+          : e.ath !== undefined && e.ath !== null ? (price >= e.ath ? 0 : hoy - e.ath_dia) : null;
+      if (v === null || !isFinite(v)) return;
+      vals[e.id] = v;
+      const c = e.compra, ve = e.venta;
+      if (c !== null && c !== undefined && (e.compra_dir === '>=' ? v >= c : v <= c)) nc++;
+      else if (ve !== null && ve !== undefined && (e.venta_dir === '<=' ? v <= ve : v >= ve)) nv++;
+    });
+    if (!Object.keys(vals).length) return null;
+    const z = nc - nv, cvdd = vals.cvdd, sth = vals.sth, mayer = vals.mayer;
+    const id = z >= 6 || (cvdd !== undefined && cvdd <= 1.2) || (mvrv !== null && mvrv <= 1) ? 'piso_x' : z <= -3 ? 'techo' : z >= 2 ? 'piso'
+      : (sth === undefined || sth > 1) && mayer !== undefined && mayer > 1 && r90 !== null && r90 > 0.1 ? 'rally' : 'neutral';
+    return { id, z, nc, nv };
+  }
+  const ESTADO_NOMBRE = { piso_x: 'piso extremo', piso: 'cerca de un piso', techo: 'posible techo', rally: 'rally alcista', neutral: 'zona neutral' };
   const MVRV_BANDAS = [[-1.0, 'compra fuerte'], [-0.5, 'compra'], [0.0, 'media'], [1.5, 'cara'], [2.0, 'venta'], [2.5, 'venta extrema']];
   const mvrvBanda = (z) => (z <= -1 ? 'compra fuerte' : z <= -0.5 ? 'compra' : z >= 2.5 ? 'venta extrema' : z >= 2 ? 'venta' : z >= 1.5 ? 'cara' : 'normal');
   function ajusteFunding(md, f7) {   // +1 funding de 7 dias negativo (miedo), -1 si es 0,03% o mas (euforia), 0 si no
@@ -215,6 +238,7 @@
       regla = fng < 25 && fs === 'bajista' ? 'miedo_bajista' : fng > 75 && fs === 'alcista 3' ? 'codicia_alcista3'
         : fng > 75 && (fs === 'alcista 1' || fs === 'alcista 2') ? 'codicia_alcista12' : null;
     }
+    const est = estadoCiclo((T.onchain || {}).zonas, price, nowMs, oc.mvrv === undefined ? null : oc.mvrv, closesD.length > 90 ? price / closesD[closesD.length - 91] - 1 : null);
     const cic = T.ciclo || {};
     const d0 = new Date(nowMs), av = (Math.floor((d0 - Date.UTC(y, 0, 1)) / 86400000)) / 366, md = T.medidor;
     let posM = null, zm = null, prob = null;
@@ -237,6 +261,7 @@
       precio_realizado: oc.precio_realizado === undefined ? null : rnd(oc.precio_realizado, 1),
       mvrv_z: oc.mvrv_z === undefined ? null : rnd(oc.mvrv_z, 2), mvrv_banda: oc.mvrv_z === undefined ? null : mvrvBanda(oc.mvrv_z),
       mvrv_bandas: oc.bandas || [],
+      estado_id: est ? est.id : null, estado_z: est ? est.z : null, estado_nc: est ? est.nc : null, estado_nv: est ? est.nv : null,
       wma200: rnd(wma, 1), sobre_wma: rnd((price / wma - 1) * 100, 1), caida_ath: rnd(med.dd_ath * 100, 1), ath: rnd(ath, 1),
       ret_anual: rnd((price / c365 - 1) * 100, 1), sube_180: z.sube_180, mediana_180: z.mediana_180, sube_365: z.sube_365, mediana_365: z.mediana_365,
       zonas: T.zonas.map((x) => [x.desde, x.hasta, x.nombre, x.sube_365, x.mediana_365]) };
@@ -422,10 +447,17 @@
       // los libros y el funding no ganaron en las mediciones: ya no suman a la direccion (igual que en Python)
       // el ciclo no suma a la direccion a 1 y 7 dias; para el MES si (1 punto): a 30 dias fue para el lado de la zona en
       // los tres tramos desde 2015 y en las dos zonas (juntos z +2,6). Igual que en Python
+      // UN solo factor de ciclo por plazo, con el peso que gano (medir_peso_ciclo.py): 1 dia 0; 1 semana 0,5 (debil) cerca de un piso; 1 mes +-1
+      // junto con la zona del termometro (sin contar dos veces; si discrepan, manda el termometro). Igual que en Python
+      const est = tm ? tm.estado_id : null;
+      if (tm && tf === '1w' && (est === 'piso' || est === 'piso_x')) cf('direccion', 1, 0.5, `Estado del ciclo: ${ESTADO_NOMBRE[est]} (débil a 1 semana: subió ${est === 'piso_x' ? '55–57%' : '57–61%'} contra 52–56% normal)`);
       if (tm && tf === '1M') {
-        const zl = tm.medidor_zona.toLowerCase();
-        if (zl.includes('compra')) cf('direccion', 1, 1, `Ciclo: ${zl}`);
-        else if (zl.includes('venta') || zl.includes('caro')) cf('direccion', -1, 1, `Ciclo: ${zl}`);
+        const zl = (tm.medidor_zona || '').toLowerCase();
+        const lz = zl.includes('compra') ? 1 : zl.includes('venta') || zl.includes('caro') ? -1 : 0;
+        const le = est === 'piso' || est === 'piso_x' ? 1 : est === 'techo' ? -1 : 0;
+        if (lz && le && lz !== le) cf('direccion', lz, 1, `Ciclo: ${zl} (el estado del ciclo dice ${ESTADO_NOMBRE[est]}, pero pesa más el termómetro)`);
+        else if (le) cf('direccion', le, 1, `Estado del ciclo: ${ESTADO_NOMBRE[est]} (a 1 mes ${le > 0 ? 'subió 67–68% contra 55–57% normal' : 'subió solo 42–50% contra 55–57% normal'})` + (lz ? ` · termómetro: ${zl}` : ''));
+        else if (lz) cf('direccion', lz, 1, `Ciclo: ${zl}`);
       }
       // precio estirado (indicadores al reves, fuera de Bollinger, RSI extremo): dicen lo mismo, cuentan juntas (_estirado en Python)
       if (!(tf === '1d' || tf === '1w' || tf === '1M')) {
@@ -1662,7 +1694,7 @@
     return { rows, log };
   }
 
-  const Analisis = { ictFilas, piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, DIAS_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, dvolVigente, mezclaDvolDia, rangoPuntajes, rangoFactor, factoresVivos, rango80, rasgosDireccion, perfilPlazo, nivelesPerfil, velasDireccion, probModelo, aplicarModelo, modeloValido, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, fibTramo, compresion, perfilHoras, central, liqReales, calificarUltimas };
+  const Analisis = { ictFilas, piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, DIAS_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, dvolVigente, mezclaDvolDia, rangoPuntajes, rangoFactor, factoresVivos, rango80, rasgosDireccion, perfilPlazo, nivelesPerfil, velasDireccion, probModelo, aplicarModelo, modeloValido, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, estadoCiclo, percentil, fibonacci, fibTramo, compresion, perfilHoras, central, liqReales, calificarUltimas };
   root.Analisis = Analisis;
   if (typeof module !== 'undefined' && module.exports) module.exports = Analisis;
 })(typeof self !== 'undefined' ? self : globalThis);

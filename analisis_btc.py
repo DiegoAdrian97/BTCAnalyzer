@@ -1603,6 +1603,9 @@ def _cf(lst, punto, lado, peso, texto):
     lst.append([punto, lado, peso, texto])
 
 
+ESTADO_NOMBRE = {"piso_x": "piso extremo", "piso": "cerca de un piso", "techo": "posible techo", "rally": "rally alcista", "neutral": "zona neutral"}
+
+
 _ESTIRADO = ("Indicadores ", "Precio arriba de la banda", "Precio debajo de la banda", "Posible reversión", "Posible rebote")
 
 
@@ -1833,12 +1836,25 @@ def central(rows, price, candles, now_ms):
         # tramos y en las dos zonas (compra 81% / 61% / 65% contra 57% / 55% / 58% normal; caro o venta 53% / 58% / 57%
         # contra 43% / 45% / 43%). Ningun tramo solo llega a z 2 (son ~30 meses independientes cada uno) pero los seis
         # van para el mismo lado: juntos z +2,6. A 1 y 7 dias no
+        # UN solo factor de ciclo por plazo, con el peso que gano (medir_peso_ciclo.py, BTC 2013-2026, tramos 2013-19 y 2020-26;
+        # % de veces que subio contra un dia cualquiera): 1 dia ningun estado sirve (peso 0); 1 semana cerca de un piso 61% / 57%
+        # contra 56% / 52% (+5 puntos, z 0,9 / 1,0: debil, peso 0,5); 1 mes cerca de un piso 68% / 67% contra 57% / 55% y posible
+        # techo 50% / 42% contra 57% / 55% (+-1, junto con la zona del termometro: no se cuenta dos veces; si discrepan, manda el termometro)
+        est = tm.get("estado_id") if tm else None
+        if tm and tf == "1w" and est in ("piso", "piso_x"):
+            _cf(F, "direccion", 1, 0.5, f"Estado del ciclo: {ESTADO_NOMBRE[est]} (débil a 1 semana: subió "
+                                       + ("55–57%" if est == "piso_x" else "57–61%") + " contra 52–56% normal)")
         if tm and tf == "1M":
-            z = tm["medidor_zona"]
-            if "compra" in z.lower():
-                _cf(F, "direccion", 1, 1, f"Ciclo: {z.lower()}")
-            elif "venta" in z.lower() or "caro" in z.lower():
-                _cf(F, "direccion", -1, 1, f"Ciclo: {z.lower()}")
+            z = (tm.get("medidor_zona") or "").lower()
+            lz = 1 if "compra" in z else -1 if ("venta" in z or "caro" in z) else 0
+            le = 1 if est in ("piso", "piso_x") else -1 if est == "techo" else 0
+            if lz and le and lz != le:
+                _cf(F, "direccion", lz, 1, f"Ciclo: {z} (el estado del ciclo dice {ESTADO_NOMBRE[est]}, pero pesa más el termómetro)")
+            elif le:
+                med = "subió 67–68% contra 55–57% normal" if le > 0 else "subió solo 42–50% contra 55–57% normal"
+                _cf(F, "direccion", le, 1, f"Estado del ciclo: {ESTADO_NOMBRE[est]} (a 1 mes {med})" + (f" · termómetro: {z}" if lz else ""))
+            elif lz:
+                _cf(F, "direccion", lz, 1, f"Ciclo: {z}")
         _estirado(F, largo_tf)
         # ----- totales -----
         fz = sum(f[1] * f[2] for f in F if f[0] == "fuerza")

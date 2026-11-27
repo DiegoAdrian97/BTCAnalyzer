@@ -247,6 +247,40 @@ def central_modelo(d):
             if r.get("tabla") == "plazo" and r.get("base") is not None else r for r in FC["filas"]]
 
 
+# estado del ciclo (termometro.estado_ciclo / A.estadoCiclo): zonas inventadas para cada estado y las 19 reales a varios precios
+def _z(i, valor, compra=None, venta=None, **kw):
+    return {"id": i, "valor": valor, "compra": compra, "venta": venta, **kw}
+
+
+_HOY_E = AHORA // 86400000
+_ZR = json.load(open(os.path.join(RAIZ, "JavascriptVersion", "termometro.json"), encoding="utf-8"))["onchain"]["zonas"]
+ESTADO = [   # [zonas, precio, ahora, mvrv, r90]
+    [[{"id": "cvdd", "k": 2e-5, "compra": 1.2, "venta": None}, _z("a", 0.9, 0.5, 2)], 50000.0, AHORA, 1.5, 0.0],                      # piso_x por CVDD (Z = 1)
+    [[_z("a", 1, 0.5, 2)], 50000.0, AHORA, 0.9, 0.0],                                                                                # piso_x por MVRV <= 1
+    [[_z(f"c{i}", 0.1, 0.5, 2) for i in range(6)], 50000.0, AHORA, 1.5, 0.0],                                                        # piso_x por Z >= 6
+    [[_z("a", 0.1, 0.5, 2), _z("b", 0.2, 0.5, 2), _z("c", 1, 0.5, 2), {"id": "cvdd", "k": 2e-5, "compra": 1.2, "venta": None}], 100000.0, AHORA, 2.0, 0.0],   # cerca de un piso (Z = 2)
+    [[_z("a", 3, 0.5, 2), _z("b", 3, 0.5, 2), _z("c", 5, 0.5, 2), _z("d", 1, 0.5, 2)], 100000.0, AHORA, 2.0, 0.5],                   # techo (Z = -3), aunque el rally se cumpla
+    [[{"id": "mayer", "k": 2e-5, "compra": None, "venta": 2.4}, {"id": "sth", "k": 1.4e-5, "compra": None, "venta": 0.82, "venta_dir": "<="}], 100000.0, AHORA, 2.0, 0.2],   # rally
+    [[{"id": "mayer", "k": 2e-5, "compra": None, "venta": 2.4}, {"id": "sth", "k": 1.4e-5, "compra": None, "venta": 0.82, "venta_dir": "<="}], 100000.0, AHORA, 2.0, 0.05],  # neutral (90 dias no alcanza)
+    [[{"id": "mayer", "k": 2e-5, "compra": None, "venta": 2.4}, {"id": "sth", "k": 1.4e-5, "compra": None, "venta": 0.82, "venta_dir": "<="}], 40000.0, AHORA, 2.0, 0.2],    # neutral (STH 0,56 <= 1: zona de venta, Mayer 0,8)
+    [[{"id": "dm", "ath": 124824.45, "ath_dia": _HOY_E - 800, "compra": 735.05, "compra_dir": ">=", "venta": None},
+      {"id": "pot", "a": -16.31433, "b": 5.6302178, "gen": 14247, "compra": -0.29, "venta": 0.34},
+      {"id": "fng", "valor": 5, "compra": 25, "venta": 75}, {"id": None, "valor": 1, "compra": 5}], 70000.0, AHORA, 1.4, 0.0],     # ath, ley de potencia, sin id y fng no cuentan
+    [[], 70000.0, AHORA, 1.4, 0.0],
+] + [[_ZR, pr, AHORA, pr / 70000, r90] for pr, r90 in ((20000.0, 0.0), (60000.0, 0.0), (80000.0, 0.1), (95000.0, 0.2), (125000.0, 0.2))]
+ESTADO_ID = ["piso_x", "piso_x", "piso_x", "piso", "techo", "rally", "neutral", "neutral", "piso", None, "piso_x", "piso_x", "piso", "piso", "rally"]
+
+
+def _filas_estado(est, zona):
+    """Las filas del analisis central con la fila del termometro con otro estado del ciclo y otra zona del medidor."""
+    return [{**r, "estado_id": est, "medidor_zona": zona} if r["tabla"] == "termometro" else r for r in FC["filas"]]
+
+
+# (estado, zona del medidor): acuerdan en compra, acuerdan en techo, discrepan (manda el termometro), solo el estado, solo el termometro, rally
+FC_ESTADO = [("piso", "Buen momento de compra"), ("piso_x", "Zona de venta"), ("techo", "Zona de venta"), ("techo", "Buen momento de compra"),
+             ("piso", "Neutral"), ("rally", "Buen momento de compra"), ("neutral", "Cuidado: caro"), (None, "Neutral")]
+
+
 def py():
     piv = ind.zigzag(H4)
     raw = {"oi": [[b[0] + 3_600_000, 1000 + i] for i, b in enumerate(H1[-40:])], "ls": [1.2 + i / 100 for i in range(25)],
@@ -285,6 +319,8 @@ def py():
         "modelo": modelo_py(),
         "perfil": {k: ind.perfil_volumen(v) for k, v in PERFIL_VELAS.items()} | {"n24": ind.perfil_volumen(H1[-24:], 24), "plazo": [A.perfil_plazo(H1), A.perfil_plazo(H4), A.perfil_plazo(D1[:3])]},
         "central_perfil": A.central(FC_PERFIL, FC["precio"], {"1h": H1, "4h": H4}, FC["ahora"]),
+        "estado": [termometro.estado_ciclo(*f) for f in ESTADO],
+        "central_estado": [A.central(_filas_estado(e, z), FC["precio"], {"1h": H1, "4h": H4}, FC["ahora"]) for e, z in FC_ESTADO],
         "base_perp": [A.base_perp(61300, 61234.5, "Bybit"), A.base_perp(61190, 61234.5, "Bybit"), A.base_perp(61240, 61234.5, "Bybit")],
         "_ctx_raw": raw,
     }
@@ -337,6 +373,8 @@ console.log(JSON.stringify({
     delete globalThis.MODELO_DIRECCION; return out; })(),
   perfil: Object.assign(Object.fromEntries(Object.entries(d.PERFIL_VELAS).map(([k, v]) => [k, Ind.perfilVolumen(v)])), { n24: Ind.perfilVolumen(d.H1.slice(-24), 24), plazo: [A.perfilPlazo(d.H1), A.perfilPlazo(d.H4), A.perfilPlazo(d.D1.slice(0, 3))] }),
   central_perfil: A.central(d.FC_PERFIL, d.FC.precio, { "1h": d.H1, "4h": d.H4 }, d.FC.ahora),
+  estado: d.ESTADO.map((f) => A.estadoCiclo(...f)),
+  central_estado: d.FC_ESTADO.map((f) => A.central(f, d.FC.precio, { "1h": d.H1, "4h": d.H4 }, d.FC.ahora)),
   base_perp: [A.basePerp(61300, 61234.5, 'Bybit'), A.basePerp(61190, 61234.5, 'Bybit'), A.basePerp(61240, 61234.5, 'Bybit')],
   rango: (() => { const c = d.H1.map((b) => b[4]), e50 = Ind.ema(c, 50), e200 = Ind.ema(c, 200), rsi = Ind.rsi(c), mh = Ind.macd(c)[2];
     const st = Apr.estados(Apr.rasgos(d.H1, 60, e50, e200, rsi, mh), 2), F = A.volEscala(d.H1, 60, 4, false);
@@ -378,7 +416,7 @@ def main():
     entrada = {"FC": FC, "H1": H1, "H4": H4, "D1": D1, "ALT": ALT, "AHORA": AHORA, "raw": raw, "LIQ": LIQ,
                "CASOS": CASOS, "SPEC_1H": SPEC_1H, "LOG_ENTRADAS": LOG_ENTRADAS, "LOG_CIERRES": LOG_CIERRES,
                "OPC_LIBRO": OPC_LIBRO, "OPC_DVOL": OPC_DVOL, "OPC_AHORA": OPC_AHORA, "DVOL_DIA": DVOL_DIA, "FLUJO": FLUJO, "CME": CME, "FC_FLUJO": FC_FLUJO, "FC_FED": FC_FED, "LIQ_OI": LIQ_OI, "LIQ_LS": LIQ_LS,
-               "TRACK": TRACK, "RANGO_O": RANGO_O, "RANGO_CASOS": RANGO_CASOS,
+               "ESTADO": ESTADO, "FC_ESTADO": [_filas_estado(e, z) for e, z in FC_ESTADO], "TRACK": TRACK, "RANGO_O": RANGO_O, "RANGO_CASOS": RANGO_CASOS,
                "VA": VA, "M_C5": M_C5, "M_FUERA": M_FUERA, "M_PRECIO": M_PRECIO, "M_AHORA": M_AHORA, "MODELO": MODELO, "MODELO_MAL": MODELO_MAL, "M_SIN_VOL": M_SIN_VOL, "FC_PERFIL": FC_PERFIL, "PERFIL_VELAS": PERFIL_VELAS, "M_PROB": M_PROB, "M_CASOS": M_CASOS}
     out = subprocess.run(["node", "-e", JS, RAIZ], input=json.dumps(entrada), capture_output=True, text=True)
     if out.returncode:
@@ -414,6 +452,25 @@ def main():
                 raise SystemExit(f"central_fed: factor de la Fed no esperado en {c['tf']}: {fs}")
     if not any(f[3].startswith("Fed el ") and "mercado dividido" in f[3] for c in p["central_fed"][1] for f in c["factores"]):
         raise SystemExit("central_fed: falta el texto del mercado dividido")
+    if [e and e["id"] for e in p["estado"]] != ESTADO_ID:
+        raise SystemExit(f"estado_ciclo: no da los estados esperados: {[e and e['id'] for e in p['estado']]}")
+    if p["estado"][0]["z"] != 1 or p["estado"][3]["z"] != 2 or p["estado"][4]["z"] != -3:
+        raise SystemExit(f"estado_ciclo: Z no esperado: {p['estado']}")
+    for (est, zona), casos in zip(FC_ESTADO, p["central_estado"]):
+        fac = {c["tf"]: [(f[1], f[2], f[3]) for f in c["factores"] if f[3].startswith(("Estado del ciclo:", "Ciclo:"))] for c in casos}
+        lz = 1 if "compra" in zona.lower() else -1 if ("venta" in zona.lower() or "caro" in zona.lower()) else 0
+        le = 1 if est in ("piso", "piso_x") else -1 if est == "techo" else 0
+        if fac.get("1d") or fac.get("4h") or fac.get("1h"):
+            raise SystemExit(f"central_estado: el ciclo no debe sumar a 1 dia ni a plazos cortos ({est}, {zona}): {fac}")
+        sem = [(l, w) for l, w, _ in fac.get("1w", [])]
+        if sem != ([(1, 0.5)] if le > 0 else []) or any(not t.startswith("Estado del ciclo:") for _, _, t in fac.get("1w", [])):
+            raise SystemExit(f"central_estado: factor de 1 semana no esperado ({est}, {zona}): {fac.get('1w')}")
+        mes = fac.get("1M", [])
+        esperado = lz or le
+        if [(l, w) for l, w, _ in mes] != ([(esperado, 1)] if esperado else []):
+            raise SystemExit(f"central_estado: factor de 1 mes no esperado ({est}, {zona}): {mes}")
+        if mes and mes[0][2].startswith("Estado del ciclo:") != (le != 0 and (lz == 0 or lz == le)):
+            raise SystemExit(f"central_estado: texto del factor de 1 mes no esperado ({est}, {zona}): {mes}")
     pf, cp, c0 = p["perfil"], p["central_perfil"], p["central"]
     if pf["h1"] is None or not pf["h1"]["val"] < pf["h1"]["poc"] < pf["h1"]["vah"] or pf["poca"] is not None or pf["sin_vol"] is not None or pf["plano"] is not None \
             or pf["torcida"] is None or pf["con_ceros"] is None or p["perfil"]["plazo"][2] is not None or p["perfil"]["plazo"][0]["poc"] != round(pf["h1"]["poc"], 1):

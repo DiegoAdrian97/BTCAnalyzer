@@ -72,6 +72,11 @@
       "esperado": null,
       "fuente": "armar_termometro.py medir_cortos (2015-2026)"
     },
+    "estado_ciclo": {
+      "nombre": "Estado del ciclo (1 semana débil, 1 mes)",
+      "esperado": null,
+      "fuente": "medir_peso_ciclo.py (BTC 2013-2026; 1 semana: cerca de un piso 57–61% contra 52–56%; 1 mes: 67–68% contra 55–57%, posible techo 42–50%)"
+    },
     "divergencia": {
       "nombre": "Divergencia de precio e indicador",
       "esperado": null,
@@ -152,7 +157,16 @@
     "figuras del gráfico (menos la diaria para el mes)",
     "estructura al revés (no agrega al precio estirado)",
     "lead-lag de BTC a las alts (1 y 5 min)",
-    "macro: Nasdaq, S&P, DXY, VIX, tasa a 10 años, oro"
+    "macro: Nasdaq, S&P, DXY, VIX, tasa a 10 años, oro",
+    "estado del ciclo a 1 día: peso 0 medido (medir_peso_ciclo.py)",
+    "VIX (nivel, saltos, VIX > VIX3M): peso 0 medido (medir_peso_ciclo.py)",
+    "flujo de ETF (diario y 5 ruedas): peso 0 medido (medir_peso_ciclo.py)",
+    "Fear & Greed (≤ 10 sube a 1 mes, pero ya está en el estado del ciclo): peso 0 medido (medir_peso_ciclo.py)",
+    "percentiles del MVRV: peso 0 medido (medir_peso_ciclo.py)",
+    "SOPR de 7 y 30 días: peso 0 medido (medir_peso_ciclo.py)",
+    "NUPL: peso 0 medido (medir_peso_ciclo.py)",
+    "liquidez de la Fed: peso 0 medido (medir_peso_ciclo.py)",
+    "Wikipedia (visitas): peso 0 medido (medir_peso_ciclo.py)"
   ],
   "direccion": {
     "nota": "acierto medido de la dirección según los puntos netos (medir_conjunto.py, 2022-2026, a 1 y 4 horas)",

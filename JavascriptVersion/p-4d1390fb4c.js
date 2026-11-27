@@ -222,7 +222,10 @@
     return v.length > 90 && precio > 0 ? precio / v[v.length - 91].c - 1 : null;
   }
   function estadoHoy(Zl) {
-    const Z = (Zl || zonasHoy() || []).filter((e) => e.id && e.id !== 'fng'), t = ZONAS_TM;
+    const t = ZONAS_TM;
+    // el analisis ya lo trae en la fila del termometro (estado_ciclo de termometro.py / estadoCiclo de analisis.js): es el mismo que usa la conclusion
+    if (MON() === 'BTC' && t && ESTADOS[t.estado_id]) return { id: t.estado_id, ...ESTADOS[t.estado_id], z: num(t.estado_z), nc: num(t.estado_nc), nv: num(t.estado_nv) };
+    const Z = (Zl || zonasHoy() || []).filter((e) => e.id && e.id !== 'fng');
     if (MON() !== 'BTC' || !Z.length || !t) return null;
     const precio = (G.d && G.d.price) || num(t.precio), nc = Z.filter((e) => e.zona === 'compra').length, nv = Z.filter((e) => e.zona === 'venta').length, z = nc - nv;
     const val = (id) => { const e = Z.find((x) => x.id === id); return e && isFinite(e.v) ? e.v : null; };
@@ -1437,6 +1440,22 @@
     m.append(f, t, ml); w.append(el('b', 'ab-meter-n', `${f0(v)}%`), m, el('small', 'ab-viv-n', `${rg.n} casos medidos`));
     return w;
   }
+  // Lo medido con cada horizonte (medir_peso_ciclo.py, BTC 2013-2026, tramos 2013-19 y 2020-26): el estado del ciclo pesa 0 a 1 dia,
+  // 0,5 (debil) a 1 semana y +-1 a 1 mes; lo de abajo midio peso 0 en los tres. Mismo registro que "descartadas" de mediciones.json
+  const SIN_EFECTO = ['VIX', 'flujo de ETF', 'Fear & Greed', 'MVRV', 'SOPR', 'NUPL', 'liquidez de la Fed', 'Wikipedia'];
+  function sinEfectoTxt(plz, estadoSuma) {
+    if (!['1 día', '1 semana', '1 mes'].includes(plz)) return '';
+    return `También se miraron, sin efecto medido a ${plz}: ${(estadoSuma ? SIN_EFECTO : ['estado del ciclo', ...SIN_EFECTO]).join(', ')}.`;
+  }
+  // "Qué hacer de fondo": sale del estado del ciclo (cuanto subio BTC a 1 año cuando estuvo asi) y del lado del plazo elegido
+  function fondoTxt(es, dir) {
+    const k = 'Qué hacer de fondo:';
+    if (es.id === 'piso_x' || es.id === 'piso') return { cls: 'up', t: `${k} Comprar (de fondo, escalonado): zona de compra del ciclo; a 1 año BTC subió ${es.a1} de las veces que estuvo así.`,
+      s: dir === 'baja' ? 'El corto plazo todavía puede bajar: mejor de a partes.' : '' };
+    if (es.id === 'techo') return { cls: 'dn', t: `${k} No comprar / reducir: a 1 año subió solo ${es.a1} de las veces que estuvo así.`, s: dir === 'sube' ? 'Puede subir un poco más en el corto plazo.' : '' };
+    if (es.id === 'rally') return { cls: 'up', t: `${k} Mantener: tendencia alcista de fondo.`, s: '' };
+    return { cls: '', t: `${k} Sin ventaja de fondo: seguí la señal del plazo.`, s: '' };
+  }
   function drawConclusion(rows) {
     const sec = document.getElementById('conclusion'), c = centralDe(rows || G.rows);
     if (!c || !c.direccion) { sec.hidden = true; return; }
@@ -1457,14 +1476,17 @@
     // medir_formacion.py: en plata, seguir estas señales rinde ~0 pb por operacion (la comision son 10 pb)
     if (c.direccion !== 'neutral' && !['1 día', '1 semana', '1 mes'].includes(plz)) fr.push('Ojo: medido, estas señales aciertan 52–56% pero cuando fallan pierden más de lo que ganan cuando aciertan: el retorno medio es ~0 antes de comisiones. Es contexto, no alcanza sola para operar.');
     { const v = document.getElementById('cc-vivo'), tx = vivoTxt(c, plz); v.textContent = tx; v.hidden = !tx; }
-    if (lc) fr.push(fs.some((f) => /^Ciclo:/.test(f[3])) ? `El ciclo (${zona.toLowerCase()}) ya está sumado en este plazo: a 30 días el precio fue para el lado de la zona más seguido que lo normal.`
+    const fc = fs.find((f) => /^(Estado del ciclo|Ciclo):/.test(f[3]));
+    if (fc && plz === '1 semana') fr.push('El estado del ciclo suma poco a 1 semana (0,5 puntos, débil: medido +5 puntos sobre un día normal).');
+    else if (lc) fr.push(fc ? `El ciclo (${zona.toLowerCase()}) ya está sumado en este plazo: a 30 días el precio fue para el lado de la zona más seguido que lo normal.`
       : `El ciclo mira meses a un año (${zona.toLowerCase()}): va aparte, no suma a esta dirección.`);
-    if (c.direccion === 'neutral' && MON() === 'BTC') {   // corto plazo sin ventaja: se dice el estado general del ciclo
-      const es = estadoHoy();
-      if (es) fr.push(es.id === 'neutral' ? 'Corto plazo sin ventaja clara. Ciclo: zona neutral, sin ventaja.'
-        : `Corto plazo sin ventaja clara. Ciclo: ${es.n.toLowerCase()} (a 1 año subió ${es.solo ? 'solo ' : ''}${es.a1} de las veces que estuvo así).`);
-      if (es && es.id !== ESTADO_PINTADO) pintarZonas();
-    }
+    // "Qué hacer de fondo" (BTC): el estado general del ciclo, siempre visible arriba; el plazo elegido solo agrega un matiz
+    const fo = document.getElementById('cc-fondo'), es = MON() === 'BTC' ? estadoHoy() : null, fondo = es ? fondoTxt(es, c.direccion) : null;
+    fo.hidden = !fondo;
+    if (fondo) { fo.className = `ab-cc-fondo ${fondo.cls}`; fo.replaceChildren(fondo.t, el('span', '', fondo.s ? ` ${fondo.s}` : '')); }
+    if (es && es.id !== ESTADO_PINTADO) pintarZonas();
+    // lo que se miro y no pesa en este plazo (medir_peso_ciclo.py): una linea, sin sumar nada
+    { const sn = document.getElementById('cc-sin'), tx = MON() === 'BTC' ? sinEfectoTxt(plz, fs.some((f) => /^Estado del ciclo:/.test(f[3]))) : ''; sn.textContent = tx; sn.hidden = !tx; }
     const cc = document.getElementById('cc-txt');
     cc.replaceChildren(fr[0], ...fr.slice(1).map((x) => el('span', 'ab-cc-mas', ` ${x}`)));
   }

@@ -1021,8 +1021,38 @@ Método fuera de muestra: los umbrales se ajustan en un tramo y se prueban **sin
 direcciones (ajusto 2012–19 y pruebo 2020–26, y al revés). Nota honesta: la prueba más estricta (si hay un piso o un techo
 dentro de 90–180 días) **no llegó a z ≥ 2** (lift de 1,2 a 6 veces, con pocos episodios independientes). Por eso se muestra
 como una zona a 1 año y 90 días, igual que las zonas del ciclo: marca zonas de meses, no el día, y puede seguir bajando
-antes de subir. Se ve como "Estado del mercado" junto a "Zonas del ciclo" y, solo para BTC, en la conclusión cuando la
-dirección de corto plazo es neutral.
+antes de subir. Se ve como "Estado del mercado" junto a "Zonas del ciclo" y, solo para BTC, arriba de la conclusión
+("Qué hacer de fondo", ver abajo).
+
+**Un solo resultado por plazo, con el peso que ganó** (`medir_peso_ciclo.py`, BTC 2013–2026, tramos 2013–19 y 2020–26: % de
+veces que subió al horizonte en cada estado contra un día normal). El estado se calcula en `termometro.estado_ciclo` /
+`estadoCiclo` (analisis.js, idénticos; la prueba es `pruebas/paridad.py`), viaja en la fila del termómetro
+(`estado_id`, `estado_z`, `estado_nc`, `estado_nv`) y `central()` lo lee de ahí; la página usa el mismo valor.
+
+| Plazo | Peso del estado del ciclo | Medido (cerca de un piso / posible techo, dos tramos) |
+|---|---|---|
+| 1 día | **0** | ningún estado ayuda (piso 57% contra 54% y 52% contra 52%) |
+| 1 semana | **+0,5** (débil) en piso extremo y cerca de un piso; techo y rally, 0 | piso 61% / 57% contra 56% / 52% (+5 puntos, z 0,9 / 1,0) |
+| 1 mes | **±1**, compartido con la zona del termómetro (un solo factor, no se cuenta dos veces) | piso 68% / 67% contra 57% / 55%; techo 50% / 42% contra 57% / 55% |
+
+En 1 mes: +1 si el estado es piso (extremo o cerca) o la zona del termómetro es de compra; −1 si es posible techo o la zona es
+cara o de venta; si discrepan manda el termómetro (más evidencia, z +2,6) y el texto menciona el estado. La clave del
+historial es `estado_ciclo` (el factor del termómetro solo se sigue llamando `ciclo`).
+
+**Medido con peso 0 en todos los plazos** (más allá de lo que ya incluye el estado): VIX (nivel, saltos, VIX > VIX3M), flujo de ETF
+(diario y 5 ruedas, 2024–26), percentiles del MVRV, Fear & Greed (solo con ≤ 10 sube a 1 mes, pero ya está en el estado),
+SOPR de 7 y 30 días, NUPL, liquidez de la Fed y Wikipedia. Cada plazo de 1 día, 1 semana y 1 mes lo dice en una línea debajo
+de la conclusión ("También se miraron, sin efecto medido a 1 día: …"). Las zonas individuales ya están dentro del estado.
+Todo está en `JavascriptVersion/mediciones.json` ("senales" y "descartadas").
+
+**Qué hacer de fondo** (BTC, arriba de la conclusión, siempre visible; el plazo elegido solo agrega un matiz):
+
+| Estado | Línea | Si el plazo dice… |
+|---|---|---|
+| Piso extremo / cerca de un piso | "Comprar (de fondo, escalonado): zona de compra del ciclo; a 1 año BTC subió X de las veces que estuvo así" (verde) | baja: "El corto plazo todavía puede bajar: mejor de a partes." |
+| Posible techo | "No comprar / reducir: a 1 año subió solo 25–39% de las veces que estuvo así" (rojo) | sube: "Puede subir un poco más en el corto plazo." |
+| Rally alcista | "Mantener: tendencia alcista de fondo" (verde) | |
+| Zona neutral | "Sin ventaja de fondo: seguí la señal del plazo" (gris) | |
 
 ### Datos gratis nuevos que no pasaron (`medir_diarios.py`, `medir_onchain_ciclo.py`, `medir_polymarket.py`, nov. 2026)
 

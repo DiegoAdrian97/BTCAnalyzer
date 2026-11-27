@@ -185,6 +185,51 @@ def mvrv_banda(z):
             else "cara" if z >= 1.5 else "normal")
 
 
+def estado_ciclo(zonas, price, now_ms, mvrv=None, r90=None):
+    """Estado general del ciclo de BTC (medir_estado.py): Z = zonas de compra - zonas de venta de las 19 de onchain.zonas
+    (con el precio de ahora). En este orden: piso_x (Z >= 6, precio/CVDD <= 1,2 o MVRV <= 1), techo (Z <= -3), piso (Z >= 2),
+    rally (precio sobre el costo STH, Mayer > 1 y +10% en 90 dias), si no neutral. r90: retorno de 90 dias (precio / cierre
+    de hace 90 dias - 1). Devuelve {id, z, nc, nv} o None sin zonas. Igual que estadoHoy de la pagina y estadoCiclo de analisis.js."""
+    hoy = int(now_ms // 86400000)
+    vals, nc, nv = {}, 0, 0
+    for e in zonas or []:
+        if not e.get("id") or e["id"] == "fng":
+            continue
+        if e.get("k"):
+            v = price * e["k"]
+        elif e.get("valor") is not None:
+            v = e["valor"]
+        elif e.get("a") is not None:
+            v = math.log10(price) - (e["a"] + e["b"] * math.log10(hoy - e["gen"]))
+        elif e.get("ath") is not None:
+            v = 0 if price >= e["ath"] else hoy - e["ath_dia"]
+        else:
+            continue
+        if not math.isfinite(v):
+            continue
+        vals[e["id"]] = v
+        c, ve = e.get("compra"), e.get("venta")
+        if c is not None and (v >= c if e.get("compra_dir") == ">=" else v <= c):
+            nc += 1
+        elif ve is not None and (v <= ve if e.get("venta_dir") == "<=" else v >= ve):
+            nv += 1
+    if not vals:
+        return None
+    z = nc - nv
+    cvdd, sth, mayer = vals.get("cvdd"), vals.get("sth"), vals.get("mayer")
+    if z >= 6 or (cvdd is not None and cvdd <= 1.2) or (mvrv is not None and mvrv <= 1):
+        i = "piso_x"
+    elif z <= -3:
+        i = "techo"
+    elif z >= 2:
+        i = "piso"
+    elif (sth is None or sth > 1) and mayer is not None and mayer > 1 and r90 is not None and r90 > 0.1:
+        i = "rally"
+    else:
+        i = "neutral"
+    return {"id": i, "z": z, "nc": nc, "nv": nv}
+
+
 def ajuste_funding(md, f7):
     """+1 si el funding promedio de 7 dias es negativo (miedo: compra), -1 si es 0,03% o mas cada 8 h (euforia), 0 si no."""
     fu = (md or {}).get("funding")
@@ -208,6 +253,9 @@ def termometro(closes_d, price, T=None, fng=None, now_ms=None, f7=None):
     temp = sum(p.values()) / len(p)
     z = next(z for z in T["zonas"] if temp < z["hasta"] or z["hasta"] >= 100)
     import time
+    # estado general del ciclo (estado_ciclo): lo lee central() de analisis_btc.py y de analisis.js
+    est = estado_ciclo((T.get("onchain") or {}).get("zonas"), price, now_ms or time.time() * 1000, oc.get("mvrv"),
+                       price / closes_d[-91] - 1 if len(closes_d) > 90 else None)
     y = time.gmtime((now_ms or time.time() * 1000) / 1000).tm_year
     fs = fase(y)
     regla = None
@@ -240,6 +288,8 @@ def termometro(closes_d, price, T=None, fng=None, now_ms=None, f7=None):
             "precio_realizado": round(oc["precio_realizado"], 1) if oc else None,
             "mvrv_z": round(oc["mvrv_z"], 2) if "mvrv_z" in oc else None, "mvrv_banda": mvrv_banda(oc["mvrv_z"]) if "mvrv_z" in oc else None,
             "mvrv_bandas": oc.get("bandas") or [],
+            "estado_id": est["id"] if est else None, "estado_z": est["z"] if est else None,
+            "estado_nc": est["nc"] if est else None, "estado_nv": est["nv"] if est else None,
             "wma200": round(wma, 1), "sobre_wma": round((price / wma - 1) * 100, 1), "caida_ath": round(med["dd_ath"] * 100, 1),
             "ath": round(ath, 1), "ret_anual": round((price / closes_d[-365] - 1) * 100, 1),
             "sube_180": z["sube_180"], "mediana_180": z["mediana_180"], "sube_365": z["sube_365"], "mediana_365": z["mediana_365"],
