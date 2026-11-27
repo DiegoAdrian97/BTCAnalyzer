@@ -119,8 +119,8 @@ más el resto de tus cuentas de BingX en USDT (spot, fondos, grid, copy trading:
 Se lee con las posiciones y se mueve en vivo con el PnL. Si BingX no da una de las dos partes, dice "parcial".
 
 **Widget de iPhone** (pantalla de inicio o de bloqueo): con la app gratis
-[Scriptable](https://apps.apple.com/app/scriptable/id1405459188) y `JavascriptVersion/widget-iphone.js` (en la app:
-Mis posiciones → "Widget de iPhone" → "Copiar el código", y los pasos ahí mismo). Pide `/api/widget`
+[Scriptable](https://apps.apple.com/app/scriptable/id1405459188) y `JavascriptVersion/widget-iphone.js` (ya no está en la
+app: se copia ese archivo a mano en Scriptable; los widgets que ya estaban siguen andando). Pide `/api/widget`
 (`JavascriptVersion/api/widget.js`: solo capital total, PnL no realizado, su % sobre el margen y el de cada cripto) con la
 misma contraseña, que el widget guarda en el llavero del iPhone y manda en un encabezado (nunca en la dirección ni en el
 código). Parámetro del widget: `capital`, `pnl` o vacío. iOS decide cada cuánto se actualiza (en general 5 a 15 min);

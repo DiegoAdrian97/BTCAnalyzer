@@ -1508,19 +1508,6 @@
       if (on) miniPintar();
     });
   }, { passive: true });
-  { const det = document.getElementById('widget-ios'), btn = document.getElementById('widget-copiar');
-    let cod = null, pedido = null;
-    const bajar = () => (pedido = pedido || fetch('widget-iphone.js', { cache: 'no-cache' }).then((r) => r.text()).then((t) => (cod = t)));
-    det.addEventListener('toggle', () => { if (det.open) bajar().catch(() => { pedido = null; }); });
-    btn.addEventListener('click', async () => {
-      try {
-        if (cod) await navigator.clipboard.writeText(cod);
-        else await navigator.clipboard.write([new ClipboardItem({ 'text/plain': bajar().then((t) => new Blob([t], { type: 'text/plain' })) })]);
-        btn.textContent = 'Copiado ✓';
-      } catch (e) { btn.textContent = 'No se pudo copiar: abrí widget-iphone.js'; window.open('widget-iphone.js', '_blank', 'noopener'); }
-      setTimeout(() => { btn.textContent = 'Copiar el código'; }, 3000);
-    });
-  }
   // plazos que no entran: desvanecido en el borde mientras quede algo a la derecha
   { const t = document.getElementById('tfs');
     const ver = () => t.classList.toggle('ab-desliza', t.scrollWidth - t.clientWidth - t.scrollLeft > 4);

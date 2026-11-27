@@ -49,15 +49,15 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
 <script>/* si el estilo no llega (falla de red o un despliegue a medias), se pide de nuevo sin cache: antes quedaba la pagina sin estilo */
 window.abCss = function () { try { var n = (window.abCssN = (window.abCssN || 0) + 1); if (n > 3) return;
-  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'p-9668e2a748.css?r=' + Date.now(); l.onerror = function () { setTimeout(window.abCss, 1500 * n); };
+  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'p-7e6129174e.css?r=' + Date.now(); l.onerror = function () { setTimeout(window.abCss, 1500 * n); };
   document.head.appendChild(l); } catch (e) {} };
 addEventListener('load', function () { try { if (!getComputedStyle(document.documentElement).getPropertyValue('--ab-css')) window.abCss(); } catch (e) {} });</script>
-<link rel="stylesheet" href="p-9668e2a748.css" onerror="abCss()">
-<script>window.AB_PAGINA = "325d8cbe4d";</script>
+<link rel="stylesheet" href="p-7e6129174e.css" onerror="abCss()">
+<script>window.AB_PAGINA = "4a125e0414";</script>
 <script defer src="app.js?v=1a70b083b6"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-f637da4044.js"></script>
+<script defer src="p-bbb27002a9.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -264,16 +264,6 @@ addEventListener('load', function () { try { if (!getComputedStyle(document.docu
     <div class="ab-cmp-grid" id="pos-body"></div>
     <p class="ab-foot" id="pos-bx-nota" hidden></p>
     <p class="ab-foot" id="pos-foot-plan">Precio de equilibrio: la entrada con las comisiones de BingX (y el funding pagado), como el de BingX. Toma de ganancias: cada +40% sobre tu equilibrio, pasar 25% de la posición a spot. Piramidar: cuando sube 15% sobre tu equilibrio, cuánto podés sumar sin plata nueva con la liquidación como mucho en 75% de tu compra más baja.</p>
-    <details class="ab-widget" id="widget-ios">
-      <summary>Widget de iPhone: capital y PnL en la pantalla de inicio o de bloqueo</summary>
-      <ol>
-        <li>Instalá <a href="https://apps.apple.com/app/scriptable/id1405459188" target="_blank" rel="noopener">Scriptable</a> (gratis).</li>
-        <li><button type="button" class="ab-iconbtn" id="widget-copiar">Copiar el código</button> En Scriptable tocá +, pegalo y ponele de nombre "Analista BTC".</li>
-        <li>Tocá ▶ una vez: te pide la contraseña de BingX (la misma de acá) y la guarda en el llavero del iPhone.</li>
-        <li>En la pantalla de inicio o de bloqueo: mantené apretado → Editar → + → Scriptable → elegí "Analista BTC". En "Parameter" poné <b>capital</b>, <b>pnl</b> o dejalo vacío para ver los dos.</li>
-      </ol>
-      <p class="ab-foot">iOS decide cuándo actualizar los widgets (en general cada 5 a 15 minutos), así que no es al segundo como acá; abajo dice hace cuánto se leyó. Tocarlo abre la app.</p>
-    </details>
   </section>
 
   <section class="ab-card ab-mov" id="movimiento" aria-labelledby="mov-t" data-source="analisis" hidden>

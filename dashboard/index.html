@@ -513,7 +513,7 @@
   @media (pointer: coarse) {
     .ab-seg button, .ab-seg.ab-small button, .ab-chipbtn, .ab-iconbtn { min-height: 40px; }
     .ab-iconbtn.ab-round { min-width: 44px; min-height: 44px; }
-    .ab-asset select, .ab-ex-limpiar, #widget-copiar, .ab-ce-p summary { min-height: 44px; }
+    .ab-asset select, .ab-ex-limpiar, .ab-ce-p summary { min-height: 44px; }
   }
   @media (max-width: 700px) { .ab-tm-k { display: none; } }
   /* selector de activo (version JS) */
@@ -1047,14 +1047,7 @@
   /* capital total y widget de iPhone (en Mis posiciones) */
   .ab-pos-cap[hidden] { display: none; }
   .ab-pos-cap b { color: var(--ink); }
-  .ab-widget { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 4px; font-size: 13.5px; }
-  .ab-widget summary { display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; list-style: none; font-weight: 600; }
-  .ab-widget summary::-webkit-details-marker { display: none; }
-  .ab-widget summary::after { content: "⌄"; margin-left: auto; color: var(--mute); transform: translateY(-3px); }
   .ab-widget[open] summary::after { content: "⌃"; transform: translateY(3px); }
-  .ab-widget ol { margin: 4px 0 8px; padding-left: 20px; display: grid; gap: 8px; line-height: 1.45; }
-  .ab-widget a { color: var(--senal); }
-  #widget-copiar { min-height: 36px; margin-right: 6px; }
 
   /* ---------- renovacion "lamina" (nov 2026) ----------
      Radios con jerarquia: hoja 30, tarjetas 22, controles 12, chips redondos. Cifras: Instrument Sans angosta (ancho 85%)
@@ -1116,7 +1109,7 @@
   .ab-ce-c + .ab-ce-c { border-left: 0; }
   .ab-mapa li.en::before { background: color-mix(in srgb, var(--senal) 28%, transparent); }
   /* flechas: una sola, dibujada (antes cuatro caracteres distintos: triangulo, angulo y dos flechitas) */
-  .ab-more summary > span:first-child::before, .ab-exbox summary::after, .ab-ce-p summary::after, .ab-widget summary::after {
+  .ab-more summary > span:first-child::before, .ab-exbox summary::after, .ab-ce-p summary::after {
     content: ""; display: inline-block; flex: none; width: .45em; height: .45em; border: solid var(--mute); border-width: 0 1.6px 1.6px 0;
     transform: translateY(-1px) rotate(-45deg); transition: transform .2s var(--cds-ease-out); font-size: 15px; }
   .ab-more[open] summary > span:first-child::before, .ab-exbox[open] summary::after { transform: translateY(-2px) rotate(45deg); }
@@ -2401,16 +2394,6 @@
     <div class="ab-cmp-grid" id="pos-body"></div>
     <p class="ab-foot" id="pos-bx-nota" hidden></p>
     <p class="ab-foot" id="pos-foot-plan">Precio de equilibrio: la entrada con las comisiones de BingX (y el funding pagado), como el de BingX. Toma de ganancias: cada +40% sobre tu equilibrio, pasar 25% de la posición a spot. Piramidar: cuando sube 15% sobre tu equilibrio, cuánto podés sumar sin plata nueva con la liquidación como mucho en 75% de tu compra más baja.</p>
-    <details class="ab-widget" id="widget-ios">
-      <summary>Widget de iPhone: capital y PnL en la pantalla de inicio o de bloqueo</summary>
-      <ol>
-        <li>Instalá <a href="https://apps.apple.com/app/scriptable/id1405459188" target="_blank" rel="noopener">Scriptable</a> (gratis).</li>
-        <li><button type="button" class="ab-iconbtn" id="widget-copiar">Copiar el código</button> En Scriptable tocá +, pegalo y ponele de nombre "Analista BTC".</li>
-        <li>Tocá ▶ una vez: te pide la contraseña de BingX (la misma de acá) y la guarda en el llavero del iPhone.</li>
-        <li>En la pantalla de inicio o de bloqueo: mantené apretado → Editar → + → Scriptable → elegí "Analista BTC". En "Parameter" poné <b>capital</b>, <b>pnl</b> o dejalo vacío para ver los dos.</li>
-      </ol>
-      <p class="ab-foot">iOS decide cuándo actualizar los widgets (en general cada 5 a 15 minutos), así que no es al segundo como acá; abajo dice hace cuánto se leyó. Tocarlo abre la app.</p>
-    </details>
   </section>
 
   <section class="ab-card ab-mov" id="movimiento" aria-labelledby="mov-t" data-source="analisis" hidden>
@@ -4158,19 +4141,6 @@
       if (on) miniPintar();
     });
   }, { passive: true });
-  { const det = document.getElementById('widget-ios'), btn = document.getElementById('widget-copiar');
-    let cod = null, pedido = null;
-    const bajar = () => (pedido = pedido || fetch('widget-iphone.js', { cache: 'no-cache' }).then((r) => r.text()).then((t) => (cod = t)));
-    det.addEventListener('toggle', () => { if (det.open) bajar().catch(() => { pedido = null; }); });
-    btn.addEventListener('click', async () => {
-      try {
-        if (cod) await navigator.clipboard.writeText(cod);
-        else await navigator.clipboard.write([new ClipboardItem({ 'text/plain': bajar().then((t) => new Blob([t], { type: 'text/plain' })) })]);
-        btn.textContent = 'Copiado ✓';
-      } catch (e) { btn.textContent = 'No se pudo copiar: abrí widget-iphone.js'; window.open('widget-iphone.js', '_blank', 'noopener'); }
-      setTimeout(() => { btn.textContent = 'Copiar el código'; }, 3000);
-    });
-  }
   // plazos que no entran: desvanecido en el borde mientras quede algo a la derecha
   { const t = document.getElementById('tfs');
     const ver = () => t.classList.toggle('ab-desliza', t.scrollWidth - t.clientWidth - t.scrollLeft > 4);
