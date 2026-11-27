@@ -1,0 +1,3 @@
+t,h,precio,sube,min,max,mediana,obj_arriba,obj_abajo,toca_arriba,toca_abajo,primero_arriba,fuerte,prob_fuerte,prob_normal,umbral_fuerte
+1795738800000,3,60565.9,48.1,60432.8,60670.4,60555.8,60670,60470,23.5,28.2,48.7,media,8.1,12.1,1.26
+1795738800000,12,60565.9,48.9,60261.6,60760,60522.7,60670,60470,53.8,67.9,47.2,media,8.1,12.1,1.26
