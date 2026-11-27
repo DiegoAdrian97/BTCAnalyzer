@@ -1,7 +1,7 @@
 {
- "actualizado": 1795743924220,
+ "actualizado": 1795747654127,
  "desde": 1794769200000,
- "hasta": 1795741200000,
+ "hasta": 1795744800000,
  "plazos": [
   {
    "plazo": "5 min",
@@ -13,7 +13,7 @@
    "acierto_fuerte": null,
    "retorno_pb": null,
    "retorno_neto_pb": null,
-   "laterales": 34
+   "laterales": 35
   },
   {
    "plazo": "15 min",
@@ -25,18 +25,18 @@
    "acierto_fuerte": null,
    "retorno_pb": null,
    "retorno_neto_pb": null,
-   "laterales": 34
+   "laterales": 35
   },
   {
    "plazo": "1 hora",
-   "n": 68,
-   "n_ef": 68,
-   "acierto": 52.9,
-   "n_fuerte": 25,
-   "n_ef_fuerte": 25,
-   "acierto_fuerte": 64.0,
-   "retorno_pb": 18.8,
-   "retorno_neto_pb": 8.8,
+   "n": 70,
+   "n_ef": 70,
+   "acierto": 51.4,
+   "n_fuerte": 27,
+   "n_ef_fuerte": 27,
+   "acierto_fuerte": 59.3,
+   "retorno_pb": 17.7,
+   "retorno_neto_pb": 7.7,
    "laterales": 118
   },
   {
@@ -49,7 +49,7 @@
    "acierto_fuerte": 66.7,
    "retorno_pb": -1.0,
    "retorno_neto_pb": -11.0,
-   "laterales": 138
+   "laterales": 139
   },
   {
    "plazo": "1 día",
@@ -61,7 +61,7 @@
    "acierto_fuerte": null,
    "retorno_pb": null,
    "retorno_neto_pb": null,
-   "laterales": 178
+   "laterales": 179
   },
   {
    "plazo": "1 semana",
@@ -81,9 +81,9 @@
    "plazo": "5 min",
    "clave": "indicadores",
    "nombre": "Resumen de indicadores, al revés (4 h o menos)",
-   "n": 28,
-   "n_ef": 28,
-   "acierto": 35.7,
+   "n": 29,
+   "n_ef": 29,
+   "acierto": 34.5,
    "esperado": 53,
    "estado": "pocos"
   },
@@ -101,9 +101,9 @@
    "plazo": "15 min",
    "clave": "indicadores",
    "nombre": "Resumen de indicadores, al revés (4 h o menos)",
-   "n": 29,
-   "n_ef": 29,
-   "acierto": 37.9,
+   "n": 30,
+   "n_ef": 30,
+   "acierto": 36.7,
    "esperado": 53,
    "estado": "pocos"
   },
@@ -121,9 +121,9 @@
    "plazo": "1 hora",
    "clave": "indicadores",
    "nombre": "Resumen de indicadores, al revés (4 h o menos)",
-   "n": 168,
-   "n_ef": 168,
-   "acierto": 47.0,
+   "n": 170,
+   "n_ef": 170,
+   "acierto": 46.5,
    "esperado": 53,
    "estado": "ok"
   },
@@ -131,9 +131,9 @@
    "plazo": "1 hora",
    "clave": "liquidaciones",
    "nombre": "Liquidaciones, al revés",
-   "n": 147,
-   "n_ef": 147,
-   "acierto": 47.6,
+   "n": 149,
+   "n_ef": 149,
+   "acierto": 47.0,
    "esperado": 52.5,
    "estado": "ok"
   },
@@ -149,22 +149,22 @@
   },
   {
    "plazo": "1 hora",
+   "clave": "coinciden",
+   "nombre": "15 min, 1 hora y 4 horas coinciden",
+   "n": 26,
+   "n_ef": 26,
+   "acierto": 46.2,
+   "esperado": 50,
+   "estado": "pocos"
+  },
+  {
+   "plazo": "1 hora",
    "clave": "barrida",
    "nombre": "Barrida de liquidez",
    "n": 25,
    "n_ef": 25,
    "acierto": 44.0,
    "esperado": 53.5,
-   "estado": "pocos"
-  },
-  {
-   "plazo": "1 hora",
-   "clave": "coinciden",
-   "nombre": "15 min, 1 hora y 4 horas coinciden",
-   "n": 24,
-   "n_ef": 24,
-   "acierto": 50.0,
-   "esperado": 50,
    "estado": "pocos"
   },
   {
@@ -311,9 +311,9 @@
    "plazo": "1 día",
    "clave": "liquidaciones",
    "nombre": "Liquidaciones, al revés",
-   "n": 143,
+   "n": 144,
    "n_ef": 6,
-   "acierto": 50.3,
+   "acierto": 50.7,
    "esperado": 52.5,
    "estado": "pocos"
   },
@@ -358,8 +358,8 @@
   {
    "plazo": "1 hora",
    "puntos": "3,5 o más",
-   "n": 25,
-   "acierto": 64.0
+   "n": 27,
+   "acierto": 59.3
   },
   {
    "plazo": "4 horas",
@@ -409,27 +409,27 @@
    "tf": "5m",
    "h": 3,
    "horizonte": "15 min",
-   "n": 3221,
-   "n_ef": 1073.7,
-   "brier": 0.2533,
-   "ventaja_50": -1.32,
-   "ventaja_normal": -0.08,
-   "n_normal": 3221,
-   "n_ef_normal": 1073.7,
+   "n": 3235,
+   "n_ef": 1078.3,
+   "brier": 0.2534,
+   "ventaja_50": -1.38,
+   "ventaja_normal": -0.12,
+   "n_normal": 3235,
+   "n_ef_normal": 1078.3,
    "clima_dias": 26.1,
-   "logloss": 0.6998,
+   "logloss": 0.7001,
    "calibracion": [
     {
      "desde": 20,
      "hasta": 40,
-     "n": 66,
+     "n": 69,
      "prob": 37.4,
-     "real": 51.5
+     "real": 53.6
     },
     {
      "desde": 40,
      "hasta": 60,
-     "n": 3153,
+     "n": 3164,
      "prob": 47.8,
      "real": 54.7
     },
@@ -446,22 +446,22 @@
    "tf": "15m",
    "h": 4,
    "horizonte": "1 hora",
-   "n": 1101,
-   "n_ef": 275.2,
+   "n": 1105,
+   "n_ef": 276.2,
    "brier": 0.2501,
    "ventaja_50": -0.03,
-   "ventaja_normal": 0.3,
-   "n_normal": 1101,
-   "n_ef_normal": 275.2,
+   "ventaja_normal": 0.35,
+   "n_normal": 1105,
+   "n_ef_normal": 276.2,
    "clima_dias": 26.1,
    "logloss": 0.6933,
    "calibracion": [
     {
      "desde": 40,
      "hasta": 60,
-     "n": 1101,
+     "n": 1105,
      "prob": 50.1,
-     "real": 48.3
+     "real": 48.5
     }
    ]
   },
@@ -469,15 +469,15 @@
    "tf": "5m",
    "h": 12,
    "horizonte": "1 hora",
-   "n": 3214,
-   "n_ef": 267.8,
-   "brier": 0.2526,
-   "ventaja_50": -1.05,
-   "ventaja_normal": -0.57,
-   "n_normal": 3214,
-   "n_ef_normal": 267.8,
+   "n": 3226,
+   "n_ef": 268.8,
+   "brier": 0.2527,
+   "ventaja_50": -1.09,
+   "ventaja_normal": -0.56,
+   "n_normal": 3226,
+   "n_ef_normal": 268.8,
    "clima_dias": 26.1,
-   "logloss": 0.6985,
+   "logloss": 0.6987,
    "calibracion": [
     {
      "desde": 20,
@@ -489,9 +489,9 @@
     {
      "desde": 40,
      "hasta": 60,
-     "n": 3107,
+     "n": 3119,
      "prob": 47.9,
-     "real": 49.3
+     "real": 49.4
     },
     {
      "desde": 60,
@@ -506,15 +506,15 @@
    "tf": "30m",
    "h": 4,
    "horizonte": "2 horas",
-   "n": 556,
-   "n_ef": 139.0,
-   "brier": 0.2521,
-   "ventaja_50": -0.84,
-   "ventaja_normal": -0.57,
-   "n_normal": 556,
-   "n_ef_normal": 139.0,
+   "n": 558,
+   "n_ef": 139.5,
+   "brier": 0.252,
+   "ventaja_50": -0.82,
+   "ventaja_normal": -0.51,
+   "n_normal": 558,
+   "n_ef_normal": 139.5,
    "clima_dias": 26.1,
-   "logloss": 0.6975,
+   "logloss": 0.6973,
    "calibracion": [
     {
      "desde": 20,
@@ -526,9 +526,9 @@
     {
      "desde": 40,
      "hasta": 60,
-     "n": 543,
+     "n": 545,
      "prob": 50.7,
-     "real": 46.4
+     "real": 46.6
     },
     {
      "desde": 60,
@@ -543,13 +543,13 @@
    "tf": "15m",
    "h": 16,
    "horizonte": "4 horas",
-   "n": 1091,
-   "n_ef": 68.2,
+   "n": 1094,
+   "n_ef": 68.4,
    "brier": 0.2461,
    "ventaja_50": 1.55,
-   "ventaja_normal": 0.82,
-   "n_normal": 1091,
-   "n_ef_normal": 68.2,
+   "ventaja_normal": 0.84,
+   "n_normal": 1094,
+   "n_ef_normal": 68.4,
    "clima_dias": 26.1,
    "logloss": 0.6854,
    "calibracion": [
@@ -563,9 +563,9 @@
     {
      "desde": 40,
      "hasta": 60,
-     "n": 1063,
+     "n": 1066,
      "prob": 50.0,
-     "real": 42.2
+     "real": 42.3
     },
     {
      "desde": 60,
@@ -581,22 +581,22 @@
    "tf": "1h",
    "h": 4,
    "horizonte": "4 horas",
-   "n": 278,
-   "n_ef": 69.5,
+   "n": 279,
+   "n_ef": 69.8,
    "brier": 0.2505,
    "ventaja_50": -0.18,
-   "ventaja_normal": -1.03,
-   "n_normal": 278,
-   "n_ef_normal": 69.5,
+   "ventaja_normal": -1.11,
+   "n_normal": 279,
+   "n_ef_normal": 69.8,
    "clima_dias": 26.1,
-   "logloss": 0.6941,
+   "logloss": 0.694,
    "calibracion": [
     {
      "desde": 40,
      "hasta": 60,
-     "n": 278,
+     "n": 279,
      "prob": 50.1,
-     "real": 42.1
+     "real": 41.9
     }
    ],
    "pocos": true
@@ -705,22 +705,22 @@
    "tf": "1h",
    "h": 24,
    "horizonte": "1 día",
-   "n": 271,
+   "n": 272,
    "n_ef": 11.3,
-   "brier": 0.2599,
-   "ventaja_50": -3.97,
-   "ventaja_normal": 4.26,
-   "n_normal": 271,
+   "brier": 0.2598,
+   "ventaja_50": -3.91,
+   "ventaja_normal": 4.14,
+   "n_normal": 272,
    "n_ef_normal": 11.3,
    "clima_dias": 26.1,
-   "logloss": 0.7131,
+   "logloss": 0.7128,
    "calibracion": [
     {
      "desde": 40,
      "hasta": 60,
-     "n": 271,
+     "n": 272,
      "prob": 51.7,
-     "real": 43.5
+     "real": 43.4
     }
    ],
    "pocos": true
@@ -815,60 +815,60 @@
    "tf": "5m",
    "h": 3,
    "horizonte": "15 min",
-   "n": 3221,
-   "n_ef": 1073.7,
-   "cobertura": 75.6,
-   "ancho": 0.797,
-   "winkler": 1.421,
-   "factor_80": 1.121,
+   "n": 3235,
+   "n_ef": 1078.3,
+   "cobertura": 75.5,
+   "ancho": 0.796,
+   "winkler": 1.43,
+   "factor_80": 1.125,
    "cobertura_factor": 80.0
   },
   {
    "tf": "15m",
    "h": 4,
    "horizonte": "1 hora",
-   "n": 1101,
-   "n_ef": 275.2,
-   "cobertura": 75.8,
-   "ancho": 1.486,
-   "winkler": 2.965,
-   "factor_80": 1.117,
-   "cobertura_factor": 80.0
+   "n": 1105,
+   "n_ef": 276.2,
+   "cobertura": 75.7,
+   "ancho": 1.484,
+   "winkler": 2.977,
+   "factor_80": 1.125,
+   "cobertura_factor": 80.1
   },
   {
    "tf": "5m",
    "h": 12,
    "horizonte": "1 hora",
-   "n": 3214,
-   "n_ef": 267.8,
-   "cobertura": 78.6,
-   "ancho": 1.592,
-   "winkler": 2.808,
-   "factor_80": 1.05,
+   "n": 3226,
+   "n_ef": 268.8,
+   "cobertura": 78.4,
+   "ancho": 1.589,
+   "winkler": 2.822,
+   "factor_80": 1.054,
    "cobertura_factor": 80.0
   },
   {
    "tf": "30m",
    "h": 4,
    "horizonte": "2 horas",
-   "n": 556,
-   "n_ef": 139.0,
-   "cobertura": 73.6,
-   "ancho": 1.977,
-   "winkler": 4.256,
-   "factor_80": 1.217,
+   "n": 558,
+   "n_ef": 139.5,
+   "cobertura": 73.5,
+   "ancho": 1.976,
+   "winkler": 4.259,
+   "factor_80": 1.22,
    "cobertura_factor": 79.9
   },
   {
    "tf": "15m",
    "h": 16,
    "horizonte": "4 horas",
-   "n": 1091,
-   "n_ef": 68.2,
-   "cobertura": 78.4,
-   "ancho": 3.269,
-   "winkler": 5.563,
-   "factor_80": 1.048,
+   "n": 1094,
+   "n_ef": 68.4,
+   "cobertura": 78.2,
+   "ancho": 3.267,
+   "winkler": 5.561,
+   "factor_80": 1.058,
    "cobertura_factor": 80.0,
    "pocos": true
   },
@@ -876,11 +876,11 @@
    "tf": "1h",
    "h": 4,
    "horizonte": "4 horas",
-   "n": 278,
-   "n_ef": 69.5,
-   "cobertura": 74.5,
-   "ancho": 3.004,
-   "winkler": 5.609,
+   "n": 279,
+   "n_ef": 69.8,
+   "cobertura": 74.6,
+   "ancho": 3.001,
+   "winkler": 5.597,
    "factor_80": 1.179,
    "cobertura_factor": 79.9,
    "pocos": true
@@ -928,11 +928,11 @@
    "tf": "1h",
    "h": 24,
    "horizonte": "1 día",
-   "n": 271,
+   "n": 272,
    "n_ef": 11.3,
-   "cobertura": 77.1,
-   "ancho": 7.867,
-   "winkler": 11.851,
+   "cobertura": 77.2,
+   "ancho": 7.869,
+   "winkler": 11.839,
    "factor_80": 1.086,
    "cobertura_factor": 80.1,
    "pocos": true
