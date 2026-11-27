@@ -1969,6 +1969,7 @@
   .ab-zona-b i.c { background: color-mix(in srgb, var(--color-ok) 55%, transparent); border-radius: 4px 0 0 4px; }
   .ab-zona-b i.c.der { border-radius: 0 4px 4px 0; }
   .ab-zona-b i.v { background: color-mix(in srgb, var(--color-bad) 55%, transparent); border-radius: 0 4px 4px 0; }
+  .ab-zona-b i.v.izq { border-radius: 4px 0 0 4px; }
   .ab-zona-b b { position: absolute; top: -4px; width: 3px; height: 16px; margin-left: -1.5px; border-radius: 2px; background: var(--t2-ink); box-shadow: 0 0 0 1.5px var(--t2-panel, #fff); }
   .ab-zona-z { text-align: right; font-weight: 650; color: var(--t2-mute); }
   .ab-zona-z.compra { color: var(--color-ok); } .ab-zona-z.venta { color: var(--color-bad); }
@@ -2669,6 +2670,12 @@
   // cada indicador: el valor de hoy (con el precio de ahora), su zona de compra y de venta, y lo medido. Marcan zonas
   // (pueden durar meses), no el punto exacto
   let ZONAS_TM = null;
+  // aclaraciones de los indicadores on-chain de looknode y bitcoin-data (medir_zonas3.py)
+  const NOTA_ZONA = {
+    sth: 'Al revés que los otros: el precio por debajo de lo que pagaron los compradores recientes (STH) es mercado bajista.',
+    ganancia: 'Usa el último valor publicado (bitcoin-data), aunque depende del precio: no se recalcula con el precio de ahora.',
+    perdida: 'Contraintuitivo: los picos de pérdida (zona de venta) marcaron las primeras capitulaciones al COMIENZO de los mercados bajistas, y el año siguiente fue peor; las pérdidas muy bajas, en cambio, anticiparon subas.',
+  };
   function zonasHoy() {
     const o = MVRV_T, t = ZONAS_TM, precio = (G.d && G.d.price) || (t && num(t.precio));
     if (!o || o.sin || !precio) return null;
@@ -2683,7 +2690,8 @@
         : e.ath !== undefined ? (precio >= e.ath ? 0 : hoy - e.ath_dia) : null;
       if (v === null || !isFinite(v)) return;
       const fmt = e.id === 'potencia' ? (x) => `${x >= 0 ? '+' : ''}${f0((Math.pow(10, x) - 1) * 100)}%` : e.id === 'dias_max' ? (x) => `${f0(x)} días`
-        : e.id === 'stable' ? (x) => `${x >= 0 ? '+' : ''}${f1(x * 100)}%` : e.id === 'thermocap' ? (x) => f1(x) : (x) => f2(x);
+        : e.id === 'stable' ? (x) => `${x >= 0 ? '+' : ''}${f1(x * 100)}%` : e.id === 'thermocap' ? (x) => f1(x)
+        : e.id === 'ganancia' ? (x) => `${f0(x * 100)}%` : e.id === 'rhodl' ? (x) => f0(x) : e.id === 'asopr' ? (x) => ar.format('.3f')(x) : (x) => f2(x);
       out.push({ ...e, v, fmt });
     });
     // Fear & Greed, con la logica de Diego: cuanto mas miedo, mejor para comprar (miedo extremo <= 25: compra; codicia
@@ -2694,7 +2702,8 @@
     }
     out.forEach((e) => {
       const enCompra = e.compra !== null && e.compra !== undefined && (e.compra_dir === '>=' ? e.v >= e.compra : e.v <= e.compra);
-      e.zona = enCompra ? 'compra' : e.venta !== null && e.venta !== undefined && e.v >= e.venta ? 'venta' : 'neutral';
+      const enVenta = e.venta !== null && e.venta !== undefined && (e.venta_dir === '<=' ? e.v <= e.venta : e.v >= e.venta);
+      e.zona = enCompra ? 'compra' : enVenta ? 'venta' : 'neutral';
     });
     return out;
   }
@@ -2722,7 +2731,11 @@
         if (e.compra_dir === '>=') { z.style.left = pos(e.compra); z.style.right = '0'; } else { z.style.left = '0'; z.style.width = pos(e.compra); }
         bar.append(z);
       }
-      if (e.venta !== null && e.venta !== undefined) { const z = el('i', 'v'); z.style.left = pos(e.venta); z.style.right = '0'; bar.append(z); }
+      if (e.venta !== null && e.venta !== undefined) {
+        const z = el('i', `v${e.venta_dir === '<=' ? ' izq' : ''}`);
+        if (e.venta_dir === '<=') { z.style.left = '0'; z.style.width = pos(e.venta); } else { z.style.left = pos(e.venta); z.style.right = '0'; }
+        bar.append(z);
+      }
       const mk = el('b'); mk.style.left = pos(e.v); bar.append(mk);
       const nom = el('span', 'ab-zona-n', e.nombre.replace(/ \(.*\)$/, '')); nom.title = e.nombre;
       row.append(nom, bar, el('span', `ab-zona-z ${e.zona}`, e.zona === 'compra' ? 'compra' : e.zona === 'venta' ? 'venta' : '—'));
@@ -2730,10 +2743,10 @@
       row.title = `${e.nombre}: hoy ${e.fmt(e.v)}.`
         + (e.nota ? ` Zona de compra hasta ${e.fmt(e.compra)}, de venta desde ${e.fmt(e.venta)}. ${e.nota}`
           : (e.compra_medido ? ` Zona de compra (${e.compra_dir === '>=' ? 'desde' : 'hasta'} ${e.fmt(e.compra)}): ${med(e.compra_medido)}.` : ' Su zona de compra no sirvió (no se muestra).')
-            + (e.venta_medido ? ` Zona de venta (desde ${e.fmt(e.venta)}): ${med(e.venta_medido)}.` : ' Su zona de venta no sirvió.') + ' Un día cualquiera: 60–78%.');
+            + (e.venta_medido ? ` Zona de venta (${e.venta_dir === '<=' ? 'hasta' : 'desde'} ${e.fmt(e.venta)}): ${med(e.venta_medido)}.` : ' Su zona de venta no sirvió.') + ' Un día cualquiera: 60–78%.' + (NOTA_ZONA[e.id] ? ` ${NOTA_ZONA[e.id]}` : ''));
       lista.append(row);
     });
-    const nota = el('p', 'ab-note', 'Indicadores de ciclo que marcan zonas (no el punto exacto: pueden durar meses). Medidos con toda la historia de BTC (2012–2019 y 2020–2025, sin mirar el futuro): estando en la zona de compra, un año después BTC estaba más arriba el 83–100% de las veces; en la de venta, el 0–50%; un día cualquiera, el 60–78%. Verde: zona de compra · rojo: de venta · la marca: hoy. Se volvió a medir todo lo descartado: sumaron los días desde el máximo, el Thermocap, los hash ribbons y la emisión de stablecoins; el Fear & Greed va con tu lógica (miedo = compra) aunque como zona a un año no fue parejo. Quedaron afuera: Delta Price, NVT, stock-to-flow, funding, volatilidad, caída desde el máximo, RSI diario y semanal. Pasá el dedo o el mouse por cada uno para ver lo medido.');
+    const nota = el('p', 'ab-note', 'Indicadores de ciclo que marcan zonas (no el punto exacto: pueden durar meses). Medidos con toda la historia de BTC (2012–2019 y 2020–2025, sin mirar el futuro): estando en la zona de compra, un año después BTC estaba más arriba el 70–100% de las veces; en la de venta, el 0–59%; un día cualquiera, el 60–78%. Verde: zona de compra · rojo: de venta · la marca: hoy. Se volvió a medir todo lo descartado: sumaron los días desde el máximo, el Thermocap, los hash ribbons y la emisión de stablecoins y siete on-chain (CVDD, precio balanceado, RHODL, % de la oferta en ganancia, precio realizado de corto plazo, aSOPR y pérdida realizada); el Fear & Greed va con tu lógica (miedo = compra) aunque como zona a un año no fue parejo. Quedaron afuera: SOPR, aSOPR de 7 días, netflow de exchanges, Delta Price, NVT, stock-to-flow, funding, volatilidad, caída desde el máximo, RSI diario y semanal. Pasá el dedo o el mouse por cada uno para ver lo medido.');
     const det = el('details', 'ab-pos-det'); det.append(el('summary', '', 'ⓘ Cómo se lee'), nota);
     box.replaceChildren(el('p', 'ab-tm-sec', 'Zonas del ciclo'), cab, lista, det);
   }
@@ -9319,6 +9332,21 @@
     [/^15 min, 1 hora y 4 horas/, 'app', 'Temporalidades alineadas', '15 minutos, 1 hora y 4 horas apuntan para el mismo lado.', null, null, 'Medido en BTC: así la de 1 hora acierta 54% contra 51,5%.'],
     [/^(Termómetro|Ciclo$|Ciclo \(meses\)|Ciclo de BTC)/, 'app', 'Termómetro del ciclo', 'Dónde está BTC en su ciclo de varios años, mirando cuán lejos está de sus promedios largos, el miedo del mercado y el funding.',
       'Zona de compra: históricamente, buen momento para comprar a meses.', 'Zona de venta: históricamente cerca de techos de ciclo.', 'Es para semanas o meses, no para las próximas horas.'],
+    // ----- zonas del ciclo: on-chain (looknode y bitcoin-data), medidas con medir_zonas3.py -----
+    [/^CVDD/, 'app', 'CVDD (precio / CVDD)', 'Valor realizado de las monedas por el tiempo que llevan quietas: una línea de piso de los grandes mínimos. Se muestra el precio dividido esa línea.',
+      'Precio hasta 1,2 veces la línea: zona de compra. A un año BTC estaba más arriba el 100% de las veces (2012–19 y 2020–25).', null, 'Casi no tiene zona de venta que sirva. Marca zonas de meses, no el día exacto.'],
+    [/^Precio balanceado/, 'app', 'Precio balanceado (precio / balanced price)', 'Una línea de valor justo on-chain que mezcla el precio realizado con el de las monedas quietas. Se muestra el precio dividido esa línea.',
+      'En el 10% más bajo de su historia: zona de compra. A un año subió el 96–100% de las veces.', 'En el 10% más alto: zona de venta. A un año subió solo el 29–34%.', 'Son zonas de meses: pueden seguir un buen tiempo.'],
+    [/^RHODL/, 'app', 'RHODL (plata de 1 semana contra 1–2 años)', 'Compara cuánta plata on-chain se movió hace una semana con la que lleva 1 o 2 años quieta. Alto: plata nueva y entusiasmo; bajo: manos viejas y poco apuro.',
+      'En el 15% más bajo de su historia: zona de compra. A un año subió el 99–100% de las veces.', null, 'Sin zona de venta que sirva. La escala cambia por era: por eso se mira contra su propia historia.'],
+    [/^% de la oferta en ganancia/, 'app', '% de la oferta en ganancia', 'Qué parte de todos los BTC vale hoy más que cuando se movieron por última vez.',
+      'Menos de la mitad en ganancia (0,5 o menos): zona de compra. A un año subió el 91–100% de las veces.', null, 'Usa el último valor publicado (bitcoin-data, gratis y con límite de pedidos): no se recalcula con el precio de ahora.'],
+    [/^Precio realizado de corto plazo/, 'app', 'Precio realizado de corto plazo (STH)', 'El costo promedio de los que compraron hace menos de unos 5 meses (tenedores de corto plazo). Se muestra el precio dividido ese costo.',
+      null, 'Precio por debajo de lo que pagaron los compradores recientes, en el 15% más bajo de su historia: zona de venta (mercado bajista). A un año subió solo el 33–45% de las veces.', 'Al revés que los demás: acá "bajo" es la zona de venta.'],
+    [/^aSOPR/, 'app', 'aSOPR (30 días)', 'Ganancia o pérdida con la que se gastan las monedas, ajustada sin las que se mueven en menos de una hora. Más de 1: se vende con ganancia. Se muestra el promedio de 30 días.',
+      null, 'En el 15% más alto de su historia: zona de venta. A un año subió el 22–46% de las veces.', 'Sin zona de compra que sirva. El aSOPR de 7 días no pasó la medición: empeoraba el conjunto.'],
+    [/^Pérdida realizada/, 'app', 'Pérdida realizada (pico de 7 días contra el año)', 'Cuánta pérdida se concretó en la última semana, contra lo normal del último año.',
+      'Pérdidas muy bajas (10% más bajo): zona de compra. A un año subió el 90–92% de las veces.', 'Pico de pérdidas (10% más alto): zona de venta, a un año subió el 44–59%.', 'Contraintuitivo: las primeras capitulaciones llegaron al comienzo de los mercados bajistas, y el año siguiente fue peor.'],
     [/^(Ventaja sobre lo normal|Ventaja$)/, 'app', 'Ventaja sobre lo normal', 'Cuánto mejor acierta la app que una regla tonta (decir siempre lo que pasa más seguido), medido en predicciones ya cerradas.', null, null, '0% = igual que lo normal. Lo positivo es ventaja real.'],
     [/^Acierta qué toca primero/, 'app', 'Acierto de "qué toca primero"', 'De las veces que la app dijo qué lado tocaba primero, en cuántas acertó.'],
     [/^Cuando se anima/, 'app', 'Cuando se anima', 'Cómo le va cuando se anima a dar una dirección clara (no "sin dirección").'],

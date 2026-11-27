@@ -129,6 +129,51 @@ def onchain():
     return out
 
 
+def onchain_extra():
+    """Series de looknode (gratis, sin clave) y supply-profit de bitcoin-data para las zonas del ciclo (zonas_ciclo.py).
+    Todo es opcional: lo que no baje se omite (devuelve solo lo bajado), nunca rompe la corrida semanal. Solo hasta ayer
+    (se publica al dia siguiente). bitcoin-data limita a 10 pedidos por hora y 15 por dia: UN pedido por corrida."""
+    out, ayer = {}, date.today() - timedelta(days=1)
+    cab = {"User-Agent": UA, "Referer": "https://www.looknode.com/zh/chart/", "Accept": "application/json"}
+    for id_, campo in (("CVDD", "v"), ("balancedPrice", "v"), ("rhodl", "v"), ("sthCostPriceV2", "v2"), ("ASOPR", "v"), ("realizedLos", "v")):
+        try:
+            j = json.loads(urllib.request.urlopen(urllib.request.Request(f"https://www.looknode.com/api/{id_}", headers=cab), timeout=90).read())
+            if j.get("code") != 100:
+                raise ValueError(f"code {j.get('code')}")
+            rows = {}
+            for r in j.get("data") or []:
+                try:
+                    t, v = float(r["t"]), r.get(campo)
+                    d = datetime.fromtimestamp(t / 1000 if t > 1e11 else t, timezone.utc).date()
+                    if v is not None and d <= ayer:
+                        rows[d.isoformat()] = float(v)
+                except (KeyError, TypeError, ValueError):
+                    continue
+            if len(rows) < 365:
+                raise ValueError(f"solo {len(rows)} filas")
+            out[f"lk_{id_}"] = sorted(rows.items())
+            print(f"looknode {id_}: {len(rows)} días hasta {max(rows)}")
+        except Exception as e:
+            print(f"(looknode {id_}: {type(e).__name__}: {e})")
+        time.sleep(1)
+    try:
+        txt = urllib.request.urlopen(urllib.request.Request("https://bitcoin-data.com/v1/supply-profit/csv", headers={"User-Agent": UA}), timeout=90).read().decode("utf-8", "replace")
+        rows = {}
+        for r in csv.reader(io.StringIO(txt)):     # d, unixTs, supplyProfitBtc
+            try:
+                if r[0][:4].isdigit() and date.fromisoformat(r[0][:10]) <= ayer:
+                    rows[r[0][:10]] = float(r[2])
+            except (IndexError, ValueError):
+                continue
+        if len(rows) < 365:
+            raise ValueError(f"solo {len(rows)} filas (¿límite de pedidos?)")
+        out["bg_supplyProfit"] = sorted(rows.items())
+        print(f"supply-profit: {len(rows)} días hasta {max(rows)}")
+    except Exception as e:
+        print(f"(supply-profit: {type(e).__name__}: {e})")
+    return out
+
+
 if __name__ == "__main__":
     B, E = velas(), eventos()
     assert len(B) > 40000, f"pocas velas: {len(B)}"
@@ -148,6 +193,7 @@ if __name__ == "__main__":
     oc = onchain()
     # los de BTC vienen desde 2010; las stablecoins, desde 2015 (USDT) y 2018 (USDC)
     assert all(len(v) > (2500 if k.startswith(("cm_usdt", "cm_usdc")) else 5000) for k, v in oc.items()), "datos on-chain incompletos"
+    oc.update(onchain_extra())         # opcional: sin estas series, esas zonas no se muestran
     json.dump(oc, open("onchain.json", "w"))
     # las criptos con modelo propio de movimiento fuerte (entrenar_fuerte.py --moneda)
     for mon in ("SOL", "XRP", "ZEC"):

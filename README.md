@@ -968,8 +968,26 @@ menos. CoinMetrics y Fear & Greed, gratis.
 | Thermocap con la emisión (percentil ≥ 85) | — | 17–50% |
 | Hash ribbons (percentil ≤ 10: mineros capitulando) | 70–100% | — |
 | Emisión de stablecoins a 90 días (percentil ≤ 10: casi no se emiten) | +28 a +34 puntos (2019–21 y 2022–25) | — |
+| CVDD (precio / CVDD ≤ 1,2) | 100% | — |
+| Precio balanceado (precio / balanced price, percentil ≤ 10 / ≥ 90) | 96–100% | 29–34% |
+| RHODL, plata de 1 semana contra 1–2 años (percentil ≤ 15) | 99–100% | — |
+| % de la oferta en ganancia (≤ 0,5) | 91–100% | — |
+| Precio realizado de corto plazo, STH (percentil ≤ 15: el precio bajo el costo de los compradores recientes) | — | 33–45% (mercado bajista) |
+| aSOPR de 30 días (percentil ≥ 85) | — | 22–46% |
+| Pérdida realizada, pico de 7 días contra el año (percentil ≤ 10 / ≥ 90) | 90–92% | 44–59% (contraintuitivo: las primeras capitulaciones llegaron al comienzo de los mercados bajistas y el año siguiente fue peor) |
 | Fear & Greed (≤ 25 / ≥ 75), con la lógica "miedo = compra" | a 30 días, 57–64% en 3 de 4 tramos (normal 48–58%); a un año, no parejo (2022: siguió bajando meses) | sin patrón |
 | Delta Price, NVT por emisión, stock-to-flow, funding, volatilidad de 90 días, caída desde el máximo, RSI diario y semanal | no separaron o empeoraron el conjunto | |
+
+Las siete de arriba de CVDD en adelante son on-chain y salen de `medir_zonas3.py` (regla: en la zona de compra BTC estaba
+arriba un año después 10 puntos más seguido que un día cualquiera en 2012–19 **y** en 2020–25; en la de venta, 10 puntos
+menos; y sumarla al puntaje de zonas no empeora el AUC). Fuentes gratis y sin clave: looknode (CVDD, precio balanceado,
+RHODL, aSOPR, STH `sthCostPriceV2`, pérdida realizada) y bitcoin-data.com (oferta en ganancia, dividida por la oferta de
+CoinMetrics; límite de 10 pedidos por hora y 15 por día: **un** pedido por corrida semanal, y si falla queda el último valor
+publicado o se omite). Si looknode no responde, esas zonas no se muestran: el reentrenamiento y la página siguen. El STH es la
+única zona de venta "al revés" (precio *bajo* su costo). No pasaron: SOPR y aSOPR de 7 días y el netflow de exchanges
+(empeoran el puntaje); SOPR de 30 días, HODL waves de monedas jóvenes, picos de ganancia realizada, atención de Wikipedia,
+reservas de exchanges, SSR, VIX y VIX/VIX3M (no separaron en los dos tramos); las otras líneas de costo STH son variantes de
+la misma; la liquidez neta no se pudo completar de forma confiable.
 
 Las cuatro de "lo descartado, otra vez" salen de `medir_zonas2.py`: además de servir solas, sumadas al puntaje de las
 zonas (cuántas marcan compra menos venta) no lo empeoran (días desde el máximo lo mejora: AUC a un año 0,715 → 0,789 en
