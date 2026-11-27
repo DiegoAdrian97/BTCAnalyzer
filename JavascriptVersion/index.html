@@ -49,15 +49,15 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
 <script>/* si el estilo no llega (falla de red o un despliegue a medias), se pide de nuevo sin cache: antes quedaba la pagina sin estilo */
 window.abCss = function () { try { var n = (window.abCssN = (window.abCssN || 0) + 1); if (n > 3) return;
-  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'p-e49984ea1d.css?r=' + Date.now(); l.onerror = function () { setTimeout(window.abCss, 1500 * n); };
+  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'p-ef9e70d5ba.css?r=' + Date.now(); l.onerror = function () { setTimeout(window.abCss, 1500 * n); };
   document.head.appendChild(l); } catch (e) {} };
 addEventListener('load', function () { try { if (!getComputedStyle(document.documentElement).getPropertyValue('--ab-css')) window.abCss(); } catch (e) {} });</script>
-<link rel="stylesheet" href="p-e49984ea1d.css" onerror="abCss()">
-<script>window.AB_PAGINA = "8dfff0b5c6";</script>
+<link rel="stylesheet" href="p-ef9e70d5ba.css" onerror="abCss()">
+<script>window.AB_PAGINA = "048b85142b";</script>
 <script defer src="app.js?v=1a70b083b6"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-546cb5b061.js"></script>
+<script defer src="p-aad8fbea54.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -278,18 +278,13 @@ addEventListener('load', function () { try { if (!getComputedStyle(document.docu
 
   <section class="ab-card ab-mov" id="movimiento" aria-labelledby="mov-t" data-source="analisis" hidden>
     <div class="ab-card-head"><h2 id="mov-t">Movimiento en la próxima hora</h2><span class="ab-kicker" id="mov-k"></span></div>
-    <div class="ab-apr-top">
+    <div class="ab-apr-top ab-mov-top">
       <div class="ab-apr-stat"><small>Mercado</small><b id="mov-nivel">—</b><span id="mov-vol"></span></div>
-      <div class="ab-apr-stat"><small>Chance de movimiento fuerte</small><b id="mov-prob">—</b><span id="mov-base"></span></div>
-      <div class="ab-apr-stat"><small>Rango esperado</small><b id="mov-rango">—</b><span id="mov-normal"></span></div>
+      <div class="ab-apr-stat ab-mov-g" id="mov-g"><small>Chance de movimiento fuerte</small><b id="mov-prob">—</b><span id="mov-base"></span>
+        <span class="ab-mov-bar" id="mov-bar" role="img"><i id="mov-bar-f"></i><u id="mov-bar-n"></u></span></div>
     </div>
     <p class="ab-mov-dato" id="mov-dato" hidden></p>
     <p class="ab-mov-dato ab-comp" id="mov-comp" hidden></p>
-    <div class="ab-horas" id="mov-horas" hidden data-where="tabla=horas">
-      <p class="ab-horas-t" id="mov-horas-t"></p>
-      <div class="ab-horas-b" id="mov-horas-b" role="img"></div>
-      <div class="ab-horas-x"><span id="mov-horas-0"></span><span id="mov-horas-12"></span><span id="mov-horas-23"></span></div>
-    </div>
     <p class="ab-note" id="mov-txt"></p>
   </section>
 
@@ -343,12 +338,14 @@ addEventListener('load', function () { try { if (!getComputedStyle(document.docu
       <div class="ab-apr-stat"><small>Acierta qué toca primero</small><b id="apr-og">—</b><span id="apr-og-n"></span></div>
       <div class="ab-apr-stat"><small>Cuando se anima</small><b id="apr-br">—</b><span id="apr-br-n"></span></div>
     </div>
-    <p class="ab-note" id="apr-txt"></p>
     <div class="ab-apr-chart" id="apr-chart"></div>
     <div class="ab-legend" id="apr-legend"></div>
+    <details class="ab-apr-det" id="apr-det"><summary>Detalle: pesos, ¿probabilidades honestas? y por plazo</summary>
+    <p class="ab-note" id="apr-txt"></p>
     <div id="apr-cal"></div>
     <div class="ab-tbl-box"><table class="ab-tbl" id="apr-tbl"><thead><tr><th>Plazo</th><th class="r">Ventaja</th><th class="r">Original</th><th class="r" title="Cuánto estira (más de 1) o achica (menos de 1) sus probabilidades después de repasar sus predicciones">Ajuste</th></tr></thead><tbody></tbody></table></div>
     <p class="ab-note">Cada vez que cierra una vela, el analista repasa sus últimas 1.000 predicciones de cada plazo (cada una hecha solo con lo que se sabía en ese momento) y las compara con lo que pasó. Trabaja con un equipo: 8 formas de buscar situaciones parecidas, un modelo que aprende solo con cada vela (movimientos, medias, RSI, MACD, Bollinger, volatilidad, volumen y hora del día) y "lo normal", que es decir siempre lo que pasa en general. Con cada resultado baja el peso de los que se equivocaron y sube el de los que acertaron; si las probabilidades del equipo venían exageradas, las modera. Un resultado se usa para aprender recién cuando se conoce, y cada predicción se juzga con lo que había antes, así la medición es honesta. La <b>ventaja</b> es cuánto menos se equivoca que lo normal (0% = no sabe más que lo normal). El margen de error de los aciertos cuenta que las predicciones que se pisan comparten resultado: a 1 hora, 1.000 predicciones valen como 80 independientes. En BTC, a estos plazos, una ventaja de 1% sostenida ya es mucha.</p>
+    </details>
   </section>
 
   <div class="ab-more-list" id="mas-detalle">
@@ -358,16 +355,8 @@ addEventListener('load', function () { try { if (!getComputedStyle(document.docu
       <summary><span>Calendario económico</span><span class="ab-kicker" id="cal-prox"></span></summary>
       <div class="ab-more-body"><div class="ab-cal-list" id="cal-list"></div></div>
     </details>
-    <details class="ab-more" id="probabilidades" data-source="analisis">
-      <summary><span>Probabilidad de tocar cada precio</span><span class="ab-kicker" id="prob-tf"></span></summary>
-      <div class="ab-more-body">
-        <p class="ab-pred-when" id="prob-when">—</p>
-        <div class="ab-ladder" id="ladder"></div>
-        <p class="ab-note" id="prob-foot"></p>
-      </div>
-    </details>
     <details class="ab-more" id="senales" data-source="analisis">
-      <summary><span>Qué está pasando ahora: flujo, posicionamiento y libros de órdenes</span></summary>
+      <summary><span>Qué está pasando ahora: flujo, posicionamiento y libros de órdenes</span><span class="ab-kicker" id="sen-res"></span></summary>
       <div class="ab-more-body">
         <div class="ab-lib" id="libro-ahora" hidden></div>
         <div class="ab-tiles" id="tiles"></div>
@@ -376,38 +365,28 @@ addEventListener('load', function () { try { if (!getComputedStyle(document.docu
       </div>
     </details>
     <p class="ab-note" id="ctx-vacio" hidden>Sin noticias ni eventos relevantes ahora</p>
-    <details class="ab-more" id="niveles" data-source="analisis">
-      <summary><span>Niveles clave a escala</span></summary>
-      <div class="ab-more-body">
-        <div class="ab-levels" id="levels"></div>
-        <button type="button" class="ab-iconbtn" id="lv-mas" hidden></button>
-        <p class="ab-note">Arriba, resistencias; abajo, soportes. Pivotes del día, Fibonacci de 90 días (4 h, con cuánto rebotó cada nivel), medias de 200 días, muros en los libros y zonas de liquidación estimadas.</p>
-      </div>
-    </details>
     <details class="ab-more" id="ondas" data-source="analisis">
       <summary><span>Patrones, divergencias, ondas de Elliott y FVG</span><span class="ab-kicker" id="ond-tf"></span></summary>
       <div class="ab-more-body">
         <div class="ab-pats" id="pats" data-source="analisis"></div>
-        <span class="ab-kicker">Ondas de Elliott</span>
-        <p class="ab-wave-big" id="wave" data-source="analisis" data-field="elliott">—</p>
-        <span class="ab-target" id="wave-target"></span>
-        <span class="ab-kicker">Zonas FVG sin llenar</span>
-        <div class="ab-fvgs" id="fvgs"></div>
-        <p class="ab-note">Las figuras y el conteo de Elliott se detectan solos sobre los giros del precio. Un FVG es un hueco que el precio dejó sin operar y al que suele volver.</p>
+        <div class="ab-wave-row">
+          <span class="ab-kicker" title="Las figuras y el conteo de Elliott se detectan solos sobre los giros del precio.">Elliott</span>
+          <p class="ab-wave-big" id="wave" data-source="analisis" data-field="elliott">—</p>
+          <span class="ab-target" id="wave-target"></span>
+        </div>
+        <div class="ab-wave-row">
+          <span class="ab-kicker" title="Un FVG es un hueco que el precio dejó sin operar y al que suele volver.">FVG sin llenar</span>
+          <div class="ab-fvgs" id="fvgs"></div>
+        </div>
       </div>
     </details>
     <details class="ab-more" id="indicadores" data-source="analisis">
       <summary><span>Todos los indicadores</span><span class="ab-kicker" id="ind-tf"></span></summary>
       <div class="ab-more-body">
-        <p class="ab-note">"Señal" es lo que dice cada indicador con su regla de siempre (la de TradingView). "Medido" es lo que pasó de verdad después, con BTC 2021–2026: en 15 min, 1 h y 4 h casi ninguno anticipa a favor, y los de tendencia (medias, Ichimoku, VWAP, OBV, Bull Bear Power) suelen ir <b>al revés</b>: el precio corrige. Por eso la predicción los cuenta al revés en 4 h o menos.</p>
         <div class="ab-votes" id="votes"></div>
+        <div class="ab-ind-ley" id="ind-ley" title='"Señal" es lo que dice cada indicador con su regla de siempre (la de TradingView). "Medido" es lo que pasó de verdad después, con BTC 2021–2026: en 15 min, 1 h y 4 h casi ninguno anticipa a favor, y los de tendencia (medias, Ichimoku, VWAP, OBV, Bull Bear Power) suelen ir al revés: el precio corrige. Por eso la predicción los cuenta al revés en 4 h o menos.'><span class="up">▲ alcista</span><span class="dn">▼ bajista</span><span>◆ neutral</span><span title="Medido: el precio fue para el lado contrario de lo que marca">↺ al revés</span><span title="Medido: el precio fue para el lado que marca">✓ a favor</span></div>
         <button type="button" class="ab-chipbtn ab-ind-todas" id="ind-todas" aria-pressed="false" hidden>Ver todas</button>
-        <div class="ab-tbl-box">
-          <table class="ab-tbl" id="ind-table" data-source="analisis" data-row-key="tf,indicador">
-            <thead><tr><th data-field="indicador">Indicador</th><th data-field="valor" class="r">Valor</th><th data-field="senal">Señal</th><th data-field="medido" title="Medido con BTC 2021–2026: si el precio fue para el lado que marca el indicador">Medido</th><th data-field="detalle">Detalle</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
+        <div class="ab-ind-grid" id="ind-grid" data-source="analisis" data-row-key="tf,indicador"></div>
       </div>
     </details>
     <details class="ab-more" id="aciertos" data-source="analisis">

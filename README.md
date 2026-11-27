@@ -282,6 +282,17 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
   plazos para cambiarla. "Ver el análisis completo" abre 6 partes (cómo se llegó a la dirección, cuánto se puede mover,
   niveles, qué está pasando, cuánto le creo y herramientas), cerradas, cada una con su resumen en una línea y un
   índice para saltar. Las tarjetas de siempre viven adentro de esas partes (sin repetir la conclusión).
+  **Versión visual** (nov. 2026): cada parte son fichas, barras y chips con a lo sumo una o dos líneas de texto; las
+  frases largas van en el tooltip (`title`, que la página convierte en su cartel propio: mouse, toque largo o foco).
+  1: resultado en una línea, chips de corto plazo y ciclo, pastilla "78/100 casos en vivo" y nube de señales (a favor
+  en verde, en contra en rojo; la frase entera en el tooltip). 2: mercado, chance de movimiento fuerte con la marca de
+  "lo normal" y el próximo dato fuerte de EE.UU. (sin el rango esperado ni la tabla de horas: el rango ya está en la
+  tarjeta). 3: una sola escalera de precios con distancia y barra de probabilidad de tocar cada nivel (pivotes, POC,
+  muros, mín/máx, objetivos; los precios casi iguales van juntos). 4: tres fichas de cambio (1 h, 4 h, 24 h), causas en
+  chips, 3 noticias de una línea ("Ver todas" para el resto), calendario con solo los datos que mueven a BTC ("Ver
+  todo" para el resto) y el flujo en fichas de 2 columnas o más. 5: una ficha con lo medido en vivo, tres cifras del
+  aprendizaje y el gráfico; el resto, en "Detalle"; "¿Viene acertando?" oculta los plazos con menos de 10 casos.
+  6: figuras de una línea, indicadores en chips (▲/▼/◆ y ↺ al revés o ✓ a favor, según lo medido).
 - **Una sola conclusión por plazo** (nov. 2026): todo lo que nombra una dirección sale de la fila `central` del plazo
   que estás mirando (casos parecidos, indicadores como cuentan medidos, patrones, flujo, liquidaciones, RSI, ciclo): la
   respuesta, las fichas "a favor de la suba / de la baja" (lo que más pesa de cada lado), la frase, el resumen de la
@@ -322,7 +333,7 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
   dirección del plazo elegido y el nivel más cercano cada 5, 15, 30 o 60 min, y además cuando cambia la dirección o el
   precio se mueve más de 1 %. Usa la voz del sistema (sin red ni costo); se apaga al salir de ese modo. Coinglass, Hyblock, Kingfisher y TradingDifferent no publican sus datos (API paga);
   Coinalyze tiene una API gratis con clave (se puede sumar). Prueba: `node pruebas/liquidaciones.js`.
-- **Calendario: lo que viene** ("Más detalle"): solo lo futuro, en hora de Argentina: datos de EE.UU. de importancia alta
+- **Calendario: lo que viene** (parte 4; muestra solo los datos fuertes y "Ver todo" abre la tabla completa): solo lo futuro, en hora de Argentina: datos de EE.UU. de importancia alta
   (TradingView, por `api/contexto`) y lo propio de las criptos (vencimientos de opciones de Deribit, semanal, mensual y
   trimestral; cierres de vela semanal y mensual), con cuánto se movió BTC esas horas (lo medido 2021-2026).
 - **Confianza ahora** (en la predicción, donde antes decía "Aprendizaje"): de las predicciones pasadas del plazo (servidor
@@ -351,7 +362,7 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
 - **Más livianos**: el plan de compras pide solo los días desde el plan (con `limit=1500` Binance cobraba 10 de peso
   por pedido, 4 criptos cada 15 s); el panel de activos sin WebSocket pide todos los precios en un pedido (antes 16).
 - **Esqueletos de carga**: mientras llega el primer análisis, bloques grises con brillo en la predicción, el sesgo y
-  el gráfico. **Dibujo perezoso**: los desplegables cerrados (probabilidades, señales, niveles, ondas, indicadores,
+  el gráfico. **Dibujo perezoso**: los desplegables cerrados (señales, ondas, indicadores,
   aciertos) no se dibujan en cada análisis, sino al abrirlos; "Cómo viene aprendiendo" solo si cambió.
   Las filas del análisis se indexan por tabla una vez (antes cada búsqueda recorría ~3.000 filas, ~60 veces).
 - **Análisis 2 veces más rápido** (mismo resultado, fila por fila): en regimen pasó de ~450–600 ms a ~250 ms por

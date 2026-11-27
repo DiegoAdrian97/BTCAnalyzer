@@ -777,7 +777,6 @@
     drawCompras();
     drawLearningSiCambia(rows);
     drawChart(rows, sum);
-    document.getElementById('prob-tf').textContent = `a ${S.plazo}`;
     document.getElementById('ond-tf').textContent = TF_TXT[S.tf]; document.getElementById('ind-tf').textContent = TF_TXT[S.tf];
     limpiarContexto(rows); plegarNotas();
     Object.keys(PEREZOSOS).forEach(perezoso);
@@ -839,34 +838,78 @@
     bloque('ce-dir', c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '', '¿Para dónde?', [
       vTira(c.a_favor, c.en_contra),
       okv(c.primero_arriba) ? vMedidor(num(c.primero_arriba), 50, 'toca primero arriba', null, num(c.primero_arriba) >= 50 ? 'up' : 'dn') : null], [lista('direccion')]);
-    // 3. mapa de precios: rango, objetivos y niveles en una escalera, con el precio de ahora en su lugar
-    const ahora = sum && okv(sum.precio) ? num(sum.precio) : null;
-    const pts = [];
-    const pon = (v, txt, cls) => { if (okv(v)) pts.push({ p: num(v), txt, cls }); };
-    pon(c.rango_max, 'techo del rango', 'borde'); pon(c.rango_min, 'piso del rango', 'borde');
-    pon(c.obj_arriba, `objetivo ▲${okv(c.toca_arriba) ? ` · ${f0(num(c.toca_arriba))}%` : ''}`, 'obj sube');
-    pon(c.obj_abajo, `objetivo ▼${okv(c.toca_abajo) ? ` · ${f0(num(c.toca_abajo))}%` : ''}`, 'obj baja');
-    pon(c.resistencia, 'resistencia', 'nivel'); pon(c.soporte, 'soporte', 'nivel');
-    pon(c.elliott_objetivo, 'objetivo de Elliott', 'obj');
-    if (ahora) pts.push({ p: ahora, txt: 'ahora', cls: 'ahora' });
-    pts.sort((a, b) => b.p - a.p);
-    const lo = okv(c.rango_min) ? num(c.rango_min) : -Infinity, hi = okv(c.rango_max) ? num(c.rango_max) : Infinity;
-    const mapa = el('ol', 'ab-mapa');
-    pts.forEach((x) => {
-      const li = el('li', `${x.cls}${x.p >= lo && x.p <= hi && okv(c.rango_min) ? ' en' : ''}`);
-      li.append(el('b', '', fp(x.p)), el('span', '', x.txt), el('i', '', x.cls === 'ahora' || !ahora ? '' : sg((x.p / ahora - 1) * 100, Math.abs(x.p / ahora - 1) < 0.01 ? 2 : 1)));
-      mapa.append(li);
-    });
-    const mb = document.getElementById('ce-mapa'); mb.className = 'ab-ce-p ab-ce-mapa';
-    mb.replaceChildren(el('h3', '', '¿Hasta dónde? · niveles'), mapa,
-      (() => { const f = el('div', 'ab-v-fichas');
-        f.append(...[okv(c.rango_min) ? vFicha('▮ 8 de 10 cierran en el rango', 'rng', 'La franja: 8 de cada 10 veces el precio terminó entre el piso y el techo') : vFicha('sin rango medido'),
-          okv(c.esperado_usd) ? vFicha(`↕ ~${num(c.esperado_usd) >= 100 ? f0(num(c.esperado_usd)) : fp(num(c.esperado_usd))} USD`, '', 'Lo que suele moverse en el plazo') : null,
-          c.invalida ? vFicha('⚑ cuándo cambia', 'warn', c.invalida) : null].filter(Boolean)); return f; })());
+    // 3. UNA sola escalera de precios (ver drawEscalera): objetivos, rango, resistencia/soporte y niveles clave
+    NIV_ULT = [rows, sum, c]; drawEscalera(rows, sum, c);
     // 5. riesgo
     const rz = document.getElementById('ce-riesgo');
     rz.hidden = !c.riesgo.length;
     rz.replaceChildren(el('b', '', '⚠ Atención: '), c.riesgo.join(' · '));
+  }
+
+  // ---------- la escalera de precios: antes eran tres listas (objetivos, niveles clave y probabilidad de tocar cada precio) ----------
+  // Una sola, de mayor a menor precio: cada fila dice qué es (objetivo, pivote, POC, muro, mín/máx…), a cuánto está y, si se midió, la
+  // probabilidad de tocarlo (barra). Los precios casi iguales (menos de 0,04%) van juntos en una fila; el nombre completo, en el title.
+  let NIV_TODOS = false, NIV_ULT = null;
+  const nivelTag = (n) => {
+    let m;
+    if (/^Pivote/i.test(n)) return n.replace(/^Pivote\s*/i, 'pivote ').trim();
+    if (/POC/.test(n)) return 'POC';
+    if (/borde del perfil/.test(n)) return n.includes('VAH') ? 'borde del perfil ▲' : 'borde del perfil ▼';
+    if (/^Muro/i.test(n)) return /venta/i.test(n) ? 'muro de venta' : 'muro de compra';
+    if (/^Liquidaciones/i.test(n)) return /longs/i.test(n) ? 'liq. de longs' : 'liq. de shorts';
+    if ((m = /^M[ií]nimo\s+(.+)$/.exec(n))) return `mín ${m[1]}`;
+    if ((m = /^M[aá]ximo\s+(.+)$/.exec(n))) return `máx ${m[1]}`;
+    if ((m = /^Fibonacci\s+([\d,.]+%)/.exec(n))) return `fibo ${m[1]}`;
+    if (/^(Media simple|EMA) 200/.test(n)) return 'media 200 d';
+    if (/CME/.test(n)) return 'hueco CME';
+    return n.length > 24 ? `${n.slice(0, 22)}…` : n;
+  };
+  function drawEscalera(rows, sum, c) {
+    const mb = document.getElementById('ce-mapa'); mb.className = 'ab-ce-p ab-ce-mapa';
+    const ahora = sum && okv(sum.precio) ? num(sum.precio) : null, PRI = { borde: 0, nivel: 1, obj: 2 };
+    const pts = [];
+    const pon = (v, tag, cls, prob, nom) => { if (okv(v) && Number.isFinite(num(v))) pts.push({ p: num(v), tags: [tag], cls, prob: okv(prob) ? num(prob) : null, noms: nom ? [nom] : [] }); };
+    pon(c.rango_max, 'techo del rango', 'borde'); pon(c.rango_min, 'piso del rango', 'borde');
+    pon(c.obj_arriba, 'objetivo', 'obj', c.toca_arriba); pon(c.obj_abajo, 'objetivo', 'obj', c.toca_abajo);
+    pon(c.resistencia, 'resistencia', 'nivel'); pon(c.soporte, 'soporte', 'nivel'); pon(c.elliott_objetivo, 'objetivo de Elliott', 'obj');
+    pick(rows, 'objetivo_plazo').filter((t) => t.plazo === S.plazo).forEach((t) => pon(t.precio, 'objetivo', 'obj', t.prob));
+    pick(rows, 'nivel').forEach((r) => { if (ahora && Math.abs(num(r.distancia)) > 8) return; pon(r.precio, nivelTag(r.nombre), 'nivel', null, r.nombre); });
+    pts.sort((a, b) => b.p - a.p);
+    const ref = ahora || (pts.length ? pts[0].p : 1), filas = [];
+    pts.forEach((x) => {
+      const u = filas[filas.length - 1];
+      if (u && Math.abs(u.p - x.p) / ref < 0.0004) {
+        x.tags.forEach((t) => { if (!u.tags.includes(t)) u.tags.push(t); }); u.noms.push(...x.noms);
+        if (x.prob !== null && (u.prob === null || x.prob > u.prob)) u.prob = x.prob;
+        if (PRI[x.cls] > PRI[u.cls]) u.cls = x.cls;
+      } else filas.push(x);
+    });
+    const arriba = filas.filter((x) => ahora === null || x.p > ahora), abajo = filas.filter((x) => ahora !== null && x.p <= ahora);
+    const vis = NIV_TODOS ? filas : arriba.slice(-5).concat(abajo.slice(0, 5)), ver = new Set(vis);
+    const mapa = el('ol', 'ab-mp');
+    const fila = (x) => {
+      const sube = ahora === null || x.p > ahora, li = el('li', `ab-mp-r ${sube ? 'up' : 'dn'} ${x.cls}`);
+      li.append(el('b', '', fp(x.p)), el('span', 'ab-mp-n', x.tags.slice(0, 2).join(' · ')));
+      li.append(el('i', 'ab-mp-d', ahora === null ? '' : sg((x.p / ahora - 1) * 100, Math.abs(x.p / ahora - 1) < 0.01 ? 2 : 1)));
+      const pr = el('span', 'ab-mp-p');
+      if (x.prob !== null) { const bar = el('u'), f = el('s'); f.style.width = `${Math.max(2, Math.min(100, x.prob))}%`; bar.append(f); pr.append(bar, el('em', '', `${f0(x.prob)}%`)); }
+      li.append(pr);
+      li.title = `${[...new Set(x.noms.length ? x.noms : x.tags)].join(' · ')}${x.tags.length > 2 ? ` · ${x.tags.slice(2).join(' · ')}` : ''}${x.prob !== null ? ` · ${f0(x.prob)}% de tocarlo en ${plazoTxt(S.plazo)}` : ''}`;
+      return li;
+    };
+    let puesto = false;
+    const ya = () => { if (puesto || ahora === null) return; puesto = true; const li = el('li', 'ab-mp-r ahora'); li.append(el('b', '', fp(ahora)), el('span', 'ab-mp-n', `${MON()} ahora`), el('i', 'ab-mp-d'), el('span', 'ab-mp-p')); mapa.append(li); };
+    filas.forEach((x) => { if (ahora !== null && x.p <= ahora) ya(); if (ver.has(x)) mapa.append(fila(x)); });
+    ya();
+    const mas = el('button', 'ab-chipbtn ab-mp-mas', NIV_TODOS ? 'Ver solo los más cercanos' : `Ver los ${filas.length} niveles`); mas.type = 'button'; mas.hidden = filas.length <= vis.length && !NIV_TODOS;
+    mas.setAttribute('aria-expanded', String(NIV_TODOS));
+    mas.addEventListener('click', () => { NIV_TODOS = !NIV_TODOS; if (NIV_ULT) drawEscalera(...NIV_ULT); });
+    const fichas = el('div', 'ab-v-fichas');
+    fichas.append(...[okv(c.rango_min) ? vFicha('▮ 8 de 10 cierran en el rango', 'rng', 'La franja: 8 de cada 10 veces el precio terminó entre el piso y el techo') : vFicha('sin rango medido'),
+      okv(c.esperado_usd) ? vFicha(`↕ ~${num(c.esperado_usd) >= 100 ? f0(num(c.esperado_usd)) : fp(num(c.esperado_usd))} USD`, '', 'Lo que suele moverse en el plazo') : null,
+      c.invalida ? vFicha('⚑ cuándo cambia', 'warn', c.invalida) : null].filter(Boolean));
+    const h3 = el('h3', '', '¿Hasta dónde? · niveles'); h3.title = 'Arriba, resistencias; abajo, soportes. Pivotes del día, Fibonacci de 90 días (con cuánto rebotó cada nivel), medias de 200 días, muros en los libros y zonas de liquidación estimadas. La barra es la probabilidad de que el precio toque ese nivel antes de que termine el plazo, según los casos parecidos.';
+    mb.replaceChildren(h3, mapa, mas, fichas);
   }
 
   // ---------- la respuesta: el resultado final del analisis, una sola vez y arriba de todo ----------
@@ -875,10 +918,10 @@
   // barra partida sube/baja con la marca de "lo normal" (la tasa base del plazo)
   function rsBarra(box, up, base) {
     box.hidden = up === null; box.replaceChildren(); if (up === null) return;
-    const u = Math.max(0, Math.min(100, up)), d = 100 - u, pc = (v) => `${f0(v)}%`;
+    const u = Math.max(0, Math.min(100, up)), d = 100 - u, u0 = Math.round(u), pc = (v) => `${f0(v)}%`;   // los rótulos suman 100: la baja es 100 menos la suba redondeada
     box.setAttribute('role', 'img');
-    box.setAttribute('aria-label', `Sube ${pc(u)}, baja ${pc(d)}${base !== null ? `. Lo normal: ${pc(base)}` : ''}`);
-    const t = el('div', 'ab-pbar-t'), a = el('span', 'u', u >= 14 ? `▲ ${pc(u)}` : ''), b = el('span', 'd', d >= 14 ? `▼ ${pc(d)}` : '');
+    box.setAttribute('aria-label', `Sube ${u0}%, baja ${100 - u0}%${base !== null ? `. Lo normal: ${pc(base)}` : ''}`);
+    const t = el('div', 'ab-pbar-t'), a = el('span', 'u', u >= 14 ? `▲ ${u0}%` : ''), b = el('span', 'd', d >= 14 ? `▼ ${100 - u0}%` : '');
     a.style.flexGrow = u; b.style.flexGrow = d; t.append(a, b); box.append(t);
     if (base !== null) {
       const m = Math.max(0, Math.min(100, base)), l = el('span', `ab-pbar-l${m < 14 ? ' ini' : m > 86 ? ' fin' : ''}`, 'normal');
@@ -978,7 +1021,7 @@
     dw.dataset.corto = ve.corto; dw.textContent = ve.label;
     const sb = document.getElementById('rs-sub'); sb.textContent = ve.sub; sb.hidden = !ve.sub;
     const pr = document.getElementById('rs-prob');
-    pr.textContent = conCiclo && vz.p && okv(vz.up) ? `${plazoTxt(plazo).replace(/^(la|las|el|los) /, '').replace(/^./, (m) => m.toUpperCase())}: ▲${f0(num(vz.up))}% / ▼${f0(100 - num(vz.up))}%` : '';   // sin ciclo, la barra partida ya dice sube/baja
+    pr.textContent = conCiclo && vz.p && okv(vz.up) ? `${plazoTxt(plazo).replace(/^(la|las|el|los) /, '').replace(/^./, (m) => m.toUpperCase())}: ▲${Math.round(num(vz.up))}% / ▼${100 - Math.round(num(vz.up))}%` : '';   // sin ciclo, la barra partida ya dice sube/baja
     rsBarra(document.getElementById('rs-bar'), vz.p && okv(vz.up) ? num(vz.up) : null, vz.p && okv(vz.base) ? num(vz.base) : null);
     const lo = num(c.rango_min), hi = num(c.rango_max), so = num(c.soporte), re = num(c.resistencia);
     const rg = document.getElementById('rs-rango'), nv = document.getElementById('rs-niv');
@@ -1003,9 +1046,9 @@
   }
   // ---------- el analisis completo: 6 partes, cada una con su resumen en una linea y el detalle al abrirla ----------
   const PARTES = [
-    ['parte-dir', 'Cómo se llegó a la dirección', ['conclusion', 'ce-dir', 'prediccion', ['que-espero', 'Todas las señales, una por una']]],
+    ['parte-dir', 'Cómo se llegó a la dirección', ['conclusion', 'prediccion', 'que-espero']],   // sin "¿Para dónde?": su % (toca primero) no es el de la tarjeta y confundía
     ['parte-mov', 'Cuánto se puede mover', ['movimiento', 'ce-fuerza', 'tug-wrap', 'likely']],
-    ['parte-niv', 'Niveles: hasta dónde', ['ce-mapa', 'niveles', 'probabilidades']],
+    ['parte-niv', 'Niveles: hasta dónde', ['ce-mapa']],
     ['parte-ctx', 'Qué está pasando', ['que-pasa', 'fed-line', 'news-line', 'calendario', 'senales', 'ctx-vacio']],
     ['parte-conf', 'Cuánto le creo', ['creo-h-vivo', 'creo-vivo', 'creo-graf', 'creo-h-repaso', 'apr-line', 'aprendizaje', 'aciertos']],
     ['parte-herr', 'Herramientas', ['lm-abrir', 'ondas', 'indicadores']],
@@ -1412,6 +1455,13 @@
   // 1, 7 y 30 dias no anticipa: no suma a la direccion de ningun plazo).
   const centralDe = (rows) => { const t = (rows || []).filter((x) => x.tabla === 'central'); return t.find((x) => x.plazo === S.plazo) || t.find((x) => x.tf === S.tf) || t.find((x) => x.tf === '1h') || null; };
   const corto_ = (t) => String(t || '').replace(/\s*\((medido|fuerza)[^)]*\)/gi, '').replace(/: medido,.*$/i, '').split(' (')[0];
+  // nombre corto de una señal para su chip: lo de antes de los dos puntos (o las primeras palabras); la frase entera va en el title
+  const chipNombre = (t, max = 30) => {
+    t = corto_(t); let h = t.split(/:\s|\s—\s/)[0].replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\.$/, '').trim() || t;
+    if (h.length <= max) return h;
+    const w = h.split(/\s+/); let o = ''; for (const x of w) { if ((o + ' ' + x).trim().length > max - 1) break; o = (o + ' ' + x).trim(); }
+    return `${o || h.slice(0, max - 1)}…`;
+  };
   const min1 = (t) => (/^[A-ZÁÉÍÓÚ][a-záéíóúñ]/.test(t) ? t[0].toLowerCase() + t.slice(1) : t);   // sin romper siglas (RSI, MACD, CVD)
   // track.json: aciertos reales del analisis (medir_central.py, cada 6 horas) y deriva de cada señal contra lo medido.
   // mediciones.json: cuanto acierta la direccion segun los puntos netos (medido). Si no cargan, no se muestra nada
@@ -1435,18 +1485,40 @@
     }
     return out.join(' ');
   }
+  // lo medido en vivo del plazo, en una pastilla: con menos de 100 casos, una barra de avance ("78/100"); con más, lo que acertó
+  function vivoPill(c, plz) {
+    const tp = TRACK && (TRACK.plazos || []).find((x) => x.plazo === plz), p = el('span', 'ab-s-pill');
+    if (tp) {
+      if (tp.n >= 100) { const a = num(tp.acierto); if (a >= 55) p.classList.add('up'); else if (a < 45) p.classList.add('dn'); p.append(el('b', '', `${String(tp.acierto).replace('.', ',')}%`), ` acertó en vivo · ${f0(tp.n)} casos`); }
+      else { const g = el('i', 'ab-s-prog'); g.style.setProperty('--p', `${Math.max(2, tp.n)}%`); p.append(el('b', '', `${f0(tp.n)}/100`), ' casos en vivo', g); }
+      return p;
+    }
+    const pts = Math.abs(num(c.direccion_puntos)), t = MEDIC && MEDIC.direccion && MEDIC.direccion.tramos.filter((x) => pts >= x[0]).pop();
+    p.append(el('b', '', `~${t ? t[1] : '—'}%`), ' acierta (medido)'); return p;
+  }
   // "Cuánto le creo", arriba de todo: lo medido en vivo del plazo elegido (track.json: probabilidades y rangos, medir_vivo.py)
   function drawCreoVivo(rows) {
     const box = document.getElementById('creo-vivo'), gr = document.getElementById('creo-graf'), pz = (rows || G.rows || []).find((r) => r.tabla === 'plazo' && r.plazo === S.plazo);
     const pb = pz && TRACK && (TRACK.probabilidades || []).find((x) => x.tf === pz.tf && x.h === pz.velas), rg = pz && TRACK && (TRACK.rangos || []).find((x) => x.tf === pz.tf && x.h === pz.velas);
-    gr.hidden = document.getElementById('creo-h-vivo').hidden = !(pb || rg); box.hidden = !pb; if (gr.hidden) return;
+    document.getElementById('creo-h-vivo').hidden = box.hidden = !(pb || rg); gr.hidden = !pb; if (box.hidden) return;
+    // una sola ficha: ventaja sobre lo normal · rango adentro (contra la meta de 80%) · casos medidos
     const coma = (v, d = 1) => String(Math.abs(v).toFixed(d)).replace('.', ',');
-    const pocos = 'pocos datos todavía', ficha = (k, v, sub) => { const d = el('div', 'ab-apr-stat'); d.append(el('small', '', k), el('b', '', v), el('span', '', sub)); return d; };
-    const nv = pb && !pb.pocos && pb.ventaja_normal != null;
-    box.replaceChildren(...[
-      pb ? ficha('Ventaja sobre lo normal', nv ? `${pb.ventaja_normal >= 0 ? '+' : '−'}${coma(pb.ventaja_normal)}%` : '—', nv ? `${Math.round(pb.n_ef_normal)} efectivos` : pocos) : null
-    ].filter(Boolean));
-    gr.replaceChildren(...[pb ? vivoCalib(pb) : null, rg ? vivoCobertura(rg) : null].filter(Boolean));
+    const nv = pb && !pb.pocos && pb.ventaja_normal != null, tile = el('div', 'ab-s-head');
+    const stat = (k, v, cls, tip) => { const d = el('div', 'ab-s-k'); d.append(el('small', '', k), el('b', cls || '', v)); if (tip) d.title = tip; return d; };
+    if (pb) tile.append(stat('ventaja', nv ? `${pb.ventaja_normal >= 0 ? '+' : '−'}${coma(pb.ventaja_normal)}%` : '—', nv ? (pb.ventaja_normal >= 0.5 ? 'up' : pb.ventaja_normal <= -0.5 ? 'dn' : '') : '',
+      `Ventaja sobre lo normal, medida en vivo: ${nv ? `${Math.round(pb.n_ef_normal)} casos efectivos` : 'pocos datos todavía'}. 0% = no sabe más que lo normal.`));
+    if (rg) {
+      const d = el('div', 'ab-s-k'), ok = !rg.pocos && okv(rg.cobertura), v = ok ? Math.max(0, Math.min(100, num(rg.cobertura))) : 0;
+      d.append(el('small', '', 'rango adentro'), el('b', ok ? (Math.abs(v - 80) <= 7 ? 'up' : 'warn') : '', ok ? `${f0(v)}%` : '—'));
+      if (ok) { const m = el('span', 'ab-s-m'); m.setAttribute('role', 'img'); m.setAttribute('aria-label', `Cobertura ${f0(v)}%, meta 80%`); const f = el('i'), t = el('u'); f.style.width = `${v}%`; t.style.left = '80%'; m.append(f, t); d.append(m, el('span', 'ab-s-meta', 'meta 80%')); }
+      d.title = `Veces que el precio terminó adentro del rango del 80%: ${ok ? `${f0(v)}%, la meta es 80%` : 'pocos datos todavía'} (${rg.n} casos medidos).`;
+      tile.append(d);
+    }
+    const n = pb ? pb.n : rg ? rg.n : null;
+    const tp = TRACK && (TRACK.plazos || []).find((x) => x.plazo === S.plazo), nn = tp ? tp.n : n;
+    if (nn != null) { const p = el('span', 'ab-s-pill'), g = el('i', 'ab-s-prog'); g.style.setProperty('--p', `${Math.max(2, Math.min(100, nn))}%`); p.append(el('b', '', f0(nn)), nn < 100 ? '/100 casos' : ' casos', ...(nn < 100 ? [g] : [])); p.title = 'Casos medidos en vivo: con 100 o más se puede decir cuánto acierta.'; tile.append(p); }
+    box.replaceChildren(tile);
+    gr.replaceChildren(...[pb ? vivoCalib(pb) : null].filter(Boolean));
   }
   // diagrama de confiabilidad: lo que dijo (x) contra lo que pasó (y) por tramo; la diagonal es "justo lo que dijo"; el tamano del punto es la cantidad de casos
   function vivoCalib(pb) {
@@ -1473,18 +1545,7 @@
       const r = 4 + Math.sqrt(num(b.n) / mx) * 6, c = mk('circle', { cx: xp(num(b.prob)), cy: yp(num(b.real)), r, class: `p${num(b.n) < 5 ? ' ch' : ''}` });
       c.append(mk('title', {}, `Dijo ${f0(num(b.prob))}% · pasó ${f0(num(b.real))}% · ${b.n} casos`)); svg.append(c);
     });
-    w.append(svg, el('small', 'ab-viv-n', 'El tamaño del punto es la cantidad de casos.'));
-    return w;
-  }
-  // cobertura del rango: cuantas veces el precio termino adentro del rango del 80%, contra la meta
-  function vivoCobertura(rg) {
-    const w = el('figure', 'ab-viv-f'); w.append(el('figcaption', '', 'Rango: veces que terminó adentro'));
-    if (rg.pocos || !okv(rg.cobertura)) { w.append(el('p', 'ab-viv-vacio', 'Todavía hay pocos datos para medirlo.')); return w; }
-    const v = Math.max(0, Math.min(100, num(rg.cobertura)));
-    const m = el('div', 'ab-meter'); m.setAttribute('role', 'img'); m.setAttribute('aria-label', `Cobertura ${f0(v)}%, meta 80%`);
-    const f = el('i', 'ab-meter-f'); f.style.width = `${v}%`; const t = el('i', 'ab-meter-m'); t.style.left = '80%';
-    const ml = el('span', 'ab-meter-l', 'meta 80%'); ml.style.left = '80%';
-    m.append(f, t, ml); w.append(el('b', 'ab-meter-n', `${f0(v)}%`), m, el('small', 'ab-viv-n', `${rg.n} casos medidos`));
+    w.append(svg, el('small', 'ab-viv-n', 'El tamaño del punto es la cantidad de casos.')); w.title = 'El tamaño del punto es la cantidad de casos. Sobre la diagonal, pasó lo que dijo.';
     return w;
   }
   // Lo medido con cada horizonte (medir_peso_ciclo.py, BTC 2013-2026, tramos 2013-19 y 2020-26): el estado del ciclo pesa 0 a 1 dia,
@@ -1503,7 +1564,8 @@
     const pon = (id, t, cls) => { const e = document.getElementById(id); e.textContent = t || '—'; e.className = cls || ''; };
     const rf = resultadoFinal(rows || G.rows, c);
     document.getElementById('cc-hora-k').textContent = rf.fo ? `Corto plazo · ${plz}` : `Dirección · ${plz}`;
-    document.getElementById('cc-ciclo-k').textContent = rf.fo ? 'Ciclo · aporta (meses a un año)' : 'Ciclo (meses a un año)';
+    document.getElementById('cc-ciclo-k').textContent = rf.fo ? 'Ciclo · aporta' : 'Ciclo';
+    document.getElementById('cc-ciclo-k').parentElement.title = 'El ciclo mira de meses a un año';
     pon('cc-hora', dTxt, c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '');
     const tab = document.getElementById('tm-tab'), zona = tab && !tab.hidden ? (document.getElementById('tm-zona') || {}).textContent || '' : '';
     const zch = document.getElementById('tm-mvrv'), zonas = zch && !zch.hidden ? zch.textContent : '';
@@ -1515,7 +1577,7 @@
       + (menos.length ? `${mas.length ? '; a' : ' A'} favor de la baja${mas.length ? '' : ' pesa'}: ${min1(corto_(menos[0][3]))}` : '') + (mas.length || menos.length ? '.' : ''));
     // medir_formacion.py: en plata, seguir estas señales rinde ~0 pb por operacion (la comision son 10 pb)
     if (c.direccion !== 'neutral' && !['1 día', '1 semana', '1 mes'].includes(plz)) fr.push('Ojo: medido, estas señales aciertan 52–56% pero cuando fallan pierden más de lo que ganan cuando aciertan: el retorno medio es ~0 antes de comisiones. Es contexto, no alcanza sola para operar.');
-    { const v = document.getElementById('cc-vivo'), tx = vivoTxt(c, plz); v.textContent = tx; v.hidden = !tx; }
+    { const v = document.getElementById('cc-vivo'), tx = vivoTxt(c, plz); v.replaceChildren(); v.hidden = !tx; v.title = tx; if (tx) v.append(vivoPill(c, plz)); }
     const fc = fs.find((f) => /^(Estado del ciclo|Ciclo):/.test(f[3]));
     if (fc && plz === '1 semana') fr.push('El estado del ciclo suma poco a 1 semana (0,5 puntos, débil: medido +5 puntos sobre un día normal).');
     else if (lc) fr.push(fc ? `El ciclo (${zona.toLowerCase()}) ya está sumado en este plazo: a 30 días el precio fue para el lado de la zona más seguido que lo normal.`
@@ -1529,6 +1591,8 @@
     { const sn = document.getElementById('cc-sin'), tx = MON() === 'BTC' ? sinEfectoTxt(plz, fs.some((f) => /^Estado del ciclo:/.test(f[3]))) : ''; sn.textContent = tx; sn.hidden = !tx; }
     const cc = document.getElementById('cc-txt');
     cc.replaceChildren(fr[0], ...fr.slice(1).map((x) => el('span', 'ab-cc-mas', ` ${x}`)));
+    // en la vista completa el texto largo no se ve: el resultado lleva todo como tooltip
+    fo.title = [cc.textContent, document.getElementById('cc-sin').textContent].map((x) => x.trim()).filter(Boolean).join(' ');
   }
 
   // Las explicaciones largas (como se calcula, que significa) quedan en 2 lineas: se abren tocandolas. La pagina era muy
@@ -1556,7 +1620,7 @@
 
   // Lo que esta dentro de un desplegable cerrado no se dibuja en cada analisis (cada 12 s): se dibuja al abrirlo y,
   // mientras siga abierto, con cada analisis. Antes se armaba todo aunque no se viera.
-  const PEREZOSOS = { probabilidades: () => drawProbs(S.rows, S.sum), senales: () => drawSignals(S.rows), niveles: () => drawLevels(S.rows, S.sum),
+  const PEREZOSOS = { senales: () => drawSignals(S.rows),
     ondas: () => drawWaves(S.rows), indicadores: () => drawIndicators(S.rows), aciertos: () => drawHits(S.rows) };
   const pendiente = new Set();
   // "Qué está pasando": no se muestran bloques vacíos ni con error; si no queda nada, una sola línea
@@ -1564,6 +1628,8 @@
     const $ = (id) => document.getElementById(id), vis = (id) => !$(id).hidden;
     const hayFlujo = pick(rows, 'contexto').some((c) => c.clave !== 'error') || pick(rows, 'libro').length > 0;
     $('senales').hidden = !hayFlujo;
+    { const cs = pick(rows, 'contexto').filter((c) => c.clave !== 'error'), a = cs.filter((c) => c.senal === 'alcista').length, b = cs.filter((c) => c.senal === 'bajista').length;
+      $('sen-res').textContent = cs.length ? `${cs.length} datos · ${a}▲ ${b}▼` : ''; }   // en el resumen del desplegable, aunque esté cerrado
     const hayNoticias = vis('que-pasa') && !!$('qp-news').querySelector('a');
     ['qp-news-t', 'qp-news-n', 'qp-news'].forEach((id) => { $(id).hidden = !hayNoticias; });
     $('ctx-vacio').hidden = hayNoticias || (vis('que-pasa') && vis('qp-clima')) || vis('calendario') || hayFlujo || vis('fed-line') || vis('news-line');
@@ -2472,33 +2538,33 @@
       else if (down && dOi >= 1) F.push({ si: true, ic: '⤓', lbl: 'shorts nuevos', txt: `Entraron apuestas nuevas a la baja: el interés abierto subió ${f1(dOi)}% mientras caía el precio.` });
       else if (!down && dOi <= -1.5) F.push({ si: true, ic: '⚡', lbl: 'un short squeeze', txt: `Se liquidaron o cerraron posiciones en corto (interés abierto −${f1(Math.abs(dOi))}%): para cerrarlas tienen que comprar, y eso empuja la suba.` });
       else if (!down && dOi >= 1) F.push({ si: true, ic: '⤒', lbl: 'dinero nuevo en futuros', txt: `Entra dinero nuevo apalancado en largo: el interés abierto subió ${f1(dOi)}%.` });
-      else F.push({ si: false, ic: '≈', txt: `El apalancamiento casi no cambió (interés abierto ${sg(dOi, 1)}): el movimiento viene más de compras y ventas al contado que de futuros.` });
+      else F.push({ si: false, ic: '≈', ch: `interés abierto ${sg(dOi, 1)}`, txt: `El apalancamiento casi no cambió (interés abierto ${sg(dOi, 1)}): el movimiento viene más de compras y ventas al contado que de futuros.` });
     }
     const fl = ctx(w.fl), r = fl ? num(fl.ratio) : null;
     if (r !== null && r !== undefined) {
       if (r >= 1.15 || r <= 0.87) {
         const buyers = r >= 1.15, si = buyers === dir > 0;
-        F.push({ si, ic: buyers ? '▲' : '▼', lbl: si ? (buyers ? 'compradores agresivos' : 'vendedores agresivos') : null,
+        F.push({ si, ic: buyers ? '▲' : '▼', ch: buyers ? 'compradores agresivos' : 'vendedores agresivos', lbl: si ? (buyers ? 'compradores agresivos' : 'vendedores agresivos') : null,
           txt: buyers ? `Dominaron los compradores a mercado: ${ar.format(',.2f')(r)} compras por cada venta.` : `Dominaron los vendedores a mercado: ${ar.format(',.2f')(1 / r)} ventas por cada compra.` });
-      } else F.push({ si: false, ic: '≈', txt: `Compras y ventas a mercado parejas (${ar.format(',.2f')(r)}).` });
+      } else F.push({ si: false, ic: '≈', ch: 'compras y ventas parejas', txt: `Compras y ventas a mercado parejas (${ar.format(',.2f')(r)}).` });
     }
     const pr = ctx('prima_coinbase'), pv = pr ? num(pr.prima) : null;
     if (pv !== null && pv !== undefined && Math.abs(pv) >= 0.05) {
       const si = (pv > 0) === (dir > 0);
-      F.push({ si, ic: '$', lbl: si ? (pv > 0 ? 'compras desde EE.UU.' : 'ventas desde EE.UU.') : null,
+      F.push({ si, ic: '$', ch: `prima Coinbase ${sg(pv, 2)}`, lbl: si ? (pv > 0 ? 'compras desde EE.UU.' : 'ventas desde EE.UU.') : null,
         txt: pv > 0 ? `En EE.UU. (Coinbase) pagan ${ar.format(',.2f')(pv)}% más que afuera: están comprando fondos y empresas de EE.UU.`
           : `En EE.UU. (Coinbase) pagan ${ar.format(',.2f')(Math.abs(pv))}% menos que afuera: están vendiendo desde EE.UU.` });
     }
     if (etf.length) {
       const last = etf[etf.length - 1], v = num(last.neto), s5 = etf.slice(-5).reduce((a, x) => a + num(x.neto), 0);
       const d = String(last.fecha).split('-'), si = Math.abs(v) >= 150 && (v > 0) === (dir > 0);
-      F.push({ si, ic: 'E', lbl: si ? (v > 0 ? 'entradas a los ETF' : 'salidas de los ETF') : null,
+      F.push({ si, ic: 'E', ch: `ETF ${v >= 0 ? '+' : '−'}${f0(Math.abs(v))} M`, lbl: si ? (v > 0 ? 'entradas a los ETF' : 'salidas de los ETF') : null,
         txt: `ETF de BTC en EE.UU.: ${v >= 0 ? 'entraron' : 'salieron'} ${f0(Math.abs(v))} M USD el ${d[2]}/${d[1]} (en 5 días: ${s5 >= 0 ? '+' : '−'}${f0(Math.abs(s5))} M).`,
         sub: 'Se publican al día siguiente del cierre en EE.UU. (Farside Investors).' });
     }
     const fg = ctx('miedo_codicia'), fv = fg ? num(fg.fng) : null;
     if (fv !== null && fv !== undefined) {
-      F.push({ si: false, ic: '◔', txt: `Fear & Greed Index: ${fg.valor}${fg.fng_ayer !== null && fg.fng_ayer !== undefined && num(fg.fng_ayer) !== fv ? ` (ayer ${fg.fng_ayer})` : ''}.` });
+      F.push({ si: false, ic: '◔', ch: `Fear & Greed ${fg.valor}`, txt: `Fear & Greed Index: ${fg.valor}${fg.fng_ayer !== null && fg.fng_ayer !== undefined && num(fg.fng_ayer) !== fv ? ` (ayer ${fg.fng_ayer})` : ''}.` });
     }
     // la decision de tasas de la Fed tiene su propia linea (abajo): aca no se repite
     const salio = eventosAgrupados(rows).map((g) => ({ ...g, items: g.items.filter((x) => !(/interest rate decision|fomc decision|interest rate fomc/i.test(x.original || '') && x.actual !== null && x.actual !== undefined)) }))
@@ -2539,18 +2605,19 @@
       r.title = `En ${x.txt}: ${sg(x.ch, 1)} (fuerte desde ±${f1(x.th)}%)`;
       r.append(el('small', '', `${x.h} h`), b, el('b', x.ch >= 0 ? 'up' : 'dn', sg(x.ch, 1))); return r;
     }));
+    // fichas con icono y nombre corto; la frase entera (y su detalle), en el title
     const ul = document.getElementById('qp-fact'); ul.replaceChildren();
     const fed = decisionFed(rows);
     if (fed) {
-      const li = el('li', fed.sesgo !== 'neutral' ? 'ab-qp-si' : ''), t = el('span', '', fed.txt);
-      t.append(el('small', '', `Decisión de las ${horaAR(fed.t)} h, ${diaAR(fed.t)}.`));
+      const li = el('li', fed.sesgo !== 'neutral' ? 'ab-qp-si' : ''), t = el('span', '', fed.txt.split(' (')[0].split('. ')[0]);
+      li.title = `${fed.txt} Decisión de las ${horaAR(fed.t)} h, ${diaAR(fed.t)}.`;
       li.append(el('i', '', '🏦'), t);
       if (fed.sesgo !== 'neutral') li.style.setProperty('--qp-col', fed.sesgo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)');
       ul.append(li);
     }
     (strong ? F : F.filter((f) => f.ic === 'E' || f.ic === '$' || f.siempre)).forEach((f) => {
-      const li = el('li', f.si ? 'ab-qp-si' : ''), t = el('span', '', f.txt);
-      if (f.sub) t.append(el('small', '', f.sub));
+      const li = el('li', f.si ? 'ab-qp-si' : ''), t = el('span', '', f.ch || f.lbl || chipNombre(f.txt, 28));
+      li.title = f.sub ? `${f.txt} ${f.sub}` : f.txt;
       li.append(el('i', '', f.ic), t); ul.append(li);
     });
     const cl = climaNoticias(rows), cle = document.getElementById('qp-clima'); cle.replaceChildren();
@@ -2561,15 +2628,23 @@
       cle.append(el('small', '', 'Noticias (6 h)'), b, tr);
     }
     const nb = document.getElementById('qp-news'); nb.replaceChildren();
-    document.getElementById('qp-news-t').textContent = strong ? `Noticias de esas horas` : 'Noticias de las últimas 24 h';
-    document.getElementById('qp-news-n').textContent = rel.length ? `${rel.length}` : '';
-    rel.forEach((n) => {
+    document.getElementById('qp-news-t').textContent = strong ? `Noticias de esas horas` : 'Noticias';
+    // las 3 más relevantes, una línea cada una (fuente y hora chicas); el resto, detrás de "Ver todas"
+    const vistas = new Set(rel), resto = news.filter((n) => !vistas.has(n)).sort((a, b) => TEMA_ORDEN.indexOf(a.tema) - TEMA_ORDEN.indexOf(b.tema) || b.t - a.t);
+    const todas = rel.concat(resto).slice(0, 12);
+    document.getElementById('qp-news-n').textContent = todas.length ? `${todas.length}` : '';
+    const nota = (n) => {
       const a = el('a', 'ab-qp-n'); a.href = n.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
-      const meta = el('span');
-      if (n.sesgo === 'alcista' || n.sesgo === 'bajista') meta.append(el('i', 'ab-qp-s ab-' + n.sesgo, n.sesgo === 'alcista' ? `▲ buena para ${MON()}` : `▼ mala para ${MON()}`));
-      meta.append(el('i', 'ab-qp-tag' + (n.tema !== 'Cripto' ? ' ab-qp-hot' : ''), n.tema), `${n.fuente}${n.medios > 1 ? ` y ${n.medios - 1} medio${n.medios > 2 ? 's' : ''} más` : ''} · ${haceTxt(n.t)}`);
-      a.append(el('b', '', n.titulo), meta); nb.append(a);
-    });
+      const pt = el('i', `ab-qp-pt${n.sesgo === 'alcista' ? ' up' : n.sesgo === 'bajista' ? ' dn' : ''}`);
+      a.title = `${n.titulo} — ${n.tema}${n.sesgo === 'alcista' ? ` · ▲ buena para ${MON()}` : n.sesgo === 'bajista' ? ` · ▼ mala para ${MON()}` : ''}`;
+      a.append(pt, el('b', '', n.titulo), el('small', '', `${n.fuente}${n.medios > 1 ? ` +${n.medios - 1}` : ''} · ${haceTxt(n.t)}`));
+      return a;
+    };
+    todas.slice(0, 3).forEach((n) => nb.append(nota(n)));
+    if (todas.length > 3) {
+      const d = el('details', 'ab-qp-todas'); d.append(el('summary', '', `Ver todas (${todas.length})`));
+      const w = el('div', 'ab-qp-news'); todas.slice(3).forEach((n) => w.append(nota(n))); d.append(w); nb.append(d);
+    }
     document.getElementById('qp-res').textContent = big.textContent;
     document.getElementById('qp-note').textContent = '';
   }
@@ -2629,7 +2704,9 @@
   // previsto y el anterior. El dato que ya salio se marca positivo o negativo para el mercado segun como lo lee el mercado
   // (efecto: api/contexto.js y noticias.py). Las filas 'calendario' traen importancia media y alta; sin ellas (un servidor
   // viejo) queda lo de antes: las de importancia alta.
-  let CAL_VISTA = 'viene';
+  let CAL_VISTA = 'viene', CAL_TODO = false;   // CAL_TODO: "ver todo" (si no, solo los datos que mueven a BTC)
+  // un dato "fuerte" es el que mueve a BTC (medido): importancia alta, la decision de la Fed o el vencimiento grande de opciones
+  const calFuerte = (e) => e.importancia >= 3 || e.fed || e.fuerte;
   const calValor = (v, e) => {
     if (v === null || v === undefined || v === '') return '—';
     const n = Number(v); if (!Number.isFinite(n)) return String(v);
@@ -2683,25 +2760,37 @@
     const viene = datos.filter((e) => e.t >= hoy0).sort((a, b) => a.t - b.t);
     const salio = datos.filter((e) => e.t <= now && e.t >= now - 7 * 864e5).sort((a, b) => b.t - a.t || b.importancia - a.importancia);
     const box = document.getElementById('cal-list'), prox = document.getElementById('cal-prox');
-    const p0 = futuros.sort((a, b) => a.t - b.t)[0];
+    futuros.sort((a, b) => a.t - b.t);
+    const p0 = futuros.find(calFuerte) || futuros[0];   // el próximo dato que mueve a BTC
     prox.textContent = p0 ? `próximo: ${p0.titulo.replace(/^Vencen opciones de BTC.*/, 'opciones')} en ${faltaTxt(p0.t - now)}` : '';
     // selector: lo que viene / ya salieron (con cuantos positivos y negativos)
     const pos = salio.filter((e) => e.efecto === 'positivo').length, neg = salio.filter((e) => e.efecto === 'negativo').length;
     const seg = el('div', 'ab-cal-seg'); seg.setAttribute('role', 'tablist');
-    [['viene', 'Hoy y lo que viene', `${viene.length}`], ['salio', 'Última semana', salio.length ? `${pos}▲ ${neg}▼` : '0']].forEach(([k, txt, n]) => {
+    [['viene', 'Lo que viene', `${(CAL_TODO ? viene : viene.filter(calFuerte)).length}`], ['salio', 'Última semana', salio.length ? `${pos}▲ ${neg}▼` : '0']].forEach(([k, txt, n]) => {
       const b = el('button', '', ''); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(CAL_VISTA === k));
       b.append(txt, el('small', '', n)); b.addEventListener('click', () => { CAL_VISTA = k; drawCalendario(rows); }); seg.append(b);
     });
     { const det = document.getElementById('calendario'); if (det) det.hidden = !(viene.length || salio.length); }   // sin eventos, no se muestra
-    const lista = CAL_VISTA === 'viene' ? viene : salio;
+    const base = CAL_VISTA === 'viene' ? viene : salio, lista = CAL_TODO ? base : base.filter(calFuerte);
     const out = [seg];
-    if (!lista.length) out.push(el('p', 'ab-note', CAL_VISTA === 'viene' ? 'Sin eventos en los próximos días.' : 'Sin datos de la última semana.'));
+    if (!lista.length) out.push(el('p', 'ab-note', CAL_VISTA === 'viene' ? 'Sin datos fuertes en los próximos días.' : 'Sin datos fuertes la última semana.'));
     const porDia = new Map();
     lista.forEach((e) => { const k = new Date(e.t).toLocaleDateString('es-AR', { ...tz, weekday: 'long', day: '2-digit', month: '2-digit' }); if (!porDia.has(k)) porDia.set(k, []); porDia.get(k).push(e); });
     porDia.forEach((evs, k) => {
       const d = el('div', 'ab-cal-dia'), dd = diaAR(evs[0].t);
       d.append(el('h3', '', dd === 'hoy' || dd === 'mañana' || dd === 'ayer' ? `${dd[0].toUpperCase()}${dd.slice(1)} · ${k}` : k[0].toUpperCase() + k.slice(1)));
-      const tabla = el('div', 'ab-cal-tab');
+      const tabla = el('div', CAL_TODO ? 'ab-cal-tab' : 'ab-cal-tab ab-cal-c-lista');
+      if (!CAL_TODO) {      // solo los fuertes: una línea por dato (hora, nombre y estado); actual, previsión y anterior, en el tooltip
+        evs.forEach((e) => {
+          const r = el('div', `ab-cal-c${e.efecto ? ` ef-${e.efecto}` : ''}`), tt = el('time', '', horaAR(e.t)); tt.dateTime = new Date(e.t).toISOString();
+          const falta = e.t - now, hecho = falta <= 0;
+          const est = !hecho ? vFicha(`en ${faltaTxt(falta)}`, falta < 36e5 ? 'warn' : '') : e.efecto === 'positivo' ? vFicha('▲ alcista', 'up') : e.efecto === 'negativo' ? vFicha('▼ bajista', 'dn') : e.efecto === 'neutral' ? vFicha('= previsto') : vFicha('sin dato');
+          r.append(tt, el('b', '', e.titulo), est);
+          r.title = `${e.titulo}${e.periodo ? ` (${e.periodo})` : ''}${e.cripto ? `. ${e.nota || ''}` : ` · Actual ${calValor(e.actual, e)} · Previsión ${calValor(e.previsto, e)} · Anterior ${calValor(e.anterior, e)}. En la hora en que sale, BTC se mueve ~1,7 veces lo normal (medido 2021–2026); no dice para dónde.`}${calFedTxt(e)}`;
+          tabla.append(r);
+        });
+        d.append(tabla); out.push(d); return;
+      }
       if (!evs.every((e) => e.cripto)) {
         const h = el('div', 'ab-cal-row ab-cal-head');
         h.append(el('span', '', 'Hora'), el('span', '', ''), el('span', '', 'Evento'), el('span', 'n', 'Actual'), el('span', 'n', 'Previsión'), el('span', 'n', 'Anterior'));
@@ -2734,7 +2823,17 @@
       });
       d.append(tabla); out.push(d);
     });
+    if (base.length > base.filter(calFuerte).length) {
+      const mas = el('button', 'ab-chipbtn ab-cal-mas', CAL_TODO ? 'Ver solo los fuertes' : `Ver todo (${base.length - base.filter(calFuerte).length} más)`); mas.type = 'button'; mas.setAttribute('aria-expanded', String(CAL_TODO));
+      mas.addEventListener('click', () => { CAL_TODO = !CAL_TODO; drawCalendario(rows); }); out.push(mas);
+    }
     box.replaceChildren(...out);
+  }
+  // lo que esperan los futuros de Fed Funds para la decision de tasas (como CME FedWatch), para el tooltip de la fila
+  function calFedTxt(e) {
+    const f = CALV.fed; if (!e.fed || !(e.t > Date.now()) || !f || new Date(e.t).toISOString().slice(0, 10) !== f.fecha) return '';
+    const et = (pb) => (pb === 0 ? 'mantener' : `${pb > 0 ? 'suba' : 'baja'} ${(Math.abs(pb) / 100).toFixed(2).replace('.', ',')}`);
+    return ` · ${f.indeciso && f.prob.length > 1 ? `Mercado dividido: ${Math.round(f.prob[0][1] * 100)}% ${et(f.prob[0][0])} / ${Math.round(f.prob[1][1] * 100)}% ${et(f.prob[1][0])}` : `Mercado: ${et(f.prob[0][0])} · ${Math.round(f.prob[0][1] * 100)}%`}. Medido desde 2022: los 3 días antes, con suba esperada BTC bajó ~2,7% y con baja esperada subió ~3%; después del anuncio, nada.`;
   }
 
   // ---------- movimiento fuerte en la proxima hora ----------
@@ -2747,22 +2846,9 @@
     if (cp && cp.comprimida) {
       const sp = el('span'); cl.replaceChildren(el('i', '', '↔'), sp);
       const r24 = num(cp.rango_24h), r24t = r24 >= 100 ? f0(r24) : fp(r24);
-      sp.append(el('b', '', 'Bollinger comprimidas'), `: en las próximas 24 h suele moverse ~${String(cp.expande).replace('.', ',')}× lo de las últimas 24 h (${r24t} USD). No dice para dónde.`,
-        el('span', 'ab-comp-largo', ` Ancho entre el ${f0(Math.max(1, num(cp.percentil)))}% más angosto de 30 días (1 h). Medido en BTC 2021–2026: más del doble el ${f0(cp.mas_doble)}% de las veces (normal: ${f0(cp.mas_doble_normal)}%).`));
+      sp.append(el('b', '', 'Bollinger comprimidas'), ` · suele moverse ~${String(cp.expande).replace('.', ',')}× en 24 h`);
+      cl.title = `En las próximas 24 h suele moverse ~${String(cp.expande).replace('.', ',')}× lo de las últimas 24 h (${r24t} USD). No dice para dónde. Ancho entre el ${f0(Math.max(1, num(cp.percentil)))}% más angosto de 30 días (1 h). Medido en BTC 2021–2026: más del doble el ${f0(cp.mas_doble)}% de las veces (normal: ${f0(cp.mas_doble_normal)}%).`;
       cl.setAttribute('data-where', 'tabla=compresion');
-    }
-    // cuando suele moverse en las proximas 24 h (medido: ver perfilHoras en analisis.js)
-    const hs = pick(rows, 'horas')[0], hb = document.getElementById('mov-horas');
-    hb.hidden = !hs || hs.max_f - hs.min_f < 0.3;            // sin diferencias claras entre horas, no se muestra
-    if (hs) {
-      const x = (v) => `×${String(v).replace('.', ',')}`, bars = document.getElementById('mov-horas-b');
-      bars.replaceChildren(...hs.proximas.map(([t, f], k) => { const i = el('i', `${f >= 1.25 ? 'alta' : ''}${k === 0 ? ' ahora' : ''}`.trim());
-        i.style.height = `${Math.max(8, Math.min(100, f / 2 * 100))}%`; i.title = `${horaAR(t)} h: ${x(f)} de una hora típica`; return i; }));
-      bars.setAttribute('aria-label', `Próximas 24 horas: lo más movido a las ${horaAR(hs.max_t)} h, lo más quieto a las ${horaAR(hs.min_t)} h`);
-      document.getElementById('mov-horas-t').replaceChildren(el('b', '', 'Cuándo suele moverse'),
-        `: en las próximas 24 h, lo más movido suele ser a las ${horaAR(hs.max_t)} h (${x(hs.max_f)} de una hora típica) y lo más quieto a las ${horaAR(hs.min_t)} h (${x(hs.min_f)}). Ahora: ${x(hs.ahora_f)}.`);
-      hb.dataset.corto = `Cuándo suele moverse: más a las ${horaAR(hs.max_t)} h, menos a las ${horaAR(hs.min_t)} h`;
-      ['0', '12', '23'].forEach((k) => { document.getElementById(`mov-horas-${k}`).textContent = `${horaAR(hs.proximas[+k][0])} h`; });
     }
     // con el modelo de arboles (BTC) la chance sale de ahi; si no hay modelo (ZEC), de la tabla
     const mod = m.modelo_1h !== null && m.modelo_1h !== undefined;
@@ -2771,14 +2857,14 @@
     box.classList.toggle('ab-mov-on', on);
     document.getElementById('mov-k').textContent = mod ? `${MON()} · vela de 1 h en curso · cierra a las ${horaAR(num(m.modelo_hasta))}\u00a0h` : MON();
     document.getElementById('mov-nivel').textContent = m.nivel;
-    document.getElementById('mov-vol').textContent = `volatilidad ${f1(num(m.volatilidad))}× la habitual`;
+    document.getElementById('mov-vol').textContent = `${f1(num(m.volatilidad))}× lo habitual`;
     document.getElementById('mov-prob').textContent = `${f0(prob)}%`;
-    document.getElementById('mov-base').textContent = mod
-      ? `en una hora cualquiera: ${f0(num(m.modelo_base_1h))}% · próximas 4 h: ${f0(num(m.modelo_4h))}%`
-      : `en una hora cualquiera: ${f0(num(m.prob_normal))}%`;
-    const fu = (x) => (num(S.sum && S.sum.precio) >= 1000 ? f0(x) : ar.format(',.2f')(x));
-    document.getElementById('mov-rango').textContent = `~${fu(num(m.esperado_usd))}`;
-    document.getElementById('mov-normal').textContent = `USD de punta a punta · normal ~${fu(num(m.normal_usd))} (${f1(num(m.normal_pct))}%)`;
+    const base = mod ? num(m.modelo_base_1h) : num(m.prob_normal);
+    document.getElementById('mov-base').textContent = `normal ${f0(base)}%`;
+    document.getElementById('mov-bar-f').style.width = `${Math.max(2, Math.min(100, prob))}%`;
+    document.getElementById('mov-bar-n').style.left = `${Math.min(100, base)}%`;
+    document.getElementById('mov-bar').setAttribute('aria-label', `Chance de movimiento fuerte ${f0(prob)}%, en una hora cualquiera ${f0(base)}%`);
+    document.getElementById('mov-nivel').parentElement.title = `Volatilidad ${f1(num(m.volatilidad))}× la habitual. Rango que suele moverse en la hora: ~${num(S.sum && S.sum.precio) >= 1000 ? f0(num(m.esperado_usd)) : ar.format(',.2f')(num(m.esperado_usd))} USD (normal ~${num(S.sum && S.sum.precio) >= 1000 ? f0(num(m.normal_usd)) : ar.format(',.2f')(num(m.normal_usd))}).`;
     // proximo dato fuerte de EE.UU.
     const dv = document.getElementById('mov-dato'), now = Date.now();
     const prox = eventosAgrupados(rows).find((g) => g.t > now - 15 * 60000);
@@ -2786,15 +2872,16 @@
     if (prox) {
       const falta = prox.t - now, pronto = falta <= 60 * 60000, lista = prox.nombres.slice(0, 3).join(', ');
       const t = el('span');
-      if (falta <= 0) t.append(el('b', '', `Acaba de salir: ${lista}`), ` (${horaAR(prox.t)} h).`);
-      else t.append(el('b', '', `${pronto ? 'En ' + faltaTxt(falta) : 'Próximo dato fuerte de EE.UU.'}: ${lista}`), ` — ${diaAR(prox.t)} a las ${horaAR(prox.t)} h${pronto ? '' : ` (en ${faltaTxt(falta)})`}.`);
-      t.append(el('small', '', 'En la hora en que salen datos así, BTC se movió 1,7 veces lo normal y fue un movimiento fuerte 26% de las veces (11% en una hora cualquiera). Medido 2021–2026; no dice para dónde.'));
+      if (falta <= 0) t.append(el('b', '', `Acaba de salir: ${lista}`), ` · ${horaAR(prox.t)} h`);
+      else t.append(el('b', '', `${pronto ? 'En ' + faltaTxt(falta) : 'Próximo dato fuerte'}: ${lista}`), ` · ${diaAR(prox.t)} ${horaAR(prox.t)} h`, vFicha('mueve ×1,7', 'warn'));
+      dv.title = 'Dato fuerte de EE.UU. En la hora en que salen datos así, BTC se movió 1,7 veces lo normal y fue un movimiento fuerte 26% de las veces (11% en una hora cualquiera). Medido 2021–2026; no dice para dónde.';
       dv.append(el('i', '', '📅'), t); dv.classList.toggle('ab-pronto', pronto);
       if (pronto) box.classList.add('ab-mov-on');
     }
     document.getElementById('mov-txt').textContent = mod
       ? `"Movimiento fuerte" = se mueve más del doble de lo habitual, para cualquier lado. La chance la calcula un modelo de árboles entrenado con BTC 2021–2026 (velas de 1 hora, volatilidad, volumen, medias, hora del día y datos de EE.UU.). Probado sin mirar el futuro: en las horas que marca como más peligrosas fue fuerte 35–37% de las veces (una hora cualquiera: 12%), y cuando marca 40% o más, 40–49%. No dice para dónde.`
       : `"Movimiento fuerte" = la próxima hora se mueve más del doble de lo normal. Probabilidades medidas con ${ACC_INFO[MON()] ? `velas de ${MON()} desde ${ACC_INFO[MON()][2]} (historia corta: tomalo con cuidado)` : `${MON()} 2021–2026`} según qué tan agitado está el mercado${ACC_INFO[MON()] ? '' : '; se mantuvieron iguales en 2025–26'}. Dice cuánto se puede mover, no para dónde.`;
+    document.getElementById('mov-g').title = `En una hora cualquiera: ${f0(base)}%${mod ? ` · próximas 4 h: ${f0(num(m.modelo_4h))}%` : ''}. ${document.getElementById('mov-txt').textContent}`;
   }
 
   // ---------- cabecera y precio ----------
@@ -2877,7 +2964,7 @@
       const head = pick(rows, 'explicacion').find((e) => e.plazo === p.plazo && e.tipo === 'titular');
       const bias = head ? head.sesgo : 'neutral', pu = num(p.primero_arriba);
       const b = el('button', 'ab-plazo ab-' + bias); b.type = 'button'; b.setAttribute('aria-pressed', String(p.plazo === S.plazo));
-      let word = bias === 'alcista' ? `▲ Sube ${f0(pu)}%` : bias === 'bajista' ? `▼ Baja ${f0(100 - pu)}%` : '◆ Lateral';
+      let word = bias === 'alcista' ? `▲ Sube ${Math.round(pu)}%` : bias === 'bajista' ? `▼ Baja ${100 - Math.round(pu)}%` : '◆ Lateral';
       if (p.plazo === S.plazo) {   // el plazo elegido muestra el mismo resultado que la tarjeta de arriba (las otras filas, su corto plazo)
         const cz = pick(rows, 'central').find((x) => x.plazo === S.plazo), rf = cz ? resultadoFinal(rows, cz) : null;
         if (rf && rf.conCiclo) { word = rf.ve.label; b.className = `ab-plazo ab-${rf.ve.cls === 'sube' ? 'alcista' : rf.ve.cls === 'baja' ? 'bajista' : 'neutral'}`; }
@@ -2922,20 +3009,21 @@
     const fill = (id, items) => {
       const ul = document.getElementById(id); ul.replaceChildren();
       if (!items.length) { ul.append(el('li', 'ab-empty', 'Ninguna por ahora.')); return; }
-      items.forEach((e) => ul.append(el('li', 'ab-' + e.sesgo, e.texto)));
+      items.forEach((e) => { const li = el('li', 'ab-' + e.sesgo, chipNombre(e.texto)); li.title = e.texto; ul.append(li); });   // chip con el nombre corto; la frase entera, en el title
     };
     document.getElementById('titular').textContent = head ? head.texto : '—';
     const why = ex.find((e) => e.tipo === 'porque');
     document.getElementById('porque').textContent = why ? why.texto : '';
+    document.getElementById('story-t').title = why ? why.texto : '';
     // vienen ordenadas por importancia: alcanza con las 4 primeras de cada lado
     const sigs = cen ? (cen.factores || []).filter((f) => f[0] === 'direccion').sort((a, b) => b[2] - a[2]).map((f) => ({ sesgo: f[1] > 0 ? 'alcista' : 'bajista', texto: f[3] }))
       : ex.filter((e) => e.tipo === 'senal');
     const favorSide = neutral ? 'alcista' : bias;
-    fill('favor', sigs.filter((e) => e.sesgo === favorSide).slice(0, 4));
-    fill('contra', sigs.filter((e) => e.sesgo !== favorSide).slice(0, 4));
+    fill('favor', sigs.filter((e) => e.sesgo === favorSide).slice(0, 6));
+    fill('contra', sigs.filter((e) => e.sesgo !== favorSide).slice(0, 6));
     fill('vigilar', ex.filter((e) => e.tipo === 'vigilar'));
     const inv = ex.find((e) => e.tipo === 'invalida');
-    document.getElementById('inval').textContent = inv ? inv.texto : '';
+    { const iv = document.getElementById('inval'); iv.textContent = inv ? `⚑ ${chipNombre(inv.texto.replace(/^(Si|Cuándo)\s+/i, ''), 44)}` : ''; iv.title = inv ? inv.texto : ''; }
   }
 
   // ---------- prediccion principal (1 h, primer plazo) ----------
@@ -2945,7 +3033,7 @@
       nl.hidden = !pick(rows, 'noticia').length; nl.replaceChildren();
       const fed = decisionFed(rows), fl = document.getElementById('fed-line');
       fl.hidden = !fed; fl.replaceChildren();
-      if (fed) { const sp = el('span', '', fed.txt); if (fed.sesgo !== 'neutral') sp.style.color = fed.sesgo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)'; fl.append(el('b', '', '🏦 Fed'), sp); }
+      if (fed) { const sp = el('span', '', fed.txt); if (fed.sesgo !== 'neutral') sp.style.color = fed.sesgo === 'alcista' ? 'var(--color-ok)' : 'var(--color-bad)'; fl.append(el('b', '', '🏦 Fed'), sp); fl.title = fed.txt; sp.textContent = fed.txt.split(' (')[0].split('. ')[0]; }
       if (!nl.hidden) nl.append(el('b', '', 'Noticias'), el('span', '', `${cl.est === 'alcista' ? 'clima a favor de la suba' : cl.est === 'bajista' ? 'clima a favor de la baja' : 'clima neutral'} (${cl.buenas} buenas, ${cl.malas} malas en 6 h)`));
     }
     const p = pick(rows, 'plazo').find((r) => r.plazo === S.plazo);
@@ -2957,6 +3045,7 @@
     document.getElementById('pred-k').textContent = ['1 semana', '1 mes'].includes(S.plazo) ? `Predicción a ${S.plazo} desde ahora · hasta el ${p.hora.slice(0, 5)}`
       : `Predicción a ${S.plazo} desde ahora · hasta las ${p.hora.slice(-5)}\u00a0h del ${p.hora.slice(0, 5)}`;
     document.getElementById('pred-n').textContent = `${f0(num(p.n))} casos parecidos`;
+    document.getElementById('pred-n').title = document.getElementById('pred-k').textContent;   // la hora y el plazo, en el tooltip de la pastilla
     const vb = document.getElementById('verdict-big');
     vb.className = 'ab-verdict-big ab-' + bias;
     vb.textContent = bias === 'alcista' ? '▲ Más probable que suba' : bias === 'bajista' ? '▼ Más probable que baje' : '◆ Lateral';
@@ -2965,12 +3054,14 @@
     if (pu !== null) {
       const d = el('div', 'ab-tug-d'), u = el('div', 'ab-tug-u'), lab = el('div', 'ab-tug-lab'), bar = el('div', 'ab-tug-bar');
       const ld = el('span', 'd'), lu = el('span', 'u');
-      ld.append(el('i', '', '▼'), `baja a ${fp(num(p.obj_abajo))} · ${f0(100 - pu)}%`); lu.append(el('i', '', '▲'), `sube a ${fp(num(p.obj_arriba))} · ${f0(pu)}%`);
+      ld.append(el('i', '', '▼'), `baja a ${fp(num(p.obj_abajo))} · ${100 - Math.round(pu)}%`); lu.append(el('i', '', '▲'), `sube a ${fp(num(p.obj_arriba))} · ${Math.round(pu)}%`);
       lab.append(ld, lu); d.style.flexBasis = '50%'; u.style.flexBasis = '50%';
       bar.append(d, u, el('i', 'ab-tug-mid')); tug.append(lab, bar);
       later(() => { d.style.flexBasis = (100 - pu) + '%'; u.style.flexBasis = pu + '%'; });
-      document.getElementById('first-mg').textContent = `${f0(num(p.distancia))} USD para cada lado` + (num(p.factor) === 0 ? ' · sin ventaja aprendida: 50/50'
+      const mg = document.getElementById('first-mg');
+      mg.textContent = `${f0(num(p.distancia))} USD para cada lado` + (num(p.factor) === 0 ? ' · sin ventaja aprendida: 50/50'
         : p.sin_ventaja ? ' · en su repaso no le ganó a lo normal: no lo toma como predicción' : ` · ±${f0(num(p.margen_primero))} pts`);
+      mg.parentElement.title = mg.textContent;
     }
     const lo = num(p.min), hi = num(p.max), span = hi - lo || 1;
     const at = (v) => Math.max(0, Math.min(100, (v - lo) / span * 100));
@@ -2985,6 +3076,7 @@
         + (rk === null || Math.abs(rk - 1) < 0.03 ? ', así que queda como está.' : rk > 1 ? `: venía angosto, se ensancha ×${f2(rk)}.` : `: venía ancho, se angosta ×${f2(rk)}.`))
         + (vivo ? `${rcob === null || rn < 30 ? '' : ' '}${rcob === null || rn < 30 ? vivo[0].toUpperCase() + vivo.slice(1) : 'Además: ' + vivo}.` : '');
     }
+    { const tt = `Franja oscura: la mitad de los casos · ▼ precio actual.${rc.hidden ? '' : ` ${rc.textContent}`}`; document.querySelectorAll('#likely-box .ab-range, #likely-box .ab-range-ends').forEach((n) => { n.title = tt; }); }
     const iqr = document.getElementById('iqr'), med = document.getElementById('rmed'), now = document.getElementById('rnow');
     iqr.style.left = '50%'; iqr.style.width = '0'; med.style.left = '50%'; now.style.left = '50%';
     later(() => {
@@ -3110,7 +3202,7 @@
     const line = document.getElementById('apr-line'); line.replaceChildren();
     confianzaAhora(rows);             // en lugar de "Aprendizaje": cuanto acierta en momentos como este (ver confianzaAhora)
     document.getElementById('apr-k').textContent = `a ${S.plazo}`;
-    const put = (id, v, sub) => { document.getElementById(id).textContent = v; document.getElementById(id + '-n').textContent = sub; };
+    const put = (id, v, sub) => { document.getElementById(id).textContent = v; document.getElementById(id + '-n').textContent = sub; document.getElementById(id).parentElement.title = sub; };   // el renglón chico, en el tooltip
     if (!a || !num(a.repasadas)) {
       put('apr-ap', '—', ''); put('apr-og', '—', ''); put('apr-br', '—', '');
       document.getElementById('apr-txt').textContent = 'Todavía no hay historia suficiente para repasar predicciones en este plazo: usa el método original.';
@@ -3152,7 +3244,8 @@
       });
       const last = pts[pts.length - 1];
       if (last.a !== null) svg.append('circle').attr('cx', x(last.k)).attr('cy', yy(last.a)).attr('r', 3.5).style('fill', dash.colors[0]);
-      [[dash.colors[0], 'Equipo que aprende'], ['var(--color-fg-muted)', 'Método original'], ['transparent', 'Línea punteada: 0%, igual que lo normal']].forEach(([c, t]) => {
+      box.title = 'Línea punteada: 0%, igual que lo normal. Ventaja sobre lo normal en ventanas de 150 predicciones, a medida que repasaba.';
+      [[dash.colors[0], 'Equipo que aprende'], ['var(--color-fg-muted)', 'Método original']].forEach(([c, t]) => {
         const sp = el('span'); const i = el('i'); i.style.background = c; if (c === 'transparent') i.style.borderTop = '1.5px dashed var(--color-fg-muted)';
         sp.append(i, t); lg.append(sp);
       });
@@ -6175,48 +6268,22 @@
     refocus();
   }
 
-  // ---------- probabilidades ----------
-  function drawProbs(rows, sum) {
-    const p = pick(rows, 'plazo').find((r) => r.plazo === S.plazo);
-    document.getElementById('prob-tf').textContent = `a ${S.plazo}`;
-    if (!p) return;
-    const price = num(sum.precio);
-    document.getElementById('prob-when').textContent = `Hasta las ${p.hora.slice(-5)} h del ${p.hora.slice(0, 5)}`;
-    const goals = pick(rows, 'objetivo_plazo').filter((t) => t.plazo === S.plazo).map((t) => ({ p: num(t.precio), prob: num(t.prob), up: t.lado === 'arriba' }));
-    const items = goals.concat([{ p: price, now: true }]).sort((a, b) => b.p - a.p);
-    const box = document.getElementById('ladder'); box.replaceChildren();
-    const W = Math.max(240, box.clientWidth), rh = 26, H = items.length * rh + 6;
-    const svg = d3.select(box).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Probabilidad de tocar cada precio');
-    const lx = 74, rx = W - 40, bx = d3.scaleLinear([0, 100], [0, rx - lx - 8]);
-    const med = p.mediana === null ? null : num(p.mediana);
-    items.forEach((it, k) => {
-      const yy = k * rh + 4;
-      const g = svg.append('g');
-      if (it.now) {
-        g.append('rect').attr('x', 0).attr('y', yy).attr('width', W).attr('height', rh - 4).attr('rx', 6).style('fill', 'var(--color-fg)');
-        g.append('text').attr('x', 8).attr('y', yy + 15).style('fill', 'var(--color-bg)').style('font-weight', 600).text(fp(it.p));
-        g.append('text').attr('x', lx).attr('y', yy + 15).style('fill', 'var(--color-bg)').text(`${MON()} ahora`);
-        return;
-      }
-      const col = it.up ? 'var(--color-ok)' : 'var(--color-bad)';
-      g.append('text').attr('x', 8).attr('y', yy + 15).style('fill', col).text(`${it.up ? '▲' : '▼'} ${fp(it.p)}`);
-      g.append('rect').attr('x', lx).attr('y', yy + 5).attr('width', rx - lx - 8).attr('height', 10).attr('rx', 5).style('fill', 'var(--color-bg)');
-      const bar = g.append('rect').attr('class', 'ab-lv-bar').attr('x', lx).attr('y', yy + 5).attr('height', 10).attr('rx', 5).style('fill', col)
-        .style('fill-opacity', .35 + it.prob / 160).attr('width', 0).style('width', '0px');
-      later(() => bar.style('width', bx(it.prob) + 'px'));
-      g.append('text').attr('x', W - 4).attr('y', yy + 15).attr('text-anchor', 'end').style('font-weight', 600).text(`${f0(it.prob)}%`);
-    });
-    document.getElementById('prob-foot').textContent = `Probabilidad de que ${MON()} toque cada precio antes de esa hora, según ${f0(num(p.n))} casos parecidos de los últimos ${num(p.dias)} días.`
-      + (med === null ? '' : ` Precio más probable al cierre: ${fp(med)}.`) + ` El 80% terminó entre ${fp(num(p.min))} y ${fp(num(p.max))}.`;
-  }
-
   // ---------- senales ----------
   function drawSignals(rows) {
     const tiles = document.getElementById('tiles'); tiles.replaceChildren();
-    pick(rows, 'contexto').filter((c) => c.clave !== 'error').forEach((c) => {
-      const t = el('div', 'ab-tile ab-sig-' + c.senal);
-      const h = el('div', 'ab-tile-t'); h.append(el('i'), c.titulo);
-      t.append(h, el('div', 'ab-tile-v', c.valor), el('div', 'ab-tile-d', c.detalle)); tiles.append(t);
+    // fichas compactas: nombre, valor y el estado en una palabra con color; la explicación entera, en el tooltip
+    const cs = pick(rows, 'contexto').filter((c) => c.clave !== 'error');
+    cs.forEach((c) => {
+      const t = el('div', 'ab-tile ab-st ab-sig-' + c.senal);
+      const h = el('div', 'ab-tile-t'); h.append(el('i'), el('span', '', c.titulo));
+      // el estado en pocas palabras: la primera frase del detalle solo si es corta; si no, a favor de suba/baja o neutro
+      // (la frase entera queda en el cartel de ayuda)
+      const frase = String(c.detalle || '').split(/[.:;—(]/)[0].trim();
+      const corta = frase.length >= 4 && frase.length <= 24 ? frase
+        : c.senal === 'alcista' ? 'a favor de la suba' : c.senal === 'bajista' ? 'a favor de la baja' : 'neutro';
+      const est = el('div', 'ab-st-e', c.senal === 'alcista' ? '▲ ' : c.senal === 'bajista' ? '▼ ' : '◆ '); est.append(corta);
+      t.append(h, el('div', 'ab-tile-v', c.valor), est);
+      t.title = `${c.titulo}: ${c.valor}. ${c.detalle || ''}`.trim(); tiles.append(t);
     });
     const books = document.getElementById('books'); books.replaceChildren();
     books.hidden = document.getElementById('books-h').hidden = !pick(rows, 'libro').length;
@@ -6231,66 +6298,6 @@
     });
   }
 
-  // ---------- niveles a escala ----------
-  // a escala se ven los 4 niveles mas cercanos arriba y los 4 mas cercanos abajo; el boton despliega el resto
-  let NIV_TODOS = false, NIV_ULT = null;
-  document.getElementById('lv-mas').addEventListener('click', () => { NIV_TODOS = !NIV_TODOS; if (NIV_ULT) drawLevels(...NIV_ULT); });
-  function drawLevels(rows, sum) {
-    NIV_ULT = [rows, sum];
-    const box = document.getElementById('levels'); box.replaceChildren();
-    const price = num(sum.precio);
-    const todos = pick(rows, 'nivel').map((r) => ({ name: r.nombre, p: num(r.precio), d: num(r.distancia) })).filter((r) => Math.abs(r.d) <= 8);
-    const cerca = (a, b) => Math.abs(a.d) - Math.abs(b.d);
-    const lv = NIV_TODOS || todos.length <= 8 ? todos
-      : todos.filter((r) => r.p > price).sort(cerca).slice(0, 4).concat(todos.filter((r) => r.p <= price).sort(cerca).slice(0, 4));
-    const mas = document.getElementById('lv-mas'); mas.hidden = todos.length <= 8;
-    mas.textContent = NIV_TODOS ? 'Ver solo los más cercanos' : `Ver los ${todos.length} niveles`; mas.setAttribute('aria-expanded', String(NIV_TODOS));
-    if (!lv.length) return;
-    const W = Math.max(260, box.clientWidth), H = Math.max(360, lv.length * 19 + 40);
-    const ext = d3.extent(lv.map((r) => r.p).concat([price]));
-    const y = d3.scaleLinear(ext, [H - 14, 14]);
-    const svg = d3.select(box).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Niveles clave a escala');
-    const axisX = Math.round(W * .57);
-    svg.append('line').attr('x1', axisX).attr('x2', axisX).attr('y1', 8).attr('y2', H - 8).style('stroke', 'var(--color-border-line)').style('stroke-width', 2);
-    svg.append('rect').attr('x', axisX - 3).attr('y', y(ext[1])).attr('width', 6).attr('height', Math.max(0, y(price) - y(ext[1]))).attr('rx', 3)
-      .style('fill', 'var(--color-ok)').style('fill-opacity', .25);
-    svg.append('rect').attr('x', axisX - 3).attr('y', y(price)).attr('width', 6).attr('height', Math.max(0, y(ext[0]) - y(price))).attr('rx', 3)
-      .style('fill', 'var(--color-bad)').style('fill-opacity', .25);
-    // separar etiquetas que se pisan (el precio actual ocupa su propio renglon, mas alto)
-    const items = lv.concat([{ name: `${MON()} ahora`, p: price, d: 0, now: true }]).sort((a, b) => b.p - a.p)
-      .map((r) => ({ ...r, y: y(r.p), ly: y(r.p), gap: r.now ? 26 : 17 }));
-    const gapOf = (a, b) => (a.now || b.now ? 22 : 17);
-    for (let k = 1; k < items.length; k++) if (items[k].ly - items[k - 1].ly < gapOf(items[k], items[k - 1])) items[k].ly = items[k - 1].ly + gapOf(items[k], items[k - 1]);
-    const over = items.length ? items[items.length - 1].ly - (H - 10) : 0;
-    if (over > 0) items.forEach((it) => { it.ly -= over; });
-    for (let k = items.length - 2; k >= 0; k--) if (items[k + 1].ly - items[k].ly < gapOf(items[k], items[k + 1])) items[k].ly = items[k + 1].ly - gapOf(items[k], items[k + 1]);
-    items.forEach((it) => {
-      if (it.now) {
-        const tg = svg.append('g');
-        tg.append('path').attr('d', `M${axisX},${it.y} L${axisX},${it.ly}`).style('stroke', 'var(--color-fg)');
-        tg.append('rect').attr('x', axisX - 50).attr('y', it.ly - 11).attr('width', 100).attr('height', 22).attr('rx', 11).style('fill', 'var(--color-fg)');
-        tg.append('text').attr('x', axisX).attr('y', it.ly).attr('dy', '.34em').attr('text-anchor', 'middle').style('fill', 'var(--color-bg)').style('font-weight', 600).text(`Ahora ${fp(price)}`);
-        return;
-      }
-      const col = it.p > price ? 'var(--color-ok)' : 'var(--color-bad)';
-      const g = svg.append('g');
-      g.append('circle').attr('cx', axisX).attr('cy', it.y).attr('r', 3.5).style('fill', col);
-      g.append('path').attr('d', `M${axisX - 6},${it.y} L${axisX - 16},${it.ly} L${axisX - 22},${it.ly}`).style('fill', 'none').style('stroke', 'var(--color-border-line)');
-      g.append('text').attr('x', axisX - 26).attr('y', it.ly).attr('dy', '.34em').attr('text-anchor', 'end').style('fill', 'var(--color-fg)').text(it.name.replace(/ \(estimada\)/, ''))
-        .each(function () {      // se mide una vez y se corta en proporcion (antes, una medicion cada dos letras)
-          const max = axisX - 30, s = this.textContent;
-          let L = this.getComputedTextLength();
-          if (!(L > max)) return;
-          const k = Math.max(0.84, max / L); this.style.fontSize = `${Math.round(k * 100)}%`; L = this.getComputedTextLength();   // primero se achica un poco la letra; si igual no entra, se corta
-          if (!(L > max)) return;
-          let n = Math.max(4, Math.floor(s.length * max / L) - 1); this.textContent = s.slice(0, n) + '…';
-          while (n > 4 && this.getComputedTextLength() > max) { n -= 2; this.textContent = s.slice(0, n) + '…'; }
-        });
-      g.append('text').attr('x', axisX + 12).attr('y', it.ly).attr('dy', '.34em').style('fill', col).style('font-weight', 600).text(fp(it.p));
-      g.append('text').attr('x', W - 2).attr('y', it.ly).attr('dy', '.34em').attr('text-anchor', 'end').style('fill', 'var(--color-fg-muted)').text(sg(it.d, 1));
-    });
-  }
-
   // ---------- ondas y FVG ----------
   function drawWaves(rows) {
     const cur = pick(rows, 'marco', S.tf)[0];
@@ -6298,21 +6305,17 @@
     const pats = document.getElementById('pats'); pats.replaceChildren();
     const list = pick(rows, 'patron', S.tf).sort((a, b) => (a.clase === 'grafico' ? -1 : 1));
     if (!list.length && !pick(rows, 'divergencia', S.tf).length) pats.append(el('p', 'ab-note', 'Sin figuras, patrones de velas ni divergencias claras en esta temporalidad.'));
-    // medir_estructura.py: figuras, velas, Wyckoff y Elliott no anticipan la direccion: no suman al analisis
-    if (list.length || pick(rows, 'divergencia', S.tf).length) pats.append(el('p', 'ab-note', 'Medido: figuras, velas y Elliott marcan niveles y objetivos, no la dirección. No suman a la predicción.'));
-    list.forEach((p) => {
-      const card = el('div', 'ab-pat'); const top = el('div', 'ab-pat-top');
+    // medir_estructura.py: figuras, velas, Wyckoff y Elliott no anticipan la direccion: no suman al analisis (va en el tooltip de cada fila)
+    const medido = ' Medido: figuras, velas y Elliott marcan niveles y objetivos, no la dirección. No suman a la predicción.';
+    const px = pick(rows, 'resumen')[0].precio;
+    list.forEach((p) => {      // una línea por hallazgo: nombre, lado y estado, objetivo y cuánto acertó; la descripción, en el tooltip
+      const card = el('div', 'ab-pat ab-pat-1');
       const chip = el('span', 'ab-sigchip ab-' + (p.sesgo === 'alcista' ? 'compra' : p.sesgo === 'bajista' ? 'venta' : 'neutral'),
         `${p.sesgo === 'alcista' ? '▲' : p.sesgo === 'bajista' ? '▼' : '◆'} ${p.clase === 'grafico' ? 'Figura' : 'Vela'} · ${p.estado}`);
-      top.append(el('b', '', p.nombre), chip); card.append(top);
-      if (p.objetivo !== null) card.append(el('span', 'ab-target', `Objetivo ${fp(num(p.objetivo))} (${sg((num(p.objetivo) / num(pick(rows, 'resumen')[0].precio) - 1) * 100, 1)})`));
-      card.append(el('p', '', p.descripcion));
-      if (p.exito !== null) {
-        const r = el('div', 'ab-pat-rate'); const tr = el('span'); const i = el('i');
-        i.style.background = num(p.exito) >= 55 ? 'var(--color-ok)' : num(p.exito) >= 45 ? 'var(--color-fg-muted)' : 'var(--color-bad)';
-        i.style.width = '0'; tr.append(i); r.append(tr, el('span', '', `${f0(num(p.exito))}% de ${num(p.casos)}`)); card.append(r);
-        later(() => { i.style.width = num(p.exito) + '%'; });
-      }
+      card.append(el('b', '', p.nombre), chip);
+      if (p.objetivo !== null) card.append(el('span', 'ab-target', `→ ${fp(num(p.objetivo))} (${sg((num(p.objetivo) / num(px) - 1) * 100, 1)})`));
+      if (p.exito !== null) card.append(vFicha(`${f0(num(p.exito))}% de ${num(p.casos)}`, num(p.exito) >= 55 ? 'up' : num(p.exito) < 45 ? 'dn' : '', 'Cuántas veces se cumplió en el historial'));
+      card.title = `${p.descripcion}${medido}`;
       pats.append(card);
     });
     const dg = {};
@@ -6320,10 +6323,10 @@
       const k = `${d.t1}-${d.t2}-${d.tipo}`; (dg[k] = dg[k] || { ...d, names: [] }).names.push(d.indicador);
     });
     Object.values(dg).forEach((d) => {
-      const card = el('div', 'ab-pat'); const top = el('div', 'ab-pat-top');
-      top.append(el('b', '', `Divergencia ${d.tipo}`), el('span', 'ab-sigchip ab-' + (d.tipo === 'alcista' ? 'compra' : 'venta'), d.names.join(' + ')));
+      const card = el('div', 'ab-pat ab-pat-1');
+      card.append(el('b', '', `Divergencia ${d.tipo}`), el('span', 'ab-sigchip ab-' + (d.tipo === 'alcista' ? 'compra' : 'venta'), d.names.join(' + ')));
       const hiLo = d.tipo === 'bajista' ? 'máximo más alto' : 'mínimo más bajo', mom = d.tipo === 'bajista' ? 'la suba pierde fuerza' : 'la baja pierde fuerza';
-      card.append(top, el('p', '', `El precio hizo un ${hiLo} (${fp(num(d.p1))} → ${fp(num(d.p2))}) pero ${d.names.join(' y ')} no acompañó: ${mom}.`));
+      card.title = `El precio hizo un ${hiLo} (${fp(num(d.p1))} → ${fp(num(d.p2))}) pero ${d.names.join(' y ')} no acompañó: ${mom}.${medido}`;
       pats.append(card);
     });
     const w = document.getElementById('wave'); w.setAttribute('data-where', `tabla=marco&tf=${S.tf}`);
@@ -6333,11 +6336,7 @@
     const box = document.getElementById('fvgs'); box.replaceChildren();
     const zones = pick(rows, 'fvg', S.tf);
     if (!zones.length) { box.append(el('p', 'ab-note', 'Sin zonas FVG abiertas cerca del precio.')); return; }
-    zones.forEach((z) => {
-      const r = el('div', 'ab-fvg'); const i = el('i');
-      i.style.background = z.tipo === 'alcista' ? 'color-mix(in srgb, var(--color-ok) 45%, transparent)' : 'color-mix(in srgb, var(--color-bad) 45%, transparent)';
-      r.append(i, el('span', '', `${fp(num(z.bajo))} – ${fp(num(z.alto))}`), el('span', '', z.tipo)); box.append(r);
-    });
+    zones.forEach((z) => { const f = vFicha(`${z.tipo === 'alcista' ? '▲' : '▼'} ${fp(num(z.bajo))}–${fp(num(z.alto))}`, z.tipo === 'alcista' ? 'up' : 'dn', `FVG ${z.tipo}: hueco que el precio dejó sin operar entre ${fp(num(z.bajo))} y ${fp(num(z.alto))}; suele volver a él.`); box.append(f); });
   }
 
   // ---------- indicadores ----------
@@ -6347,14 +6346,14 @@
     const votes = document.getElementById('votes'); votes.replaceChildren();
     if (cur) [['Medias móviles', cur.ma_compra, cur.ma_neutral, cur.ma_venta], ['Osciladores', cur.osc_compra, cur.osc_neutral, cur.osc_venta]].forEach(([name, b, nn, s]) => {
       const v = el('div', 'ab-vote'); const top = el('div', 'ab-vote-top');
-      top.append(el('span', '', name), el('span', '', `${b} alcistas · ${nn} neutrales · ${s} bajistas`));
+      top.append(el('span', '', name), el('span', '', `${b}▲ ${nn}◆ ${s}▼`)); v.title = `${b} alcistas · ${nn} neutrales · ${s} bajistas`;
       const bar = el('div', 'ab-vote-bar'); const tot = b + nn + s || 1;
       const parts = [[b, 'var(--color-ok)'], [nn, 'var(--color-fg-muted)'], [s, 'var(--color-bad)']].map(([k, c]) => { const i = el('i'); i.style.background = c; if (c.includes('muted')) i.style.opacity = '.35'; bar.append(i); return [i, k]; });
       v.append(top, bar); votes.append(v);
       later(() => parts.forEach(([i, k]) => { i.style.flexBasis = (k / tot * 100) + '%'; }));
     });
-    const tb = document.querySelector('#ind-table tbody'); tb.replaceChildren();
-    // filas consecutivas iguales (mismo grupo, misma señal y mismo "medido") en una sola: "EMA 10–200 (8) · ▼ Bajista · ▲ rebota"
+    const grid = document.getElementById('ind-grid'); grid.replaceChildren();
+    // filas consecutivas iguales (mismo grupo, misma señal y mismo "medido") en una sola ficha: "EMA 10–200 (8)"
     const filas = pick(rows, 'indicador', S.tf).map((r) => ({ r, med: indMedido(r) })), runs = [];
     filas.forEach((f) => {
       const k = `${f.r.grupo}|${f.r.senal}|${f.med.textContent}`, u = runs[runs.length - 1];
@@ -6367,16 +6366,18 @@
       if (m.every(Boolean) && new Set(m.map((x) => x[1])).size === 1) { const v = m.map((x) => parseFloat(x[2].replace(',', '.'))); return `${m[0][1]} ${Math.min(...v)}–${Math.max(...v)}`; }
       return nm.length === 2 ? `${nm[0]} y ${nm[1]}` : `${nm[0]} … ${nm[nm.length - 1]}`;
     };
-    let group = null;
+    // una ficha por indicador: ▲/▼/◆ con el color de su señal y una marca de lo medido (↺ al revés, ✓ a favor); lo demás, en el tooltip
+    let group = null, wrap = null;
     runs.forEach(({ fs }) => {
       const r = fs[0].r, multi = fs.length > 1;
-      if (r.grupo !== group) { group = r.grupo; const g = el('tr', 'ab-g'); const td = el('td', '', group); td.colSpan = 5; g.append(td); tb.append(g); }
-      const tr = el('tr', multi ? 'ab-grp' : ''); tr.dataset.key = `${encodeURIComponent(r.tf)},${encodeURIComponent(r.indicador)}`;
-      const sig = el('td'); const chip = el('span', 'ab-sigchip ab-' + r.senal, r.senal === 'compra' ? '▲ Alcista' : r.senal === 'venta' ? '▼ Bajista' : '• Neutral'); sig.append(chip);
-      const det = el('td', '', multi ? '' : r.detalle); if (!multi && !r.vota) det.append(el('span', 'ab-novote', (r.detalle ? ' · ' : '') + 'no vota'));
-      const nom = el('td', '', multi ? `${nombreGrupo(fs)} (${fs.length})` : r.indicador); if (multi) { nom.title = fs.map((f) => f.r.indicador).join(', '); if (nom.textContent.length <= 18) nom.className = 'ab-nw'; }
-      if (!multi && (r.detalle || !r.vota)) nom.append(el('small', 'ab-ind-det', `${r.detalle || ''}${r.vota ? '' : `${r.detalle ? ' · ' : ''}no vota`}`));   // en pantallas angostas el detalle baja debajo del nombre
-      tr.append(nom, el('td', 'r', multi || r.valor === null ? '' : f2(num(r.valor))), sig, fs[0].med, det); tb.append(tr);
+      if (r.grupo !== group) { group = r.grupo; grid.append(el('span', 'ab-kicker ab-ind-g', group)); wrap = el('div', 'ab-ind-chips'); grid.append(wrap); }
+      const ch = el('span', `ab-ic ab-${r.senal}`); ch.dataset.key = `${encodeURIComponent(r.tf)},${encodeURIComponent(r.indicador)}`;
+      const lado = r.senal === 'compra' ? '▲' : r.senal === 'venta' ? '▼' : '◆', sw = fs[0].med.querySelector('.ab-sigchip'), tx = sw ? sw.textContent : '';
+      const marca = /corrige|rebota|al revés/.test(tx) || /al revés/.test(fs[0].med.textContent) ? '↺' : /a favor/.test(tx) || /a favor/.test(fs[0].med.textContent) ? '✓' : '';
+      ch.append(el('i', '', lado), el('b', '', multi ? `${nombreGrupo(fs)} (${fs.length})` : r.indicador));
+      if (marca) ch.append(el('em', '', marca));
+      ch.title = `${multi ? fs.map((f) => f.r.indicador).join(', ') : `${r.indicador}${r.valor === null ? '' : `: ${f2(num(r.valor))}`}`} · ${r.senal === 'compra' ? 'alcista' : r.senal === 'venta' ? 'bajista' : 'neutral'}. ${fs[0].med.title || ''}${!multi && r.detalle ? ` · ${r.detalle}` : ''}${r.vota ? '' : ' · no vota'}`.trim();
+      wrap.append(ch);
     });
   }
   document.getElementById('ind-todas').addEventListener('click', () => { IND_TODAS = !IND_TODAS; if (S.rows) drawIndicators(S.rows); });
@@ -6403,7 +6404,8 @@
 
   function drawHits(rows) {
     const box = document.getElementById('hits'); box.replaceChildren();
-    const hits = pick(rows, 'acierto');
+    const todos = pick(rows, 'acierto'), hits = todos.filter((h) => (num(h.pronosticos) || 0) >= 10);   // con menos de 10 casos el porcentaje no dice nada: no se muestra
+    if (todos.length && !hits.length) { box.append(el('p', 'ab-note', 'Sin casos suficientes todavía (hacen falta 10 por plazo).')); return; }
     if (!hits.length) { box.append(el('p', 'ab-note', 'Cada predicción queda registrada. Los aciertos aparecen cuando se cumple el plazo de cada una, desde las próximas corridas.')); return; }
     const tbl = el('table', 'ab-tbl'); tbl.setAttribute('data-source', 'analisis'); tbl.setAttribute('data-row-key', 'tf,horizonte');
     const hr = el('tr');
@@ -6419,7 +6421,7 @@
       const td = el('td', 'r', er === null ? '—' : `${f1(er)}% (${cr})`);
       if (er !== null && cr >= 30) { td.style.color = Math.abs(er - 80) <= 7 ? 'var(--color-ok)' : 'var(--color-warn)'; td.title = Math.abs(er - 80) <= 7 ? 'Cerca del 80%: el rango es honesto' : er < 80 ? 'Debajo del 80%: el rango viene angosto' : 'Arriba del 80%: el rango viene ancho'; }
       tr.append(td); tb.append(tr); });
-    tbl.append(th, tb); box.append(tbl, el('p', 'ab-note', 'Brier mide la calidad de las probabilidades: 0,250 es tirar una moneda; menos es mejor. "En rango 80%": cuántas veces el precio terminó dentro del rango que anunció (lo honesto es cerca de 80%).'));
+    tbl.append(th, tb); box.append(tbl, el('p', 'ab-note', `Brier mide la calidad de las probabilidades: 0,250 es tirar una moneda; menos es mejor. "En rango 80%": cuántas veces el precio terminó dentro del rango que anunció (lo honesto es cerca de 80%).${todos.length > hits.length ? ` ${todos.length - hits.length} plazo${todos.length - hits.length > 1 ? 's' : ''} con menos de 10 casos no se muestra${todos.length - hits.length > 1 ? 'n' : ''}.` : ''}`));
   }
   // ---------- en vivo dentro del grafico: libro de ordenes y trades (Binance, Bybit, OKX y Coinbase) ----------
   // Como una terminal de flujo, todo sobre el grafico: a la derecha, el libro sumado de los exchanges a la altura de
