@@ -2046,6 +2046,10 @@
   .ab-eje-l.ah { color: var(--ink); font-weight: 650; }
   .ab-rs-rg .ab-eje-cap { display: flex; align-items: center; gap: 7px; margin-top: 8px; font-size: 11.5px; font-weight: 500; color: var(--mute); }
   .ab-eje-sw { flex: none; width: 16px; height: 8px; border-radius: 3px; background: color-mix(in srgb, var(--ink) 18%, transparent); }
+  .ab-rs-sub { font-size: 14px; line-height: 1.4; color: var(--t2-ink); text-wrap: pretty; }
+  /* la fila "Ciclo" es un aporte al resultado de arriba, no un segundo veredicto: cifra y zona chicas */
+  .ab-hoja .ab-tm-tab b { font-size: 1.05rem; font-weight: 700; }
+  .ab-hoja .ab-tm-tab #tm-zona { font-weight: 500; }
   html:not(.ab-simple) .ab-rs-ciclo, html.ab-simple #rs-riesgo { display: none !important; }
   html.ab-simple .ab-hoja > .ab-tm-tab, html.ab-simple #orden-btn, html.ab-simple #grafico:not(.ab-fs) > #ex-box { display: none !important; }
 

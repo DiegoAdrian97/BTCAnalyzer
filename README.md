@@ -1021,8 +1021,8 @@ Método fuera de muestra: los umbrales se ajustan en un tramo y se prueban **sin
 direcciones (ajusto 2012–19 y pruebo 2020–26, y al revés). Nota honesta: la prueba más estricta (si hay un piso o un techo
 dentro de 90–180 días) **no llegó a z ≥ 2** (lift de 1,2 a 6 veces, con pocos episodios independientes). Por eso se muestra
 como una zona a 1 año y 90 días, igual que las zonas del ciclo: marca zonas de meses, no el día, y puede seguir bajando
-antes de subir. Se ve como "Estado del mercado" junto a "Zonas del ciclo" y, solo para BTC, arriba de la conclusión
-("Qué hacer de fondo", ver abajo).
+antes de subir. Se ve como "Estado del mercado" junto a "Zonas del ciclo" y, solo para BTC, en el titular de la tarjeta
+principal ("Un solo resultado por plazo", ver abajo).
 
 **Un solo resultado por plazo, con el peso que ganó** (`medir_peso_ciclo.py`, BTC 2013–2026, tramos 2013–19 y 2020–26: % de
 veces que subió al horizonte en cada estado contra un día normal). El estado se calcula en `termometro.estado_ciclo` /
@@ -1045,14 +1045,24 @@ SOPR de 7 y 30 días, NUPL, liquidez de la Fed y Wikipedia. Cada plazo de 1 día
 de la conclusión ("También se miraron, sin efecto medido a 1 día: …"). Las zonas individuales ya están dentro del estado.
 Todo está en `JavascriptVersion/mediciones.json` ("senales" y "descartadas").
 
-**Qué hacer de fondo** (BTC, arriba de la conclusión, siempre visible; el plazo elegido solo agrega un matiz):
+#### Un solo resultado por plazo (BTC)
 
-| Estado | Línea | Si el plazo dice… |
-|---|---|---|
-| Piso extremo / cerca de un piso | "Comprar (de fondo, escalonado): zona de compra del ciclo; a 1 año BTC subió X de las veces que estuvo así" (verde) | baja: "El corto plazo todavía puede bajar: mejor de a partes." |
-| Posible techo | "No comprar / reducir: a 1 año subió solo 25–39% de las veces que estuvo así" (rojo) | sube: "Puede subir un poco más en el corto plazo." |
-| Rally alcista | "Mantener: tendencia alcista de fondo" (verde) | |
-| Zona neutral | "Sin ventaja de fondo: seguí la señal del plazo" (gris) | |
+La tarjeta de arriba da **un único titular** por plazo (`veredicto(dir, fondo, plazo)` en `dashboard/index.html`). Junta la
+dirección de corto plazo del plazo elegido (la barra ▲/▼, que queda como "parte de corto plazo") con el fondo del ciclo.
+El fondo sale de un solo lugar (`fondoCiclo`): **compra** si el estado es piso / piso extremo o la zona del termómetro es de
+compra; **venta** si es posible techo o la zona es "Cuidado: caro" / "Zona de venta"; si discrepan manda el termómetro (igual
+que el factor de 1 mes de `central()`); **rally** si el estado es rally y nada de lo anterior; si no, neutral. Otras monedas
+no tienen fondo y muestran el titular de siempre. La fila "Ciclo" de abajo queda como aporte ("Ciclo · aporta"), no como
+segundo veredicto; la conclusión y el plazo elegido de la lista repiten el mismo resultado.
+
+| Corto plazo ↓ / Fondo → | Compra | Venta | Rally |
+|---|---|---|---|
+| Sube | **Compra** | **No comprar** | **Sube** |
+| Sin dirección clara | **Momento de compra** | **Momento de reducir** | **Mantener** |
+| Baja | **Compra escalonada** | **Venta** | **Baja en el corto plazo** |
+
+Con fondo neutral (o en otras monedas) queda el titular de siempre: "Más probable que suba / baje" o "Sin dirección clara".
+Verde para compra, mantener y sube; rojo para venta, no comprar y baja.
 
 ### Datos gratis nuevos que no pasaron (`medir_diarios.py`, `medir_onchain_ciclo.py`, `medir_polymarket.py`, nov. 2026)
 

@@ -2047,6 +2047,10 @@
   .ab-eje-l.ah { color: var(--ink); font-weight: 650; }
   .ab-rs-rg .ab-eje-cap { display: flex; align-items: center; gap: 7px; margin-top: 8px; font-size: 11.5px; font-weight: 500; color: var(--mute); }
   .ab-eje-sw { flex: none; width: 16px; height: 8px; border-radius: 3px; background: color-mix(in srgb, var(--ink) 18%, transparent); }
+  .ab-rs-sub { font-size: 14px; line-height: 1.4; color: var(--t2-ink); text-wrap: pretty; }
+  /* la fila "Ciclo" es un aporte al resultado de arriba, no un segundo veredicto: cifra y zona chicas */
+  .ab-hoja .ab-tm-tab b { font-size: 1.05rem; font-weight: 700; }
+  .ab-hoja .ab-tm-tab #tm-zona { font-weight: 500; }
   html:not(.ab-simple) .ab-rs-ciclo, html.ab-simple #rs-riesgo { display: none !important; }
   html.ab-simple .ab-hoja > .ab-tm-tab, html.ab-simple #orden-btn, html.ab-simple #grafico:not(.ab-fs) > #ex-box { display: none !important; }
 
@@ -2187,6 +2191,7 @@
     <div class="ab-rs-h"><h2 id="rs-t">En la próxima hora</h2><span class="ab-kicker" id="rs-k"></span></div>
     <div class="ab-rs-card">
       <b id="rs-dir" class="ab-rs-dir">—</b>
+      <p id="rs-sub" class="ab-rs-sub" hidden></p>
       <small id="rs-prob" class="ab-rs-prob"></small>
       <div class="ab-pbar" id="rs-bar" hidden></div>
       <div class="ab-rs-rg" id="rs-rango" hidden></div>
@@ -2208,13 +2213,13 @@
     <div class="ab-ce-riesgo" id="ce-riesgo" hidden></div>
   </section>
   <button type="button" class="ab-tm-tab" id="tm-tab" aria-expanded="false" aria-controls="tm-panel" hidden title="Termómetro del ciclo (semanas o meses): 0 = momento de comprar · 100 = de vender">
-    <small class="ab-tm-k">Ciclo</small><span class="ab-tm-bar"><span class="ab-tm-dot" id="tm-dot"></span></span><b id="tm-num">—</b><small id="tm-zona">—</small><small class="ab-tm-mvrv" id="tm-mvrv" hidden></small>
+    <small class="ab-tm-k" id="tm-k">Ciclo</small><span class="ab-tm-bar"><span class="ab-tm-dot" id="tm-dot"></span></span><b id="tm-num">—</b><small id="tm-zona">—</small><small class="ab-tm-mvrv" id="tm-mvrv" hidden></small>
   </button>
 
   <!-- una sola conclusion arriba: cada señal mira un plazo distinto y antes parecian contradecirse -->
   <section class="ab-conclu" id="conclusion" aria-label="En resumen" hidden>
     <div><small id="cc-hora-k">Dirección</small><b id="cc-hora">—</b></div>
-    <div><small>Ciclo (meses a un año)</small><b id="cc-ciclo">—</b></div>
+    <div><small id="cc-ciclo-k">Ciclo (meses a un año)</small><b id="cc-ciclo">—</b></div>
     <p id="cc-fondo" class="ab-cc-fondo" hidden></p>
     <p id="cc-txt"></p>
     <p id="cc-vivo" class="ab-note" hidden></p>
@@ -3339,7 +3344,7 @@
     tira.replaceChildren(
       celda('fz', c.fuerza === 'alta' ? 'fuerte' : '', 'Mov. fuerte', c.fuerza === 'alta' ? 'Sí' : c.fuerza === 'media' ? 'Puede' : 'No',
         okv(c.prob_fuerte) ? `${f0(num(c.prob_fuerte))}%` : ''),
-      celda('dir', c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '', 'Dirección',
+      celda('dir', c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '', (fondoCiclo(rows) || {}).f && fondoCiclo(rows).f !== 'neutral' ? 'Corto plazo' : 'Dirección',
         c.direccion === 'sube' ? '▲ Sube' : c.direccion === 'baja' ? '▼ Baja' : 'Neutral'),
       celda('rng', '', 'Rango', okv(c.rango_min) ? par(num(c.rango_min), num(c.rango_max)) : '—'),
       celda('niv', '', 'Soporte–resist.', okv(c.soporte) && okv(c.resistencia) ? par(num(c.soporte), num(c.resistencia))
@@ -3432,6 +3437,52 @@
     if (hay) { const cap = el('small', 'ab-eje-cap'); cap.append(el('i', 'ab-eje-sw'), '8 de cada 10 veces termina dentro'); box.append(cap); }
     return true;
   }
+  // ---------- el resultado final: UN solo titular por plazo ----------
+  // Junta la direccion de corto plazo del plazo elegido (veredictoPlazo) con el fondo del ciclo (solo BTC).
+  // fondo: 'compra' | 'venta' | 'rally' | 'neutral' | null (otras monedas: sin ciclo, queda el titular de siempre).
+  function fondoCiclo(rows) {
+    if (MON() !== 'BTC') return null;
+    const t = pick(rows || [], 'termometro')[0]; if (!t) return null;
+    const es = ESTADOS[t.estado_id] ? t.estado_id : ((estadoHoy() || {}).id || null);
+    const z = String(t.medidor_zona || '').toLowerCase();
+    const lz = /compra/.test(z) ? 1 : /venta|caro/.test(z) ? -1 : 0, le = es === 'piso' || es === 'piso_x' ? 1 : es === 'techo' ? -1 : 0;
+    const lado = lz || le;   // si discrepan manda el termometro (igual que el factor de ciclo de 1 mes en central())
+    // "a 1 año subió X de las veces": del estado si coincide con el lado; si no, de la zona del termometro
+    const a1 = lado && le === lado ? ESTADOS[es].a1 : lado && okv(t.m_sube_365) ? `${f0(num(t.m_sube_365))}%` : null;
+    return { f: lado > 0 ? 'compra' : lado < 0 ? 'venta' : es === 'rally' ? 'rally' : 'neutral', a1 };
+  }
+  // dir: 'sube'|'baja'|'neutral' (la del plazo elegido) · fondo: ver fondoCiclo · plazo: '1 hora', '1 día'... · x: { up: % de subir, a1 }
+  function veredicto(dir, fondo, plazo, x) {
+    x = x || {};
+    const d = dir === 'sube' || dir === 'baja' ? dir : 'neutral', pu = okv(x.up) ? num(x.up) : null;
+    const P = plazoTxt(plazo).replace(/^(la|las|el|los) /, '').replace(/^./, (m) => m.toUpperCase());
+    const p = pu === null ? '' : ` (${f0(d === 'baja' ? 100 - pu : pu)}%)`;   // el par ▲/▼ ya va en el rotulo de la barra
+    const a1 = x.a1 ? `: a 1 año subió ${x.a1} de las veces que estuvo así` : '';
+    const r = (label, cls, sub) => ({ label, cls, sub, corto: label });
+    if (fondo === 'compra') {
+      if (d === 'sube') return r('Compra', 'sube', `${P}: sube${p}. Ciclo en zona de compra.`);
+      if (d === 'baja') return r('Compra escalonada', 'sube', `${P}: puede bajar${p}. Ciclo en zona de compra: comprá de a partes, sin apurarte.`);
+      return r('Momento de compra', 'sube', `${P}: sin dirección clara. Ciclo en zona de compra${a1}. Mejor de a partes.`);
+    }
+    if (fondo === 'venta') {
+      if (d === 'sube') return r('No comprar', 'baja', `${P}: puede subir algo${p}, pero el ciclo está en zona de venta.`);
+      if (d === 'baja') return r('Venta', 'baja', `${P}: baja${p} y el ciclo está en zona de venta.`);
+      return r('Momento de reducir', 'baja', `${P}: sin dirección clara. Ciclo en zona de venta${(x.a1 ? `: a 1 año subió solo ${x.a1} de las veces` : '')}.`);
+    }
+    if (fondo === 'rally') {
+      if (d === 'sube') return r('Sube', 'sube', `${P}: sube${p}; tendencia de fondo alcista.`);
+      if (d === 'baja') return r('Baja en el corto plazo', 'baja', `${P}: baja${p}; la tendencia de fondo sigue alcista.`);
+      return r('Mantener', 'sube', `${P}: sin dirección clara; tendencia de fondo alcista.`);
+    }
+    return { label: d === 'sube' ? '▲ Más probable que suba' : d === 'baja' ? '▼ Más probable que baje' : 'Sin dirección clara', cls: d === 'neutral' ? '' : d,
+      sub: '', corto: d === 'sube' ? '▲ Suba probable' : d === 'baja' ? '▼ Baja probable' : 'Sin dirección clara' };
+  }
+  // el resultado del plazo elegido, para la respuesta, la conclusion, la lista de plazos y la barra de arriba
+  function resultadoFinal(rows, c) {
+    const vz = veredictoPlazo(rows, c), fo = fondoCiclo(rows), hay = !!vz.p && okv(vz.up);
+    const ve = veredicto(vz.dir || 'neutral', fo && fo.f, CE_PLAZO[c.tf] || S.plazo, { up: hay ? num(vz.up) : null, a1: fo && fo.a1 });
+    return { vz, fo, ve, conCiclo: !!fo && fo.f !== 'neutral' };
+  }
   function drawRespuesta(rows, sum, c) {
     const sec = document.getElementById('respuesta'); sec.hidden = !c; if (!c) return;
     const plazo = CE_PLAZO[c.tf];
@@ -3439,12 +3490,13 @@
     document.getElementById('rs-t').textContent = plazo ? `En ${plazoTxt(plazo)}` : `Velas de ${TF_TXT[c.tf] || c.tf}`;
     document.getElementById('rs-k').textContent = `${MON()}${hastaTxt(c)}`;
     // veredicto: el de la probabilidad del plazo (lo medido); la direccion por puntos queda como linea secundaria
-    const vz = veredictoPlazo(rows, c);
-    const dw = document.getElementById('rs-dir'); dw.className = `ab-rs-dir ${vz.dir}`.trim();
-    dw.dataset.corto = vz.dir === 'sube' ? '▲ Suba probable' : vz.dir === 'baja' ? '▼ Baja probable' : 'Sin dirección clara';
-    dw.textContent = vz.dir === 'sube' ? '▲ Más probable que suba' : vz.dir === 'baja' ? '▼ Más probable que baje' : 'Sin dirección clara';
+    // UN solo resultado: corto plazo del plazo elegido + fondo del ciclo (BTC). La barra de abajo es solo la parte de corto plazo.
+    const { vz, fo, ve, conCiclo } = resultadoFinal(rows, c);
+    const dw = document.getElementById('rs-dir'); dw.className = `ab-rs-dir ${ve.cls}`.trim();
+    dw.dataset.corto = ve.corto; dw.textContent = ve.label;
+    const sb = document.getElementById('rs-sub'); sb.textContent = ve.sub; sb.hidden = !ve.sub;
     const pr = document.getElementById('rs-prob');
-    pr.textContent = '';   // la barra partida ya dice sube/baja
+    pr.textContent = conCiclo && vz.p && okv(vz.up) ? `${plazoTxt(plazo).replace(/^(la|las|el|los) /, '').replace(/^./, (m) => m.toUpperCase())}: ▲${f0(num(vz.up))}% / ▼${f0(100 - num(vz.up))}%` : '';   // sin ciclo, la barra partida ya dice sube/baja
     rsBarra(document.getElementById('rs-bar'), vz.p && okv(vz.up) ? num(vz.up) : null, vz.p && okv(vz.base) ? num(vz.base) : null);
     const lo = num(c.rango_min), hi = num(c.rango_max), so = num(c.soporte), re = num(c.resistencia);
     const rg = document.getElementById('rs-rango'), nv = document.getElementById('rs-niv');
@@ -3454,8 +3506,8 @@
     av.hidden = !(c.fuerza === 'alta' || (okv(pf) && okv(pn) && pn > 0 && pf >= 2 * pn));
     av.textContent = '⚡ Puede moverse fuerte (más del doble de lo normal)';
     const tmr = pick(rows, 'termometro')[0], cl = document.getElementById('rs-ciclo');
-    cl.hidden = !(tmr && okv(tmr.medidor) && /^1 (semana|mes)$/.test(S.plazo));
-    if (!cl.hidden) cl.textContent = `Ciclo: ${tmr.medidor_zona} (${f0(num(tmr.medidor))}/100)`;
+    cl.hidden = !(tmr && okv(tmr.medidor) && (/^1 (semana|mes)$/.test(S.plazo) || conCiclo));
+    if (!cl.hidden) cl.textContent = `Ciclo${fo ? ' · aporta' : ''}: ${tmr.medidor_zona} (${f0(num(tmr.medidor))}/100)`;
     // el aviso si hay riesgo (el de "los casos parecidos dicen lo contrario" ya no hace falta: el veredicto de arriba es ese)
     const rz = document.getElementById('rs-riesgo'), rsk = c.riesgo.filter((t) => !/ lo contrario: /.test(t)); rz.hidden = !rsk.length;
     rz.replaceChildren(el('b', '', '⚠ Atención: '), rsk.join(' · '));
@@ -3960,15 +4012,6 @@
     if (!['1 día', '1 semana', '1 mes'].includes(plz)) return '';
     return `También se miraron, sin efecto medido a ${plz}: ${(estadoSuma ? SIN_EFECTO : ['estado del ciclo', ...SIN_EFECTO]).join(', ')}.`;
   }
-  // "Qué hacer de fondo": sale del estado del ciclo (cuanto subio BTC a 1 año cuando estuvo asi) y del lado del plazo elegido
-  function fondoTxt(es, dir) {
-    const k = 'Qué hacer de fondo:';
-    if (es.id === 'piso_x' || es.id === 'piso') return { cls: 'up', t: `${k} Comprar (de fondo, escalonado): zona de compra del ciclo; a 1 año BTC subió ${es.a1} de las veces que estuvo así.`,
-      s: dir === 'baja' ? 'El corto plazo todavía puede bajar: mejor de a partes.' : '' };
-    if (es.id === 'techo') return { cls: 'dn', t: `${k} No comprar / reducir: a 1 año subió solo ${es.a1} de las veces que estuvo así.`, s: dir === 'sube' ? 'Puede subir un poco más en el corto plazo.' : '' };
-    if (es.id === 'rally') return { cls: 'up', t: `${k} Mantener: tendencia alcista de fondo.`, s: '' };
-    return { cls: '', t: `${k} Sin ventaja de fondo: seguí la señal del plazo.`, s: '' };
-  }
   function drawConclusion(rows) {
     const sec = document.getElementById('conclusion'), c = centralDe(rows || G.rows);
     if (!c || !c.direccion) { sec.hidden = true; return; }
@@ -3976,7 +4019,9 @@
     const fs = (c.factores || []).filter((f) => f[0] === 'direccion'), mas = fs.filter((f) => f[1] > 0).sort((a, b) => b[2] - a[2]), menos = fs.filter((f) => f[1] < 0).sort((a, b) => b[2] - a[2]);
     const plz = c.plazo || S.plazo, dTxt = c.direccion === 'sube' ? 'Sube' : c.direccion === 'baja' ? 'Baja' : 'Lateral';
     const pon = (id, t, cls) => { const e = document.getElementById(id); e.textContent = t || '—'; e.className = cls || ''; };
-    document.getElementById('cc-hora-k').textContent = `Dirección · ${plz}`;
+    const rf = resultadoFinal(rows || G.rows, c);
+    document.getElementById('cc-hora-k').textContent = rf.fo ? `Corto plazo · ${plz}` : `Dirección · ${plz}`;
+    document.getElementById('cc-ciclo-k').textContent = rf.fo ? 'Ciclo · aporta (meses a un año)' : 'Ciclo (meses a un año)';
     pon('cc-hora', dTxt, c.direccion === 'sube' ? 'sube' : c.direccion === 'baja' ? 'baja' : '');
     const tab = document.getElementById('tm-tab'), zona = tab && !tab.hidden ? (document.getElementById('tm-zona') || {}).textContent || '' : '';
     const zch = document.getElementById('tm-mvrv'), zonas = zch && !zch.hidden ? zch.textContent : '';
@@ -3993,10 +4038,10 @@
     if (fc && plz === '1 semana') fr.push('El estado del ciclo suma poco a 1 semana (0,5 puntos, débil: medido +5 puntos sobre un día normal).');
     else if (lc) fr.push(fc ? `El ciclo (${zona.toLowerCase()}) ya está sumado en este plazo: a 30 días el precio fue para el lado de la zona más seguido que lo normal.`
       : `El ciclo mira meses a un año (${zona.toLowerCase()}): va aparte, no suma a esta dirección.`);
-    // "Qué hacer de fondo" (BTC): el estado general del ciclo, siempre visible arriba; el plazo elegido solo agrega un matiz
-    const fo = document.getElementById('cc-fondo'), es = MON() === 'BTC' ? estadoHoy() : null, fondo = es ? fondoTxt(es, c.direccion) : null;
-    fo.hidden = !fondo;
-    if (fondo) { fo.className = `ab-cc-fondo ${fondo.cls}`; fo.replaceChildren(fondo.t, el('span', '', fondo.s ? ` ${fondo.s}` : '')); }
+    // el resultado final (BTC): el mismo de la tarjeta de arriba, para que la pagina no diga dos cosas
+    const fo = document.getElementById('cc-fondo'), es = MON() === 'BTC' ? estadoHoy() : null;
+    fo.hidden = !rf.ve.sub;
+    if (rf.ve.sub) { fo.className = `ab-cc-fondo ${rf.ve.cls === 'sube' ? 'up' : rf.ve.cls === 'baja' ? 'dn' : ''}`.trim(); fo.replaceChildren(el('b', '', `Resultado: ${rf.ve.label}.`), el('span', '', ` ${rf.ve.sub}`)); }
     if (es && es.id !== ESTADO_PINTADO) pintarZonas();
     // lo que se miro y no pesa en este plazo (medir_peso_ciclo.py): una linea, sin sumar nada
     { const sn = document.getElementById('cc-sin'), tx = MON() === 'BTC' ? sinEfectoTxt(plz, fs.some((f) => /^Estado del ciclo:/.test(f[3]))) : ''; sn.textContent = tx; sn.hidden = !tx; }
@@ -4823,6 +4868,7 @@
     dot.style.left = `${v}%`; dot.style.bottom = '';   // fila horizontal dentro de la hoja
     document.getElementById('tm-num').textContent = f0(v);
     document.getElementById('tm-zona').textContent = t.medidor_zona;
+    { const k = document.getElementById('tm-k'); k.textContent = MON() === 'BTC' ? 'Ciclo · aporta' : 'Ciclo'; }   // en BTC suma al resultado de la tarjeta de arriba
     { const mz = document.getElementById('tm-mvrv'), ok = t.mvrv_banda !== null && t.mvrv_banda !== undefined;
       mz.hidden = !ok; if (ok) { mz.textContent = `MVRV: zona ${t.mvrv_banda === 'normal' ? 'media' : `de ${t.mvrv_banda}`}`; mz.className = `ab-tm-mvrv ${/compra/.test(t.mvrv_banda) ? 'up' : /venta|cara/.test(t.mvrv_banda) ? 'dn' : ''}`.trim(); } }
     const mon = t.moneda || 'BTC';
@@ -5349,7 +5395,11 @@
       const head = pick(rows, 'explicacion').find((e) => e.plazo === p.plazo && e.tipo === 'titular');
       const bias = head ? head.sesgo : 'neutral', pu = num(p.primero_arriba);
       const b = el('button', 'ab-plazo ab-' + bias); b.type = 'button'; b.setAttribute('aria-pressed', String(p.plazo === S.plazo));
-      const word = bias === 'alcista' ? `▲ Sube ${f0(pu)}%` : bias === 'bajista' ? `▼ Baja ${f0(100 - pu)}%` : '◆ Lateral';
+      let word = bias === 'alcista' ? `▲ Sube ${f0(pu)}%` : bias === 'bajista' ? `▼ Baja ${f0(100 - pu)}%` : '◆ Lateral';
+      if (p.plazo === S.plazo) {   // el plazo elegido muestra el mismo resultado que la tarjeta de arriba (las otras filas, su corto plazo)
+        const cz = pick(rows, 'central').find((x) => x.plazo === S.plazo), rf = cz ? resultadoFinal(rows, cz) : null;
+        if (rf && rf.conCiclo) { word = rf.ve.label; b.className = `ab-plazo ab-${rf.ve.cls === 'sube' ? 'alcista' : rf.ve.cls === 'baja' ? 'bajista' : 'neutral'}`; }
+      }
       b.append(el('small', '', `En ${p.plazo}`), el('b', '', word),
         el('span', '', `${fp(num(p.obj_abajo))} – ${fp(num(p.obj_arriba))} · hasta\u00a0${p.hora.slice(-5)}\u00a0h`));
       b.addEventListener('click', () => setPlazo(p.plazo));
@@ -5371,7 +5421,9 @@
     const cen = pick(rows, 'central').find((x) => x.plazo === S.plazo);
     const bias = cen ? (cen.direccion === 'sube' ? 'alcista' : cen.direccion === 'baja' ? 'bajista' : 'neutral') : head ? head.sesgo : 'neutral';
     const chip = document.getElementById('story-chip'); chip.replaceChildren();
-    const b = el('span', 'ab-bias', bias === 'alcista' ? '▲ Escenario alcista' : bias === 'bajista' ? '▼ Escenario bajista' : '◆ Sin dirección clara');
+    const conCiclo = !!fondoCiclo(rows) && fondoCiclo(rows).f !== 'neutral';   // con el ciclo en juego, este chip es solo el corto plazo
+    const b = el('span', 'ab-bias', conCiclo ? (bias === 'alcista' ? '▲ Corto plazo: escenario alcista' : bias === 'bajista' ? '▼ Corto plazo: escenario bajista' : '◆ Corto plazo: sin dirección clara')
+      : bias === 'alcista' ? '▲ Escenario alcista' : bias === 'bajista' ? '▼ Escenario bajista' : '◆ Sin dirección clara');
     b.style.color = bias === 'alcista' ? 'var(--color-ok)' : bias === 'bajista' ? 'var(--color-bad)' : 'var(--color-fg-muted)';
     chip.append(b);
     // regimen de mercado (tendencia, rango o panico) de las velas del plazo: dato, no cambia las probabilidades
@@ -9408,6 +9460,11 @@
     // ----- analisis de la app -----
     [/^(Mov\. fuerte|Movimiento fuerte|Chance de movimiento fuerte|¿Movimiento fuerte\?|Chance \d|Modelo de movimiento fuerte)/, 'app', 'Movimiento fuerte', 'La chance de que la próxima hora se mueva más del doble de lo normal, para cualquier lado. La calcula un modelo entrenado con años de velas, la hora del día y el calendario.',
       null, null, 'Lo normal ronda el 12%. No dice la dirección: dice si conviene esperar un tirón (stops más anchos, o no entrar).'],
+    [/^(Compra|Momento de compra|Compra escalonada|No comprar|Momento de reducir|Venta|Mantener|Sube|Baja|Baja en el corto plazo)$/, 'app', 'Resultado final',
+      'Un solo resultado por plazo: junta la dirección de corto plazo del plazo elegido (la barra ▲/▼) con la zona del ciclo de BTC (termómetro y estado del mercado). Si el ciclo no marca nada, vale solo el corto plazo.',
+      'Ciclo en zona de compra: sube → "Compra"; sin dirección clara → "Momento de compra"; baja → "Compra escalonada" (de a partes).',
+      'Ciclo en zona de venta: sube → "No comprar"; sin dirección → "Momento de reducir"; baja → "Venta". Con rally de fondo: "Sube", "Mantener" o "Baja en el corto plazo".',
+      'La zona del ciclo marca meses, no el día: por eso a corto plazo puede bajar aunque el resultado diga compra.', '#respuesta'],
     [/^(Dirección$|¿Para dónde\?|Sin dirección clara|Señales: \d)/, 'app', 'Dirección', 'El resultado de sumar todas las señales medidas que apuntan a subir o a bajar, cada una con su peso.', 'Más peso a favor de la suba: "sube".', 'Más peso a favor de la baja: "baja".', 'Si quedan parejas, la app dice "sin dirección clara": es lo honesto.'],
     [/^(Rango$|Rango esperado|8 de cada 10 veces)/, 'app', 'Rango esperado', 'Entre qué precios terminaría 8 de cada 10 veces, según cómo se movió en situaciones parecidas y la volatilidad de ahora.', null, null, 'Se controla solo: si el precio termina adentro más o menos de 8 de cada 10 veces, se ajusta.'],
     [/^(Soporte–resist|Soporte$|soporte$|piso del rango)/, 'app', 'Soporte', 'Un precio donde, por cómo se movió antes, suele aparecer compra y frenar la baja.', null, null, 'Si el precio lo rompe con un cierre, suele pasar a ser resistencia.'],
