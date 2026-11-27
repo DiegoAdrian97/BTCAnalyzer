@@ -1142,6 +1142,12 @@ velas) y depende de la hora del día. Se aplica con velas de hasta 1 hora. Verif
 velas de BTC de 2025–2026: 1,7% a 3,3% menos error en la escalera de niveles (15 min, 1 hora y 4 horas). Con
 velas de 4 horas o diarias no mejoraba, así que ahí no se usa.
 
+El rango del 80% de **1 día** (solo BTC) se mezcla con el que implican las opciones: media geométrica entre los límites de
+la app y precio × exp(±1,2816 × 0,72 × DVOL/100 × √(1/365)), con el DVOL de Deribit (si falta o tiene más de 6 horas, queda el
+rango de siempre). Medido en `medir_rangos_dvol.py` (BTC 2021-03..2026-11, factor 0,72 ajustado en 2021-03..2023-12): en 2024-01..2026-11
+cobertura 77,4% (meta 80%) y puntaje de intervalo 8,93 contra 9,24 de la app sola; z pareado +6,6 y +6,3 en los dos tramos. En 1 semana y
+1 mes no ganaba, así que no cambian (el rango de 1 semana cubría 85–88%, más ancho de lo necesario: queda anotado, sin tocar).
+
 ## En tu PC
 
 ```

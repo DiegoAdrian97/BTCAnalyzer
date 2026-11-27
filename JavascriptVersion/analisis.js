@@ -961,6 +961,22 @@
     if (Number.isNaN(dia) || mes === undefined || Number.isNaN(anio) || Number.isNaN(k)) return null;
     return [Date.UTC(anio, mes, dia, 8), k, p[3]];
   }
+  const DVOL_K = 0.72, DVOL_Z = 1.2816, DVOL_VIEJO_MS = 6 * 3600000;
+  // ultimo DVOL [[ms, valor]] si no tiene mas de 6 h; si falta o esta viejo, null. Igual en analisis_btc.py
+  function dvolVigente(dvol, ahoraMs) {
+    if (!dvol || !dvol.length) return null;
+    const u = dvol.reduce((a, b) => (b[0] > a[0] ? b : a));
+    return u[1] && ahoraMs - u[0] <= DVOL_VIEJO_MS ? u[1] : null;
+  }
+  // Rango del 80% de "1 día" mezclado con el que implica el DVOL (opciones de Deribit): media geometrica de los limites de la
+  // app y de precio * exp(±1,2816 * k * DVOL/100 * raiz(1/365)), k = 0,72. Medido (medir_rangos_dvol.py, BTC 2021-03..2026-11,
+  // k ajustado en 2021-03..2023-12): en 2024-01..2026-11 cobertura 77,4% (meta 80%) y puntaje de intervalo 8,93 contra 9,24 de
+  // la app sola; z pareado +6,6 y +6,3 en los dos tramos. En 1 semana y 1 mes no ganaba: no se usa. Sin DVOL vigente, igual.
+  function mezclaDvolDia(lo, hi, precio, dvol) {
+    if (lo === null || lo === undefined || hi === null || hi === undefined || !dvol || lo <= 0 || hi <= 0) return [lo, hi];
+    const s = DVOL_Z * DVOL_K * dvol / 100 * Math.sqrt(1 / 365);
+    return [rp(Math.sqrt(lo * precio * Math.exp(-s))), rp(Math.sqrt(hi * precio * Math.exp(s)))];
+  }
   function opciones(libro, dvol, precio, ahoraMs) {
     const rows = [];
     const add = (key, title, value, detail, num = {}) => rows.push({ tabla: 'contexto', clave: key, titulo: title, valor: value, senal: 'neutral', detalle: detail, ...num });
@@ -1512,6 +1528,11 @@
         entries.push([s.bars[s.bars.length - 1][0] + s.tfMs, tf, h, s.closes[s.closes.length - 1], prob.sube, prob.min_crudo, prob.max_crudo, { m: prob.mediana, a: prob.obj_arriba, b: prob.obj_abajo, ta: prob.toca_arriba, tb: prob.toca_abajo, pa: prob.primero_arriba }]);
       }
     });
+    // rango de "1 día" mezclado con el DVOL (solo BTC; va ANTES de la coherencia para que 1 semana siga >= 1 día)
+    if ((input.moneda || 'BTC') === 'BTC') {
+      const dvHoy = input.opcionesRaw ? dvolVigente(input.opcionesRaw.dvol, now) : null;
+      rows.forEach((r) => { if (r.tabla === 'plazo' && r.plazo === '1 día') [r.min, r.max] = mezclaDvolDia(r.min, r.max, price, dvHoy); });
+    }
     // coherencia entre plazos: el rango de un plazo mas largo no puede ser mas angosto que el del anterior. Solo ensancha
     { let ant = null;
       rows.forEach((r) => {
@@ -1641,7 +1662,7 @@
     return { rows, log };
   }
 
-  const Analisis = { ictFilas, piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, DIAS_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, rangoPuntajes, rangoFactor, factoresVivos, rango80, rasgosDireccion, perfilPlazo, nivelesPerfil, velasDireccion, probModelo, aplicarModelo, modeloValido, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, fibTramo, compresion, perfilHoras, central, liqReales, calificarUltimas };
+  const Analisis = { ictFilas, piso, pisoProb, velasLargas, analisisLargo, TF_LARGOS, DIAS_LARGOS, analizar, context, liquidationMap, TIMEFRAMES, TF_MS, PLAZOS, formingFrom5m, explain, coinciden, logAndScore, basePerp, opciones, dvolVigente, mezclaDvolDia, rangoPuntajes, rangoFactor, factoresVivos, rango80, rasgosDireccion, perfilPlazo, nivelesPerfil, velasDireccion, probModelo, aplicarModelo, modeloValido, volEscala, similar, outcomes, horizonStats, scenarios, targets, termometro, termometroAlt, percentil, fibonacci, fibTramo, compresion, perfilHoras, central, liqReales, calificarUltimas };
   root.Analisis = Analisis;
   if (typeof module !== 'undefined' && module.exports) module.exports = Analisis;
 })(typeof self !== 'undefined' ? self : globalThis);

@@ -73,6 +73,20 @@ OPC_LIBRO = [{"instrument_name": f"BTC-{d}-{k}-{t}", "open_interest": round(1 + 
 OPC_DVOL = [[OPC_AHORA - (720 - k) * 3_600_000, 40 + 5 * math.sin(k / 30)] for k in range(721)]
 
 
+# rango de "1 día" mezclado con el DVOL: con DVOL de ahora, con DVOL de hace 8 h (viejo: no toca), sin DVOL y sin rango
+DVOL_DIA = [[59000.5, 63000.5, 61234.5, OPC_DVOL, OPC_AHORA], [59000.5, 63000.5, 61234.5, OPC_DVOL, OPC_AHORA + 8 * 3_600_000],
+            [59000.5, 63000.5, 61234.5, [], OPC_AHORA], [None, None, 61234.5, OPC_DVOL, OPC_AHORA],
+            [0.4123, 0.4377, 0.425, [[OPC_AHORA, 85.5]], OPC_AHORA + 1000]]
+
+
+def dvol_dia_py():
+    out = []
+    for lo, hi, p, dv, t in DVOL_DIA:
+        v = A.dvol_vigente(dv, t)
+        out.append([v, list(A.mezcla_dvol_dia(lo, hi, p, v))])
+    return out
+
+
 # flujo de compras: velas de 1 h con volumen comprador, armadas para cada caso (divergencias, absorcion, vieja)
 def flujo_casos():
     t0, H = 1_793_000_000_000 - 1_793_000_000_000 % 3_600_000, 3_600_000
@@ -257,6 +271,7 @@ def py():
         "rango": rango_py(),
         "rango_vivo": rango_vivo_py(),
         "opciones": A.opciones(OPC_LIBRO, OPC_DVOL, 61234.5, OPC_AHORA),
+        "dvol_dia": dvol_dia_py(),
         "ict_h1": ind.ict(H1, ind.atr_w([b[2] for b in H1], [b[3] for b in H1], [b[4] for b in H1]), 60),
         "ict_h4": ind.ict(H4, ind.atr_w([b[2] for b in H4], [b[3] for b in H4], [b[4] for b in H4]), 240),
         "ict_filas": A.ict_filas("1h", H1, 60),
@@ -298,6 +313,7 @@ console.log(JSON.stringify({
     const sc = A.logAndScore([[1000, '1h', 4, 100.0, 60.0]], d.LOG_ENTRADAS, cl);
     return Object.fromEntries([...sc.entries()].sort()); })(),
   opciones: A.opciones(d.OPC_LIBRO, d.OPC_DVOL, 61234.5, d.OPC_AHORA),
+  dvol_dia: d.DVOL_DIA.map(([lo, hi, p, dv, t]) => { const v = A.dvolVigente(dv, t); return [v, A.mezclaDvolDia(lo, hi, p, v)]; }),
   ict_h1: Ind.ict(d.H1, Ind.atrW(d.H1.map((b) => b[2]), d.H1.map((b) => b[3]), d.H1.map((b) => b[4])), 60),
   ict_h4: Ind.ict(d.H4, Ind.atrW(d.H4.map((b) => b[2]), d.H4.map((b) => b[3]), d.H4.map((b) => b[4])), 240),
   ict_filas: A.ictFilas('1h', d.H1, 60),
@@ -361,7 +377,7 @@ def main():
     raw = p.pop("_ctx_raw")
     entrada = {"FC": FC, "H1": H1, "H4": H4, "D1": D1, "ALT": ALT, "AHORA": AHORA, "raw": raw, "LIQ": LIQ,
                "CASOS": CASOS, "SPEC_1H": SPEC_1H, "LOG_ENTRADAS": LOG_ENTRADAS, "LOG_CIERRES": LOG_CIERRES,
-               "OPC_LIBRO": OPC_LIBRO, "OPC_DVOL": OPC_DVOL, "OPC_AHORA": OPC_AHORA, "FLUJO": FLUJO, "CME": CME, "FC_FLUJO": FC_FLUJO, "FC_FED": FC_FED, "LIQ_OI": LIQ_OI, "LIQ_LS": LIQ_LS,
+               "OPC_LIBRO": OPC_LIBRO, "OPC_DVOL": OPC_DVOL, "OPC_AHORA": OPC_AHORA, "DVOL_DIA": DVOL_DIA, "FLUJO": FLUJO, "CME": CME, "FC_FLUJO": FC_FLUJO, "FC_FED": FC_FED, "LIQ_OI": LIQ_OI, "LIQ_LS": LIQ_LS,
                "TRACK": TRACK, "RANGO_O": RANGO_O, "RANGO_CASOS": RANGO_CASOS,
                "VA": VA, "M_C5": M_C5, "M_FUERA": M_FUERA, "M_PRECIO": M_PRECIO, "M_AHORA": M_AHORA, "MODELO": MODELO, "MODELO_MAL": MODELO_MAL, "M_SIN_VOL": M_SIN_VOL, "FC_PERFIL": FC_PERFIL, "PERFIL_VELAS": PERFIL_VELAS, "M_PROB": M_PROB, "M_CASOS": M_CASOS}
     out = subprocess.run(["node", "-e", JS, RAIZ], input=json.dumps(entrada), capture_output=True, text=True)
@@ -379,6 +395,10 @@ def main():
             or not all(c["min"] < c["min_crudo"] and c["max"] > c["max_crudo"] for c in (rv["con"][0], rv["con"][3], rv["con"][6])) \
             or not (rv["con"][4]["min"] > rv["con"][4]["min_crudo"] and rv["con"][4]["max"] < rv["con"][4]["max_crudo"]):
         raise SystemExit(f"rango_vivo: el ajuste no se aplica como se espera: {aplicados}")
+    dd = p["dvol_dia"]
+    if dd[0][0] is None or not (59000.5 < dd[0][1][0] < 61234.5 < dd[0][1][1] < 63000.5) or dd[1] != [None, [59000.5, 63000.5]] \
+            or dd[2] != [None, [59000.5, 63000.5]] or dd[3][1] != [None, None] or dd[4][1] == [0.4123, 0.4377]:
+        raise SystemExit(f"dvol_dia: la mezcla con el DVOL no se comporta como se espera: {dd}")
     mo = p["modelo"]
     f, f4 = mo["filas"][0], mo["filas"][1]
     if mo["validos"] != [] or mo["validos_ok"] != [1, 4] or mo["p"][2] is not None or mo["p"][0] is None or any(x is not None for x in mo["corto"]) \

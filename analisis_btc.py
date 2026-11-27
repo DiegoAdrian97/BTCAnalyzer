@@ -1186,6 +1186,29 @@ def opciones_deribit(now_ms):
     return libro, [[int(x[0]) + 3_600_000, float(x[4])] for x in dv]
 
 
+DVOL_K, DVOL_Z, DVOL_VIEJO_MS = 0.72, 1.2816, 6 * 3_600_000
+
+
+def dvol_vigente(dvol, ahora_ms):
+    """Ultimo DVOL [[ms, valor]] si no tiene mas de 6 h; si falta o esta viejo, None. Igual en analisis.js."""
+    if not dvol:
+        return None
+    t, v = max(dvol, key=lambda x: x[0])
+    return v if v and ahora_ms - t <= DVOL_VIEJO_MS else None
+
+
+def mezcla_dvol_dia(lo, hi, precio, dvol):
+    """Rango del 80% de "1 día" mezclado con el que implica el DVOL (opciones de Deribit): media geometrica de los limites
+    de la app y de precio * exp(±1,2816 * k * DVOL/100 * raiz(1/365)), k = 0,72. Medido (medir_rangos_dvol.py, BTC
+    2021-03..2026-11, k ajustado en 2021-03..2023-12): en 2024-01..2026-11 cobertura 77,4% (meta 80%) y puntaje de intervalo
+    8,93 contra 9,24 de la app sola; z pareado +6,6 y +6,3 en los dos tramos. En 1 semana y 1 mes no ganaba: no se usa.
+    Sin DVOL vigente o sin rango, devuelve el rango sin tocar. Igual en analisis.js."""
+    if lo is None or hi is None or not dvol or lo <= 0 or hi <= 0:
+        return lo, hi
+    s = DVOL_Z * DVOL_K * dvol / 100 * math.sqrt(1 / 365)
+    return rp(math.sqrt(lo * precio * math.exp(-s))), rp(math.sqrt(hi * precio * math.exp(s)))
+
+
 def funding_bingx(bgx):
     """Funding actual de BingX y promedio de los ultimos 7 dias (21 cobros de 8 h; entra en el termometro)."""
     fr = api("bingx", bgx.fetch_funding_rate, SYMBOL).get("fundingRate") or 0.0
@@ -2177,6 +2200,17 @@ def analyze():
         rows.append({"tabla": "plazo", "plazo": name, **prob, "perfil": perfil_plazo(series[tf]["bars"])})
         rows += learning_rows(name, tf, h, fit)
         rows += [{"tabla": "objetivo_plazo", "plazo": name, **t} for t in tg]
+    # rango de "1 día" mezclado con el DVOL (solo BTC; va ANTES de la coherencia para que 1 semana siga >= 1 día)
+    opc = None
+    if SYMBOL.startswith("BTC"):
+        try:   # opciones de BTC (Deribit): volatilidad implicita, puts/calls, dolor maximo del viernes. Contexto
+            opc = cached("opciones", 600, lambda: opciones_deribit(now_ms))
+        except Exception as e:
+            print(f"(opciones no disponibles: {type(e).__name__})")
+    dv_hoy = dvol_vigente(opc[1], now_ms) if opc else None
+    for r in rows:
+        if r.get("tabla") == "plazo" and r.get("plazo") == "1 día":
+            r["min"], r["max"] = mezcla_dvol_dia(r.get("min"), r.get("max"), price, dv_hoy)
     # coherencia entre plazos: el rango de un plazo mas largo no puede ser mas angosto que el del anterior (cada plazo se
     # calcula aparte con sus casos parecidos y a veces 4 horas quedaba adentro de 1 hora). Solo ensancha
     ant = None
@@ -2229,11 +2263,11 @@ def analyze():
                      "detalle": ("El exchange limitó los pedidos por un rato: funding, interés abierto y liquidaciones vuelven solos en los próximos análisis."
                                  if type(e).__name__ in ("DDoSProtection", "RateLimitExceeded", "ExchangeNotAvailable", "NetworkError", "RequestTimeout")
                                  else f"No se pudo leer: {type(e).__name__}")})
-    try:   # opciones de BTC (Deribit): volatilidad implicita, puts/calls, dolor maximo del viernes. Contexto
-        libro, dv = cached("opciones", 600, lambda: opciones_deribit(now_ms))
-        rows += opciones(libro, dv, price, now_ms)
-    except Exception as e:
-        print(f"(opciones no disponibles: {type(e).__name__})")
+    if opc:
+        try:
+            rows += opciones(opc[0], opc[1], price, now_ms)
+        except Exception as e:
+            print(f"(opciones no disponibles: {type(e).__name__})")
     try:   # noticias, ETF y prima de Coinbase: para explicar los movimientos fuertes
         rows += cached("externo", 600, noticias.externo)
     except Exception as e:
