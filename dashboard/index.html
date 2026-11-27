@@ -1624,7 +1624,7 @@
 
   /* ---------- la respuesta (arriba) y el analisis completo en 6 partes ---------- */
   #centro, #plazos, #mas-detalle { display: none !important; }
-  html.ab-simple :is(.ab-parte, #partes-idx) { display: none !important; }
+  html.ab-simple .ab-parte { display: none !important; }
   .ab-resp { display: grid; gap: 14px; }
   .ab-resp[hidden] { display: none; }
   .ab-rs-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
@@ -1635,8 +1635,6 @@
   .ab-rs-rango { display: grid; gap: 6px; }
   .ab-rs-rango[hidden] { display: none; }
   /* indice y partes */
-  .ab-partes-idx { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 8px; }
-  .ab-partes-idx .ab-chipbtn { font-size: 12.5px; }
   .ab-parte { border-top: 1px solid var(--line); }
   .ab-parte > summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 14px 0; }
   .ab-parte > summary::-webkit-details-marker { display: none; }
@@ -1659,8 +1657,7 @@
   #parte-mov #ce-fuerza > :not(details) { display: none; }
   #parte-mov #ce-fuerza > details > summary { font-size: 13.5px; }
   .ab-parte-c > .ab-more { margin: 0; }
-  @media (min-width: 1000px) { html.ab-multi .ab-hoja > .ab-parte { break-inside: avoid; } }
-  .ab-ex-sub { grid-column: 1 / -1; margin: 10px 0 2px; font-size: 12.5px; font-weight: 650; color: var(--mute); }
+    .ab-ex-sub { grid-column: 1 / -1; margin: 10px 0 2px; font-size: 12.5px; font-weight: 650; color: var(--mute); }
   .ab-ex-tf { font-style: normal; font-size: 11px; font-weight: 700; padding: 1px 6px; margin-right: 6px; border-radius: 6px; background: var(--soft2); color: var(--ink); white-space: nowrap; }
   .ab-lib { display: grid; gap: 6px; margin: 0 0 14px; font-size: 13px; }
   .ab-lib[hidden] { display: none; }
@@ -1678,7 +1675,7 @@
   /* foco de teclado: un anillo claro y siempre igual */
   .ab :is(button, summary, a, select, input, [tabindex]):focus-visible { outline: 2px solid color-mix(in srgb, var(--up) 80%, var(--ink)); outline-offset: 2px; }
   /* lo que se aprieta responde: se hunde un poco al tocarlo */
-  .ab :is(.ab-chipbtn, .ab-iconbtn, .ab-seg button, .ab-plazos button, .ab-vista-btn, .ab-cal-seg button, .ab-vivo-ven button, .ab-partes-idx .ab-chipbtn) {
+  .ab :is(.ab-chipbtn, .ab-iconbtn, .ab-seg button, .ab-plazos button, .ab-vista-btn, .ab-cal-seg button, .ab-vivo-ven button) {
     transition-property: background-color, color, border-color, box-shadow, transform, opacity; transition-duration: var(--mo); transition-timing-function: var(--mo-ease); }
   .ab :is(.ab-chipbtn, .ab-iconbtn, .ab-seg button, .ab-plazos button, .ab-vista-btn, .ab-cal-seg button, .ab-vivo-ven button):not(:disabled):active { transform: scale(.965); transition-duration: .07s; }
   @media (hover: hover) {
@@ -1714,10 +1711,7 @@
     @media (min-width: 1000px) { html.ab-entrada .ab-hoja { animation: ab-entra .6s var(--mo-ease) .13s backwards; } }
     /* el analisis completo: sus partes aparecen en cascada al abrirlo */
     @keyframes ab-sube { from { opacity: 0; transform: translateY(8px); } }
-    html:not(.ab-simple) .ab-hoja > :is(.ab-parte, .ab-partes-idx) { animation: ab-sube .42s var(--mo-ease) backwards; }
-    html:not(.ab-simple) .ab-hoja > .ab-parte:nth-of-type(1) { animation-delay: .03s; } html:not(.ab-simple) .ab-hoja > .ab-parte:nth-of-type(2) { animation-delay: .07s; }
-    html:not(.ab-simple) .ab-hoja > .ab-parte:nth-of-type(3) { animation-delay: .11s; } html:not(.ab-simple) .ab-hoja > .ab-parte:nth-of-type(4) { animation-delay: .15s; }
-    html:not(.ab-simple) .ab-hoja > .ab-parte:nth-of-type(5) { animation-delay: .19s; } html:not(.ab-simple) .ab-hoja > .ab-parte:nth-of-type(6) { animation-delay: .23s; }
+    html:not(.ab-simple) .ab-hoja > :is(.ab-esencial, .ab-detalle) { animation: ab-sube .42s var(--mo-ease) backwards; }
     /* lo que se abre adentro de una parte aparece suave */
     .ab-parte[open] > .ab-parte-c { animation: ab-sube .36s var(--mo-ease) backwards; }
   }
@@ -1796,7 +1790,6 @@
   .ab-parte > summary { border-radius: 12px; padding-inline: 8px !important; margin-inline: -8px; }
   @media (hover: hover) { .ab-parte > summary:hover { background: var(--t2-sunk); } }
   .ab-parte-t i { background: var(--t2-ink) !important; color: var(--t2-panel) !important; width: 22px !important; height: 22px !important; font-size: 11.5px !important; }
-  .ab-partes-idx .ab-chipbtn { border: 1px solid var(--vidrio-borde); background: var(--t2-sunk); }
   /* "Que estas viendo" y el resto de los textos chicos */
   .ab-kicker { color: var(--t2-mute); }
   /* ======================= menos texto, mas visual (nov 2026) =======================
@@ -2141,6 +2134,43 @@
   #parte-conf .ab-viv-f { padding: 8px 12px; gap: 4px; justify-items: start; }
   #parte-conf .ab-viv-svg { max-width: 190px; }
   #parte-conf .ab-viv-n { display: none; }
+  /* análisis completo corto: por qué · qué puede mover el precio · cuánto le creo. Lo demás, en el cajón "Detalle técnico" */
+  html.ab-simple :is(#esencial, #detalle-tec) { display: none !important; }
+  .ab-esencial { display: grid; gap: 12px; }
+  .ab-esencial[hidden] { display: none; }
+  .ab-es-b { display: grid; gap: 8px; min-width: 0; }
+  .ab-es-b + .ab-es-b { padding-top: 12px; border-top: 1px solid var(--t2-line); }
+  .ab-es-h { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 10px; }
+  .ab-es-h h3 { margin: 0; font-size: 13.5px; font-weight: 650; }
+  .ab-es-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: 10px; }
+  .ab-es-cols .ab-story-col { gap: 6px; }
+  .ab-es-cols h4 { margin: 0; font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--t2-mute); }
+  .ab-es-cols .ab-sig-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ab-es-cols .ab-sig-list li { display: inline-flex; align-items: center; max-width: 100%; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; line-height: 1.35; background: var(--t2-sunk); border: 1px solid var(--t2-line); cursor: help; white-space: normal; overflow: hidden; text-overflow: clip; }
+  .ab-es-cols .ab-sig-list li::before { display: none; }
+  .ab-es-cols .ab-sig-list li.ab-alcista { color: var(--color-ok); background: color-mix(in srgb, var(--color-ok) 11%, transparent); border-color: color-mix(in srgb, var(--color-ok) 24%, transparent); }
+  .ab-es-cols .ab-sig-list li.ab-bajista { color: var(--color-bad); background: color-mix(in srgb, var(--color-bad) 10%, transparent); border-color: color-mix(in srgb, var(--color-bad) 24%, transparent); }
+  .ab-es-cols .ab-sig-list li.ab-mas { color: var(--t2-mute); }
+  .ab-es-cols .ab-sig-list li.ab-empty { font-weight: 400; color: var(--t2-mute); background: none; border-style: dashed; }
+  .ab-es-ciclo { padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; cursor: help; background: var(--t2-sunk); border: 1px solid var(--t2-line); color: var(--t2-mute); }
+  .ab-es-ciclo.up { color: var(--color-ok); border-color: color-mix(in srgb, var(--color-ok) 30%, transparent); } .ab-es-ciclo.dn { color: var(--color-bad); border-color: color-mix(in srgb, var(--color-bad) 30%, transparent); }
+  .ab-es-ev { margin: 0; font-size: 13.5px; line-height: 1.4; cursor: help; overflow-wrap: anywhere; }
+  .ab-es-ev b { font-weight: 650; } .ab-es-vacio { color: var(--t2-mute); }
+  .ab-es-mov { display: grid; gap: 6px; cursor: help; }
+  .ab-es-mov-t { font-size: 13px; color: var(--t2-mute); } .ab-es-mov-t b { color: var(--t2-ink); font-variant-numeric: tabular-nums; }
+  .ab-es-mov .ab-mov-bar { margin-top: 0; }
+  #es-creo .ab-s-pill { display: inline-block; justify-self: start; line-height: 1.5; max-width: 100%; border-radius: 14px; font-size: 13px; padding: 5px 12px; }
+  #es-creo .ab-s-prog { margin-left: 6px; vertical-align: middle; }
+  #es-creo .ab-s-pill b.up { color: var(--color-ok); } #es-creo .ab-s-pill b.dn { color: var(--color-bad); } #es-creo .ab-s-pill b.warn { color: var(--color-warn); }
+  /* el cajón de abajo de todo */
+  .ab-detalle { padding: 0; }
+  .ab-detalle > summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; padding: 14px 0; }
+  .ab-detalle > summary::-webkit-details-marker { display: none; }
+  .ab-detalle > summary > span { font-weight: 650; font-size: 1.02rem; }
+  .ab-detalle > summary > small { grid-column: 1; color: var(--t2-mute); font-size: 12.5px; line-height: 1.4; }
+  .ab-detalle > summary::after { content: ""; grid-column: 2; grid-row: 1 / span 2; width: 9px; height: 9px; border-right: 2px solid var(--mute); border-bottom: 2px solid var(--mute); transform: translateY(-2px) rotate(45deg); margin-right: 4px; transition: transform .2s; }
+  .ab-detalle[open] > summary::after { transform: translateY(2px) rotate(-135deg); }
+  .ab-detalle-c { display: grid; }
   #aprendizaje .ab-apr-stat > span { display: none; }
   #aprendizaje .ab-apr-stat { cursor: help; }
   .ab-apr-det > summary { cursor: pointer; list-style: none; font-size: 13px; font-weight: 600; color: var(--t2-mute); padding: 6px 0; }
@@ -2420,9 +2450,16 @@
 
 
   <!-- vista simple (por defecto): solo lo necesario para decidir. El analisis completo sigue calculandose y se abre aca -->
-  <button type="button" class="ab-vista-btn" id="vista-btn" aria-expanded="false" aria-controls="que-espero aprendizaje mas-detalle">
-    <span id="vista-txt">Ver el análisis completo</span><small id="vista-sub">cómo se llegó, cuánto se puede mover, niveles, contexto y cuánto acierta</small>
+  <button type="button" class="ab-vista-btn" id="vista-btn" aria-expanded="false" aria-controls="esencial detalle-tec">
+    <span id="vista-txt">Ver el análisis completo</span><small id="vista-sub">por qué, qué puede mover el precio y cuánto le creo</small>
   </button>
+
+  <!-- el analisis completo, corto: solo lo que ayuda a decidir. Todo lo demas se sigue calculando y vive en "Detalle técnico" -->
+  <section class="ab-card ab-esencial" id="esencial" aria-label="Lo que más pesa" hidden>
+    <div class="ab-es-b" id="es-porque"></div>
+    <div class="ab-es-b" id="es-mueve"></div>
+    <div class="ab-es-b" id="es-creo"></div>
+  </section>
 
   <section class="ab-card ab-story" id="que-espero" aria-labelledby="story-t" data-source="analisis">
     <div class="ab-card-head"><h2 id="story-t">Por qué</h2><span class="ab-kicker" id="story-chip"></span></div>
@@ -2501,6 +2538,11 @@
       <div class="ab-more-body"><div id="hits"></div></div>
     </details>
   </div>
+  <!-- el cajon de abajo de todo: lo tecnico (las 6 partes de siempre). Cerrado al abrir la pagina; se dibuja recien al abrirlo -->
+  <details class="ab-card ab-detalle" id="detalle-tec">
+    <summary><span>Detalle técnico</span><small>niveles, flujo, noticias, calendario, indicadores y cuánto viene acertando</small></summary>
+    <div class="ab-detalle-c" id="detalle-c"></div>
+  </details>
   <button type="button" class="ab-orden-btn" id="orden-btn"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M4 7h11M4 12h16M4 17h8M18 4v6m0 0-2.5-2.5M18 10l2.5-2.5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Ordenar secciones</button>
 
   <p class="ab-foot ab-credito"><a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView Lightweight Charts™</a></p>
@@ -3375,22 +3417,25 @@
     drawPlazos(rows);
     drawStory(rows);
     drawPrediction(rows, sum);
-    drawMovimiento(rows);
-    try { drawCalendario(rows); } catch (e) { /* sin calendario: no frena lo demas */ }
-    drawQuePasa(rows, sum);
+    // lo de "Detalle técnico" se dibuja solo con el cajon abierto (al abrirlo se pone al dia): los calculos siguen llegando en las filas
+    if (detAbierto()) {
+      drawMovimiento(rows);
+      try { drawCalendario(rows); } catch (e) { /* sin calendario: no frena lo demas */ }
+      drawQuePasa(rows, sum);
+    } else { CALV.rows = rows; const cx = pick(rows, 'contexto'); if (cx.length) CALV.fed = cx.find((c) => c.clave === 'fed_tasas') || null; }
     drawTermometro(rows);
     const pi = pick(rows, 'piso')[0];
     if (pi && pi.modelo) { PISO = pi.modelo; try { localStorage.setItem('ab-piso', JSON.stringify(PISO)); } catch (e) { /* sin almacenamiento */ } drawPosiciones(); }
     if (window.abNotif) window.abNotif.filas(rows);
     drawCompras();
-    drawLearningSiCambia(rows);
+    if (detAbierto()) drawLearningSiCambia(rows);
     drawChart(rows, sum);
     document.getElementById('ond-tf').textContent = TF_TXT[S.tf]; document.getElementById('ind-tf').textContent = TF_TXT[S.tf];
-    limpiarContexto(rows); plegarNotas();
-    Object.keys(PEREZOSOS).forEach(perezoso);
+    if (detAbierto()) { limpiarContexto(rows); Object.keys(PEREZOSOS).forEach(perezoso); }
+    plegarNotas();
     placeTf(); placeSc();
     connectLive();
-    G.rows = rows; drawConclusion(rows); drawCreoVivo(rows);
+    G.rows = rows; drawConclusion(rows); if (detAbierto()) drawCreoVivo(rows);
     drawCentro(rows, sum);
     plazosBordes(); if (MINI.classList.contains('on')) miniPintar();
     plegarNotas();
@@ -3404,7 +3449,7 @@
   function drawCentro(rows, sum) {
     const sec = document.getElementById('centro'), todas = pick(rows, 'central');
     const c = todas.find((x) => x.plazo === S.plazo) || todas.find((x) => x.tf === S.tf) || todas.find((x) => x.tf === '1h');
-    drawRespuesta(rows, sum, c); drawPartes(rows, c);
+    drawRespuesta(rows, sum, c); drawPartes(rows, c); drawEsencial(rows, c);
     sec.hidden = !c; if (!c) return;
     document.getElementById('ce-k').textContent = `${MON()} · ${TF_TXT[c.tf] || c.tf}${hastaTxt(c)}`;
     const lista = (punto) => {
@@ -3662,12 +3707,11 @@
     ['parte-herr', 'Herramientas', ['lm-abrir', 'ondas', 'indicadores']],
   ];
   (function armarPartes() {
-    const hoja = document.getElementById('hoja'), $ = (id) => document.getElementById(id);
+    const $ = (id) => document.getElementById(id);
     // los que vivian adentro de otra tarjeta llevan un id para poder moverlos
     const pred = $('prediccion');
     const tug = pred.querySelector('.ab-tug-wrap'); if (tug) tug.id = 'tug-wrap';
     const lik = pred.querySelector('.ab-likely'); if (lik) lik.id = 'likely-box';
-    const idx = el('nav', 'ab-partes-idx'); idx.id = 'partes-idx'; idx.setAttribute('aria-label', 'Partes del análisis completo');
     PARTES.forEach(([id, titulo, hijos], n) => {
       const d = el('details', 'ab-parte'); d.id = id;
       const s = el('summary'), t = el('span', 'ab-parte-t'); t.append(el('i', '', String(n + 1)), el('b', '', titulo));
@@ -3678,12 +3722,8 @@
         if (!nodo) return;
         if (sub) { const w = el('details', 'ab-parte-sub'); w.append(el('summary', '', sub), nodo); cuerpo.append(w); } else cuerpo.append(nodo);
       });
-      hoja.append(d);
-      const b = el('button', 'ab-chipbtn', titulo); b.type = 'button';
-      b.addEventListener('click', () => { d.open = true; d.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }); });
-      idx.append(b);
+      $('detalle-c').append(d);
     });
-    $('vista-btn').after(idx);
     { const q = $('qp-box'); if (q) q.open = true; }   // adentro de la parte 4 ya tiene titulo: queda abierto, sin repetirlo
     const md = $('mas-detalle'); if (md) md.hidden = true;
     const sn = $('senales'); if (sn) { const sp = sn.querySelector('summary span'); if (sp) sp.textContent = 'Flujo de compras y libros de órdenes'; sn.addEventListener('toggle', () => { if (sn.open && typeof libroTic === 'function') libroTic(); }); }
@@ -3706,6 +3746,99 @@
     res('parte-herr', 'Mapa de liquidaciones, figuras y todos los indicadores');
   }
 
+  // ---------- el analisis completo, corto: solo lo que ayuda a decidir ----------
+  // "Por qué" (las 3 señales mas fuertes de cada lado), "Qué puede mover el precio" (el proximo dato fuerte y la chance de
+  // movimiento fuerte) y "Cuánto le creo" (una pastilla en vivo). Sale de las mismas filas y factores de siempre: no calcula nada
+  // nuevo. Todo lo demas (niveles, flujo, noticias, calendario, indicadores, aprendizaje...) esta en "Detalle técnico".
+  const detAbierto = () => { const d = document.getElementById('detalle-tec'); return !d || d.open; };
+  // el cajon se abre: se dibuja lo que mientras estuvo cerrado no se dibujaba
+  function pintarDetalle() {
+    const rows = S.rows; if (!rows) return;
+    drawMovimiento(rows);
+    try { drawCalendario(rows); } catch (e) { /* sin calendario: no frena lo demas */ }
+    drawQuePasa(rows, S.sum); drawLearningSiCambia(rows); limpiarContexto(rows);
+    Object.keys(PEREZOSOS).forEach(perezoso);
+    drawCreoVivo(rows); plegarNotas(); drawPartes(rows, centralDe(rows));
+  }
+  { const dt = document.getElementById('detalle-tec'); if (dt) dt.addEventListener('toggle', () => { if (dt.open) pintarDetalle(); }); }
+  // lo que esperan los futuros de Fed Funds, en una frase corta
+  function fedMercado(e) {
+    const f = CALV.fed; if (!e.fed || !f || !f.prob || !f.prob.length || new Date(e.t).toISOString().slice(0, 10) !== f.fecha) return '';
+    const et = (pb) => (pb === 0 ? 'mantener' : `${pb > 0 ? 'suba' : 'baja'} ${(Math.abs(pb) / 100).toFixed(2).replace('.', ',')}`);
+    return f.indeciso && f.prob.length > 1 ? `mercado dividido: ${Math.round(f.prob[0][1] * 100)}% ${et(f.prob[0][0])} / ${Math.round(f.prob[1][1] * 100)}% ${et(f.prob[1][0])}`
+      : `mercado espera ${et(f.prob[0][0])} (${Math.round(f.prob[0][1] * 100)}%)`;
+  }
+  // el proximo dato fuerte del calendario (el mismo criterio de "próximo" del calendario completo)
+  function proximoFuerte(rows) {
+    const now = Date.now(), FED = /interest rate decision|fomc decision|interest rate fomc/i, src = calDe(rows);
+    let cal = pick(src, 'calendario'); if (!cal.length) cal = pick(src, 'evento').map((e) => ({ ...e, importancia: 3 }));
+    return cal.map((e) => ({ ...e, t: num(e.t), fed: FED.test(e.original || '') })).filter((e) => e.t > now && calFuerte(e)).sort((a, b) => a.t - b.t)[0] || null;
+  }
+  function drawEsencial(rows = S.rows, c = rows && centralDe(rows)) {
+    const sec = document.getElementById('esencial'); if (!sec || !rows) return;
+    sec.hidden = !c; if (!c) return;
+    const $ = (id) => document.getElementById(id), cab = (t, ...extra) => { const h = el('div', 'ab-es-h'); h.append(el('h3', '', t), ...extra.filter(Boolean)); return h; };
+    // 1. Por qué: 3 a favor y 3 en contra, por peso (la frase entera, en el tooltip) y el ciclo si aporta
+    {
+      const rf = resultadoFinal(rows, c), tmr = pick(rows, 'termometro')[0], conCiclo = rf.conCiclo && tmr && okv(tmr.medidor);
+      const bias = c.direccion === 'sube' ? 'alcista' : c.direccion === 'baja' ? 'bajista' : 'neutral', neutral = bias === 'neutral', favorSide = neutral ? 'alcista' : bias;
+      const fs = (c.factores || []).filter((f) => f[0] === 'direccion' && !(conCiclo && /^(Estado del ciclo|Ciclo):/.test(f[3]))).slice().sort((a, b) => Math.abs(b[2]) - Math.abs(a[2]));
+      const col = (titulo, lado) => {
+        const items = fs.filter((f) => (f[1] > 0 ? 'alcista' : 'bajista') === lado), ul = el('ul', 'ab-sig-list');
+        items.slice(0, 3).forEach((f) => { const li = el('li', `ab-${lado}`, chipNombre(f[3], 64)); li.title = `${f[3]} (${f[1] > 0 ? '+' : '−'}${String(f[2]).replace('.', ',')} puntos)`; ul.append(li); });
+        if (items.length > 3) { const li = el('li', 'ab-mas', `+${items.length - 3}`); li.title = items.slice(3).map((f) => `${f[3]} (${f[1] > 0 ? '+' : '−'}${String(f[2]).replace('.', ',')})`).join('\n'); ul.append(li); }
+        if (!items.length) ul.append(el('li', 'ab-empty', 'Ninguna por ahora.'));
+        const w = el('div', 'ab-story-col'); w.append(el('h4', '', titulo), ul); return w;
+      };
+      const cic = conCiclo ? el('span', `ab-es-ciclo ${/compra/i.test(tmr.medidor_zona) ? 'up' : /venta|caro/i.test(tmr.medidor_zona) ? 'dn' : ''}`.trim(), `Ciclo: ${String(tmr.medidor_zona).toLowerCase()}`) : null;
+      if (cic) cic.title = rf.ve.sub || `El ciclo mira de meses a un año: ${tmr.medidor_zona} (${f0(num(tmr.medidor))}/100).`;
+      const g = el('div', 'ab-es-cols'); g.append(col(neutral ? 'Señales alcistas' : 'A favor', favorSide), col(neutral ? 'Señales bajistas' : 'En contra', favorSide === 'alcista' ? 'bajista' : 'alcista'));
+      const por = ((pick(rows, 'explicacion').find((e) => e.plazo === S.plazo && e.tipo === 'porque')) || {}).texto;
+      const h = cab('Por qué', cic); if (por) h.title = por;
+      $('es-porque').replaceChildren(h, g);
+    }
+    // 2. Qué puede mover el precio: el proximo dato fuerte y la chance de movimiento fuerte (una barra)
+    {
+      const now = Date.now(), e = proximoFuerte(rows), ln = el('p', 'ab-es-ev');
+      if (e) {
+        const dd = diaAR(e.t), cuando = dd === 'hoy' || dd === 'mañana' ? `${dd} ${horaAR(e.t)}` : new Date(e.t).toLocaleDateString('es-AR', { ...tz, day: 'numeric', month: 'numeric' });
+        const ex = fedMercado(e) || (e.fed || e.cripto || e.previsto === null || e.previsto === undefined ? '' : `previsión ${calValor(e.previsto, e)}`);
+        ln.append('📅 ', el('b', '', e.titulo.replace(/^Vencen opciones de BTC.*/, 'Vencen opciones de BTC')), ` · ${cuando}`, ...(ex ? [` · ${ex}`] : []));
+        ln.title = `${e.titulo}${e.periodo ? ` (${e.periodo})` : ''} · en ${faltaTxt(e.t - now)}${e.cripto ? `. ${e.nota || ''}` : ` · Previsión ${calValor(e.previsto, e)} · Anterior ${calValor(e.anterior, e)}. En la hora en que sale, BTC se mueve ~1,7 veces lo normal (medido 2021–2026); no dice para dónde.`}${calFedTxt(e)}`;
+      } else { ln.classList.add('ab-es-vacio'); ln.textContent = '📅 Sin datos fuertes en los próximos días'; }
+      const m = pick(rows, 'movimiento')[0], hijos = [cab('Qué puede mover el precio'), ln];
+      if (m) {
+        const mod = m.modelo_1h !== null && m.modelo_1h !== undefined, prob = mod ? num(m.modelo_1h) : num(m.prob_fuerte), base = mod ? num(m.modelo_base_1h) : num(m.prob_normal);
+        const w = el('div', `ab-es-mov${m.nivel === 'Se despertó' || prob >= (mod ? 30 : 35) ? ' ab-mov-on' : ''}`), bar = el('span', 'ab-mov-bar'), fi = el('i'), nu = el('u');
+        fi.style.width = `${Math.max(2, Math.min(100, prob))}%`; nu.style.left = `${Math.min(100, base)}%`; bar.append(fi, nu); bar.setAttribute('role', 'img');
+        bar.setAttribute('aria-label', `Chance de movimiento fuerte ${f0(prob)}%, en una hora cualquiera ${f0(base)}%`);
+        const t = el('span', 'ab-es-mov-t'); t.append('chance de movimiento fuerte: ', el('b', '', `${f0(prob)}%`), ` (normal ${f0(base)}%)`);
+        w.append(t, bar); w.title = `Chance de que la hora en curso se mueva fuerte (más del doble de lo normal): ${f0(prob)}%; en una hora cualquiera, ${f0(base)}%. Volatilidad ${f1(num(m.volatilidad))}× la habitual. No dice para dónde.`;
+        hijos.push(w);
+      }
+      $('es-mueve').replaceChildren(...hijos);
+    }
+    // 3. Cuánto le creo: una pastilla con lo medido en vivo de este plazo
+    {
+      const plz = c.plazo || S.plazo, pz = pick(rows, 'plazo').find((r) => r.plazo === S.plazo);
+      const pb = pz && TRACK && (TRACK.probabilidades || []).find((x) => x.tf === pz.tf && x.h === pz.velas), rg = pz && TRACK && (TRACK.rangos || []).find((x) => x.tf === pz.tf && x.h === pz.velas);
+      const tp = TRACK && (TRACK.plazos || []).find((x) => x.plazo === plz), coma = (v) => String(Math.abs(v).toFixed(1)).replace('.', ',');
+      let pill;
+      if (!(tp || pb || rg)) pill = vivoPill(c, plz);
+      else {
+        pill = el('span', 'ab-s-pill'); const nn = tp ? tp.n : pb ? pb.n : rg.n;
+        pill.append('En vivo: ');
+        if (tp && tp.n >= 100) pill.append(el('b', '', `${String(tp.acierto).replace('.', ',')}%`), ` acertó en ${f0(tp.n)} casos`);
+        else { pill.append(el('b', '', `${f0(nn)}${nn < 100 ? '/100' : ''}`), ' casos'); if (nn < 100) { const g = el('i', 'ab-s-prog'); g.style.setProperty('--p', `${Math.max(2, nn)}%`); pill.append(g); } }
+        if (pb && !pb.pocos && pb.ventaja_normal != null) pill.append(' · ventaja ', el('b', pb.ventaja_normal >= 0.5 ? 'up' : pb.ventaja_normal <= -0.5 ? 'dn' : '', `${pb.ventaja_normal >= 0 ? '+' : '−'}${coma(pb.ventaja_normal)}%`));
+        if (rg && !rg.pocos && okv(rg.cobertura)) pill.append(' · rango adentro ', el('b', Math.abs(num(rg.cobertura) - 80) <= 7 ? 'up' : 'warn', `${f0(num(rg.cobertura))}%`), ' (meta 80%)');
+      }
+      const exp = 'Lo que pasó de verdad con las predicciones de este plazo, no con el pasado. Casos: con 100 o más se puede decir cuánto acierta. Ventaja: cuánto mejor que lo normal (0% = no sabe más que lo normal). Rango adentro: las veces que el precio terminó dentro del rango del 80% (la meta es 80%).';
+      pill.title = [vivoTxt(c, plz), exp].filter(Boolean).join(' ');
+      $('es-creo').replaceChildren(cab('Cuánto le creo'), pill);
+    }
+  }
+
   // ---------- vista simple / completa ----------
   // la entrada de la pagina: una sola vez, al abrirla (con los esqueletos, sin esperar los datos)
   document.documentElement.classList.add('ab-entrada'); setTimeout(() => document.documentElement.classList.remove('ab-entrada'), 1400);
@@ -3714,7 +3847,7 @@
     document.documentElement.classList.toggle('ab-simple', !completa);
     VISTA_BTN.setAttribute('aria-expanded', String(completa));
     document.getElementById('vista-txt').textContent = completa ? 'Volver a la vista simple' : 'Ver el análisis completo';
-    document.getElementById('vista-sub').textContent = completa ? 'solo la respuesta y el gráfico' : 'cómo se llegó, cuánto se puede mover, niveles, contexto y cuánto acierta';
+    document.getElementById('vista-sub').textContent = completa ? 'solo la respuesta y el gráfico' : 'por qué, qué puede mover el precio y cuánto le creo';
     if (guardar) try { localStorage.setItem('ab-vista', completa ? 'completa' : 'simple'); } catch (e) { /* sin almacenamiento */ }
   }
   let vistaGuardada = null; try { vistaGuardada = localStorage.getItem('ab-vista'); } catch (e) { /* sin almacenamiento */ }
@@ -3722,16 +3855,15 @@
   VISTA_BTN.addEventListener('click', () => {
     const completa = document.documentElement.classList.contains('ab-simple');
     vista(completa, true);
-    if (completa) document.getElementById('partes-idx').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    if (completa) document.getElementById('esencial').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   });
   // ---------- ordenar el analisis a gusto: el orden y lo oculto quedan guardados en este navegador (localStorage) ----------
   (function () {
     const $ = (id) => document.getElementById(id), hoja = $('hoja'), det = $('mas-detalle');
     // secciones de la hoja: algunas van juntas (el termometro con el resumen; los plazos con la prediccion)
-    const HOJA = [['respuesta', ['respuesta', 'tm-tab']], ['compras'], ['posiciones']].concat(PARTES.map(([id]) => [id])).map(([id, ns]) => ({ id, ns: ns || [id] }));
-    const COMPLETA = new Set(PARTES.map(([id]) => id));      // las partes del analisis completo (despues del boton)
-    const NOM = { respuesta: 'La respuesta (arriba)', compras: 'Plan de compras', posiciones: 'Posiciones' };
-    PARTES.forEach(([id, t]) => { NOM[id] = t; });
+    const HOJA = [['respuesta', ['respuesta', 'tm-tab']], ['compras'], ['posiciones'], ['esencial'], ['detalle-tec']].map(([id, ns]) => ({ id, ns: ns || [id] }));
+    const COMPLETA = new Set(['esencial', 'detalle-tec']);      // lo que solo se ve con el analisis completo (despues del boton)
+    const NOM = { respuesta: 'La respuesta (arriba)', compras: 'Plan de compras', posiciones: 'Posiciones', esencial: 'Análisis completo: por qué, qué mueve, cuánto le creo', 'detalle-tec': 'Detalle técnico (cajón de abajo)' };
     const DEF_H = HOJA.map((u) => u.id), DEF_D = [...det.children].filter((n) => n.id).map((n) => n.id);
     const leer = () => { try { return JSON.parse(localStorage.getItem('ab-orden')) || {}; } catch (e) { return {}; } };
     const guardar = (g) => { try { localStorage.setItem('ab-orden', JSON.stringify(g)); } catch (e) { /* sin almacenamiento */ } };
@@ -3752,7 +3884,6 @@
       // "Ver el analisis completo" queda antes de la primera de las que solo se ven en la vista completa
       const prim = oh.find((id) => COMPLETA.has(id)), vb = $('vista-btn');
       if (prim) hoja.insertBefore(vb, $(prim)); else hoja.append(vb);
-      vb.after($('partes-idx'));
       hoja.append($('orden-btn'));
       const cr = hoja.querySelector('.ab-credito'); if (cr) hoja.append(cr);     // el credito del grafico, al final
       od.forEach((id) => { const e = $(id); if (e) det.append(e); });
@@ -4075,8 +4206,8 @@
   // mediciones.json: cuanto acierta la direccion segun los puntos netos (medido). Si no cargan, no se muestra nada
   let TRACK = null, MEDIC = null;
   const traerJson = (f) => fetch(f).then((r) => (r.ok ? r.json() : Promise.reject())).catch(() => fetch(`https://raw.githubusercontent.com/DiegoAdrian97/BTCAnalyzer/main/JavascriptVersion/${f}`).then((r) => r.json()));
-  traerJson('track.json').then((j) => { TRACK = j; if (G.rows) { drawConclusion(); drawCreoVivo(); } }).catch(() => {});
-  traerJson('mediciones.json').then((j) => { MEDIC = j; if (G.rows) drawConclusion(); }).catch(() => {});
+  traerJson('track.json').then((j) => { TRACK = j; if (G.rows) { drawConclusion(); if (detAbierto()) drawCreoVivo(); drawEsencial(); } }).catch(() => {});
+  traerJson('mediciones.json').then((j) => { MEDIC = j; if (G.rows) { drawConclusion(); drawEsencial(); } }).catch(() => {});
   function vivoTxt(c, plz) {
     const out = [], corto = !['1 día', '1 semana', '1 mes'].includes(plz), pts = Math.abs(num(c.direccion_puntos));
     if (c.direccion !== 'neutral' && corto && MEDIC && MEDIC.direccion) {
@@ -5342,7 +5473,8 @@
         const ef = e.efecto === 'positivo' ? ' · ▲ positivo para el mercado' : e.efecto === 'negativo' ? ' · ▼ negativo para el mercado' : '';
         avisoApp(`Salió ${e.titulo}: ${calValor(e.actual, e)} (previsto ${calValor(e.previsto, e)})${ef}`, e.efecto === 'positivo' ? 'var(--color-ok)' : e.efecto === 'negativo' ? 'var(--color-bad)' : null);
       });
-      drawCalendario(CALV.rows || []);
+      if (detAbierto()) drawCalendario(CALV.rows || []);
+      drawEsencial();
     } catch (e) { /* sin red: el proximo intento */ }
   }
   const calEspera = () => {

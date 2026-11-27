@@ -1623,7 +1623,7 @@
 
   /* ---------- la respuesta (arriba) y el analisis completo en 6 partes ---------- */
   #centro, #plazos, #mas-detalle { display: none !important; }
-  html.ab-simple :is(.ab-parte, #partes-idx) { display: none !important; }
+  html.ab-simple .ab-parte { display: none !important; }
   .ab-resp { display: grid; gap: 14px; }
   .ab-resp[hidden] { display: none; }
   .ab-rs-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
@@ -1634,8 +1634,6 @@
   .ab-rs-rango { display: grid; gap: 6px; }
   .ab-rs-rango[hidden] { display: none; }
   /* indice y partes */
-  .ab-partes-idx { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 8px; }
-  .ab-partes-idx .ab-chipbtn { font-size: 12.5px; }
   .ab-parte { border-top: 1px solid var(--line); }
   .ab-parte > summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 14px 0; }
   .ab-parte > summary::-webkit-details-marker { display: none; }
@@ -1658,8 +1656,7 @@
   #parte-mov #ce-fuerza > :not(details) { display: none; }
   #parte-mov #ce-fuerza > details > summary { font-size: 13.5px; }
   .ab-parte-c > .ab-more { margin: 0; }
-  @media (min-width: 1000px) { html.ab-multi .ab-hoja > .ab-parte { break-inside: avoid; } }
-  .ab-ex-sub { grid-column: 1 / -1; margin: 10px 0 2px; font-size: 12.5px; font-weight: 650; color: var(--mute); }
+    .ab-ex-sub { grid-column: 1 / -1; margin: 10px 0 2px; font-size: 12.5px; font-weight: 650; color: var(--mute); }
   .ab-ex-tf { font-style: normal; font-size: 11px; font-weight: 700; padding: 1px 6px; margin-right: 6px; border-radius: 6px; background: var(--soft2); color: var(--ink); white-space: nowrap; }
   .ab-lib { display: grid; gap: 6px; margin: 0 0 14px; font-size: 13px; }
   .ab-lib[hidden] { display: none; }
@@ -1677,7 +1674,7 @@
   /* foco de teclado: un anillo claro y siempre igual */
   .ab :is(button, summary, a, select, input, [tabindex]):focus-visible { outline: 2px solid color-mix(in srgb, var(--up) 80%, var(--ink)); outline-offset: 2px; }
   /* lo que se aprieta responde: se hunde un poco al tocarlo */
-  .ab :is(.ab-chipbtn, .ab-iconbtn, .ab-seg button, .ab-plazos button, .ab-vista-btn, .ab-cal-seg button, .ab-vivo-ven button, .ab-partes-idx .ab-chipbtn) {
+  .ab :is(.ab-chipbtn, .ab-iconbtn, .ab-seg button, .ab-plazos button, .ab-vista-btn, .ab-cal-seg button, .ab-vivo-ven button) {
     transition-property: background-color, color, border-color, box-shadow, transform, opacity; transition-duration: var(--mo); transition-timing-function: var(--mo-ease); }
   .ab :is(.ab-chipbtn, .ab-iconbtn, .ab-seg button, .ab-plazos button, .ab-vista-btn, .ab-cal-seg button, .ab-vivo-ven button):not(:disabled):active { transform: scale(.965); transition-duration: .07s; }
   @media (hover: hover) {
@@ -1713,10 +1710,7 @@
     @media (min-width: 1000px) { html.ab-entrada .ab-hoja { animation: ab-entra .6s var(--mo-ease) .13s backwards; } }
     /* el analisis completo: sus partes aparecen en cascada al abrirlo */
     @keyframes ab-sube { from { opacity: 0; transform: translateY(8px); } }
-    html:not(.ab-simple) .ab-hoja > :is(.ab-parte, .ab-partes-idx) { animation: ab-sube .42s var(--mo-ease) backwards; }
-    html:not(.ab-simple) .ab-hoja > .ab-parte:nth-of-type(1) { animation-delay: .03s; } html:not(.ab-simple) .ab-hoja > .ab-parte:nth-of-type(2) { animation-delay: .07s; }
-    html:not(.ab-simple) .ab-hoja > .ab-parte:nth-of-type(3) { animation-delay: .11s; } html:not(.ab-simple) .ab-hoja > .ab-parte:nth-of-type(4) { animation-delay: .15s; }
-    html:not(.ab-simple) .ab-hoja > .ab-parte:nth-of-type(5) { animation-delay: .19s; } html:not(.ab-simple) .ab-hoja > .ab-parte:nth-of-type(6) { animation-delay: .23s; }
+    html:not(.ab-simple) .ab-hoja > :is(.ab-esencial, .ab-detalle) { animation: ab-sube .42s var(--mo-ease) backwards; }
     /* lo que se abre adentro de una parte aparece suave */
     .ab-parte[open] > .ab-parte-c { animation: ab-sube .36s var(--mo-ease) backwards; }
   }
@@ -1795,7 +1789,6 @@
   .ab-parte > summary { border-radius: 12px; padding-inline: 8px !important; margin-inline: -8px; }
   @media (hover: hover) { .ab-parte > summary:hover { background: var(--t2-sunk); } }
   .ab-parte-t i { background: var(--t2-ink) !important; color: var(--t2-panel) !important; width: 22px !important; height: 22px !important; font-size: 11.5px !important; }
-  .ab-partes-idx .ab-chipbtn { border: 1px solid var(--vidrio-borde); background: var(--t2-sunk); }
   /* "Que estas viendo" y el resto de los textos chicos */
   .ab-kicker { color: var(--t2-mute); }
   /* ======================= menos texto, mas visual (nov 2026) =======================
@@ -2140,6 +2133,43 @@
   #parte-conf .ab-viv-f { padding: 8px 12px; gap: 4px; justify-items: start; }
   #parte-conf .ab-viv-svg { max-width: 190px; }
   #parte-conf .ab-viv-n { display: none; }
+  /* análisis completo corto: por qué · qué puede mover el precio · cuánto le creo. Lo demás, en el cajón "Detalle técnico" */
+  html.ab-simple :is(#esencial, #detalle-tec) { display: none !important; }
+  .ab-esencial { display: grid; gap: 12px; }
+  .ab-esencial[hidden] { display: none; }
+  .ab-es-b { display: grid; gap: 8px; min-width: 0; }
+  .ab-es-b + .ab-es-b { padding-top: 12px; border-top: 1px solid var(--t2-line); }
+  .ab-es-h { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 10px; }
+  .ab-es-h h3 { margin: 0; font-size: 13.5px; font-weight: 650; }
+  .ab-es-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: 10px; }
+  .ab-es-cols .ab-story-col { gap: 6px; }
+  .ab-es-cols h4 { margin: 0; font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--t2-mute); }
+  .ab-es-cols .ab-sig-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ab-es-cols .ab-sig-list li { display: inline-flex; align-items: center; max-width: 100%; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; line-height: 1.35; background: var(--t2-sunk); border: 1px solid var(--t2-line); cursor: help; white-space: normal; overflow: hidden; text-overflow: clip; }
+  .ab-es-cols .ab-sig-list li::before { display: none; }
+  .ab-es-cols .ab-sig-list li.ab-alcista { color: var(--color-ok); background: color-mix(in srgb, var(--color-ok) 11%, transparent); border-color: color-mix(in srgb, var(--color-ok) 24%, transparent); }
+  .ab-es-cols .ab-sig-list li.ab-bajista { color: var(--color-bad); background: color-mix(in srgb, var(--color-bad) 10%, transparent); border-color: color-mix(in srgb, var(--color-bad) 24%, transparent); }
+  .ab-es-cols .ab-sig-list li.ab-mas { color: var(--t2-mute); }
+  .ab-es-cols .ab-sig-list li.ab-empty { font-weight: 400; color: var(--t2-mute); background: none; border-style: dashed; }
+  .ab-es-ciclo { padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; cursor: help; background: var(--t2-sunk); border: 1px solid var(--t2-line); color: var(--t2-mute); }
+  .ab-es-ciclo.up { color: var(--color-ok); border-color: color-mix(in srgb, var(--color-ok) 30%, transparent); } .ab-es-ciclo.dn { color: var(--color-bad); border-color: color-mix(in srgb, var(--color-bad) 30%, transparent); }
+  .ab-es-ev { margin: 0; font-size: 13.5px; line-height: 1.4; cursor: help; overflow-wrap: anywhere; }
+  .ab-es-ev b { font-weight: 650; } .ab-es-vacio { color: var(--t2-mute); }
+  .ab-es-mov { display: grid; gap: 6px; cursor: help; }
+  .ab-es-mov-t { font-size: 13px; color: var(--t2-mute); } .ab-es-mov-t b { color: var(--t2-ink); font-variant-numeric: tabular-nums; }
+  .ab-es-mov .ab-mov-bar { margin-top: 0; }
+  #es-creo .ab-s-pill { display: inline-block; justify-self: start; line-height: 1.5; max-width: 100%; border-radius: 14px; font-size: 13px; padding: 5px 12px; }
+  #es-creo .ab-s-prog { margin-left: 6px; vertical-align: middle; }
+  #es-creo .ab-s-pill b.up { color: var(--color-ok); } #es-creo .ab-s-pill b.dn { color: var(--color-bad); } #es-creo .ab-s-pill b.warn { color: var(--color-warn); }
+  /* el cajón de abajo de todo */
+  .ab-detalle { padding: 0; }
+  .ab-detalle > summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; padding: 14px 0; }
+  .ab-detalle > summary::-webkit-details-marker { display: none; }
+  .ab-detalle > summary > span { font-weight: 650; font-size: 1.02rem; }
+  .ab-detalle > summary > small { grid-column: 1; color: var(--t2-mute); font-size: 12.5px; line-height: 1.4; }
+  .ab-detalle > summary::after { content: ""; grid-column: 2; grid-row: 1 / span 2; width: 9px; height: 9px; border-right: 2px solid var(--mute); border-bottom: 2px solid var(--mute); transform: translateY(-2px) rotate(45deg); margin-right: 4px; transition: transform .2s; }
+  .ab-detalle[open] > summary::after { transform: translateY(2px) rotate(-135deg); }
+  .ab-detalle-c { display: grid; }
   #aprendizaje .ab-apr-stat > span { display: none; }
   #aprendizaje .ab-apr-stat { cursor: help; }
   .ab-apr-det > summary { cursor: pointer; list-style: none; font-size: 13px; font-weight: 600; color: var(--t2-mute); padding: 6px 0; }

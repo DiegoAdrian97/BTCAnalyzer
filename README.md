@@ -279,10 +279,16 @@ primera apertura con latencia alta (300 ms): de 10,6 s a 8,3 s; hilo principal ~
 - **La respuesta y el análisis completo**: arriba de todo, una sola tarjeta con el resultado final (de la fila
   `central`, donde converge todo): dirección con un dial de fuerza, chance de movimiento fuerte frente a lo normal, el
   rango con soporte, resistencia y el precio de ahora en una barra, la frase que lo junta, el aviso si hay riesgo y los
-  plazos para cambiarla. "Ver el análisis completo" abre 6 partes (cómo se llegó a la dirección, cuánto se puede mover,
-  niveles, qué está pasando, cuánto le creo y herramientas), cerradas, cada una con su resumen en una línea y un
-  índice para saltar. Las tarjetas de siempre viven adentro de esas partes (sin repetir la conclusión).
-  **Versión visual** (nov. 2026): cada parte son fichas, barras y chips con a lo sumo una o dos líneas de texto; las
+  plazos para cambiarla. "Ver el análisis completo" abre una vista corta, solo con lo que ayuda a decidir (**versión
+  esencial**, nov. 2026): *Por qué* (las 3 señales de mayor peso a favor y las 3 en contra del plazo, en chips con la
+  frase entera en el tooltip y un "+N" si hay más; el chip del ciclo si aporta), *Qué puede mover el precio* (una línea
+  con el próximo dato fuerte, p. ej. la Fed con lo que espera el mercado, y una barra con la chance de movimiento fuerte
+  contra lo normal) y *Cuánto le creo* (una pastilla con lo medido en vivo: casos, ventaja y rango adentro). Todo lo
+  demás se sigue calculando igual y vive en un único cajón al final, **"Detalle técnico"** (cerrado al abrir la página;
+  se dibuja recién al abrirlo): las 6 partes de antes (cómo se llegó a la dirección, cuánto se puede mover, niveles,
+  qué está pasando, cuánto le creo y herramientas), cada una con su resumen en una línea. "Ordenar secciones" mueve
+  ahora la vista corta y el cajón como dos secciones.
+  **Versión visual** (nov. 2026), dentro del cajón: cada parte son fichas, barras y chips con a lo sumo una o dos líneas de texto; las
   frases largas van en el tooltip (`title`, que la página convierte en su cartel propio: mouse, toque largo o foco).
   1: resultado en una línea, chips de corto plazo y ciclo, pastilla "78/100 casos en vivo" y nube de señales (a favor
   en verde, en contra en rojo; la frase entera en el tooltip). 2: mercado, chance de movimiento fuerte con la marca de

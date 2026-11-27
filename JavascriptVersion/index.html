@@ -49,15 +49,15 @@ body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14p
 <link rel="preconnect" href="https://api.bybit.com" crossorigin>
 <script>/* si el estilo no llega (falla de red o un despliegue a medias), se pide de nuevo sin cache: antes quedaba la pagina sin estilo */
 window.abCss = function () { try { var n = (window.abCssN = (window.abCssN || 0) + 1); if (n > 3) return;
-  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'p-ef9e70d5ba.css?r=' + Date.now(); l.onerror = function () { setTimeout(window.abCss, 1500 * n); };
+  var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'p-9668e2a748.css?r=' + Date.now(); l.onerror = function () { setTimeout(window.abCss, 1500 * n); };
   document.head.appendChild(l); } catch (e) {} };
 addEventListener('load', function () { try { if (!getComputedStyle(document.documentElement).getPropertyValue('--ab-css')) window.abCss(); } catch (e) {} });</script>
-<link rel="stylesheet" href="p-ef9e70d5ba.css" onerror="abCss()">
-<script>window.AB_PAGINA = "048b85142b";</script>
+<link rel="stylesheet" href="p-9668e2a748.css" onerror="abCss()">
+<script>window.AB_PAGINA = "0d480ca0b7";</script>
 <script defer src="app.js?v=1a70b083b6"></script>
 <script defer src="lib/d3-7.9-reducido.min.js"></script>
 <script defer src="lib/lightweight-charts-5.1.0.js"></script>
-<script defer src="p-aad8fbea54.js"></script>
+<script defer src="p-38c6172b39.js"></script>
 </head><body><div id="dash-root">
 
 
@@ -313,9 +313,16 @@ addEventListener('load', function () { try { if (!getComputedStyle(document.docu
 
 
   <!-- vista simple (por defecto): solo lo necesario para decidir. El analisis completo sigue calculandose y se abre aca -->
-  <button type="button" class="ab-vista-btn" id="vista-btn" aria-expanded="false" aria-controls="que-espero aprendizaje mas-detalle">
-    <span id="vista-txt">Ver el análisis completo</span><small id="vista-sub">cómo se llegó, cuánto se puede mover, niveles, contexto y cuánto acierta</small>
+  <button type="button" class="ab-vista-btn" id="vista-btn" aria-expanded="false" aria-controls="esencial detalle-tec">
+    <span id="vista-txt">Ver el análisis completo</span><small id="vista-sub">por qué, qué puede mover el precio y cuánto le creo</small>
   </button>
+
+  <!-- el analisis completo, corto: solo lo que ayuda a decidir. Todo lo demas se sigue calculando y vive en "Detalle técnico" -->
+  <section class="ab-card ab-esencial" id="esencial" aria-label="Lo que más pesa" hidden>
+    <div class="ab-es-b" id="es-porque"></div>
+    <div class="ab-es-b" id="es-mueve"></div>
+    <div class="ab-es-b" id="es-creo"></div>
+  </section>
 
   <section class="ab-card ab-story" id="que-espero" aria-labelledby="story-t" data-source="analisis">
     <div class="ab-card-head"><h2 id="story-t">Por qué</h2><span class="ab-kicker" id="story-chip"></span></div>
@@ -394,6 +401,11 @@ addEventListener('load', function () { try { if (!getComputedStyle(document.docu
       <div class="ab-more-body"><div id="hits"></div></div>
     </details>
   </div>
+  <!-- el cajon de abajo de todo: lo tecnico (las 6 partes de siempre). Cerrado al abrir la pagina; se dibuja recien al abrirlo -->
+  <details class="ab-card ab-detalle" id="detalle-tec">
+    <summary><span>Detalle técnico</span><small>niveles, flujo, noticias, calendario, indicadores y cuánto viene acertando</small></summary>
+    <div class="ab-detalle-c" id="detalle-c"></div>
+  </details>
   <button type="button" class="ab-orden-btn" id="orden-btn"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M4 7h11M4 12h16M4 17h8M18 4v6m0 0-2.5-2.5M18 10l2.5-2.5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Ordenar secciones</button>
 
   <p class="ab-foot ab-credito"><a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView Lightweight Charts™</a></p>
