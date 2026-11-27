@@ -51,7 +51,16 @@
       ]
     },
     {
-      "source": "/(termometro|track|modelo_(.*)).json",
+      "source": "/(termometro|track).json",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    },
+    {
+      "source": "/modelo_(.*)",
       "headers": [
         {
           "key": "Cache-Control",
