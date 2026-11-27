@@ -1,0 +1,25 @@
+name: Medir peso del ciclo por plazo (estados y señales → puntos para el análisis)
+# A mano desde Actions (o al cambiar el medidor): ¿cuánto pesa cada estado del ciclo (piso extremo, cerca de un piso, posible techo, rally,
+# zona neutral) y cada señal individual (MVRV, VIX, ETF, Fear & Greed, zonas, SOPR, NUPL, liquidez Fed, atención) en la dirección de
+# 1 día, 1 semana y 1 mes? Devuelve los pesos para analisis_btc.central() (Python y JS) y qué señales son redundantes entre sí.
+# Solo mide, no cambia nada del analisis. Fuentes publicas sin clave (looknode, bitcoin-data.com, CoinMetrics, CBOE, Fed/Tesoro,
+# Wikipedia, alternative.me, Farside). Segunda corrida: solo 2022-2026 partido en 2022-23 y 2024-26 (usa la cache de la primera).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/medir_peso_ciclo.yml", "medir_peso_ciclo.py"]
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install numpy
+      - run: set -o pipefail; python -u medir_peso_ciclo.py | tee peso_ciclo.txt
+      - run: set -o pipefail; python -u medir_peso_ciclo.py 2024-01-01 2022-01-01 | tee peso_ciclo_2022.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: medicion-peso-ciclo, path: "peso_ciclo*.txt" }
