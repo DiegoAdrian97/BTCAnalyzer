@@ -3784,7 +3784,8 @@
       const bias = c.direccion === 'sube' ? 'alcista' : c.direccion === 'baja' ? 'bajista' : 'neutral', neutral = bias === 'neutral', favorSide = neutral ? 'alcista' : bias;
       const fs = (c.factores || []).filter((f) => f[0] === 'direccion' && !(conCiclo && /^(Estado del ciclo|Ciclo):/.test(f[3]))).slice().sort((a, b) => Math.abs(b[2]) - Math.abs(a[2]));
       const col = (titulo, lado) => {
-        const items = fs.filter((f) => (f[1] > 0 ? 'alcista' : 'bajista') === lado), ul = el('ul', 'ab-sig-list');
+        const vistos = new Set(), clave = (t) => String(t).toLowerCase().split(/\s+/).slice(0, 5).join(' ');   // sin repetir la misma idea dicha dos veces
+        const items = fs.filter((f) => (f[1] > 0 ? 'alcista' : 'bajista') === lado).filter((f) => !vistos.has(clave(f[3])) && vistos.add(clave(f[3]))), ul = el('ul', 'ab-sig-list');
         items.slice(0, 3).forEach((f) => { const li = el('li', `ab-${lado}`, chipNombre(f[3], 64)); li.title = `${f[3]} (${f[1] > 0 ? '+' : '−'}${String(f[2]).replace('.', ',')} puntos)`; ul.append(li); });
         if (items.length > 3) { const li = el('li', 'ab-mas', `+${items.length - 3}`); li.title = items.slice(3).map((f) => `${f[3]} (${f[1] > 0 ? '+' : '−'}${String(f[2]).replace('.', ',')})`).join('\n'); ul.append(li); }
         if (!items.length) ul.append(el('li', 'ab-empty', 'Ninguna por ahora.'));
